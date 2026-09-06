@@ -83,4 +83,4 @@ def build_network_deck(nodes: list, corridors: list, highlight_path: list = None
 
     tooltip = {"html": "<b>{name}</b><br/>{node_type}", "style": {"color": "white"}}
     return pdk.Deck(layers=layers, initial_view_state=view_state, tooltip=tooltip,
-                     map_style="mapbox://styles/mapbox/light-v9")
+                     map_provider="carto", map_style="light")
