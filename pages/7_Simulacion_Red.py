@@ -27,6 +27,12 @@ from utils.auth import login_form, render_sidebar_user
 
 st.set_page_config(page_title="Simulación de Red", page_icon="🔬", layout="wide")
 
+from database.db import ensure_database_ready
+ensure_database_ready()
+
+from utils.theme import apply_page_theme
+apply_page_theme()
+
 if not login_form():
     st.stop()
 render_sidebar_user()

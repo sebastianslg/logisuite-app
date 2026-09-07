@@ -18,6 +18,12 @@ from utils.network_algorithms import build_graph, network_stats, cost_vs_service
 from utils.report_exporter import dataframe_to_excel_bytes, dataframe_to_pdf_bytes
 
 st.set_page_config(page_title="Dashboard Ejecutivo", page_icon="🏭", layout="wide")
+
+from database.db import ensure_database_ready
+ensure_database_ready()
+
+from utils.theme import apply_page_theme
+apply_page_theme()
 st.title("🏭 Dashboard Ejecutivo")
 st.caption("Vista consolidada de KPIs de toda la red logística.")
 

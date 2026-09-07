@@ -57,3 +57,29 @@ def run_many(sql: str, seq_of_params: list) -> None:
 
 def db_exists() -> bool:
     return os.path.exists(DB_PATH)
+
+
+def ensure_database_ready() -> None:
+    """Aplica el esquema completo (base + extensiones v2) de forma idempotente.
+
+    Se debe llamar al inicio de CADA página, no solo de app.py: en Streamlit,
+    entrar directamente a una página del menú (por ejemplo Fleet Management)
+    ejecuta solo ese script, sin pasar por app.py. Sin esta llamada en cada
+    página, una base de datos que fue creada antes de una migración de esquema
+    se quedaría sin las tablas nuevas (ej. multi_stop_routes, tariff_scenarios)
+    y esa página fallaría con "no such table" al primer intento de consulta.
+
+    init_database() usa CREATE TABLE IF NOT EXISTS en todo el esquema, así que
+    volver a llamarla sobre una base ya migrada es un no-op seguro. Se envuelve
+    en @st.cache_resource para que corra una sola vez por proceso del servidor,
+    no en cada rerun de cada página.
+    """
+    import streamlit as st
+    from init_db import init_database
+
+    @st.cache_resource
+    def _init():
+        init_database(reset=False)
+        return True
+
+    _init()

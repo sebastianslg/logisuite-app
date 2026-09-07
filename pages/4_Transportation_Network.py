@@ -32,6 +32,12 @@ from utils.audit import log_action
 
 st.set_page_config(page_title="Transportation Network", page_icon="🗺️", layout="wide")
 
+from database.db import ensure_database_ready
+ensure_database_ready()
+
+from utils.theme import apply_page_theme
+apply_page_theme()
+
 if not login_form():
     st.stop()
 render_sidebar_user()
