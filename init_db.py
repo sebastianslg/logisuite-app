@@ -1,8 +1,9 @@
 """
 init_db.py
-Crea el esquema relacional y carga datos de prueba automáticamente.
-Se ejecuta una sola vez (o se detecta y omite si la base ya existe) para que
-el despliegue en Streamlit Community Cloud funcione sin pasos manuales.
+Crea el esquema relacional (base + extensiones v2) y carga datos de prueba
+automáticamente. Se ejecuta una sola vez, o se detecta y omite si la base ya
+existe, para que el despliegue en Streamlit Community Cloud funcione sin pasos
+manuales.
 
 Uso manual: python init_db.py --reset   (borra y recrea todo desde cero)
 """
@@ -14,6 +15,7 @@ import argparse
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from database.schema import SCHEMA_SQL
+from database.schema_v2 import SCHEMA_V2_SQL
 from database.db import DB_PATH
 
 
@@ -24,8 +26,12 @@ def init_database(reset: bool = False):
 
     is_new = not os.path.exists(DB_PATH)
 
+    # El esquema base y las extensiones se aplican siempre: usan
+    # CREATE TABLE IF NOT EXISTS, así que actualizar una base existente a la
+    # versión nueva es seguro y no destruye datos (migración aditiva).
     conn = sqlite3.connect(DB_PATH)
     conn.executescript(SCHEMA_SQL)
+    conn.executescript(SCHEMA_V2_SQL)
     conn.commit()
     conn.close()
 
@@ -34,7 +40,11 @@ def init_database(reset: bool = False):
         seed_all()
         print(f"Base de datos creada y poblada en: {DB_PATH}")
     else:
-        print(f"Base de datos ya existente, esquema verificado en: {DB_PATH}")
+        # Base existente: se asegura que las tablas nuevas tengan sus datos
+        # semilla (usuarios, parámetros, escenarios) sin tocar lo demás.
+        from utils.seed_data import seed_v2_only
+        seed_v2_only()
+        print(f"Base de datos existente actualizada al esquema v2 en: {DB_PATH}")
 
 
 if __name__ == "__main__":

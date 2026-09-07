@@ -17,6 +17,7 @@ def seed_all():
     _seed_vehicles_drivers()
     _seed_shipments_routes()
     _seed_customs()
+    seed_v2_only()
 
 
 def _seed_nodes():
@@ -153,10 +154,15 @@ def _seed_vehicles_drivers():
         )
 
     maint = [
-        (1, "Preventivo", "2026-07-01", 82000, 450000, "Cambio de aceite y filtros"),
-        (1, "Correctivo", "2026-08-10", 84500, 1200000, "Reparacion sistema de frenos"),
-        (3, "Preventivo", "2026-08-20", 40000, 380000, "Mantenimiento 40,000 km"),
-        (5, "Correctivo", "2026-09-01", 54800, 2100000, "Falla de transmision"),
+        # IMPORTANTE: todos los valores monetarios del sistema están en USD.
+        # Estos costos se expresan en USD para que el TCO por vehículo sea
+        # coherente con el precio del combustible y la depreciación, que
+        # también están en USD. Mezclar COP y USD haría que el TCO no
+        # signifique nada.
+        (1, "Preventivo", "2026-07-01", 82000, 115.0, "Cambio de aceite y filtros"),
+        (1, "Correctivo", "2026-08-10", 84500, 305.0, "Reparacion sistema de frenos"),
+        (3, "Preventivo", "2026-08-20", 40000, 95.0, "Mantenimiento 40,000 km"),
+        (5, "Correctivo", "2026-09-01", 54800, 535.0, "Falla de transmision"),
     ]
     for vid, mtype, date, odo, cost, desc in maint:
         run_write(
@@ -175,12 +181,35 @@ def _seed_shipments_routes():
         ("CD Bogota Norte", "Cliente Cali Norte", 12, 18000, 60, "En Transito", 5, None, 42000),
         ("CD Medellin", "Cliente Pereira", 2, 1800, 8, "Registrado", 8, None, 5000),
         ("Planta Cartagena", "Cliente Bucaramanga Centro", 6, 9000, 30, "Retrasado", 3, 9, 18000),
+        # --- Envíos pequeños al MISMO corredor y en la misma ventana de fechas.
+        # Existen para que el motor de consolidación tenga candidatos reales que
+        # agrupar: por separado cada uno paga su propio costo de transacción y
+        # ninguno alcanza el umbral de masificación; consolidados, sí.
+        ("CD Bogota Norte", "Cliente Bogota Sur", 2, 1500, 6, "Registrado", 10, None, 4200),
+        ("CD Bogota Norte", "Cliente Bogota Sur", 1, 900, 4, "Registrado", 11, None, 2600),
+        ("CD Bogota Norte", "Cliente Bogota Sur", 3, 2100, 9, "Registrado", 12, None, 5800),
+        ("CD Medellin", "Cliente Medellin Poblado", 2, 1200, 5, "Registrado", 9, None, 3400),
+        ("CD Medellin", "Cliente Medellin Poblado", 1, 800, 3, "Registrado", 10, None, 2100),
     ]
+    # Se resuelve la ruta real sobre la red para costear cada envío con su
+    # distancia y tiempo verdaderos. Usar una distancia fija para todos los
+    # envíos haría que los costos, las emisiones y los ahorros por
+    # consolidación no correspondieran a la topología de la red.
+    from models.network import Node, Corridor
+    from utils.network_algorithms import build_graph, shortest_path
+    _nodes, _corridors = Node.all(), Corridor.all()
+    _G = build_graph(_nodes, _corridors)
+
     for origin, dest, units, w, v, status, prom_off, deliv_off, value in shipments:
         promised = (base + timedelta(days=prom_off)).strftime("%Y-%m-%d")
         delivered = (base + timedelta(days=deliv_off)).strftime("%Y-%m-%d") if deliv_off else None
+
+        ruta = shortest_path(_G, _node_id(origin), _node_id(dest), weight="distance")
+        dist_real = ruta["distance_km"] if ruta["found"] else 500.0
+        tiempo_real = ruta["time_h"] if ruta["found"] else 10.0
+
         breakdown = compute_transport_cost(
-            distance_km=500, transit_time_h=10, weight_kg=w, volume_m3=v,
+            distance_km=dist_real, transit_time_h=tiempo_real, weight_kg=w, volume_m3=v,
             cargo_units=units, declared_value=value,
         )
         sid = run_write(
@@ -192,14 +221,20 @@ def _seed_shipments_routes():
              breakdown["transaction_cost"], breakdown["distance_friction_cost"],
              breakdown["shipment_cost"], breakdown["total_cost"]),
         )
-        path = [_node_id(origin), _node_id(dest)]
+        # El camino guardado es el que realmente calculó Dijkstra sobre la red,
+        # con sus nodos intermedios, no un salto directo origen-destino.
+        path = ruta["path"] if ruta["found"] else [_node_id(origin), _node_id(dest)]
+        # El tiempo real se simula como una desviación sobre el ETA, para que el
+        # control de ETA vs. real del módulo de transporte tenga datos con los
+        # que trabajar (algunos envíos llegan tarde, otros a tiempo).
+        desviacion = {"Entregado": 1.05, "En Transito": 1.12, "Retrasado": 1.35}.get(status)
+        horas_reales = round(tiempo_real * desviacion, 2) if desviacion else None
         run_write(
             """INSERT INTO routes (shipment_id, path_json, algorithm, total_distance_km,
                total_cost, eta_hours, actual_hours, vehicle_id, driver_id)
                VALUES (?,?,?,?,?,?,?,?,?)""",
-            (sid, json.dumps(path), "dijkstra_distancia", 500, breakdown["total_cost"], 10,
-             11 if status in ("Entregado", "En Transito") else None,
-             (sid % 5) + 1, (sid % 4) + 1),
+            (sid, json.dumps(path), "dijkstra_distancia", dist_real, breakdown["total_cost"],
+             tiempo_real, horas_reales, (sid % 5) + 1, (sid % 4) + 1),
         )
 
 
@@ -226,3 +261,104 @@ def _seed_customs():
                total_duty) VALUES (?,?,?,?,?)""",
             (sid, tariff, value, calc["taxes"], calc["total_duty"]),
         )
+
+
+# ===========================================================================
+# SEMILLAS DE LAS EXTENSIONES v2 (usuarios, parámetros, escenarios, historial)
+# ===========================================================================
+def seed_v2_only():
+    """Siembra únicamente las tablas nuevas del esquema v2, de forma idempotente.
+    Se puede llamar sobre una base ya existente sin duplicar ni destruir datos."""
+    _seed_users()
+    _seed_system_params()
+    _seed_tariff_scenarios()
+    _seed_corridor_history()
+    _seed_emissions()
+
+
+def _seed_users():
+    """Usuarios de prueba, uno por cada rol del sistema."""
+    from utils.auth import create_user
+    existentes = run_query("SELECT COUNT(*) c FROM users").iloc[0]["c"]
+    if existentes > 0:
+        return
+    create_user("admin", "Administrador del Sistema", "admin123", "admin")
+    create_user("operador", "Operador Logistico", "oper123", "operador")
+    create_user("lector", "Consulta Gerencial", "lect123", "lector")
+
+
+def _seed_system_params():
+    """Parámetros configurables del sistema."""
+    params = [
+        ("AUTH_ENABLED", "false", "Activa el inicio de sesion obligatorio (true/false)"),
+        ("FUEL_PRICE", "1.05", "Precio del combustible en USD por litro"),
+        ("MAINTENANCE_INTERVAL_KM", "20000", "Intervalo de mantenimiento preventivo en km"),
+        ("SERVICE_LEVEL_TARGET", "0.95", "Nivel de servicio objetivo para calculo de ROP"),
+        ("ORDER_COST", "50", "Costo de emitir un pedido (USD) para el calculo de EOQ"),
+        ("HOLDING_RATE", "0.25", "Tasa anual de mantenimiento de inventario (fraccion del costo unitario)"),
+        ("LEAD_TIME_DAYS", "7", "Lead time por defecto en dias"),
+    ]
+    for key, value, desc in params:
+        existe = run_query("SELECT 1 FROM system_params WHERE param_key = ?", (key,))
+        if existe.empty:
+            run_write("INSERT INTO system_params (param_key, param_value, description) VALUES (?,?,?)",
+                       (key, value, desc))
+
+
+def _seed_tariff_scenarios():
+    """Escenarios arancelarios de referencia para el simulador aduanero."""
+    existentes = run_query("SELECT COUNT(*) c FROM tariff_scenarios").iloc[0]["c"]
+    if existentes > 0:
+        return
+    escenarios = [
+        ("TLC Estados Unidos", "Estados Unidos", 0.0, 19.0, 0.5, "Arancel cero bajo el TLC vigente"),
+        ("CAN (Comunidad Andina)", "Peru", 0.0, 19.0, 0.3, "Zona de libre comercio andina"),
+        ("Mercosur - acuerdo parcial", "Brasil", 5.0, 19.0, 0.6, "Preferencia arancelaria parcial"),
+        ("Nacion mas favorecida", "China", 10.0, 19.0, 0.8, "Arancel general sin acuerdo preferencial"),
+        ("Union Europea", "Alemania", 2.5, 19.0, 0.4, "Acuerdo comercial multipartes"),
+    ]
+    for name, country, tariff, vat, fees, notes in escenarios:
+        run_write("""INSERT INTO tariff_scenarios (name, country_origin, tariff_pct, vat_pct,
+                     other_fees_pct, notes) VALUES (?,?,?,?,?,?)""",
+                   (name, country, tariff, vat, fees, notes))
+
+
+def _seed_corridor_history():
+    """Serie temporal de costos por corredor (12 meses hacia atras), con una
+    tendencia y estacionalidad suaves para que las graficas sean informativas."""
+    import math
+    existentes = run_query("SELECT COUNT(*) c FROM corridor_cost_history").iloc[0]["c"]
+    if existentes > 0:
+        return
+    corridors = run_query("SELECT corridor_id, cost_per_km FROM corridors").to_dict(orient="records")
+    base = datetime.today().replace(day=1)
+    for c in corridors:
+        for m in range(12, 0, -1):
+            fecha = (base - timedelta(days=30 * m)).strftime("%Y-%m-%d")
+            # Tendencia inflacionaria leve + componente estacional
+            tendencia = 1 + (12 - m) * 0.004
+            estacional = 1 + 0.05 * math.sin(m * math.pi / 6)
+            indice_combustible = round(100 * tendencia * estacional, 1)
+            costo = round(c["cost_per_km"] * tendencia * estacional, 4)
+            run_write("""INSERT INTO corridor_cost_history (corridor_id, record_date,
+                         cost_per_km, fuel_index) VALUES (?,?,?,?)""",
+                       (c["corridor_id"], fecha, costo, indice_combustible))
+
+
+def _seed_emissions():
+    """Calcula y guarda la huella de carbono de los envios ya registrados."""
+    from utils.fleet_analytics import compute_emissions
+    existentes = run_query("SELECT COUNT(*) c FROM shipment_emissions").iloc[0]["c"]
+    if existentes > 0:
+        return
+    envios = run_query("SELECT shipment_id, weight_kg FROM shipments").to_dict(orient="records")
+    for e in envios:
+        # Se usa la distancia registrada en la ruta asociada si existe
+        ruta = run_query("SELECT total_distance_km FROM routes WHERE shipment_id = ? LIMIT 1",
+                          (e["shipment_id"],))
+        distancia = float(ruta.iloc[0]["total_distance_km"]) if not ruta.empty else 500.0
+        calc = compute_emissions(distancia, e["weight_kg"], "Terrestre")
+        run_write("""INSERT INTO shipment_emissions (shipment_id, mode, distance_km, ton_km,
+                     kg_co2e, computed_at) VALUES (?,?,?,?,?,?)""",
+                   (e["shipment_id"], "Terrestre", distancia, calc["ton_km"], calc["kg_co2e"],
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
