@@ -159,26 +159,8 @@ div[data-testid="stPageLink"] p {{
 # ---------------------------------------------------------------------------
 # HERO: banner de bienvenida con ilustración SVG (ruta + camión + nodos)
 # ---------------------------------------------------------------------------
-hero_svg = """
-<svg width="230" height="150" viewBox="0 0 230 150" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="35" cy="115" r="5" fill="#FFD166"/>
-  <circle cx="105" cy="70" r="5" fill="#FFD166"/>
-  <circle cx="175" cy="100" r="5" fill="#FFD166"/>
-  <path d="M35 115 Q 70 60 105 70 T 175 100" stroke="rgba(255,255,255,0.55)"
-        stroke-width="2.5" fill="none" stroke-dasharray="6 6"/>
-  <g transform="translate(120,95)">
-    <rect x="0" y="10" width="60" height="28" rx="4" fill="#FFFFFF"/>
-    <rect x="60" y="18" width="22" height="20" rx="3" fill="#F4A261"/>
-    <rect x="64" y="21" width="10" height="8" fill="#FFFFFF" opacity="0.85"/>
-    <circle cx="16" cy="42" r="7" fill="#264653"/>
-    <circle cx="16" cy="42" r="3" fill="#CBD5D9"/>
-    <circle cx="66" cy="42" r="7" fill="#264653"/>
-    <circle cx="66" cy="42" r="3" fill="#CBD5D9"/>
-  </g>
-  <circle cx="200" cy="35" r="14" fill="rgba(255,255,255,0.15)"/>
-  <circle cx="25" cy="35" r="9" fill="rgba(255,255,255,0.12)"/>
-</svg>
-"""
+from utils.illustrations import warehouse_scene_svg
+hero_svg = warehouse_scene_svg(width=260, height=170)
 
 hcol1, hcol2 = st.columns([3, 1])
 with hcol1:
@@ -188,7 +170,7 @@ with hcol1:
         <h1>{t('app_title')}</h1>
         <p>{t('app_subtitle')} — mapas geográficos reales, optimización de redes,
         motor de costos parametrizado y simulación de decisiones logísticas.</p>
-        <div style="position:absolute; right:24px; top:18px;">{hero_svg}</div>
+        <div style="position:absolute; right:20px; bottom:0;">{hero_svg}</div>
     </div>
     """, unsafe_allow_html=True)
 

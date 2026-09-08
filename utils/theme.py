@@ -57,6 +57,9 @@ def apply_page_theme() -> bool:
     pio.templates["logisuite"] = custom
     pio.templates.default = "logisuite"
 
+    from utils.illustrations import page_background_css
+    st.markdown(page_background_css(dark), unsafe_allow_html=True)
+
     if dark:
         st.markdown("""
         <style>
