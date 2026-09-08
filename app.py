@@ -121,7 +121,28 @@ st.markdown(f"""
     margin-bottom:8px;
 }}
 .lg-module-card h4 {{ margin:2px 0 6px 0; color:{card_title}; font-size:1.05rem; }}
-.lg-module-card p {{ margin:0; color:{card_text}; font-size:0.9rem; line-height:1.4; }}
+.lg-module-card p {{ margin:0 0 4px 0; color:{card_text}; font-size:0.9rem; line-height:1.4; }}
+
+/* Los accesos rápidos y los enlaces de módulo usan st.page_link, que SÍ
+   navega de verdad (a diferencia de los divs decorativos anteriores).
+   Este bloque los viste como chips/botones sin tocar su comportamiento. */
+div[data-testid="stPageLink"] {{
+    background: {chip_bg};
+    border: 1px solid rgba(42,157,143,0.30);
+    border-radius: 12px;
+    padding: 6px 4px;
+    transition: all 0.15s ease;
+}}
+div[data-testid="stPageLink"]:hover {{
+    border-color: {BRAND["primary"]};
+    box-shadow: 0 3px 10px rgba(42,157,143,0.25);
+    transform: translateY(-1px);
+}}
+div[data-testid="stPageLink"] p {{
+    font-weight: 600 !important; font-size: 0.92rem !important;
+    color: {card_title} !important;
+}}
+.lg-module-link div[data-testid="stPageLink"] p {{ font-size: 1.02rem !important; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -162,17 +183,22 @@ with hcol1:
     """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
-# Fila de accesos rápidos (estilo "Rastrear / Cotizar / Recoger")
+# Fila de accesos rápidos: enlaces reales a las páginas más usadas
+# (estilo "Rastrear / Cotizar / Recoger", pero funcionales de verdad)
 # ---------------------------------------------------------------------------
-st.markdown(f"""
-<div class="lg-chip-row">
-    <div class="lg-chip"><div class="icon">🏭</div><div class="label">Dashboard Ejecutivo</div></div>
-    <div class="lg-chip"><div class="icon">🚨</div><div class="label">Centro de Alertas</div></div>
-    <div class="lg-chip"><div class="icon">🗺️</div><div class="label">Mapa de la Red</div></div>
-    <div class="lg-chip"><div class="icon">📥</div><div class="label">Importar / Exportar</div></div>
-    <div class="lg-chip"><div class="icon">⚙️</div><div class="label">Administración</div></div>
-</div>
-""", unsafe_allow_html=True)
+accesos_rapidos = [
+    ("pages/1_Dashboard_Ejecutivo.py", "Dashboard Ejecutivo", "🏭"),
+    ("pages/8_Centro_de_Alertas.py", "Centro de Alertas", "🚨"),
+    ("pages/4_Transportation_Network.py", "Mapa de la Red", "🗺️"),
+    ("pages/9_Importar_Exportar.py", "Importar / Exportar", "📥"),
+    ("pages/10_Administracion.py", "Administración", "⚙️"),
+]
+chip_cols = st.columns(len(accesos_rapidos))
+for col, (destino, etiqueta, icono) in zip(chip_cols, accesos_rapidos):
+    with col:
+        st.page_link(destino, label=etiqueta, icon=icono, use_container_width=True)
+
+st.write("")
 
 # ---------------------------------------------------------------------------
 # Banda de alertas activas
@@ -198,41 +224,40 @@ col1, col2 = st.columns([2, 1])
 with col1:
     st.markdown(f"### {t('modules')}")
     modules = [
-        ("📦", "Warehouse Management",
+        ("pages/2_Warehouse_Management.py", "📦", "Warehouse Management",
          "Inventario en tiempo real, ciclo Inbound/Outbound, alertas de stock, pronóstico de "
          "demanda, EOQ, punto de reorden, clasificación ABC y trazabilidad de SKU."),
-        ("🚚", "Freight Management",
+        ("pages/3_Freight_Management.py", "🚚", "Freight Management",
          "Registro y tracking de envíos, motor de costos de tres componentes, consolidación de "
          "carga, simulador de modos de transporte y huella de carbono."),
-        ("🗺️", "Transportation Management",
+        ("pages/4_Transportation_Network.py", "🗺️", "Transportation Management",
          "Mapa geográfico de la red, ruteo con Dijkstra, circuitos multi-parada (TSP con 2-opt), "
          "validación de capacidad, programación en Gantt y control de ETA vs. real."),
-        ("🚛", "Fleet Management",
+        ("pages/5_Fleet_Management.py", "🚛", "Fleet Management",
          "Vehículos y conductores, mantenimiento preventivo y correctivo, costo total de "
          "propiedad (TCO) y predicción del próximo servicio."),
-        ("🛃", "Customs Management",
+        ("pages/6_Customs_Management.py", "🛃", "Customs Management",
          "Documentación aduanera, liquidación de tributos, escenarios arancelarios comparados y "
          "checklist de completitud documental."),
-        ("🔬", "Simulación y Optimización",
+        ("pages/7_Simulacion_Red.py", "🔬", "Simulación y Optimización",
          "Cierre de nodos, ubicación óptima de instalaciones, criticidad de la red, simulación "
          "de Monte Carlo y análisis de sensibilidad."),
-        ("🚨", "Centro de Alertas",
+        ("pages/8_Centro_de_Alertas.py", "🚨", "Centro de Alertas",
          "Todas las alertas del sistema consolidadas y priorizadas por severidad."),
-        ("📥", "Importar / Exportar",
+        ("pages/9_Importar_Exportar.py", "📥", "Importar / Exportar",
          "Carga masiva desde CSV o Excel con validación fila por fila, y exportación consolidada."),
-        ("⚙️", "Administración",
+        ("pages/10_Administracion.py", "⚙️", "Administración",
          "Usuarios y roles, bitácora de auditoría y parámetros del sistema."),
     ]
     grid = st.columns(2)
-    for i, (icon, title, desc) in enumerate(modules):
+    for i, (destino, icon, title, desc) in enumerate(modules):
         with grid[i % 2]:
-            st.markdown(f"""
-            <div class="lg-module-card">
-                <div class="lg-icon-badge">{icon}</div>
-                <h4>{title}</h4>
-                <p>{desc}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown(f'<div class="lg-icon-badge">{icon}</div>', unsafe_allow_html=True)
+                st.markdown('<div class="lg-module-link">', unsafe_allow_html=True)
+                st.page_link(destino, label=title, use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                st.caption(desc)
 
 with col2:
     st.markdown(f"### {t('system_status')}")
