@@ -20,14 +20,14 @@ st.set_page_config(page_title="Importar / Exportar", page_icon="🔄", layout="w
 from database.db import ensure_database_ready
 ensure_database_ready()
 
-from utils.theme import apply_page_theme
+from utils.theme import apply_page_theme, page_header
 apply_page_theme()
 
 if not login_form():
     st.stop()
 render_sidebar_user()
 
-st.title("🔄 Importación y Exportación de Datos")
+page_header("🔄", "Importación y Exportación de Datos", "")
 
 tab1, tab2 = st.tabs(["📥 Importar datos", "📤 Exportar todo"])
 

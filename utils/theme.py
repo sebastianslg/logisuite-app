@@ -84,4 +84,54 @@ def apply_page_theme() -> bool:
         </style>
         """, unsafe_allow_html=True)
 
+    # Menú lateral: Streamlit genera automáticamente la navegación a partir de
+    # pages/, así que en vez de reemplazarla por un componente frágil, se
+    # embellece la navegación REAL con CSS: iconos más grandes, resaltado al
+    # pasar el mouse y un indicador de la página activa, para que se sienta
+    # como un menú desplegable "premium" sin arriesgar que deje de funcionar.
+    sidebar_link_bg = "rgba(255,255,255,0.06)" if dark else "rgba(42,157,143,0.07)"
+    sidebar_link_hover = "rgba(42,157,143,0.28)" if dark else "rgba(42,157,143,0.18)"
+    sidebar_active = BRAND_PRIMARY = "#2A9D8F"
+    st.markdown(f"""
+    <style>
+    [data-testid="stSidebarNav"] {{ padding-top: 6px; }}
+    [data-testid="stSidebarNav"] ul li {{ margin-bottom: 3px; }}
+    [data-testid="stSidebarNav"] a {{
+        border-radius: 10px !important;
+        padding: 8px 12px !important;
+        background: {sidebar_link_bg};
+        transition: all 0.15s ease;
+        font-weight: 500;
+    }}
+    [data-testid="stSidebarNav"] a:hover {{
+        background: {sidebar_link_hover} !important;
+        transform: translateX(3px);
+    }}
+    [data-testid="stSidebarNav"] a[aria-current="page"] {{
+        background: {sidebar_active} !important;
+        box-shadow: 0 2px 8px rgba(42,157,143,0.35);
+    }}
+    [data-testid="stSidebarNav"] a[aria-current="page"] span {{ color:#FFFFFF !important; }}
+    </style>
+    """, unsafe_allow_html=True)
+
     return dark
+
+
+def page_header(icon: str, title: str, subtitle: str = "") -> None:
+    """Mini-banner de cabecera consistente para todas las páginas (no solo la
+    portada), con el mismo degradado de marca que el hero de app.py. Sustituye
+    a los pares sueltos st.title()/st.caption() para que las 10 páginas
+    compartan una misma identidad visual en vez de un h1 plano sobre blanco."""
+    import streamlit as st
+    subtitle_html = (f'<p style="color:rgba(255,255,255,0.9); font-size:0.96rem; '
+                      f'margin:4px 0 0 0;">{subtitle}</p>') if subtitle else ""
+    st.markdown(f"""
+    <div style="background: linear-gradient(120deg, {BRAND['secondary']} 0%,
+                {BRAND['primary_dark']} 60%, {BRAND['primary']} 100%);
+                border-radius: 14px; padding: 20px 26px; margin-bottom: 18px;
+                box-shadow: 0 4px 14px rgba(0,0,0,0.12);">
+        <h2 style="color:#FFFFFF; margin:0; font-size:1.6rem;">{icon} {title}</h2>
+        {subtitle_html}
+    </div>
+    """, unsafe_allow_html=True)

@@ -111,47 +111,91 @@ def logout() -> None:
 
 
 def login_form() -> bool:
-    """Renderiza el formulario de login. Devuelve True si hay sesión activa.
-
-    Si AUTH_ENABLED está desactivado en system_params, deja pasar a todos como
-    admin (modo demo, útil para evaluación académica sin fricción)."""
-    if not auth_enabled():
-        st.session_state["auth_user"] = {"user_id": 0, "username": "demo",
-                                          "full_name": "Modo demo", "role": "admin"}
-        return True
-
+    """Renderiza la pantalla de inicio de sesión. Devuelve True si hay sesión
+    activa. Es la primera pantalla que ve cualquier persona en cualquier
+    página: no existe una forma de entrar a la aplicación sin autenticarse
+    primero, por diseño (no depende de ningún parámetro que pueda dejarlo
+    desactivado por accidente)."""
     if is_authenticated():
         return True
 
-    st.title("🔐 LogiSuite — Iniciar sesión")
-    st.caption("Ingresa tus credenciales para acceder al sistema.")
-    with st.form("login_form"):
-        username = st.text_input("Usuario")
-        password = st.text_input("Contraseña", type="password")
-        submitted = st.form_submit_button("Ingresar", type="primary")
-        if submitted:
-            user = authenticate(username, password)
-            if user:
-                st.session_state["auth_user"] = user
-                from utils.audit import log_action
-                log_action("LOGIN", "users", str(user["user_id"]), f"Ingreso de {username}")
-                st.rerun()
-            else:
-                st.error("Usuario o contraseña incorrectos.")
-    st.info("Usuarios de prueba: **admin/admin123**, **operador/oper123**, **lector/lect123**",
-            icon="ℹ️")
+    _render_login_screen()
     return False
 
 
+def _render_login_screen() -> None:
+    """Pantalla de login a página completa: banner de marca con degradado e
+    ilustración SVG (consistente con el hero de la portada), tarjeta de
+    formulario centrada y credenciales de prueba visibles para evaluación."""
+    from utils.theme import BRAND
+
+    st.markdown(f"""
+    <style>
+    [data-testid="stSidebar"] {{ display: none; }}
+    .lg-login-hero {{
+        background: linear-gradient(120deg, {BRAND['secondary']} 0%,
+                    {BRAND['primary_dark']} 55%, {BRAND['primary']} 100%);
+        border-radius: 18px; padding: 46px 40px; text-align:center;
+        margin-bottom: 26px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    }}
+    .lg-login-hero h1 {{ color:#FFFFFF; font-size:2.1rem; font-weight:800; margin:10px 0 6px 0; }}
+    .lg-login-hero p {{ color:rgba(255,255,255,0.88); font-size:1rem; margin:0; }}
+    .lg-login-badge {{
+        display:inline-block; background: rgba(255,255,255,0.18); color:#fff;
+        padding: 4px 16px; border-radius: 999px; font-size: 0.78rem; margin-bottom: 10px;
+        letter-spacing: 0.04em;
+    }}
+    </style>
+    <div class="lg-login-hero">
+        <span class="lg-login-badge">🚛 LOGÍSTICA · DISTRIBUCIÓN · TRANSPORTE</span>
+        <h1>LogiSuite</h1>
+        <p>Plataforma integral de logística, distribución y transporte</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    _, mid, _ = st.columns([1, 1.3, 1])
+    with mid:
+        with st.container(border=True):
+            st.markdown("#### 🔐 Iniciar sesión")
+            st.caption("Ingresa tus credenciales para acceder al sistema.")
+            with st.form("login_form"):
+                username = st.text_input("Usuario", placeholder="usuario")
+                password = st.text_input("Contraseña", type="password", placeholder="••••••••")
+                submitted = st.form_submit_button("Ingresar", type="primary",
+                                                    use_container_width=True)
+                if submitted:
+                    user = authenticate(username, password)
+                    if user:
+                        st.session_state["auth_user"] = user
+                        from utils.audit import log_action
+                        log_action("LOGIN", "users", str(user["user_id"]),
+                                    f"Ingreso de {username}")
+                        st.rerun()
+                    else:
+                        st.error("Usuario o contraseña incorrectos.")
+
+            with st.expander("👀 Usuarios de prueba (evaluación académica)"):
+                st.markdown(
+                    "| Usuario | Contraseña | Rol |\n|---|---|---|\n"
+                    "| `admin` | `admin123` | Administrador |\n"
+                    "| `operador` | `oper123` | Operador |\n"
+                    "| `lector` | `lect123` | Solo lectura |"
+                )
+    st.caption("© LogiSuite — Proyecto académico de Distribución y Transporte")
+
+
 def auth_enabled() -> bool:
-    """Lee el parámetro AUTH_ENABLED de system_params (por defecto desactivado)."""
+    """Lee AUTH_ENABLED de system_params. Por defecto (parámetro ausente o
+    base recién creada) el login es OBLIGATORIO: la aplicación no debe quedar
+    accesible sin autenticarse a menos que un administrador lo desactive
+    explícitamente desde Administración → Parámetros del sistema."""
     try:
         df = run_query("SELECT param_value FROM system_params WHERE param_key = 'AUTH_ENABLED'")
         if df.empty:
-            return False
+            return True
         return str(df.iloc[0]["param_value"]).lower() in ("1", "true", "si", "sí", "yes")
     except Exception:
-        return False
+        return True
 
 
 def render_sidebar_user() -> None:
@@ -162,7 +206,7 @@ def render_sidebar_user() -> None:
     with st.sidebar:
         st.markdown(f"**👤 {user['full_name']}**")
         st.caption(f"Rol: {user['role']}")
-        if auth_enabled() and st.button("Cerrar sesión", use_container_width=True):
+        if st.button("Cerrar sesión", use_container_width=True):
             logout()
             st.rerun()
 

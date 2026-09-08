@@ -33,15 +33,14 @@ st.set_page_config(page_title="Freight Management", page_icon="🚚", layout="wi
 from database.db import ensure_database_ready
 ensure_database_ready()
 
-from utils.theme import apply_page_theme
+from utils.theme import apply_page_theme, page_header
 apply_page_theme()
 
 if not login_form():
     st.stop()
 render_sidebar_user()
 
-st.title("🚚 Freight Management")
-st.caption("Registro de envíos, consolidación de carga, motor de costos y huella de carbono.")
+page_header("🚚", "Freight Management", "Registro de envíos, consolidación de carga, motor de costos y huella de carbono.")
 
 nodes = Node.all()
 corridors = Corridor.all()

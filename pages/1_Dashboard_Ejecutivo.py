@@ -22,10 +22,9 @@ st.set_page_config(page_title="Dashboard Ejecutivo", page_icon="🏭", layout="w
 from database.db import ensure_database_ready
 ensure_database_ready()
 
-from utils.theme import apply_page_theme
+from utils.theme import apply_page_theme, page_header
 apply_page_theme()
-st.title("🏭 Dashboard Ejecutivo")
-st.caption("Vista consolidada de KPIs de toda la red logística.")
+page_header("🏭", "Dashboard Ejecutivo", "Vista consolidada de KPIs de toda la red logística.")
 
 # --------------------------------------------------------------------------
 # KPIs principales

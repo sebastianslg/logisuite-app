@@ -28,15 +28,14 @@ st.set_page_config(page_title="Customs Management", page_icon="🛃", layout="wi
 from database.db import ensure_database_ready
 ensure_database_ready()
 
-from utils.theme import apply_page_theme
+from utils.theme import apply_page_theme, page_header
 apply_page_theme()
 
 if not login_form():
     st.stop()
 render_sidebar_user()
 
-st.title("🛃 Customs Management")
-st.caption("Documentación aduanera, tributos de importación y control de trámites.")
+page_header("🛃", "Customs Management", "Documentación aduanera, tributos de importación y control de trámites.")
 
 # Documentos exigidos según el tipo de operación aduanera
 DOCS_REQUERIDOS = {

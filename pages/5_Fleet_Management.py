@@ -31,15 +31,14 @@ st.set_page_config(page_title="Fleet Management", page_icon="🚛", layout="wide
 from database.db import ensure_database_ready
 ensure_database_ready()
 
-from utils.theme import apply_page_theme
+from utils.theme import apply_page_theme, page_header
 apply_page_theme()
 
 if not login_form():
     st.stop()
 render_sidebar_user()
 
-st.title("🚛 Fleet Management")
-st.caption("Vehículos, conductores, mantenimiento y analítica de costo de propiedad.")
+page_header("🚛", "Fleet Management", "Vehículos, conductores, mantenimiento y analítica de costo de propiedad.")
 
 tabs = st.tabs(["🚚 Vehículos", "🔧 Mantenimiento", "🧑‍✈️ Conductores", "💰 TCO",
                 "🔮 Próximo mantenimiento", "📊 Disponibilidad", "⚠️ Alertas de flota", "➕ Registrar"])

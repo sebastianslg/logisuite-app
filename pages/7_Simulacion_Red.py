@@ -30,14 +30,14 @@ st.set_page_config(page_title="Simulación de Red", page_icon="🔬", layout="wi
 from database.db import ensure_database_ready
 ensure_database_ready()
 
-from utils.theme import apply_page_theme
+from utils.theme import apply_page_theme, page_header
 apply_page_theme()
 
 if not login_form():
     st.stop()
 render_sidebar_user()
 
-st.title("🔬 Simulación y Optimización de la Red")
+page_header("🔬", "Simulación y Optimización de la Red", "")
 
 nodes = Node.all()
 corridors = Corridor.all()

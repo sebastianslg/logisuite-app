@@ -31,16 +31,14 @@ st.set_page_config(page_title="Warehouse Management", page_icon="📦", layout="
 from database.db import ensure_database_ready
 ensure_database_ready()
 
-from utils.theme import apply_page_theme
+from utils.theme import apply_page_theme, page_header
 apply_page_theme()
 
 if not login_form():
     st.stop()
 render_sidebar_user()
 
-st.title("📦 Warehouse Management")
-st.caption("Freight Distribution Cluster: ciclo Inbound (recepción/inspección) y "
-           "Outbound (picking/empaque/despacho), más analítica de planificación de inventario.")
+page_header("📦", "Warehouse Management", "Freight Distribution Cluster: ciclo Inbound (recepción/inspección) y Outbound (picking/empaque/despacho), más analítica de planificación de inventario.")
 
 tabs = st.tabs(["📋 Inventario", "➕ Movimientos", "🚨 Alertas de stock", "📊 Rotación",
                 "🔮 Pronóstico", "🧮 EOQ y ROP", "🔤 Clasificación ABC",

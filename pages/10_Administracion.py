@@ -20,14 +20,14 @@ st.set_page_config(page_title="Administración", page_icon="⚙️", layout="wid
 from database.db import ensure_database_ready
 ensure_database_ready()
 
-from utils.theme import apply_page_theme
+from utils.theme import apply_page_theme, page_header
 apply_page_theme()
 
 if not login_form():
     st.stop()
 render_sidebar_user()
 
-st.title("⚙️ Administración del Sistema")
+page_header("⚙️", "Administración del Sistema", "Usuarios y roles, bitácora de auditoría y parámetros del sistema.")
 
 if not has_role("admin"):
     st.error("🔒 Esta sección requiere rol de administrador.")
@@ -173,6 +173,7 @@ with tab3:
                     st.rerun()
 
     st.divider()
-    st.warning("**AUTH_ENABLED**: si lo pones en `true`, todos los usuarios deberán iniciar "
-               "sesión para usar la aplicación. Con `false` (por defecto) la app funciona en "
-               "modo demo con acceso libre de administrador.", icon="🔐")
+    st.info("**AUTH_ENABLED**: este parámetro queda documentado por trazabilidad, pero el "
+            "inicio de sesión es obligatorio siempre en esta versión — no depende de él ni "
+            "puede desactivarse desde aquí. Nadie entra a la aplicación sin autenticarse.",
+            icon="🔐")

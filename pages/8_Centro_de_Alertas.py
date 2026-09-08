@@ -19,15 +19,14 @@ st.set_page_config(page_title="Centro de Alertas", page_icon="🚨", layout="wid
 from database.db import ensure_database_ready
 ensure_database_ready()
 
-from utils.theme import apply_page_theme
+from utils.theme import apply_page_theme, page_header
 apply_page_theme()
 
 if not login_form():
     st.stop()
 render_sidebar_user()
 
-st.title("🚨 Centro de Alertas")
-st.caption("Todas las alertas del sistema consolidadas y priorizadas por severidad.")
+page_header("🚨", "Centro de Alertas", "Todas las alertas del sistema consolidadas y priorizadas por severidad.")
 
 alertas = get_all_alerts()
 conteo = alert_counts()

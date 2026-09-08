@@ -11,13 +11,31 @@ random_dates = lambda base, n: [(base + timedelta(days=i)).strftime("%Y-%m-%d") 
 
 
 def seed_all():
+    ensure_core_seeded()
+    seed_v2_only()
+
+
+def ensure_core_seeded():
+    """Siembra las tablas centrales (nodos, corredores, almacenes, inventario,
+    flota, envíos, aduanas) SOLO si están vacías. A diferencia de seed_all(),
+    es seguro llamarla sobre una base que ya existe: no depende de si el
+    archivo .db es nuevo, sino de si la tabla `nodes` tiene datos.
+
+    Esto corrige un caso real: una base de datos que llegó a existir sin
+    haberse sembrado del todo (por ejemplo, un despliegue que se interrumpió a
+    mitad de camino) se quedaba con nodos, vehículos y envíos en cero para
+    siempre, porque solo se sembraba en la rama "is_new" de init_database().
+    Sin nodos ni envíos, los reportes de todos los módulos aparecen vacíos —
+    lo que el usuario percibe como "las exportaciones no funcionan"."""
+    existentes = run_query("SELECT COUNT(*) c FROM nodes").iloc[0]["c"]
+    if existentes > 0:
+        return
     _seed_nodes()
     _seed_corridors()
     _seed_warehouses_inventory()
     _seed_vehicles_drivers()
     _seed_shipments_routes()
     _seed_customs()
-    seed_v2_only()
 
 
 def _seed_nodes():
@@ -290,7 +308,7 @@ def _seed_users():
 def _seed_system_params():
     """Parámetros configurables del sistema."""
     params = [
-        ("AUTH_ENABLED", "false", "Activa el inicio de sesion obligatorio (true/false)"),
+        ("AUTH_ENABLED", "true", "Activa el inicio de sesion obligatorio (true/false)"),
         ("FUEL_PRICE", "1.05", "Precio del combustible en USD por litro"),
         ("MAINTENANCE_INTERVAL_KM", "20000", "Intervalo de mantenimiento preventivo en km"),
         ("SERVICE_LEVEL_TARGET", "0.95", "Nivel de servicio objetivo para calculo de ROP"),

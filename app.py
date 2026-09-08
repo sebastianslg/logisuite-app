@@ -122,6 +122,16 @@ st.markdown(f"""
 }}
 .lg-module-card h4 {{ margin:2px 0 6px 0; color:{card_title}; font-size:1.05rem; }}
 .lg-module-card p {{ margin:0 0 4px 0; color:{card_text}; font-size:0.9rem; line-height:1.4; }}
+.lg-hover-extra {{
+    max-height: 0; opacity: 0; overflow: hidden;
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+    border-top: 1px dashed rgba(42,157,143,0.35); margin-top: 0;
+}}
+.lg-module-card:hover .lg-hover-extra {{ max-height: 220px; opacity: 1; margin-top: 10px; padding-top: 8px; }}
+.lg-hover-extra ul {{ margin: 0; padding-left: 18px; }}
+.lg-hover-extra li {{ font-size: 0.83rem; color: {card_text}; margin-bottom: 3px; }}
+.lg-hover-hint {{ font-size: 0.72rem; color: {BRAND["primary"]}; font-weight:600;
+                   margin-top:6px; letter-spacing:0.02em; }}
 
 /* Los accesos rápidos y los enlaces de módulo usan st.page_link, que SÍ
    navega de verdad (a diferencia de los divs decorativos anteriores).
@@ -226,38 +236,62 @@ with col1:
     modules = [
         ("pages/2_Warehouse_Management.py", "📦", "Warehouse Management",
          "Inventario en tiempo real, ciclo Inbound/Outbound, alertas de stock, pronóstico de "
-         "demanda, EOQ, punto de reorden, clasificación ABC y trazabilidad de SKU."),
+         "demanda, EOQ, punto de reorden, clasificación ABC y trazabilidad de SKU.",
+         ["Pronóstico de demanda (SMA/SES)", "EOQ y Punto de Reorden", "Clasificación ABC (Pareto)",
+          "Ocupación por zona", "Trazabilidad de SKU"]),
         ("pages/3_Freight_Management.py", "🚚", "Freight Management",
          "Registro y tracking de envíos, motor de costos de tres componentes, consolidación de "
-         "carga, simulador de modos de transporte y huella de carbono."),
+         "carga, simulador de modos de transporte y huella de carbono.",
+         ["Motor de costos (3 componentes)", "Consolidación de carga", "Simulador de modos",
+          "Huella de carbono", "Historial de costos por corredor"]),
         ("pages/4_Transportation_Network.py", "🗺️", "Transportation Management",
          "Mapa geográfico de la red, ruteo con Dijkstra, circuitos multi-parada (TSP con 2-opt), "
-         "validación de capacidad, programación en Gantt y control de ETA vs. real."),
+         "validación de capacidad, programación en Gantt y control de ETA vs. real.",
+         ["Mapa geográfico interactivo", "Ruteo multi-parada (TSP)", "Validación de capacidad",
+          "Programación en Gantt", "Control de ETA vs. real"]),
         ("pages/5_Fleet_Management.py", "🚛", "Fleet Management",
          "Vehículos y conductores, mantenimiento preventivo y correctivo, costo total de "
-         "propiedad (TCO) y predicción del próximo servicio."),
+         "propiedad (TCO) y predicción del próximo servicio.",
+         ["Costo Total de Propiedad (TCO)", "Predicción de mantenimiento", "Disponibilidad de flota",
+          "Vigencia de licencias", "Alertas combinadas"]),
         ("pages/6_Customs_Management.py", "🛃", "Customs Management",
          "Documentación aduanera, liquidación de tributos, escenarios arancelarios comparados y "
-         "checklist de completitud documental."),
+         "checklist de completitud documental.",
+         ["Escenarios arancelarios", "Checklist documental", "Línea de tiempo de trámites",
+          "Liquidación de tributos"]),
         ("pages/7_Simulacion_Red.py", "🔬", "Simulación y Optimización",
          "Cierre de nodos, ubicación óptima de instalaciones, criticidad de la red, simulación "
-         "de Monte Carlo y análisis de sensibilidad."),
+         "de Monte Carlo y análisis de sensibilidad.",
+         ["Ubicación óptima de instalaciones", "Criticidad de la red", "Simulación Monte Carlo",
+          "Sensibilidad de costos", "Simulación de cierre de nodo"]),
         ("pages/8_Centro_de_Alertas.py", "🚨", "Centro de Alertas",
-         "Todas las alertas del sistema consolidadas y priorizadas por severidad."),
+         "Todas las alertas del sistema consolidadas y priorizadas por severidad.",
+         ["Stock crítico", "Licencias por vencer", "Documentos por vencer", "Envíos retrasados"]),
         ("pages/9_Importar_Exportar.py", "📥", "Importar / Exportar",
-         "Carga masiva desde CSV o Excel con validación fila por fila, y exportación consolidada."),
+         "Carga masiva desde CSV o Excel con validación fila por fila, y exportación consolidada.",
+         ["Plantillas descargables", "Validación fila por fila", "Exportación consolidada"]),
         ("pages/10_Administracion.py", "⚙️", "Administración",
-         "Usuarios y roles, bitácora de auditoría y parámetros del sistema."),
+         "Usuarios y roles, bitácora de auditoría y parámetros del sistema.",
+         ["Gestión de usuarios y roles", "Bitácora de auditoría", "Parámetros del sistema"]),
     ]
     grid = st.columns(2)
-    for i, (destino, icon, title, desc) in enumerate(modules):
+    for i, (destino, icon, title, desc, features) in enumerate(modules):
         with grid[i % 2]:
             with st.container(border=True):
+                st.markdown('<div class="lg-module-card">', unsafe_allow_html=True)
                 st.markdown(f'<div class="lg-icon-badge">{icon}</div>', unsafe_allow_html=True)
                 st.markdown('<div class="lg-module-link">', unsafe_allow_html=True)
                 st.page_link(destino, label=title, use_container_width=True)
                 st.markdown('</div>', unsafe_allow_html=True)
-                st.caption(desc)
+                st.markdown(f'<p>{desc}</p>', unsafe_allow_html=True)
+                items_html = "".join(f"<li>{f}</li>" for f in features)
+                st.markdown(f"""
+                <div class="lg-hover-extra">
+                    <ul>{items_html}</ul>
+                </div>
+                <div class="lg-hover-hint">👆 pasa el mouse para ver el detalle</div>
+                """, unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
     st.markdown(f"### {t('system_status')}")
@@ -277,6 +311,50 @@ with col2:
 
     st.info("Usa el menú lateral para navegar entre módulos. El Dashboard Ejecutivo consolida "
             "los KPIs de toda la red.", icon="ℹ️")
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# Actividad reciente: últimos envíos y alertas activas (datos reales, no
+# decorativos), para que la portada se sienta viva y no solo un catálogo
+# estático de módulos.
+# ---------------------------------------------------------------------------
+st.markdown("### 🕒 Actividad reciente")
+act1, act2 = st.columns(2)
+
+with act1:
+    st.markdown("**Últimos envíos registrados**")
+    recientes = run_query("""
+        SELECT s.shipment_id, no.name AS origen, nd.name AS destino, s.status, s.total_cost
+        FROM shipments s
+        JOIN nodes no ON s.origin_node_id = no.node_id
+        JOIN nodes nd ON s.dest_node_id = nd.node_id
+        ORDER BY s.shipment_id DESC LIMIT 5
+    """)
+    if recientes.empty:
+        st.caption("Aún no hay envíos registrados.")
+    else:
+        estado_color = {"Entregado": "🟢", "En Transito": "🔵", "Retrasado": "🔴",
+                         "Consolidado": "🟣", "Registrado": "⚪"}
+        for _, r in recientes.iterrows():
+            icono = estado_color.get(r["status"], "⚪")
+            st.markdown(f"{icono} **#{r['shipment_id']}** {r['origen']} → {r['destino']} "
+                        f"· {r['status']} · ${r['total_cost']:,.0f}")
+
+with act2:
+    st.markdown("**Alertas activas más urgentes**")
+    from utils.alerts import get_all_alerts
+    urgentes = get_all_alerts()
+    if not urgentes:
+        st.caption("✅ No hay alertas activas en este momento.")
+    else:
+        orden = {"critica": 0, "alta": 1, "media": 2, "baja": 3}
+        urgentes = sorted(urgentes, key=lambda a: orden.get(a.get("severidad"), 9))[:5]
+        sev_icon = {"critica": "🔴", "alta": "🟠", "media": "🟡", "baja": "🟢"}
+        for a in urgentes:
+            icono = sev_icon.get(a.get("severidad"), "⚪")
+            st.markdown(f"{icono} **{a.get('titulo','')}** — {a.get('detalle','')}")
+        st.page_link("pages/8_Centro_de_Alertas.py", label="Ver todas las alertas", icon="🚨")
 
 st.divider()
 st.caption("Proyecto académico de Distribución y Transporte · SQLite relacional con claves "

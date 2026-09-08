@@ -40,9 +40,13 @@ def init_database(reset: bool = False):
         seed_all()
         print(f"Base de datos creada y poblada en: {DB_PATH}")
     else:
-        # Base existente: se asegura que las tablas nuevas tengan sus datos
-        # semilla (usuarios, parámetros, escenarios) sin tocar lo demás.
-        from utils.seed_data import seed_v2_only
+        # Base existente: se asegura que las tablas CENTRALES tengan datos si
+        # por alguna razón están vacías (ej. un despliegue anterior que se
+        # interrumpió a medias), y que las tablas nuevas del esquema v2 tengan
+        # sus datos semilla (usuarios, parámetros, escenarios). Ambas
+        # funciones son idempotentes: no duplican ni tocan datos ya presentes.
+        from utils.seed_data import ensure_core_seeded, seed_v2_only
+        ensure_core_seeded()
         seed_v2_only()
         print(f"Base de datos existente actualizada al esquema v2 en: {DB_PATH}")
 
