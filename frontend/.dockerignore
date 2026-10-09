@@ -1,0 +1,7 @@
+node_modules
+.next
+public/vendor
+Dockerfile
+.dockerignore
+npm-debug.log*
+.env*

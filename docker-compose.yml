@@ -1,17 +1,38 @@
+# LogiSuite TMS multimodal: API FastAPI (8000) + frontend Next.js (3000).
+#   docker compose up -d --build
 services:
-  app:
-    build: .
-    image: logisuite-tms:latest
-    container_name: logisuite-app
+  backend:
+    build: ./backend
+    image: logisuite-api:latest
+    container_name: logisuite-api
     restart: unless-stopped
     env_file:
       - path: .env
         required: false
     environment:
       TZ: ${TZ:-America/Bogota}
-      MAPBOX_API_KEY: ${MAPBOX_API_KEY:-}
+      LOGISUITE_DB_PATH: /data/logistics.db
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
     ports:
-      - "${APP_PORT:-8501}:8501"
+      - "${API_PORT:-8000}:8000"
     volumes:
-      # Persistencia de SQLite: la base vive en el host, fuera del contenedor.
-      - ./data:/app/data
+      # Persistencia de SQLite en el host
+      - ./backend/data:/data
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_MAP_STYLE: ${NEXT_PUBLIC_MAP_STYLE:-https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json}
+    image: logisuite-web:latest
+    container_name: logisuite-web
+    restart: unless-stopped
+    environment:
+      # El proxy /api/* del frontend llega a la API por la red interna
+      API_INTERNAL_URL: http://backend:8000
+      TZ: ${TZ:-America/Bogota}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
