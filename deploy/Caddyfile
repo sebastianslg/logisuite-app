@@ -1,0 +1,11 @@
+# Caddy obtiene y renueva el certificado HTTPS de Let's Encrypt automáticamente.
+# DOMAIN debe apuntar (registro A) a la IP pública de la VM antes de levantarlo.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy frontend:3000
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
