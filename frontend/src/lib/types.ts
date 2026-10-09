@@ -30,6 +30,7 @@ export interface DashboardSummary {
   modal_split: { mode: Mode; label: string; tkm: number; tkm_fmt: string; share_pct: number }[];
   top_corridors: { corridor: string; tons: number; tons_fmt: string }[];
   dispatches_14d: { date: string; count: number }[];
+  alerts: { closed_corridors: string[]; no_route: string[] };
   network: {
     nodes: number;
     links: number;
@@ -69,6 +70,10 @@ export interface Leg {
   end_h: number;
   path: [number, number][];
   asset?: Asset;
+  /** Tramo cortado por el cierre de una vía (lo recorrido antes del desvío). */
+  interrupted?: boolean;
+  /** Regreso al nodo anterior a la vía cerrada. */
+  detour?: boolean;
 }
 
 export interface Transfer {
@@ -115,6 +120,14 @@ export interface Shipment {
   delay_h: number;
   delay_fmt: string | null;
   progress_pct: number;
+  source: "seed" | "auto" | "manual";
+  route_status: "ok" | "sin_ruta";
+  route_note: string | null;
+  forced_modes: Mode[];
+  forced_corridors: string[];
+  created_by: string | null;
+  updated_at: string | null;
+  updated_by: string | null;
   legs?: Leg[];
   transfers?: Transfer[];
   trip?: Trip;
@@ -215,6 +228,7 @@ export interface NetworkGeo {
         city: string;
         department_code: string;
         iata: string | null;
+        approximate: boolean;
         modes: Mode[];
       },
       GeoJSON.Point
@@ -235,6 +249,9 @@ export interface NetworkGeo {
         distance_fmt: string;
         time_fmt: string;
         capacity_fmt: string;
+        closed: boolean;
+        closure_reason: string | null;
+        approximate: boolean;
       },
       GeoJSON.LineString
     >[];
@@ -248,4 +265,62 @@ export interface DepartmentsGeo {
     { code: string; name: string; traffic_t: number; traffic_fmt: string; intensity: number },
     GeoJSON.Polygon | GeoJSON.MultiPolygon
   >[];
+}
+
+export type Currency = "USD" | "COP";
+
+export interface FxRate {
+  rate: number | null;
+  date: string | null;
+  source: string | null;
+}
+
+export interface Settings {
+  fx: FxRate;
+  auto_replenish: boolean;
+}
+
+export interface Corridor {
+  corridor: string;
+  modes: Mode[];
+  links: number;
+  distance_km: number;
+  distance_fmt: string;
+  approximate: boolean;
+  segments: string[];
+  active: boolean;
+  reason: string | null;
+  changed_at: string | null;
+  changed_by: string | null;
+  /** Envíos no entregados con tramos pendientes por esta vía. */
+  shipments: string[];
+}
+
+export interface CorridorChange {
+  corridor: string;
+  active: boolean;
+  rerouted: string[];
+  no_route: string[];
+  restored: string[];
+  replanned: string[];
+}
+
+export interface AuditEntry {
+  audit_id: number;
+  username: string;
+  action: string;
+  table_name: string;
+  record_id: string | null;
+  detail: string | null;
+  timestamp: string;
+}
+
+export interface ShareLink {
+  token: string;
+  codes: string[];
+  currency: Currency;
+  created_at: string;
+  created_by: string | null;
+  revoked_at: string | null;
+  path: string;
 }

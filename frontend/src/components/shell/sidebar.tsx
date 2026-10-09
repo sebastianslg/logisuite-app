@@ -5,21 +5,29 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
+  CircleDollarSign,
   LayoutDashboard,
   Network,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
+  Settings,
+  TrafficCone,
+  UserRound,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
 
+import { useApp } from "@/components/providers";
+import type { Currency } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const NAV: { href: string; label: string; icon: LucideIcon; hint: string }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, hint: "Torre de control" },
   { href: "/envios", label: "Envíos", icon: Package, hint: "Órdenes y estados" },
   { href: "/red", label: "Red multimodal", icon: Network, hint: "Mapa 3D y simulador" },
+  { href: "/vias", label: "Vías", icon: TrafficCone, hint: "Cierres y desvíos" },
+  { href: "/configuracion", label: "Configuración", icon: Settings, hint: "TRM, historial, enlaces" },
 ];
 
 const spring = { type: "spring", stiffness: 420, damping: 36, mass: 0.8 } as const;
@@ -100,6 +108,8 @@ export function Sidebar() {
         </LayoutGroup>
       </nav>
 
+      {!collapsed && <OperatorPanel />}
+
       <div className="border-t border-border p-3">
         <button
           type="button"
@@ -112,5 +122,63 @@ export function Sidebar() {
         </button>
       </div>
     </motion.aside>
+  );
+}
+
+/** Moneda de visualización y nombre del operador que firma los cambios. */
+function OperatorPanel() {
+  const { currency, setCurrency, fx, operator, setOperator } = useApp();
+  const hasRate = Boolean(fx?.rate);
+  return (
+    <div className="flex flex-col gap-3 border-t border-border p-3 text-xs">
+      <div>
+        <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <CircleDollarSign className="size-3.5" /> Moneda
+        </div>
+        <div className="flex rounded-md border border-white/[0.06] p-0.5" role="radiogroup" aria-label="Moneda">
+          {(["USD", "COP"] as Currency[]).map((c) => {
+            const disabled = c === "COP" && !hasRate;
+            return (
+              <button
+                key={c}
+                type="button"
+                role="radio"
+                aria-checked={currency === c}
+                disabled={disabled}
+                onClick={() => setCurrency(c)}
+                title={disabled ? "Configura la TRM para ver montos en COP" : undefined}
+                className={cn(
+                  "h-7 flex-1 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                  currency === c ? "bg-white/[0.08] text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {c}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1 text-[10px] leading-snug text-muted-foreground/80">
+          {hasRate ? (
+            <>TRM {fx!.rate!.toLocaleString("es-CO")} · {fx!.date}</>
+          ) : (
+            <Link href="/configuracion" className="underline underline-offset-2 hover:text-foreground">
+              TRM sin configurar
+            </Link>
+          )}
+        </p>
+      </div>
+      <label className="block">
+        <span className="mb-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <UserRound className="size-3.5" /> Operador
+        </span>
+        <input
+          value={operator}
+          onChange={(e) => setOperator(e.target.value)}
+          placeholder="Tu nombre (firma cambios)"
+          maxLength={60}
+          className="h-8 w-full rounded-md border border-input bg-white/[0.02] px-2.5 text-xs outline-none placeholder:text-muted-foreground/60 focus:border-neon-cyan/40"
+        />
+      </label>
+    </div>
   );
 }

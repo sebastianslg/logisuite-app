@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
   ArrowDownUp,
@@ -11,6 +12,7 @@ import {
   Layers,
   LoaderCircle,
   Map as MapIcon,
+  PackagePlus,
   Radio,
   Route,
   Waypoints,
@@ -21,6 +23,7 @@ import {
 import { Map3DLazy, MapLoading } from "./map-3d-lazy";
 import { MapLegend } from "./map-legend";
 import { useMapData } from "./use-map-data";
+import { useApp } from "@/components/providers";
 import { ModeChain, ModeIcon } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { MODE_ORDER, MODES, PRIORITIES } from "@/lib/modes";
@@ -292,6 +295,7 @@ function RouteResultView({
   onClear: () => void;
 }) {
   const r = data.route;
+  const { money } = useApp();
   // Línea de tiempo: tramos intercalados con sus transbordos
   const steps: ({ kind: "leg"; i: number } | { kind: "transfer"; i: number })[] = [];
   r.legs.forEach((_, i) => {
@@ -323,7 +327,7 @@ function RouteResultView({
 
       <div className="grid grid-cols-2 gap-2">
         <Metric icon={<Clock />} label="Tiempo total" value={r.time_fmt} />
-        <Metric icon={<CircleDollarSign />} label="Costo total" value={r.cost_fmt} />
+        <Metric icon={<CircleDollarSign />} label="Costo total" value={money(r.cost)} />
         <Metric icon={<Route />} label="Distancia" value={r.distance_fmt} />
         <Metric icon={<ArrowRightLeft />} label="Transbordos" value={String(r.n_transfers)} />
       </div>
@@ -349,7 +353,7 @@ function RouteResultView({
                 <div className="tabular mt-1.5 flex gap-3 text-[11px] text-slate-300">
                   <span>{r.legs[s.i].distance_fmt}</span>
                   <span>{r.legs[s.i].time_fmt}</span>
-                  <span>{r.legs[s.i].cost_fmt}</span>
+                  <span>{money(r.legs[s.i].cost)}</span>
                 </div>
               </div>
             </motion.li>
@@ -364,12 +368,26 @@ function RouteResultView({
               <ArrowRightLeft className="size-3.5" />
               <span className="font-medium">{r.transfers[s.i].label}</span>
               <span className="truncate text-muted-foreground">
-                {r.transfers[s.i].node.name} · {r.transfers[s.i].time_fmt} · {r.transfers[s.i].cost_fmt}
+                {r.transfers[s.i].node.name} · {r.transfers[s.i].time_fmt} · {money(r.transfers[s.i].cost)}
               </span>
             </motion.li>
           ),
         )}
       </ol>
+
+      <Button variant="secondary" size="sm" asChild>
+        <Link
+          href={`/envios/nuevo?${new URLSearchParams({
+            origin: r.origin,
+            destination: r.destination,
+            priority: r.priority,
+            weight: String(r.weight_t),
+          })}`}
+        >
+          <PackagePlus />
+          Crear envío con esta ruta
+        </Link>
+      </Button>
 
       <div>
         <div className="mb-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
@@ -395,7 +413,7 @@ function RouteResultView({
                   <ModeChain modes={a.modes} />
                   <span className="tabular ml-auto text-right text-slate-300">
                     {a.time_fmt}
-                    <span className="block text-muted-foreground">{a.cost_fmt}</span>
+                    <span className="block text-muted-foreground">{money(a.cost)}</span>
                   </span>
                 </>
               ) : (

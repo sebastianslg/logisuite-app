@@ -17,3 +17,15 @@ export async function apiGet<T>(path: string): Promise<T> {
   }
   return (await res.json()) as T;
 }
+
+/** Como apiGet, pero devuelve null si el recurso no existe (404). */
+export async function apiGetOrNull<T>(path: string): Promise<T | null> {
+  await connection();
+  const base = process.env.API_INTERNAL_URL ?? "http://localhost:8000";
+  const res = await fetch(`${base}${path}`, { cache: "no-store" });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`La API respondió ${res.status} en ${path}`);
+  }
+  return (await res.json()) as T;
+}

@@ -1,3 +1,5 @@
+import { TrafficCone } from "lucide-react";
+
 import { MODE_ORDER, MODES } from "@/lib/modes";
 
 const STYLE: Record<string, string> = {
@@ -31,6 +33,14 @@ export function MapLegend() {
           </span>
         );
       })}
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          className="h-0.5 w-5 rounded-full"
+          style={{ backgroundImage: "repeating-linear-gradient(90deg, #fb7185 0 3px, transparent 3px 6px)" }}
+        />
+        <TrafficCone className="size-3 text-neon-rose" />
+        Cerrada
+      </span>
     </div>
   );
 }

@@ -1,9 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDown,
+  CircleOff,
+  FileText,
+  LoaderCircle,
+  Pencil,
+  Trash2,
   ArrowUp,
   ArrowUpDown,
   ChevronLeft,
@@ -31,10 +38,14 @@ import {
   type TableFeatures,
 } from "@tanstack/react-table";
 
+import { Money } from "@/components/money";
+import { useApp } from "@/components/providers";
+import { ExportActions } from "@/components/shipments/export-actions";
 import { ModeChain, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { api, openBlob } from "@/lib/client";
 import { MODE_ORDER, MODES, PRIORITIES, STATUSES, STATUS_ORDER } from "@/lib/modes";
 import type { Mode, Shipment, ShipmentStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -74,7 +85,12 @@ const columns = helper.columns([
   helper.accessor("code", {
     header: "Envío",
     cell: (info) => (
-      <span className="font-mono text-xs text-slate-300">{info.getValue()}</span>
+      <Link
+        href={`/envios/${info.getValue()}`}
+        className="font-mono text-xs text-slate-300 underline-offset-2 hover:text-neon-cyan hover:underline"
+      >
+        {info.getValue()}
+      </Link>
     ),
   }),
   helper.accessor((s) => `${s.origin} → ${s.destination}`, {
@@ -113,7 +129,17 @@ const columns = helper.columns([
     filterFn: "inSet",
     sortFn: (a, b) =>
       STATUS_ORDER.indexOf(a.original.status) - STATUS_ORDER.indexOf(b.original.status),
-    cell: (info) => <StatusBadge status={info.getValue()} />,
+    cell: (info) => (
+      <div className="flex flex-col items-start gap-1">
+        <StatusBadge status={info.getValue()} />
+        {info.row.original.route_status === "sin_ruta" && (
+          <Badge tone="rose" title={info.row.original.route_note ?? undefined}>
+            <CircleOff />
+            Sin ruta
+          </Badge>
+        )}
+      </div>
+    ),
   }),
   helper.accessor("progress_pct", {
     header: "Avance",
@@ -144,7 +170,11 @@ const columns = helper.columns([
   helper.accessor("cost", {
     header: "Flete",
     enableGlobalFilter: false,
-    cell: (info) => <span className="tabular">{info.row.original.cost_fmt}</span>,
+    cell: (info) => (
+      <span className="tabular">
+        <Money usd={info.getValue()} />
+      </span>
+    ),
   }),
   helper.accessor("eta_at", {
     header: "ETA",
@@ -170,8 +200,19 @@ const columns = helper.columns([
 
 const PAGE_SIZES = [10, 20, 50];
 
-export function ShipmentsTable({ data }: { data: Shipment[] }) {
-  const [rows] = useState(data);
+export function ShipmentsTable({
+  data,
+  initialStatus = [],
+}: {
+  data: Shipment[];
+  initialStatus?: ShipmentStatus[];
+}) {
+  const rows = data;
+  const router = useRouter();
+  const { operator, currency } = useApp();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const table = useTable({
     features,
     columns,
@@ -181,6 +222,7 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
     initialState: {
       pagination: { pageIndex: 0, pageSize: 10 },
       sorting: [{ id: "status", desc: false }],
+      columnFilters: initialStatus.length ? [{ id: "status", value: initialStatus }] : [],
     },
   });
 
@@ -205,6 +247,56 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
   };
 
   const filteredCount = table.getFilteredRowModel().rows.length;
+  // La selección solo conserva envíos que siguen existiendo
+  const selectedCodes = rows.map((r) => r.code).filter((c) => selected.has(c));
+  const pageCodes = table.getRowModel().rows.map((r) => r.original.code);
+  const allPageSelected = pageCodes.length > 0 && pageCodes.every((c) => selected.has(c));
+
+  const toggleRow = (code: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  const togglePage = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      pageCodes.forEach((c) => (allPageSelected ? next.delete(c) : next.add(c)));
+      return next;
+    });
+
+  async function remove(codes: string[]) {
+    const label = codes.length === 1 ? `el envío ${codes[0]}` : `${codes.length} envíos`;
+    if (!window.confirm(`¿Borrar ${label}? Queda registrado en el historial y no se puede deshacer.`)) return;
+    setBusy("delete");
+    setActionError(null);
+    try {
+      for (const code of codes) {
+        await api(`/api/shipments/${encodeURIComponent(code)}?usuario=${encodeURIComponent(operator)}`, {
+          method: "DELETE",
+        });
+      }
+      setSelected(new Set());
+      router.refresh();
+    } catch (e) {
+      setActionError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function viewPdf(code: string) {
+    setBusy(`pdf-${code}`);
+    setActionError(null);
+    try {
+      openBlob(await api<Blob>(`/api/shipments/${encodeURIComponent(code)}/pdf?moneda=${currency}`));
+    } catch (e) {
+      setActionError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
   const { pageIndex, pageSize } = table.state.pagination;
   const hasFilters = statusFilter.length > 0 || modeFilter.length > 0 || globalFilter.length > 0;
 
@@ -286,11 +378,51 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
         )}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <AnimatePresence initial={false}>
+        {selectedCodes.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            className="flex flex-wrap items-start gap-3 rounded-lg border border-neon-cyan/20 bg-neon-cyan/[0.04] px-4 py-3"
+          >
+            <span className="pt-1.5 text-sm">
+              <span className="tabular font-medium">{selectedCodes.length}</span> seleccionados
+            </span>
+            <ExportActions codes={selectedCodes} />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-neon-rose hover:text-neon-rose"
+              disabled={busy === "delete"}
+              onClick={() => remove(selectedCodes)}
+            >
+              {busy === "delete" ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
+              Borrar
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+              <X />
+              Quitar selección
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {actionError && <p className="text-sm text-neon-rose">{actionError}</p>}
+
+      <div className="overflow-x-auto rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id} className="hover:bg-transparent">
+                <TableHead className="w-10">
+                  <input
+                    type="checkbox"
+                    checked={allPageSelected}
+                    onChange={togglePage}
+                    aria-label="Seleccionar los envíos de esta página"
+                    className="size-3.5 accent-cyan-400"
+                  />
+                </TableHead>
                 {group.headers.map((header) => {
                   const sorted = header.column.getIsSorted();
                   const canSort = header.column.getCanSort();
@@ -317,6 +449,7 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
                     </TableHead>
                   );
                 })}
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             ))}
           </TableHeader>
@@ -332,17 +465,61 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
                   transition={{ duration: 0.18 }}
                   className="border-b border-border transition-colors hover:bg-white/[0.025]"
                 >
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(row.original.code)}
+                      onChange={() => toggleRow(row.original.code)}
+                      aria-label={`Seleccionar ${row.original.code}`}
+                      className="size-3.5 accent-cyan-400"
+                    />
+                  </TableCell>
                   {row.getAllCells().map((cell) => (
                     <TableCell key={cell.id}>
                       <table.FlexRender cell={cell} />
                     </TableCell>
                   ))}
+                  <TableCell>
+                    <div className="flex justify-end gap-0.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        aria-label={`Ver PDF de ${row.original.code}`}
+                        title="Ver PDF"
+                        disabled={busy === `pdf-${row.original.code}`}
+                        onClick={() => viewPdf(row.original.code)}
+                      >
+                        {busy === `pdf-${row.original.code}` ? <LoaderCircle className="animate-spin" /> : <FileText />}
+                      </Button>
+                      <Button variant="ghost" size="icon" className="size-8" asChild>
+                        <Link
+                          href={`/envios/${row.original.code}/editar`}
+                          aria-label={`Editar ${row.original.code}`}
+                          title="Editar"
+                        >
+                          <Pencil />
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 hover:text-neon-rose"
+                        aria-label={`Borrar ${row.original.code}`}
+                        title="Borrar"
+                        disabled={busy === "delete"}
+                        onClick={() => remove([row.original.code])}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </motion.tr>
               ))}
             </AnimatePresence>
             {filteredCount === 0 && (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={columns.length + 2} className="h-32 text-center text-muted-foreground">
                   Ningún envío coincide con los filtros.
                 </TableCell>
               </TableRow>

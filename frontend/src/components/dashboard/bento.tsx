@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { motion, type HTMLMotionProps } from "framer-motion";
+import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -71,7 +73,8 @@ export function BentoCell({
   );
 }
 
-/** Tarjeta KPI: hover con escala 1,02, elevación y brillo del acento. */
+/** Tarjeta KPI: hover con escala 1,02, elevación y brillo del acento. Con
+ * `href` toda la tarjeta es un enlace (ej. a la tabla de envíos filtrada). */
 export function KpiCard({
   label,
   value,
@@ -79,6 +82,7 @@ export function KpiCard({
   accent = "#22d3ee",
   footnote,
   className,
+  href,
 }: {
   label: string;
   value: string;
@@ -87,19 +91,10 @@ export function KpiCard({
   accent?: string;
   footnote?: React.ReactNode;
   className?: string;
+  href?: string;
 }) {
-  return (
-    <motion.div
-      variants={cellVariants}
-      whileHover={{ scale: 1.02, y: -3 }}
-      transition={{ type: "spring", stiffness: 380, damping: 26 }}
-      className={cn(
-        "group relative overflow-hidden rounded-lg border border-border bg-card p-5",
-        "shadow-[0_1px_0_0_rgb(255_255_255/0.03)_inset] transition-shadow duration-300",
-        "hover:shadow-[0_24px_48px_-24px_rgb(0_0_0/0.8),0_0_0_1px_rgb(255_255_255/0.06)]",
-        className,
-      )}
-    >
+  const body = (
+    <>
       <span
         aria-hidden
         className="pointer-events-none absolute -top-16 -right-16 size-40 rounded-full opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100"
@@ -116,6 +111,31 @@ export function KpiCard({
       </div>
       <div className="tabular relative mt-4 text-3xl font-semibold tracking-tight">{value}</div>
       {footnote && <div className="relative mt-2 text-xs text-muted-foreground">{footnote}</div>}
+      {href && (
+        <ArrowUpRight
+          aria-hidden
+          className="absolute right-4 bottom-4 size-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+        />
+      )}
+    </>
+  );
+  return (
+    <motion.div
+      variants={cellVariants}
+      whileHover={{ scale: 1.02, y: -3 }}
+      transition={{ type: "spring", stiffness: 380, damping: 26 }}
+      className={cn(
+        "group relative overflow-hidden rounded-lg border border-border bg-card p-5",
+        "shadow-[0_1px_0_0_rgb(255_255_255/0.03)_inset] transition-shadow duration-300",
+        "hover:shadow-[0_24px_48px_-24px_rgb(0_0_0/0.8),0_0_0_1px_rgb(255_255_255/0.06)]",
+        className,
+      )}
+      style={href ? undefined : { cursor: "default" }}
+    >
+      {href ? (
+        <Link href={href} className="absolute inset-0 z-10 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50" aria-label={`${label}: ${value}`} />
+      ) : null}
+      {body}
     </motion.div>
   );
 }
