@@ -1,10 +1,20 @@
 [theme]
-base = "light"
-primaryColor = "#2A9D8F"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F0F2F6"
-textColor = "#264653"
+base = "dark"
+primaryColor = "#00F2FE"
+backgroundColor = "#0A0E17"
+secondaryBackgroundColor = "#0F172A"
+textColor = "#F8FAFC"
 font = "sans serif"
 
 [browser]
 gatherUsageStats = false
+
+[server]
+headless = true
+# CORS: Streamlit fuerza enableCORS=true mientras la protección XSRF esté
+# activa. Se prioriza XSRF (la app tiene login); poner ambos en false solo
+# si un proxy inverso de confianza ya protege el origen.
+enableXsrfProtection = true
+
+[client]
+toolbarMode = "minimal"

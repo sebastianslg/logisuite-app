@@ -1,140 +1,337 @@
 """
 theme.py
-Tema visual compartido por toda la aplicación: paleta de marca, CSS global
-(fondo, tarjetas, tipografía) y sincronización del tema claro/oscuro con los
-gráficos de Plotly.
+Sistema de diseño de LogiSuite (estilo Vercel/Linear, modo oscuro).
 
-Antes cada página creaba sus gráficos con el template por defecto de Plotly
-(fondo blanco), sin importar si el usuario había activado el modo oscuro en la
-barra lateral. El resultado eran gráficos con fondo blanco flotando sobre un
-fondo oscuro — la inconsistencia visual que se veía "mal". La corrección real
-es fijar `plotly.io.templates.default` ANTES de que la página cree sus figuras,
-así todo `px.` y `go.Figure` de esa página hereda automáticamente el tema
-correcto sin tener que tocar cada gráfico uno por uno.
+Concentra en un solo lugar:
+  - La paleta corporativa (Cyan, Azul Eléctrico, Esmeralda sobre fondo #0A0E17).
+  - El CSS global (tipografía Inter, sidebar, ocultar el chrome nativo de
+    Streamlit, ancho útil del 95%).
+  - Las tarjetas KPI con efecto glassmorphism (`render_kpi_card`).
+  - La plantilla de Plotly con fondo transparente, que se fija como default
+    para que TODOS los `px.` / `go.Figure` de la página la hereden sin tener
+    que tocar cada gráfico.
+
+La aplicación es exclusivamente oscura: .streamlit/config.toml fija
+base="dark" y este módulo asume ese fondo en todos sus colores.
 """
-import streamlit as st
+import html
+
+import plotly.graph_objects as go
 import plotly.io as pio
+import streamlit as st
 
 # ---------------------------------------------------------------------------
-# Paleta de marca (coherente con .streamlit/config.toml)
+# Paleta corporativa
 # ---------------------------------------------------------------------------
+CYAN = "#00F2FE"
+ELECTRIC_BLUE = "#4FACFE"
+EMERALD = "#10B981"
+VIOLET = "#8B5CF6"
+AMBER = "#F59E0B"
+ROSE = "#F43F5E"
+
+BG = "#0A0E17"
+SURFACE = "#0F172A"
+SIDEBAR_BG = "#06080E"
+TEXT = "#F8FAFC"
+TEXT_MUTED = "#94A3B8"
+BORDER = "rgba(255,255,255,0.08)"
+
+# Claves históricas conservadas: auth.py, illustrations.py y app.py las usan.
 BRAND = {
-    "primary": "#2A9D8F",      # verde-azulado principal
-    "primary_dark": "#1B6E63",
-    "secondary": "#264653",    # azul petróleo (texto/encabezados)
-    "accent": "#E76F51",       # coral (alertas/énfasis)
-    "warning": "#E9C46A",      # amarillo (advertencias)
-    "info": "#457B9D",         # azul medio
+    "primary": CYAN,
+    "primary_dark": ELECTRIC_BLUE,
+    "secondary": SURFACE,
+    "accent": ROSE,
+    "warning": AMBER,
+    "info": ELECTRIC_BLUE,
+    "success": EMERALD,
 }
 
-COLORWAY = [BRAND["primary"], BRAND["accent"], BRAND["secondary"],
-            BRAND["warning"], BRAND["info"], "#8AB17D", "#B69AD6", "#F4A261"]
+COLORWAY = [CYAN, ELECTRIC_BLUE, EMERALD, VIOLET, AMBER, ROSE, "#22D3EE", "#34D399"]
+
+PLOTLY_TEMPLATE = "logisuite_dark"
+
+
+def _build_plotly_template() -> go.layout.Template:
+    """Plantilla basada en plotly_dark con fondo 100% transparente, para que los
+    gráficos se fundan con las tarjetas y el fondo de la aplicación."""
+    tpl = go.layout.Template(pio.templates["plotly_dark"])
+    tpl.layout.update(
+        colorway=COLORWAY,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Inter, -apple-system, Segoe UI, sans-serif", color="#CBD5E1", size=13),
+        title=dict(font=dict(color=TEXT, size=16)),
+        xaxis=dict(gridcolor="rgba(148,163,184,0.10)", zerolinecolor="rgba(148,163,184,0.18)",
+                   linecolor="rgba(148,163,184,0.18)"),
+        yaxis=dict(gridcolor="rgba(148,163,184,0.10)", zerolinecolor="rgba(148,163,184,0.18)",
+                   linecolor="rgba(148,163,184,0.18)"),
+        legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color="#CBD5E1")),
+        hoverlabel=dict(bgcolor=SURFACE, bordercolor=CYAN, font=dict(color=TEXT)),
+        margin=dict(l=20, r=20, t=40, b=20),
+    )
+    return tpl
+
+
+pio.templates[PLOTLY_TEMPLATE] = _build_plotly_template()
+pio.templates.default = PLOTLY_TEMPLATE
 
 
 def is_dark_mode() -> bool:
-    return bool(st.session_state.get("dark_mode", False))
+    """La aplicación es siempre oscura; se mantiene por compatibilidad."""
+    return True
+
+
+# ---------------------------------------------------------------------------
+# CSS global
+# ---------------------------------------------------------------------------
+_GLOBAL_CSS = f"""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+html, body, [class*="css"], .stApp, .stMarkdown, button, input, textarea, select {{
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}}
+.stApp {{
+    background:
+        radial-gradient(1200px 600px at 85% -10%, rgba(0,242,254,0.06), transparent 60%),
+        radial-gradient(900px 500px at -10% 110%, rgba(16,185,129,0.05), transparent 60%),
+        {BG};
+    color: {TEXT};
+}}
+
+/* Chrome nativo de Streamlit fuera */
+#MainMenu, header[data-testid="stHeader"], footer, [data-testid="stToolbar"],
+[data-testid="stDecoration"], [data-testid="stStatusWidget"] {{
+    visibility: hidden; height: 0; display: none;
+}}
+
+/* Ancho útil del 95% */
+.block-container, [data-testid="stMainBlockContainer"] {{
+    max-width: 95% !important;
+    padding-top: 1.6rem !important;
+    padding-bottom: 2rem !important;
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+}}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {{
+    background-color: {SIDEBAR_BG} !important;
+    border-right: 1px solid rgba(255,255,255,0.04);
+}}
+section[data-testid="stSidebar"] > div {{ background-color: {SIDEBAR_BG}; }}
+[data-testid="stSidebarNav"] {{ padding-top: 6px; }}
+[data-testid="stSidebarNav"] ul li {{ margin-bottom: 2px; }}
+[data-testid="stSidebarNav"] a {{
+    border-radius: 8px !important; padding: 7px 12px !important;
+    transition: background 0.15s ease, transform 0.15s ease; font-weight: 500;
+}}
+[data-testid="stSidebarNav"] a:hover {{
+    background: rgba(255,255,255,0.04) !important; transform: translateX(2px);
+}}
+[data-testid="stSidebarNav"] a[aria-current="page"] {{
+    background: rgba(0,242,254,0.08) !important;
+    box-shadow: inset 2px 0 0 {CYAN};
+}}
+[data-testid="stSidebarNav"] a[aria-current="page"] span {{ color: {CYAN} !important; }}
+
+/* Tipografía */
+h1, h2, h3, h4 {{ color: {TEXT} !important; letter-spacing: -0.02em; font-weight: 700; }}
+h3 {{ font-size: 1.15rem !important; }}
+p, label, span, li {{ color: #CBD5E1; }}
+hr {{ border-color: {BORDER} !important; }}
+
+/* Contenedores, tabs, expanders */
+[data-testid="stVerticalBlockBorderWrapper"] {{
+    border-color: {BORDER} !important; border-radius: 12px !important;
+    background: rgba(255,255,255,0.015);
+}}
+[data-testid="stExpander"] details {{
+    border: 1px solid {BORDER} !important; border-radius: 12px !important;
+    background: rgba(255,255,255,0.02);
+}}
+.stTabs [data-baseweb="tab-list"] {{ gap: 4px; border-bottom: 1px solid {BORDER}; }}
+.stTabs [data-baseweb="tab"] {{
+    background: transparent; border-radius: 8px 8px 0 0; padding: 8px 14px; color: {TEXT_MUTED};
+}}
+.stTabs [aria-selected="true"] {{ color: {CYAN} !important; }}
+.stTabs [data-baseweb="tab-highlight"] {{ background-color: {CYAN} !important; }}
+
+/* Botones */
+.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {{
+    border-radius: 8px !important; border: 1px solid rgba(255,255,255,0.10) !important;
+    background: rgba(255,255,255,0.03) !important; color: {TEXT} !important;
+    font-weight: 500; transition: all 0.15s ease;
+}}
+.stButton > button:hover, .stDownloadButton > button:hover, .stFormSubmitButton > button:hover {{
+    border-color: {CYAN} !important; box-shadow: 0 0 0 1px rgba(0,242,254,0.25),
+    0 6px 20px rgba(0,242,254,0.10); transform: translateY(-1px);
+}}
+.stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {{
+    background: linear-gradient(135deg, {CYAN} 0%, {ELECTRIC_BLUE} 100%) !important;
+    color: #04121A !important; border: none !important; font-weight: 600;
+}}
+.stButton > button[kind="primary"] p, .stFormSubmitButton > button[kind="primary"] p {{
+    color: #04121A !important;
+}}
+
+/* Inputs */
+[data-baseweb="input"], [data-baseweb="select"] > div, [data-baseweb="textarea"] {{
+    background-color: rgba(255,255,255,0.03) !important; border-color: rgba(255,255,255,0.10) !important;
+    border-radius: 8px !important;
+}}
+
+/* DataFrames */
+[data-testid="stDataFrame"], [data-testid="stTable"] {{
+    border: 1px solid {BORDER}; border-radius: 12px; overflow: hidden;
+}}
+
+/* st.metric residual (páginas secundarias): mismo lenguaje visual */
+div[data-testid="stMetric"] {{
+    background: rgba(255,255,255,0.03); border: 1px solid {BORDER};
+    border-radius: 12px; padding: 12px 16px;
+}}
+div[data-testid="stMetricValue"] {{ color: {TEXT}; font-weight: 700; }}
+
+/* Mapas pydeck */
+[data-testid="stDeckGlJsonChart"] {{
+    border-radius: 14px; overflow: hidden; border: 1px solid {BORDER};
+}}
+
+/* Tarjeta informativa heredada */
+.lg-card {{
+    background: rgba(255,255,255,0.03); border: 1px solid {BORDER};
+    border-left: 3px solid {CYAN}; padding: 14px 18px; border-radius: 12px; margin-bottom: 12px;
+}}
+.lg-card h4 {{ margin: 0 0 6px 0; color: {CYAN} !important; }}
+.lg-card p {{ margin: 0; color: {TEXT_MUTED} !important; font-size: 0.92rem; }}
+
+/* KPI cards (glassmorphism) */
+.kpi-card {{
+    position: relative; overflow: hidden;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px; padding: 18px 20px; margin-bottom: 14px;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    min-height: 118px;
+}}
+.kpi-card::before {{
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,242,254,0.55), transparent);
+    opacity: 0; transition: opacity 0.2s ease;
+}}
+.kpi-card:hover {{
+    transform: translateY(-3px);
+    border-color: rgba(0,242,254,0.28);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 0 24px rgba(0,242,254,0.08);
+}}
+.kpi-card:hover::before {{ opacity: 1; }}
+.kpi-head {{ display: flex; align-items: center; justify-content: space-between; }}
+.kpi-title {{
+    font-size: 0.74rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    color: {TEXT_MUTED} !important;
+}}
+.kpi-icon {{
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 8px; font-size: 1rem;
+    background: rgba(0,242,254,0.08); border: 1px solid rgba(0,242,254,0.18);
+}}
+.kpi-value {{
+    font-size: 1.85rem; font-weight: 700; color: {TEXT} !important;
+    margin-top: 10px; letter-spacing: -0.02em; line-height: 1.1;
+}}
+.kpi-delta {{
+    display: inline-block; margin-top: 8px; font-size: 0.78rem; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px;
+}}
+.kpi-delta.pos {{ color: {EMERALD} !important; background: rgba(16,185,129,0.10); }}
+.kpi-delta.neg {{ color: {ROSE} !important; background: rgba(244,63,94,0.10); }}
+.kpi-delta.neu {{ color: {TEXT_MUTED} !important; background: rgba(148,163,184,0.10); }}
+
+/* Cabecera de página */
+.lg-page-header {{
+    border: 1px solid {BORDER}; border-radius: 14px; padding: 20px 24px; margin-bottom: 20px;
+    background: linear-gradient(120deg, rgba(0,242,254,0.07) 0%, rgba(79,172,254,0.04) 45%,
+                rgba(16,185,129,0.04) 100%);
+}}
+.lg-page-header h2 {{ margin: 0; font-size: 1.55rem; color: {TEXT} !important; }}
+.lg-page-header p {{ margin: 6px 0 0 0; color: {TEXT_MUTED} !important; font-size: 0.95rem; }}
+.lg-eyebrow {{
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+    color: {CYAN} !important;
+}}
+</style>
+"""
+
+
+def inject_global_styles() -> None:
+    """Inyecta el CSS global. Llamar una vez por página, tras set_page_config."""
+    st.markdown(_GLOBAL_CSS, unsafe_allow_html=True)
 
 
 def apply_page_theme() -> bool:
-    """Se llama al inicio de cada página (igual que ensure_database_ready()).
+    """Punto de entrada que cada página llama al arrancar: fija la plantilla de
+    Plotly e inyecta el CSS global. Devuelve True (modo oscuro) por
+    compatibilidad con el código que esperaba ese booleano."""
+    pio.templates.default = PLOTLY_TEMPLATE
+    inject_global_styles()
+    return True
 
-    1. Fija el template por defecto de Plotly según el modo claro/oscuro
-       vigente, para que TODOS los gráficos de la página salgan consistentes
-       con el fondo, sin tener que modificar cada llamada a px./go.Figure.
-    2. Inyecta el CSS de fondo y tarjetas para que el look sea el mismo en
-       todas las páginas, no solo en la portada.
 
-    Devuelve el booleano de modo oscuro, por si la página lo necesita.
-    """
-    dark = is_dark_mode()
-
-    base_template = "plotly_dark" if dark else "plotly_white"
-    custom = pio.templates[base_template]
-    custom.layout.colorway = COLORWAY
-    custom.layout.paper_bgcolor = "rgba(0,0,0,0)"
-    custom.layout.plot_bgcolor = "rgba(0,0,0,0)"
-    custom.layout.font.color = "#E8EDF2" if dark else "#264653"
-    pio.templates["logisuite"] = custom
-    pio.templates.default = "logisuite"
-
-    from utils.illustrations import page_background_css
-    st.markdown(page_background_css(dark), unsafe_allow_html=True)
-
-    if dark:
-        st.markdown("""
-        <style>
-        .stApp {background-color:#12181F; color:#E8EDF2;}
-        section[data-testid="stSidebar"] {background-color:#1B242F;}
-        h1, h2, h3, h4, h5, p, span, label {color:#E8EDF2 !important;}
-        .lg-card {background-color:#1B242F; border-left:6px solid #2A9D8F;
-                   padding:16px 20px; border-radius:10px; margin-bottom:12px;}
-        .lg-card h4 {margin:0 0 6px 0; color:#7FD1C1 !important;}
-        .lg-card p {margin:0; color:#C3CDD7 !important; font-size:0.92rem;}
-        div[data-testid="stMetric"] {background-color:#1B242F; border-radius:10px;
-             padding:10px 14px; border:1px solid #2A3644;}
-        </style>
-        """, unsafe_allow_html=True)
+# ---------------------------------------------------------------------------
+# Componentes
+# ---------------------------------------------------------------------------
+def kpi_card_html(title: str, value, delta: str = None, is_positive: bool = None,
+                  icon: str = "") -> str:
+    """HTML de una tarjeta KPI. `is_positive=None` pinta el delta en neutro."""
+    if delta is None or delta == "":
+        delta_html = ""
     else:
-        st.markdown("""
-        <style>
-        .lg-card {background-color:#FFFFFF; border-left:6px solid #2A9D8F;
-                   padding:16px 20px; border-radius:10px; margin-bottom:12px;
-                   box-shadow:0 1px 4px rgba(0,0,0,0.06);}
-        .lg-card h4 {margin:0 0 6px 0; color:#264653;}
-        .lg-card p {margin:0; color:#444; font-size:0.92rem;}
-        div[data-testid="stMetric"] {background-color:#F7F9F9; border-radius:10px;
-             padding:10px 14px; border:1px solid #E7ECEC;}
-        </style>
-        """, unsafe_allow_html=True)
+        css = "neu" if is_positive is None else ("pos" if is_positive else "neg")
+        arrow = "" if is_positive is None else ("▲ " if is_positive else "▼ ")
+        delta_html = f'<span class="kpi-delta {css}">{arrow}{html.escape(str(delta))}</span>'
+    icon_html = f'<span class="kpi-icon">{icon}</span>' if icon else ""
+    return (
+        f'<div class="kpi-card"><div class="kpi-head">'
+        f'<span class="kpi-title">{html.escape(str(title))}</span>{icon_html}</div>'
+        f'<div class="kpi-value">{html.escape(str(value))}</div>{delta_html}</div>'
+    )
 
-    # Menú lateral: Streamlit genera automáticamente la navegación a partir de
-    # pages/, así que en vez de reemplazarla por un componente frágil, se
-    # embellece la navegación REAL con CSS: iconos más grandes, resaltado al
-    # pasar el mouse y un indicador de la página activa, para que se sienta
-    # como un menú desplegable "premium" sin arriesgar que deje de funcionar.
-    sidebar_link_bg = "rgba(255,255,255,0.06)" if dark else "rgba(42,157,143,0.07)"
-    sidebar_link_hover = "rgba(42,157,143,0.28)" if dark else "rgba(42,157,143,0.18)"
-    sidebar_active = BRAND_PRIMARY = "#2A9D8F"
-    st.markdown(f"""
-    <style>
-    [data-testid="stSidebarNav"] {{ padding-top: 6px; }}
-    [data-testid="stSidebarNav"] ul li {{ margin-bottom: 3px; }}
-    [data-testid="stSidebarNav"] a {{
-        border-radius: 10px !important;
-        padding: 8px 12px !important;
-        background: {sidebar_link_bg};
-        transition: all 0.15s ease;
-        font-weight: 500;
-    }}
-    [data-testid="stSidebarNav"] a:hover {{
-        background: {sidebar_link_hover} !important;
-        transform: translateX(3px);
-    }}
-    [data-testid="stSidebarNav"] a[aria-current="page"] {{
-        background: {sidebar_active} !important;
-        box-shadow: 0 2px 8px rgba(42,157,143,0.35);
-    }}
-    [data-testid="stSidebarNav"] a[aria-current="page"] span {{ color:#FFFFFF !important; }}
-    </style>
-    """, unsafe_allow_html=True)
 
-    return dark
+def render_kpi_card(title: str, value, delta: str = None, is_positive: bool = None,
+                    icon: str = "") -> None:
+    """Tarjeta KPI glassmorphism. Pensada para usarse dentro de st.columns:
+
+        c1, c2 = st.columns(2)
+        with c1: render_kpi_card("OTIF", "92%", "+3 pts", True, "🎯")
+    """
+    st.markdown(kpi_card_html(title, value, delta, is_positive, icon), unsafe_allow_html=True)
+
+
+def render_kpi_row(cards: list) -> None:
+    """Atajo: una fila de tarjetas, cada una como dict con las claves de
+    render_kpi_card (title, value, delta, is_positive, icon)."""
+    cols = st.columns(len(cards))
+    for col, card in zip(cols, cards):
+        with col:
+            render_kpi_card(**card)
 
 
 def page_header(icon: str, title: str, subtitle: str = "") -> None:
-    """Mini-banner de cabecera consistente para todas las páginas (no solo la
-    portada), con el mismo degradado de marca que el hero de app.py. Sustituye
-    a los pares sueltos st.title()/st.caption() para que las 10 páginas
-    compartan una misma identidad visual en vez de un h1 plano sobre blanco."""
-    import streamlit as st
-    subtitle_html = (f'<p style="color:rgba(255,255,255,0.9); font-size:0.96rem; '
-                      f'margin:4px 0 0 0;">{subtitle}</p>') if subtitle else ""
+    """Cabecera consistente para todas las páginas."""
+    subtitle_html = f"<p>{subtitle}</p>" if subtitle else ""
     st.markdown(f"""
-    <div style="background: linear-gradient(120deg, {BRAND['secondary']} 0%,
-                {BRAND['primary_dark']} 60%, {BRAND['primary']} 100%);
-                border-radius: 14px; padding: 20px 26px; margin-bottom: 18px;
-                box-shadow: 0 4px 14px rgba(0,0,0,0.12);">
-        <h2 style="color:#FFFFFF; margin:0; font-size:1.6rem;">{icon} {title}</h2>
+    <div class="lg-page-header">
+        <span class="lg-eyebrow">LogiSuite TMS</span>
+        <h2>{icon} {title}</h2>
         {subtitle_html}
     </div>
     """, unsafe_allow_html=True)
+
+
+def dataframe_kwargs() -> dict:
+    """Configuración visual estándar para st.dataframe: ancho total, sin índice."""
+    return {"use_container_width": True, "hide_index": True}
