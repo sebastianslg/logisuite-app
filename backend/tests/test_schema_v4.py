@@ -33,13 +33,13 @@ class TestMigracion:
 
     def test_agrega_columnas_nuevas_a_envios(self, conn):
         assert {"source", "forced_modes", "forced_corridors", "created_by",
-                "updated_at", "updated_by", "route_status"} <= _columnas(conn, "mm_shipments")
+                "updated_at", "updated_by", "route_status", "route_note"} <= _columnas(conn, "mm_shipments")
 
     def test_es_idempotente(self, conn):
         apply_v4_migration(conn)
         apply_v4_migration(conn)
-        cuenta = conn.execute("SELECT COUNT(*) FROM system_params WHERE param_key LIKE 'FX_%'").fetchone()[0]
-        assert cuenta == 3
+        cuenta = conn.execute("SELECT COUNT(*) FROM system_params").fetchone()[0]
+        assert cuenta == 4
 
     def test_no_sobrescribe_trm_ingresada(self, conn):
         conn.execute("UPDATE system_params SET param_value = '4100' WHERE param_key = 'FX_USD_COP'")
@@ -58,6 +58,11 @@ class TestMigracion:
         """)
         fila = conn.execute("SELECT source, route_status FROM mm_shipments WHERE shipment_code = 'LS-TEST-0001'").fetchone()
         assert fila == ("seed", "ok")
+
+
+    def test_marca_de_aproximado_en_nodos_y_enlaces(self, conn):
+        assert "approximate" in _columnas(conn, "mm_nodes")
+        assert "approximate" in _columnas(conn, "mm_links")
 
 
 class TestEstadoDeCorredores:
