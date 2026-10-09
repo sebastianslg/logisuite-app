@@ -141,20 +141,32 @@ export default function Map3D({
     const pts = route.legs.flatMap((l) => l.path);
     const { width, height } = containerRef.current.getBoundingClientRect();
     if (!width || !height || pts.length < 2) return;
-    const vp = new WebMercatorViewport({ width, height });
-    const { longitude, latitude, zoom } = vp.fitBounds(boundsOf(pts), {
-      padding: { top: 80, bottom: 80, left: compact ? 40 : 420, right: 80 },
-    });
-    setViewState((v) => ({
-      ...v,
-      longitude,
-      latitude,
-      zoom: Math.min(zoom, 7.5),
-      pitch: 50,
-      bearing: -12,
-      transitionDuration: 1800,
-      transitionInterpolator: new FlyToInterpolator({ speed: 1.4 }),
-    }));
+    // Márgenes según el ancho: en celular el simulador es una hoja inferior y
+    // el margen de escritorio (420 px) supera la pantalla, lo que hace fallar
+    // deck.gl ("assertion failed") y tumba la página.
+    const narrow = width < 768;
+    const padding = {
+      top: narrow ? 40 : 80,
+      bottom: narrow ? Math.round(height * 0.55) : 80,
+      left: compact || narrow ? 24 : 420,
+      right: narrow ? 24 : 80,
+    };
+    try {
+      const vp = new WebMercatorViewport({ width, height });
+      const { longitude, latitude, zoom } = vp.fitBounds(boundsOf(pts), { padding });
+      setViewState((v) => ({
+        ...v,
+        longitude,
+        latitude,
+        zoom: Math.min(zoom, 7.5),
+        pitch: 50,
+        bearing: -12,
+        transitionDuration: 1800,
+        transitionInterpolator: new FlyToInterpolator({ speed: 1.4 }),
+      }));
+    } catch {
+      // Si el encuadre no es posible, la ruta sigue dibujada sin mover la cámara
+    }
     // Solo se re-encuadra cuando cambia la ruta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route]);
