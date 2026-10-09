@@ -2,7 +2,7 @@
 
 Registro de todo lo construido, investigado, decidido y pendiente hasta hoy.
 Rama de trabajo: `claude/laughing-albattani-875mtq`.
-Última actualización: 9 de octubre de 2026 (partes 1 a 7 de la operación en vivo).
+Última actualización: 9 de octubre de 2026 (operación en vivo, auditoría de botones y diseño para celular).
 
 ---
 
@@ -11,6 +11,7 @@ Rama de trabajo: `claude/laughing-albattani-875mtq`.
 | Parte | Estado |
 |---|---|
 | Backend (FastAPI + SQLite + NetworkX) | Funcional. 131 pruebas en verde. |
+| Celular | Menú deslizable y simulador como hoja inferior. Tabla de envíos aún con desplazamiento horizontal. |
 | Frontend (Next.js 16 + Tailwind v4 + deck.gl) | Funcional. Typecheck, lint y build sin errores; flujo completo probado con Playwright. |
 | Vías, envíos editables, USD/COP, PDF, historial | Implementados (ver sección 2 y `docs/AUDITORIA_BOTONES.md`). |
 | Docker local (`docker-compose.yml`) | Probado: ambos contenedores healthy, persistencia verificada. |
@@ -42,6 +43,8 @@ Rama de trabajo: `claude/laughing-albattani-875mtq`.
 | `7ccf509` | Partes 2, 3, 6 y 7 en el backend: cierre de vías con redirección, CRUD de envíos, PDF, enlaces, red ampliada. |
 | `66ce8e7` | Un vuelo en el aire no se devuelve al cerrar su ruta; alertas en el dashboard. |
 | `2a24771` | Partes 2 a 6 en el frontend: `/vias`, envíos editables, USD/COP, PDF y auditoría de controles. |
+| `cf1f6f8` | Documentación: `docs/AUDITORIA_BOTONES.md` y bitácora actualizada. |
+| `5fbf612` | Diseño para celular: barra con menú deslizable, simulador como hoja inferior en `/red`. |
 
 ---
 
@@ -169,6 +172,26 @@ Pendientes que siguen abiertos:
 - ¿Migrar a Hetzner antes de la revisión del profesor o usar Oracle gratis?
 
 ---
+
+### Diseño para celular (hecho)
+
+- Menos de 768 px: barra superior con menú deslizable (navegación, moneda y operador). En escritorio no cambia.
+- `/red`: el simulador es una hoja inferior en celular; los controles de capas usan texto corto.
+- Revisado a 390 px en Chromium: sin desbordamiento horizontal en dashboard, envíos, vías, configuración, red y nuevo envío.
+- Pendiente: la tabla de envíos sigue con desplazamiento horizontal; falta una vista de tarjetas.
+
+### Mejoras propuestas (sin iniciar)
+
+1. Autenticación o modo de solo lectura antes de compartir el enlace público.
+2. Base de datos persistente (en Render la base vive en `/tmp` y se pierde al reiniciar).
+3. Tarjetas en celular para la lista de envíos.
+4. Notificaciones de vías cerradas y envíos sin ruta fuera del dashboard.
+5. Exportar a Excel la tabla filtrada.
+6. Búsqueda global de envíos, vías y ciudades.
+7. Duplicar un envío.
+8. Pruebas end-to-end automáticas con Playwright.
+9. Validar coordenadas aproximadas contra INVÍAS, ANI y Cormagdalena.
+10. Actualizar dependencias con vulnerabilidades reportadas (sección 5).
 
 ## 8. Cosas a verificar antes de confiar en ellas
 
