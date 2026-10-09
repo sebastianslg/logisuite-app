@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/copy-maplibre-worker.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/copy-maplibre-worker.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -11,6 +13,7 @@
   },
   "dependencies": {
     "@deck.gl/core": "^9.4.0",
+    "@deck.gl/extensions": "^9.4.0",
     "@deck.gl/geo-layers": "^9.4.0",
     "@deck.gl/layers": "^9.4.0",
     "@deck.gl/mapbox": "^9.4.0",

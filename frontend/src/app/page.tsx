@@ -15,7 +15,7 @@ import {
 import { BentoCell, BentoGrid, KpiCard } from "@/components/dashboard/bento";
 import { DispatchTrend, ModalSplit, TopCorridors } from "@/components/dashboard/charts";
 import { LiveFleet } from "@/components/dashboard/live-fleet";
-import { NetworkOverview } from "@/components/dashboard/network-overview";
+import { NetworkMapCard } from "@/components/dashboard/network-map-card";
 import { StatusBreakdown } from "@/components/dashboard/status-breakdown";
 import { PageHeader, Skeleton } from "@/components/page-header";
 import { apiGet } from "@/lib/api";
@@ -81,12 +81,12 @@ async function DashboardContent() {
       />
 
       <BentoCell
-        className="md:col-span-6 xl:col-span-8 xl:row-span-2"
+        className="min-h-[560px] md:col-span-6 xl:col-span-8 xl:row-span-2"
         title="Red multimodal"
         description={`${summary.network.nodes} nodos · ${summary.network.links} enlaces`}
         icon={<Network />}
       >
-        <NetworkOverview network={summary.network} />
+        <NetworkMapCard network={summary.network} />
       </BentoCell>
 
       <BentoCell
