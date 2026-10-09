@@ -387,6 +387,7 @@ def seed_v2_only():
     _seed_tariff_scenarios()
     _seed_corridor_history()
     _seed_emissions()
+    seed_multimodal()
 
 
 def _seed_users():
@@ -475,3 +476,55 @@ def _seed_emissions():
                      kg_co2e, computed_at) VALUES (?,?,?,?,?,?)""",
                    (e["shipment_id"], "Terrestre", distancia, calc["ton_km"], calc["kg_co2e"],
                     datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+
+# ===========================================================================
+# RED MULTIMODAL (esquema v3): carretera, río, mar, aire y ferrocarril
+# ===========================================================================
+def seed_multimodal():
+    """Siembra la red multimodal de Colombia y la carga inicial de envíos.
+    Idempotente: solo actúa si las tablas están vacías."""
+    if run_query("SELECT COUNT(*) c FROM mm_nodes").iloc[0]["c"] == 0:
+        _seed_mm_network()
+    if run_query("SELECT COUNT(*) c FROM mm_shipments").iloc[0]["c"] == 0:
+        _seed_mm_shipments()
+
+
+def _seed_mm_network():
+    import json
+    from app.data.colombia_multimodal import (NODES, LINKS, MODE_PARAMS, TRANSFER_BY_KIND,
+                                              CAPACITY_OVERRIDES)
+    from app.engine.multimodal import haversine_km
+
+    coords = {}
+    for code, name, kind, city, dept, lat, lon, iata in NODES:
+        t_h, t_cost = TRANSFER_BY_KIND[kind]
+        run_write("""INSERT INTO mm_nodes (node_code, name, kind, city, department_code, latitude,
+                     longitude, iata, transfer_time_h, transfer_cost_per_t)
+                     VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                   (code, name, kind, city, dept, lat, lon, iata, t_h, t_cost))
+        coords[code] = (lat, lon)
+
+    for o, d, mode, corridor, km, hours, via in LINKS:
+        points = [coords[o], *via, coords[d]]
+        geometry = [[round(lon, 4), round(lat, 4)] for lat, lon in points]
+        if km is None:
+            km = haversine_km(*coords[o], *coords[d])
+        params = MODE_PARAMS[mode]
+        capacity = CAPACITY_OVERRIDES.get((o, d), params["capacity_t"])
+        run_write("""INSERT INTO mm_links (origin_code, dest_code, mode, corridor, distance_km,
+                     time_h, cost_per_tkm, fixed_cost, capacity_t, geometry_json)
+                     VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                   (o, d, mode, corridor, round(km), hours, params["cost_per_tkm"],
+                    params["fixed_cost"], capacity, json.dumps(geometry)))
+
+
+def _seed_mm_shipments():
+    from app.engine.multimodal import MultimodalNetwork
+    from app.engine.dispatch import generate_initial_shipments
+
+    network = MultimodalNetwork.from_db()
+    for sh in generate_initial_shipments(network, datetime.now()):
+        cols = list(sh.keys())
+        run_write(f"INSERT INTO mm_shipments ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
+                   tuple(sh[c] for c in cols))

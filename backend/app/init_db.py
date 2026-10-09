@@ -1,6 +1,6 @@
 """
 init_db.py
-Crea el esquema relacional (base + extensiones v2) y carga datos de prueba
+Crea el esquema relacional (base + extensiones v2 + red multimodal v3) y carga datos de prueba
 automáticamente. Se ejecuta una sola vez, o se detecta y omite si la base ya
 existe, para que el despliegue funcione sin pasos manuales.
 
@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database.schema import SCHEMA_SQL
 from app.database.schema_v2 import SCHEMA_V2_SQL
+from app.database.schema_v3 import SCHEMA_V3_SQL
 from app.database.db import DB_PATH
 
 
@@ -33,6 +34,7 @@ def init_database(reset: bool = False):
     conn = sqlite3.connect(DB_PATH)
     conn.executescript(SCHEMA_SQL)
     conn.executescript(SCHEMA_V2_SQL)
+    conn.executescript(SCHEMA_V3_SQL)
     conn.commit()
     conn.close()
 
@@ -49,7 +51,7 @@ def init_database(reset: bool = False):
         from app.utils.seed_data import ensure_core_seeded, seed_v2_only
         ensure_core_seeded()
         seed_v2_only()
-        print(f"Base de datos existente actualizada al esquema v2 en: {DB_PATH}")
+        print(f"Base de datos existente actualizada al esquema v3 en: {DB_PATH}")
 
 
 if __name__ == "__main__":
