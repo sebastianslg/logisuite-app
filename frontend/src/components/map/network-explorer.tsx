@@ -7,6 +7,7 @@ import {
   ArrowDownUp,
   ArrowRightLeft,
   ChevronDown,
+  Rows3,
   Clock,
   CircleDollarSign,
   Layers,
@@ -45,6 +46,9 @@ export function NetworkExplorer() {
   const [modes, setModes] = useState<Set<Mode>>(new Set(MODE_ORDER));
   const [showDepartments, setShowDepartments] = useState(true);
   const [showFleet, setShowFleet] = useState(true);
+  // Vista: mapa visible u ocultos (solo datos) y panel del simulador abierto o plegado
+  const [showMap, setShowMap] = useState(true);
+  const [panelOpen, setPanelOpen] = useState(true);
 
   useEffect(() => {
     fetch("/api/locations")
@@ -93,7 +97,7 @@ export function NetworkExplorer() {
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
-      <div className="absolute inset-0">
+      <div className={cn("absolute inset-0", !showMap && "hidden")}>
         {network && departments ? (
           <Map3DLazy
             network={network}
@@ -110,35 +114,58 @@ export function NetworkExplorer() {
       </div>
 
       {/* Encabezado */}
-      <div className="pointer-events-none absolute top-14 right-0 left-0 flex flex-wrap items-start justify-between gap-3 p-3 md:top-0 md:gap-4 md:p-6">
+      <div className="pointer-events-none absolute top-14 right-0 left-0 z-20 flex flex-wrap items-start justify-between gap-3 p-3 md:top-0 md:gap-4 md:p-6">
         <div className="pointer-events-auto">
           <div className="flex items-center gap-2 text-[11px] font-medium tracking-[0.14em] text-neon-cyan uppercase">
             <Waypoints className="size-3.5" /> GIS 3D · Red multimodal
           </div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Colombia en movimiento</h1>
         </div>
-        <LayerPanel
-          modes={modes}
-          toggleMode={toggleMode}
-          showDepartments={showDepartments}
-          setShowDepartments={setShowDepartments}
-          showFleet={showFleet}
-          setShowFleet={setShowFleet}
-          fleetCount={fleet?.count ?? 0}
-        />
+        <div className="pointer-events-auto flex items-center gap-2">
+          <ViewToggle showMap={showMap} setShowMap={setShowMap} />
+          {showMap && (
+            <LayerPanel
+              modes={modes}
+              toggleMode={toggleMode}
+              showDepartments={showDepartments}
+              setShowDepartments={setShowDepartments}
+              showFleet={showFleet}
+              setShowFleet={setShowFleet}
+              fleetCount={fleet?.count ?? 0}
+            />
+          )}
+        </div>
       </div>
 
-      {/* Simulador */}
+      {/* Simulador: panel flotante (mapa), hoja inferior (celular) o pantalla completa (solo datos) */}
+      {panelOpen ? (
       <motion.aside
         initial={{ opacity: 0, x: -16 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute inset-x-2 bottom-2 z-10 flex max-h-[52vh] flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0b0f19]/90 shadow-2xl shadow-black/50 backdrop-blur-xl md:inset-x-auto md:top-28 md:bottom-6 md:left-6 md:max-h-none md:w-[380px] md:bg-[#0b0f19]/75"
+        className={cn(
+          "absolute z-10 flex flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0b0f19]/90 shadow-2xl shadow-black/50 backdrop-blur-xl",
+          showMap
+            ? "inset-x-2 bottom-2 max-h-[52vh] md:inset-x-auto md:top-28 md:bottom-6 md:left-6 md:max-h-none md:w-[380px] md:bg-[#0b0f19]/75"
+            : "inset-x-2 top-48 bottom-2 md:inset-x-auto md:top-28 md:bottom-6 md:left-1/2 md:w-[min(960px,calc(100%-3rem))] md:-translate-x-1/2 md:bg-[#0b0f19]/85",
+        )}
       >
-        <div className="border-b border-white/[0.06] p-5">
+        <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] p-5">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Route className="size-4 text-neon-cyan" /> Simulador de rutas multimodales
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="-mt-1 -mr-2 size-8 shrink-0"
+            aria-label="Ocultar simulador"
+            title="Ocultar simulador"
+            onClick={() => setPanelOpen(false)}
+          >
+            <ChevronDown />
+          </Button>
+        </div>
+        <div className="border-b border-white/[0.06] p-5">
           <div className="mt-4 grid grid-cols-[1fr_auto] items-end gap-2">
             <div className="flex flex-col gap-2">
               <CitySelect label="Origen" value={origin} onChange={setOrigin} cities={cities} />
@@ -237,10 +264,48 @@ export function NetworkExplorer() {
           </AnimatePresence>
         </div>
       </motion.aside>
+      ) : (
+        <Button
+          variant="secondary"
+          className="absolute bottom-3 left-3 z-10 shadow-xl md:top-28 md:bottom-auto md:left-6"
+          onClick={() => setPanelOpen(true)}
+        >
+          <Route />
+          Mostrar simulador
+        </Button>
+      )}
 
-      <div className="pointer-events-none absolute right-6 bottom-6 rounded-lg border border-white/[0.06] bg-[#0b0f19]/70 px-4 py-3 backdrop-blur-md">
-        <MapLegend />
-      </div>
+      {showMap && (
+        <div className="pointer-events-none absolute right-6 bottom-6 hidden rounded-lg border border-white/[0.06] bg-[#0b0f19]/70 px-4 py-3 backdrop-blur-md md:block">
+          <MapLegend />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Mapa visible u oculto (solo datos). En celular la leyenda queda fuera. */
+function ViewToggle({ showMap, setShowMap }: { showMap: boolean; setShowMap: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center gap-0.5 rounded-lg border border-white/[0.08] bg-[#0b0f19]/75 p-1 backdrop-blur-xl" role="group" aria-label="Vista">
+      {[
+        { key: true, label: "Mapa", icon: <MapIcon className="size-3.5" /> },
+        { key: false, label: "Datos", icon: <Rows3 className="size-3.5" /> },
+      ].map((v) => (
+        <button
+          key={v.label}
+          type="button"
+          onClick={() => setShowMap(v.key)}
+          aria-pressed={showMap === v.key}
+          className={cn(
+            "flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors [&_svg]:size-3.5",
+            showMap === v.key ? "bg-white/[0.08] text-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {v.icon}
+          {v.label}
+        </button>
+      ))}
     </div>
   );
 }
