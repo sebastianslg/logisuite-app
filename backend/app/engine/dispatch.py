@@ -144,10 +144,10 @@ def generate_initial_shipments(network: MultimodalNetwork, now: datetime, seed: 
         shipments.append(s)
         return s
 
-    # Historial: 12 entregados en los últimos 20 días
+    # Historial: 12 entregados en los últimos 20 días; dos llegaron tarde
     for i in range(12):
         t = TEMPLATES[i % len(TEMPLATES)]
-        add(t, now - timedelta(days=rng.uniform(12, 20)))
+        add(t, now - timedelta(days=rng.uniform(12, 20)), delay=6.0 if i in (3, 8) else 0.0)
 
     # En tránsito: cada plantilla una vez, a mitad de camino. Los tres primeros
     # con transbordo quedan dentro de su ventana para que haya cargas en
