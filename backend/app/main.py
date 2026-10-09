@@ -531,6 +531,11 @@ def dashboard_summary() -> dict:
         "modal_split": modal_split,
         "top_corridors": top_corridors,
         "dispatches_14d": [{"date": d.isoformat(), "count": per_day[d]} for d in days],
+        "alerts": {
+            "closed_corridors": sorted(network().closed_corridors),
+            "no_route": sorted(r["shipment_code"] for r in rows
+                               if r.get("route_status") == "sin_ruta" and r["status"] != "Entregado"),
+        },
         "network": {"nodes": len(network().nodes), "links": len(network().links),
                     "modes": S.network_geojson(network())["stats"]},
     }

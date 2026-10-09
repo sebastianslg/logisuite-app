@@ -287,6 +287,14 @@ def _seg_corridors(seg: dict) -> set:
     return set(seg.get("corridors") or [seg["corridor"]])
 
 
+def _blocked(seg: dict, mode: str, h: float, closed: set) -> bool:
+    """Segmento pendiente que usa una vía cerrada. Un vuelo en curso no se
+    devuelve: el cierre de una ruta aérea solo afecta vuelos por despegar."""
+    if seg["end_h"] <= h or not (_seg_corridors(seg) & closed):
+        return False
+    return not (mode == "aereo" and seg["start_h"] <= h)
+
+
 def _path_between(timeline: list, t0: float, t1: float) -> list:
     return [[p["lon"], p["lat"]] for p in timeline if t0 - 1e-9 <= p["t_h"] <= t1 + 1e-9]
 
@@ -315,7 +323,7 @@ def reroute(net: MultimodalNetwork, s: dict, now: datetime) -> dict:
     h = st["route_h"]
     legs, timeline = route["legs"], route["timeline"]
     hit = next(((i, j) for i, l in enumerate(legs) if l["end_h"] > h
-                for j, sg in enumerate(_segments(l)) if sg["end_h"] > h and _seg_corridors(sg) & closed),
+                for j, sg in enumerate(_segments(l)) if _blocked(sg, l["mode"], h, closed)),
                None)
     if hit is None:
         return route
@@ -382,7 +390,7 @@ def reroute(net: MultimodalNetwork, s: dict, now: datetime) -> dict:
 
 
 def _uses_closed(route: dict, route_h: float, closed: set) -> bool:
-    return any(sg["end_h"] > route_h and _seg_corridors(sg) & closed
+    return any(_blocked(sg, l["mode"], route_h, closed)
                for l in route["legs"] if l["end_h"] > route_h for sg in _segments(l))
 
 

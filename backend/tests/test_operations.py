@@ -271,3 +271,26 @@ class TestRedAmpliada:
         antes = db.run_query("SELECT COUNT(*) c FROM mm_links").iloc[0]["c"]
         _seed_mm_network()
         assert db.run_query("SELECT COUNT(*) c FROM mm_links").iloc[0]["c"] == antes
+
+
+class TestVueloEnCurso:
+
+    def test_cierre_aereo_no_devuelve_un_vuelo_en_el_aire(self, client):
+        from app.engine.dispatch import status_at
+        from app.engine.operations import _segments
+        now = datetime.now()
+        for s in _rows("SELECT * FROM mm_shipments WHERE status IN ('En Ruta','Retrasado')"):
+            route = json.loads(s["route_json"])
+            h = status_at(s, now, route)["route_h"]
+            vuelo = next((sg for l in route["legs"] if l["mode"] == "aereo" for sg in _segments(l)
+                          if sg["start_h"] <= h < sg["end_h"] and sg.get("corridor")), None)
+            if vuelo:
+                break
+        else:
+            pytest.skip("no hay un vuelo en el aire en la semilla")
+        via = vuelo["corridor"]
+        client.post("/api/corridors/status", json={"corridor": via, "active": False, "reason": "Cierre de pista"})
+        nuevo = json.loads(_rows("SELECT route_json FROM mm_shipments WHERE shipment_code = ?",
+                                 (s["shipment_code"],))[0]["route_json"])
+        assert not any(l.get("interrupted") or l.get("detour") for l in nuevo["legs"])
+        client.post("/api/corridors/status", json={"corridor": via, "active": True})
