@@ -24,8 +24,6 @@ services:
     envVars:
       - key: TZ
         value: America/Bogota
+      # URL completa con esquema: el proxy de Next.js la usa para llamar a la API
       - key: API_INTERNAL_URL
-        fromService:
-          type: web
-          name: logisuite-api
-          property: host
+        value: https://logisuite-api.onrender.com
