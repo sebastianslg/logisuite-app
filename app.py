@@ -25,27 +25,26 @@ st.set_page_config(
 # migración de esquema se pone al día sin perder datos (ver database/db.py).
 ensure_database_ready()
 
+# El sistema de diseño (CSS global + plantilla Plotly) se inyecta al arrancar,
+# antes del login, para que también la pantalla de acceso salga con el tema.
+from utils.theme import apply_page_theme, render_kpi_card, CYAN, EMERALD, TEXT_MUTED
+apply_page_theme()
+
 from utils.i18n import t, language_selector
 from utils.auth import login_form, render_sidebar_user
 from utils.alerts import alert_counts
 from utils.data_tools import global_search
-from utils.theme import apply_page_theme, BRAND
 
 if not login_form():
     st.stop()
 
 # ---------------------------------------------------------------------------
-# Barra lateral: usuario, idioma, tema y búsqueda global
+# Barra lateral: usuario, idioma y búsqueda global
 # ---------------------------------------------------------------------------
 render_sidebar_user()
 language_selector()
 
 with st.sidebar:
-    st.divider()
-    modo_oscuro = st.toggle("🌙 Modo oscuro", value=st.session_state.get("dark_mode", False),
-                             help="Alterna entre tema claro y oscuro en toda la aplicación")
-    st.session_state["dark_mode"] = modo_oscuro
-
     st.divider()
     st.markdown(f"### 🔎 {t('search')}")
     consulta = st.text_input(t("search"), placeholder=t("search_placeholder"),
@@ -58,100 +57,67 @@ with st.sidebar:
             st.caption(f"{len(resultados)} coincidencia(s)")
             for r in resultados[:15]:
                 st.markdown(f"**{r.get('identificador','')}** · {r.get('tipo','')}  \n"
-                            f"<span style='font-size:0.82rem;color:#888'>"
+                            f"<span style='font-size:0.82rem;color:{TEXT_MUTED}'>"
                             f"{r.get('modulo','')} — {r.get('descripcion','')}</span>",
                             unsafe_allow_html=True)
 
-# apply_page_theme() lee st.session_state['dark_mode'] recién actualizado por
-# el toggle de arriba, así que se llama DESPUÉS: fija el template de Plotly
-# para toda la página e inyecta el CSS base compartido con las demás páginas.
-dark = apply_page_theme()
-
 # ---------------------------------------------------------------------------
-# CSS específico de la portada: banner "hero" con ilustración SVG propia
-# (sin depender de imágenes externas, para que nunca se rompa en el despliegue)
+# CSS específico de la portada: hero con brillo cyan y tarjetas de módulo
+# glassmorphism, sobre el CSS global de utils/theme.py.
 # ---------------------------------------------------------------------------
-hero_text_color = "#FFFFFF"
-card_bg = "#1B242F" if dark else "#FFFFFF"
-card_text = "#C3CDD7" if dark else "#444444"
-card_title = "#7FD1C1" if dark else BRAND["secondary"]
-chip_bg = "#1B242F" if dark else "#F0F7F6"
-
 st.markdown(f"""
 <style>
 .lg-hero {{
-    background: linear-gradient(120deg, {BRAND["secondary"]} 0%, {BRAND["primary_dark"]} 55%, {BRAND["primary"]} 100%);
-    border-radius: 18px;
-    padding: 38px 42px;
-    margin-bottom: 22px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    position: relative; overflow: hidden; border-radius: 16px; padding: 40px 44px;
+    margin-bottom: 22px; border: 1px solid rgba(255,255,255,0.08);
+    background:
+        radial-gradient(700px 300px at 0% 0%, rgba(0,242,254,0.14), transparent 60%),
+        radial-gradient(600px 300px at 100% 100%, rgba(16,185,129,0.10), transparent 60%),
+        rgba(255,255,255,0.02);
 }}
 .lg-hero h1 {{
-    color: {hero_text_color}; font-size: 2.4rem; font-weight: 800; margin: 0 0 8px 0;
+    font-size: 2.6rem; font-weight: 800; margin: 0 0 10px 0; letter-spacing: -0.03em;
+    background: linear-gradient(90deg, #F8FAFC 0%, {CYAN} 60%, {EMERALD} 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent !important;
+    -webkit-text-fill-color: transparent;
 }}
-.lg-hero p {{
-    color: rgba(255,255,255,0.88); font-size: 1.08rem; margin: 0; max-width: 640px;
-}}
+.lg-hero p {{ color: {TEXT_MUTED} !important; font-size: 1.05rem; margin: 0; max-width: 640px; }}
 .lg-hero .lg-badge {{
-    display:inline-block; background: rgba(255,255,255,0.18); color:#fff;
-    padding: 4px 14px; border-radius: 999px; font-size: 0.8rem; margin-bottom: 14px;
-    letter-spacing: 0.03em;
+    display: inline-block; background: rgba(0,242,254,0.08); color: {CYAN} !important;
+    border: 1px solid rgba(0,242,254,0.25); padding: 4px 12px; border-radius: 999px;
+    font-size: 0.74rem; margin-bottom: 16px; letter-spacing: 0.08em; font-weight: 600;
 }}
-.lg-chip-row {{ display:flex; gap:14px; flex-wrap:wrap; margin: 18px 0 26px 0; }}
-.lg-chip {{
-    background: {chip_bg}; border-radius: 12px; padding: 14px 18px; flex:1;
-    min-width: 150px; text-align:center; border: 1px solid rgba(42,157,143,0.25);
-    transition: transform 0.15s ease;
-}}
-.lg-chip .icon {{ font-size: 1.6rem; }}
-.lg-chip .label {{ font-size: 0.85rem; color: {card_text}; margin-top:4px; font-weight:600; }}
-.lg-module-card {{
-    background-color: {card_bg}; border-radius: 14px; padding: 18px 20px;
-    margin-bottom: 14px; border: 1px solid rgba(42,157,143,0.18);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    transition: box-shadow 0.15s ease;
-}}
-.lg-module-card:hover {{ box-shadow: 0 4px 16px rgba(42,157,143,0.25); }}
 .lg-module-card .lg-icon-badge {{
-    display:inline-flex; align-items:center; justify-content:center;
-    width:42px; height:42px; border-radius:12px; font-size:1.3rem;
-    background: linear-gradient(135deg, {BRAND["primary"]}, {BRAND["primary_dark"]});
-    margin-bottom:8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: 10px; font-size: 1.2rem; margin-bottom: 8px;
+    background: rgba(0,242,254,0.08); border: 1px solid rgba(0,242,254,0.20);
 }}
-.lg-module-card h4 {{ margin:2px 0 6px 0; color:{card_title}; font-size:1.05rem; }}
-.lg-module-card p {{ margin:0 0 4px 0; color:{card_text}; font-size:0.9rem; line-height:1.4; }}
+.lg-module-card p {{ margin: 0 0 4px 0; color: {TEXT_MUTED} !important; font-size: 0.9rem; line-height: 1.45; }}
 .lg-hover-extra {{
     max-height: 0; opacity: 0; overflow: hidden;
     transition: max-height 0.25s ease, opacity 0.2s ease;
-    border-top: 1px dashed rgba(42,157,143,0.35); margin-top: 0;
+    border-top: 1px dashed rgba(0,242,254,0.25); margin-top: 0;
 }}
-.lg-module-card:hover .lg-hover-extra {{ max-height: 220px; opacity: 1; margin-top: 10px; padding-top: 8px; }}
+[data-testid="stVerticalBlockBorderWrapper"]:hover .lg-hover-extra {{
+    max-height: 220px; opacity: 1; margin-top: 10px; padding-top: 8px;
+}}
 .lg-hover-extra ul {{ margin: 0; padding-left: 18px; }}
-.lg-hover-extra li {{ font-size: 0.83rem; color: {card_text}; margin-bottom: 3px; }}
-.lg-hover-hint {{ font-size: 0.72rem; color: {BRAND["primary"]}; font-weight:600;
-                   margin-top:6px; letter-spacing:0.02em; }}
+.lg-hover-extra li {{ font-size: 0.83rem; color: {TEXT_MUTED} !important; margin-bottom: 3px; }}
+.lg-hover-hint {{ font-size: 0.72rem; color: {CYAN} !important; font-weight: 600;
+                   margin-top: 6px; letter-spacing: 0.02em; opacity: 0.8; }}
+[data-testid="stVerticalBlockBorderWrapper"] {{ transition: border-color 0.2s ease, transform 0.2s ease; }}
+[data-testid="stVerticalBlockBorderWrapper"]:hover {{ border-color: rgba(0,242,254,0.25) !important; }}
 
-/* Los accesos rápidos y los enlaces de módulo usan st.page_link, que SÍ
-   navega de verdad (a diferencia de los divs decorativos anteriores).
-   Este bloque los viste como chips/botones sin tocar su comportamiento. */
+/* st.page_link vestido como botón/chip sin alterar su navegación */
 div[data-testid="stPageLink"] {{
-    background: {chip_bg};
-    border: 1px solid rgba(42,157,143,0.30);
-    border-radius: 12px;
-    padding: 6px 4px;
-    transition: all 0.15s ease;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; padding: 6px 4px; transition: all 0.15s ease;
 }}
 div[data-testid="stPageLink"]:hover {{
-    border-color: {BRAND["primary"]};
-    box-shadow: 0 3px 10px rgba(42,157,143,0.25);
-    transform: translateY(-1px);
+    border-color: rgba(0,242,254,0.45); box-shadow: 0 6px 20px rgba(0,242,254,0.10);
+    transform: translateY(-2px);
 }}
-div[data-testid="stPageLink"] p {{
-    font-weight: 600 !important; font-size: 0.92rem !important;
-    color: {card_title} !important;
-}}
+div[data-testid="stPageLink"] p {{ font-weight: 600 !important; font-size: 0.92rem !important; color: #E2E8F0 !important; }}
 .lg-module-link div[data-testid="stPageLink"] p {{ font-size: 1.02rem !important; }}
 </style>
 """, unsafe_allow_html=True)
@@ -160,19 +126,19 @@ div[data-testid="stPageLink"] p {{
 # HERO: banner de bienvenida con ilustración SVG (ruta + camión + nodos)
 # ---------------------------------------------------------------------------
 from utils.illustrations import warehouse_scene_svg
-hero_svg = warehouse_scene_svg(width=260, height=170)
+# El SVG se compacta en una sola línea: sus líneas en blanco seguidas de
+# líneas indentadas harían que Markdown lo pinte como bloque de código.
+hero_svg = " ".join(warehouse_scene_svg(width=260, height=170).split())
 
-hcol1, hcol2 = st.columns([3, 1])
-with hcol1:
-    st.markdown(f"""
-    <div class="lg-hero">
-        <span class="lg-badge">🚛 100% NATIVO PARA LA NUBE</span>
-        <h1>{t('app_title')}</h1>
-        <p>{t('app_subtitle')} — mapas geográficos reales, optimización de redes,
-        motor de costos parametrizado y simulación de decisiones logísticas.</p>
-        <div style="position:absolute; right:20px; bottom:0;">{hero_svg}</div>
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown(f"""
+<div class="lg-hero">
+    <span class="lg-badge">TMS · RED LOGÍSTICA DE COLOMBIA</span>
+    <h1>{t('app_title')}</h1>
+    <p>{t('app_subtitle')} — CEDIs, puertos y corredores troncales de Colombia sobre
+    mapas WebGL, optimización de rutas, motor de costos y simulación de la red.</p>
+    <div style="position:absolute; right:28px; bottom:0; opacity:0.55;">{hero_svg}</div>
+</div>
+""", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Fila de accesos rápidos: enlaces reales a las páginas más usadas
@@ -188,7 +154,7 @@ accesos_rapidos = [
 chip_cols = st.columns(len(accesos_rapidos))
 for col, (destino, etiqueta, icono) in zip(chip_cols, accesos_rapidos):
     with col:
-        st.page_link(destino, label=etiqueta, icon=icono, use_container_width=True)
+        st.page_link(destino, label=etiqueta, icon=icono, width="stretch")
 
 st.write("")
 
@@ -198,10 +164,16 @@ st.write("")
 conteo = alert_counts()
 if conteo["total"]:
     a1, a2, a3, a4 = st.columns(4)
-    a1.metric("🔴 Críticas", conteo["critica"])
-    a2.metric("🟠 Altas", conteo["alta"])
-    a3.metric("🟡 Medias", conteo["media"])
-    a4.metric(f"🚨 {t('alerts')} ({t('total')})", conteo["total"])
+    with a1:
+        render_kpi_card("Alertas críticas", conteo["critica"],
+                        "requieren acción" if conteo["critica"] else "sin pendientes",
+                        conteo["critica"] == 0, "🔴")
+    with a2:
+        render_kpi_card("Alertas altas", conteo["alta"], icon="🟠")
+    with a3:
+        render_kpi_card("Alertas medias", conteo["media"], icon="🟡")
+    with a4:
+        render_kpi_card(f"{t('alerts')} ({t('total')})", conteo["total"], icon="🚨")
     if conteo["critica"]:
         st.error(f"Hay {conteo['critica']} alerta(s) crítica(s) sin atender. "
                  "Revisa el Centro de Alertas en el menú lateral.")
@@ -260,20 +232,19 @@ with col1:
     for i, (destino, icon, title, desc, features) in enumerate(modules):
         with grid[i % 2]:
             with st.container(border=True):
-                st.markdown('<div class="lg-module-card">', unsafe_allow_html=True)
-                st.markdown(f'<div class="lg-icon-badge">{icon}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="lg-module-card"><div class="lg-icon-badge">{icon}</div></div>',
+                            unsafe_allow_html=True)
                 st.markdown('<div class="lg-module-link">', unsafe_allow_html=True)
-                st.page_link(destino, label=title, use_container_width=True)
+                st.page_link(destino, label=title, width="stretch")
                 st.markdown('</div>', unsafe_allow_html=True)
-                st.markdown(f'<p>{desc}</p>', unsafe_allow_html=True)
+                st.markdown(f'<div class="lg-module-card"><p>{desc}</p></div>', unsafe_allow_html=True)
                 items_html = "".join(f"<li>{f}</li>" for f in features)
                 st.markdown(f"""
                 <div class="lg-hover-extra">
                     <ul>{items_html}</ul>
                 </div>
-                <div class="lg-hover-hint">👆 pasa el mouse para ver el detalle</div>
+                <div class="lg-hover-hint">Pasa el mouse para ver el detalle</div>
                 """, unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
     st.markdown(f"### {t('system_status')}")
@@ -284,12 +255,18 @@ with col2:
         except Exception:
             return 0
 
-    st.metric("Nodos activos en la red", _count("SELECT COUNT(*) c FROM nodes WHERE active=1"))
-    st.metric("Corredores de transporte", _count("SELECT COUNT(*) c FROM corridors WHERE active=1"))
-    st.metric("Envíos registrados", _count("SELECT COUNT(*) c FROM shipments"))
-    st.metric("SKUs en inventario", _count("SELECT COUNT(*) c FROM inventory_items"))
-    st.metric("Vehículos en flota", _count("SELECT COUNT(*) c FROM vehicles"))
-    st.metric("Documentos aduaneros", _count("SELECT COUNT(*) c FROM customs_documents"))
+    estado = [
+        ("Nodos activos en la red", "SELECT COUNT(*) c FROM nodes WHERE active=1", "📍"),
+        ("Corredores de transporte", "SELECT COUNT(*) c FROM corridors WHERE active=1", "🛣️"),
+        ("Envíos registrados", "SELECT COUNT(*) c FROM shipments", "📦"),
+        ("SKUs en inventario", "SELECT COUNT(*) c FROM inventory_items", "🏷️"),
+        ("Vehículos en flota", "SELECT COUNT(*) c FROM vehicles", "🚛"),
+        ("Documentos aduaneros", "SELECT COUNT(*) c FROM customs_documents", "🛃"),
+    ]
+    sc1, sc2 = st.columns(2)
+    for i, (titulo, sql, icono) in enumerate(estado):
+        with (sc1 if i % 2 == 0 else sc2):
+            render_kpi_card(titulo, _count(sql), icon=icono)
 
     st.info("Usa el menú lateral para navegar entre módulos. El Dashboard Ejecutivo consolida "
             "los KPIs de toda la red.", icon="ℹ️")

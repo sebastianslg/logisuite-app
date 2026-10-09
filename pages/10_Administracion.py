@@ -45,7 +45,7 @@ with tab1:
         udf = pd.DataFrame(usuarios)
         udf.columns = ["ID", "Usuario", "Nombre completo", "Rol", "Activo", "Creado"]
         udf["Activo"] = udf["Activo"].map({1: "Sí", 0: "No"})
-        st.dataframe(udf, use_container_width=True, hide_index=True)
+        st.dataframe(udf, width="stretch", hide_index=True)
 
     st.divider()
     st.markdown("#### Crear nuevo usuario")
@@ -114,15 +114,15 @@ with tab2:
             st.markdown("**Acciones por tipo**")
             acc_df = pd.DataFrame(resumen["by_action"])
             fig = px.bar(acc_df, x="action", y="n", color="action", text_auto=True,
-                          color_discrete_sequence=px.colors.qualitative.Set2)
+                          )
             fig.update_layout(showlegend=False, height=300)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         with g2:
             st.markdown("**Acciones por usuario**")
             usr_df = pd.DataFrame(resumen["by_user"])
             fig2 = px.pie(usr_df, names="username", values="n", hole=0.4)
             fig2.update_layout(height=300)
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, width="stretch")
 
     st.divider()
     f1, f2, f3 = st.columns(3)
@@ -139,7 +139,7 @@ with tab2:
     if log:
         ldf = pd.DataFrame(log)[["timestamp", "username", "action", "table_name", "record_id", "detail"]]
         ldf.columns = ["Fecha y hora", "Usuario", "Acción", "Tabla", "Registro", "Detalle"]
-        st.dataframe(ldf, use_container_width=True, hide_index=True)
+        st.dataframe(ldf, width="stretch", hide_index=True)
         st.download_button("📊 Exportar auditoría a Excel",
                             dataframe_to_excel_bytes(ldf, "Auditoria", "Registro de Auditoría"),
                             "auditoria.xlsx",

@@ -63,7 +63,7 @@ with tabs[0]:
             color = "#FADBD8" if "CRITICO" in row["Estado"] else ("#FCF3CF" if "SOBRE" in row["Estado"] else "")
             return [f"background-color: {color}"] * len(row)
 
-        st.dataframe(df.style.apply(highlight, axis=1), use_container_width=True, hide_index=True)
+        st.dataframe(df.style.apply(highlight, axis=1), width="stretch", hide_index=True)
         m1, m2 = st.columns(2)
         m1.metric("Valoración total", f"${df['Valoración'].sum():,.0f}")
         m2.metric("SKUs listados", len(df))
@@ -109,7 +109,7 @@ with tabs[1]:
         mdf = pd.DataFrame(moves)[["movement_date", "sku", "item_name", "movement_type",
                                     "quantity", "reference"]]
         mdf.columns = ["Fecha", "SKU", "Producto", "Tipo", "Cantidad", "Referencia"]
-        st.dataframe(mdf, use_container_width=True, hide_index=True)
+        st.dataframe(mdf, width="stretch", hide_index=True)
 
 # ==========================================================================
 # 3. ALERTAS DE STOCK
@@ -126,12 +126,12 @@ with tabs[2]:
             st.error(f"⚠️ {len(critical)} ítem(s) en stock crítico (bajo mínimo)")
             if not critical.empty:
                 st.dataframe(critical[["sku", "name", "warehouse_name", "quantity", "min_stock"]],
-                             hide_index=True, use_container_width=True)
+                             hide_index=True, width="stretch")
         with c2:
             st.warning(f"📦 {len(over)} ítem(s) en sobre-stock (sobre máximo)")
             if not over.empty:
                 st.dataframe(over[["sku", "name", "warehouse_name", "quantity", "max_stock"]],
-                             hide_index=True, use_container_width=True)
+                             hide_index=True, width="stretch")
     else:
         st.info("No hay ítems para evaluar.")
 
@@ -146,13 +146,13 @@ with tabs[3]:
         rdf.columns = ["SKU", "Producto", "Zona", "node_id", "Almacén", "Unidades Despachadas",
                        "Stock Actual", "Costo Unitario", "Valoración"]
         rdf = rdf.drop(columns=["node_id"])
-        st.dataframe(rdf, use_container_width=True, hide_index=True)
+        st.dataframe(rdf, width="stretch", hide_index=True)
         st.metric("Valoración total de inventario", f"${rdf['Valoración'].sum():,.0f}")
         fig = px.bar(rdf.sort_values("Unidades Despachadas", ascending=False),
                      x="SKU", y="Unidades Despachadas", color="Zona",
-                     color_discrete_sequence=px.colors.qualitative.Set2,
+                     
                      title="Unidades despachadas por SKU")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         ce1, ce2 = st.columns(2)
         with ce1:
             st.download_button("📊 Excel", dataframe_to_excel_bytes(rdf, "Rotacion", "Rotación y Valoración"),
@@ -199,18 +199,18 @@ with tabs[4]:
             fechas = serie["fecha"].tolist()
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=fechas, y=valores, mode="lines+markers",
-                                      name="Demanda real", line=dict(color="#264653", width=3)))
+                                      name="Demanda real", line=dict(color="#4FACFE", width=3)))
             if sma["fitted"]:
                 fig.add_trace(go.Scatter(x=fechas[-len(sma["fitted"]):], y=sma["fitted"],
                                           mode="lines", name=f"Ajuste {sma['method']}",
-                                          line=dict(color="#2A9D8F", dash="dash")))
+                                          line=dict(color="#00F2FE", dash="dash")))
             if ses["fitted"]:
                 fig.add_trace(go.Scatter(x=fechas[-len(ses["fitted"]):], y=ses["fitted"],
                                           mode="lines", name=f"Ajuste {ses['method']}",
-                                          line=dict(color="#E76F51", dash="dot")))
+                                          line=dict(color="#F43F5E", dash="dot")))
             fig.update_layout(height=420, xaxis_title="Fecha", yaxis_title="Unidades despachadas",
                               legend=dict(orientation="h", y=1.12))
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
             mejor_val = sma["forecast"] if comp["mejor_metodo"] == sma["method"] else ses["forecast"]
             st.info(f"Pronóstico para el siguiente período según **{comp['mejor_metodo']}**: "
@@ -261,14 +261,14 @@ with tabs[5]:
                           "Costo de mantenimiento": [q / 2 * H for q in qs]})
     curva["Costo total"] = curva["Costo de pedidos"] + curva["Costo de mantenimiento"]
     figq = go.Figure()
-    for col, color, w in [("Costo de pedidos", "#2A9D8F", 2), ("Costo de mantenimiento", "#E9C46A", 2),
-                           ("Costo total", "#E76F51", 3)]:
+    for col, color, w in [("Costo de pedidos", "#00F2FE", 2), ("Costo de mantenimiento", "#F59E0B", 2),
+                           ("Costo total", "#F43F5E", 3)]:
         figq.add_trace(go.Scatter(x=curva["Q"], y=curva[col], name=col, line=dict(color=color, width=w)))
-    figq.add_vline(x=eoq["eoq"], line_dash="dash", line_color="#264653",
+    figq.add_vline(x=eoq["eoq"], line_dash="dash", line_color="#4FACFE",
                     annotation_text=f"Q* = {eoq['eoq']:.0f}")
     figq.update_layout(height=400, xaxis_title="Tamaño de pedido (Q)",
                         yaxis_title="Costo anual (USD)", legend=dict(orientation="h", y=1.12))
-    st.plotly_chart(figq, use_container_width=True)
+    st.plotly_chart(figq, width="stretch")
 
     st.divider()
     st.markdown("##### Parámetros del Punto de Reorden")
@@ -313,7 +313,7 @@ with tabs[6]:
             colors = {"A": "#D5F5E3", "B": "#FCF3CF", "C": "#FADBD8"}
             return [f"background-color: {colors.get(row['Clase'], '')}"] * len(row)
 
-        st.dataframe(show.style.apply(color_clase, axis=1), use_container_width=True, hide_index=True)
+        st.dataframe(show.style.apply(color_clase, axis=1), width="stretch", hide_index=True)
 
         k1, k2, k3 = st.columns(3)
         for col, clase in zip((k1, k2, k3), ("A", "B", "C")):
@@ -322,13 +322,13 @@ with tabs[6]:
 
         figp = go.Figure()
         figp.add_trace(go.Bar(x=adf["sku"], y=adf["valor_consumo"], name="Valor de consumo",
-                               marker_color="#2A9D8F"))
+                               marker_color="#00F2FE"))
         figp.add_trace(go.Scatter(x=adf["sku"], y=adf["pct_acumulado"], name="% acumulado",
-                                   yaxis="y2", line=dict(color="#E76F51", width=3), mode="lines+markers"))
+                                   yaxis="y2", line=dict(color="#F43F5E", width=3), mode="lines+markers"))
         figp.update_layout(yaxis=dict(title="Valor de consumo (USD)"),
                             yaxis2=dict(title="% acumulado", overlaying="y", side="right", range=[0, 105]),
                             height=450, legend=dict(orientation="h", y=1.12), xaxis_title="SKU")
-        st.plotly_chart(figp, use_container_width=True)
+        st.plotly_chart(figp, width="stretch")
 
         n_proxy = int((adf["base"] == "Stock (sin despachos)").sum())
         if n_proxy:
@@ -356,20 +356,20 @@ with tabs[7]:
                            format_func=lambda x: "Unidades" if x == "unidades" else "Valor (USD)")
         pivot = odf.pivot_table(index="almacen", columns="zona", values=metrica,
                                  aggfunc="sum", fill_value=0)
-        figh = px.imshow(pivot, text_auto=".0f", aspect="auto", color_continuous_scale="Teal",
+        figh = px.imshow(pivot, text_auto=".0f", aspect="auto", color_continuous_scale=["#0F172A", "#00F2FE"],
                           labels=dict(x="Zona de rotación", y="Almacén",
                                       color="Unidades" if metrica == "unidades" else "USD"))
         figh.update_layout(height=380)
-        st.plotly_chart(figh, use_container_width=True)
+        st.plotly_chart(figh, width="stretch")
 
         disp = odf.copy()
         disp.columns = ["Almacén", "Zona", "Unidades", "Valor (USD)", "SKUs"]
-        st.dataframe(disp, use_container_width=True, hide_index=True)
+        st.dataframe(disp, width="stretch", hide_index=True)
 
         figz = px.sunburst(disp, path=["Almacén", "Zona"], values="Valor (USD)",
-                            color="Zona", color_discrete_sequence=px.colors.qualitative.Set2,
+                            color="Zona", 
                             title="Composición del valor de inventario por almacén y zona")
-        st.plotly_chart(figz, use_container_width=True)
+        st.plotly_chart(figz, width="stretch")
 
 # ==========================================================================
 # 9. TRAZABILIDAD
@@ -397,15 +397,15 @@ with tabs[8]:
                 color = "#D5F5E3" if row["Efecto en stock"] > 0 else "#FADBD8"
                 return [f"background-color: {color}"] * len(row)
 
-            st.dataframe(disp.style.apply(color_flujo, axis=1), use_container_width=True, hide_index=True)
+            st.dataframe(disp.style.apply(color_flujo, axis=1), width="stretch", hide_index=True)
 
             figt = go.Figure()
             figt.add_trace(go.Scatter(x=tdf["movement_date"], y=tdf["saldo_acumulado"],
                                        mode="lines+markers", name="Saldo acumulado",
-                                       line=dict(color="#2A9D8F", width=3), fill="tozeroy"))
+                                       line=dict(color="#00F2FE", width=3), fill="tozeroy"))
             figt.update_layout(height=380, xaxis_title="Fecha", yaxis_title="Unidades en stock",
                                 title="Evolución del saldo de inventario")
-            st.plotly_chart(figt, use_container_width=True)
+            st.plotly_chart(figt, width="stretch")
 
             st.download_button("📊 Exportar trazabilidad",
                                 dataframe_to_excel_bytes(disp, "Trazabilidad",

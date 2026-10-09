@@ -25,7 +25,8 @@ from database.db import run_query, run_write
 from utils.network_algorithms import build_graph, shortest_path
 from utils.advanced_optimization import (solve_multi_stop_route, compare_routing_criteria,
                                           check_vehicle_capacity)
-from utils.map_utils import build_network_deck
+from utils.map_utils import build_network_deck, render_colombia_network_map, map_legend_html
+from models.fleet import vehicle_label
 from utils.report_exporter import dataframe_to_excel_bytes, dataframe_to_pdf_bytes
 from utils.auth import login_form, render_sidebar_user, require_write_or_warn
 from utils.audit import log_action
@@ -35,7 +36,7 @@ st.set_page_config(page_title="Transportation Network", page_icon="🗺️", lay
 from database.db import ensure_database_ready
 ensure_database_ready()
 
-from utils.theme import apply_page_theme, page_header
+from utils.theme import apply_page_theme, page_header, render_kpi_row, ROW_TINT, CYAN, ROSE
 apply_page_theme()
 
 if not login_form():
@@ -57,34 +58,35 @@ tabs = st.tabs(["🗺️ Mapa de la red", "🧭 Ruta punto a punto", "🔄 Compa
 # 1. MAPA
 # ==========================================================================
 with tabs[0]:
-    st.subheader("Mapa geográfico de la red de distribución")
-    leyenda = {"Planta": "🔴", "Almacen": "🔵", "CD": "🟢", "Cliente": "🟠",
-               "Hub": "🟣", "Gateway": "⚫"}
-    cols = st.columns(len(leyenda))
-    for col, (tipo, icono) in zip(cols, leyenda.items()):
-        col.markdown(f"{icono} {tipo}")
-
-    st.pydeck_chart(build_network_deck(nodes, corridors), use_container_width=True)
-    st.caption(f"{len(nodes)} nodos activos · {len(corridors)} corredores de transporte")
+    st.subheader("Red de distribución de Colombia")
+    km_red = sum(c["distance_km"] for c in corridors)
+    render_kpi_row([
+        {"title": "CEDIs", "value": sum(n["node_type"] == "CD" for n in nodes), "icon": "🏬"},
+        {"title": "Puertos", "value": sum(n["node_type"] == "Gateway" for n in nodes), "icon": "⚓"},
+        {"title": "Corredores activos", "value": len(corridors), "icon": "🛣️"},
+        {"title": "Km de red", "value": f"{km_red:,.0f}", "icon": "📏"},
+    ])
+    st.markdown(map_legend_html(), unsafe_allow_html=True)
+    render_colombia_network_map(nodes, corridors, height=680)
+    st.caption(f"{len(nodes)} nodos activos · {len(corridors)} corredores de transporte · "
+               "arrastra con clic derecho para rotar e inclinar la vista 3D")
 
     c1, c2 = st.columns(2)
     with c1:
         tdf = pd.DataFrame(nodes).groupby("node_type").size().reset_index(name="cantidad")
         tdf.columns = ["Tipo de nodo", "Cantidad"]
         figt = px.bar(tdf, x="Tipo de nodo", y="Cantidad", color="Tipo de nodo",
-                       color_discrete_sequence=px.colors.qualitative.Set2,
                        title="Composición de la red por tipo de nodo")
         figt.update_layout(showlegend=False, height=340)
-        st.plotly_chart(figt, use_container_width=True)
+        st.plotly_chart(figt, width="stretch")
     with c2:
         cdf = pd.DataFrame(corridors).groupby("mode").agg(
             corredores=("corridor_id", "count"), km_totales=("distance_km", "sum")).reset_index()
         cdf.columns = ["Modo", "Corredores", "Km totales"]
-        figc = px.pie(cdf, names="Modo", values="Km totales", hole=0.45,
-                       color_discrete_sequence=px.colors.sequential.Teal,
+        figc = px.pie(cdf, names="Modo", values="Km totales", hole=0.6,
                        title="Kilómetros de red por modo de transporte")
         figc.update_layout(height=340)
-        st.plotly_chart(figc, use_container_width=True)
+        st.plotly_chart(figc, width="stretch")
 
 # ==========================================================================
 # 2. RUTA PUNTO A PUNTO
@@ -108,11 +110,12 @@ with tabs[1]:
         if result["found"]:
             st.session_state["last_route"] = result
             st.success(" → ".join(node_map[n] for n in result["path"]))
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Distancia total", f"{result['distance_km']} km")
-            m2.metric("Costo total", f"${result['cost']:,.2f}")
-            m3.metric("Tiempo estimado", f"{result['time_h']} h")
-            m4.metric("Saltos", len(result["path"]) - 1)
+            render_kpi_row([
+                {"title": "Distancia total", "value": f"{result['distance_km']:,.0f} km", "icon": "📏"},
+                {"title": "Costo total", "value": f"${result['cost']:,.2f}", "icon": "💵"},
+                {"title": "Tiempo estimado", "value": f"{result['time_h']} h", "icon": "⏱️"},
+                {"title": "Saltos", "value": len(result["path"]) - 1, "icon": "🔗"},
+            ])
         else:
             st.error("No existe ruta entre estos nodos con los corredores activos.")
 
@@ -120,7 +123,7 @@ with tabs[1]:
         st.markdown("**Ruta resaltada sobre el mapa:**")
         st.pydeck_chart(build_network_deck(nodes, corridors,
                                             highlight_path=st.session_state["last_route"]["path"]),
-                         use_container_width=True)
+                         width="stretch", height=560)
 
 # ==========================================================================
 # 3. COMPARAR ALGORITMOS
@@ -145,12 +148,13 @@ with tabs[2]:
                                               "costo", "tiempo_h"]]
             cdf.columns = ["Criterio", "Ruta resultante", "Saltos", "Distancia (km)",
                            "Costo (USD)", "Tiempo (h)"]
-            st.dataframe(cdf, use_container_width=True, hide_index=True)
+            st.dataframe(cdf, width="stretch", hide_index=True)
 
-            b1, b2, b3 = st.columns(3)
-            b1.metric("Menor distancia", f"{cdf['Distancia (km)'].min():,.0f} km")
-            b2.metric("Menor costo", f"${cdf['Costo (USD)'].min():,.2f}")
-            b3.metric("Menor tiempo", f"{cdf['Tiempo (h)'].min():,.1f} h")
+            render_kpi_row([
+                {"title": "Menor distancia", "value": f"{cdf['Distancia (km)'].min():,.0f} km", "icon": "📏"},
+                {"title": "Menor costo", "value": f"${cdf['Costo (USD)'].min():,.2f}", "icon": "💵"},
+                {"title": "Menor tiempo", "value": f"{cdf['Tiempo (h)'].min():,.1f} h", "icon": "⏱️"},
+            ])
 
             norm = cdf.copy()
             for col in ["Distancia (km)", "Costo (USD)", "Tiempo (h)"]:
@@ -163,7 +167,7 @@ with tabs[2]:
                     theta=["Distancia", "Costo", "Tiempo"], fill="toself", name=row["Criterio"]))
             figr.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
                                 height=430, title="Perfil relativo de cada criterio (100 = peor)")
-            st.plotly_chart(figr, use_container_width=True)
+            st.plotly_chart(figr, width="stretch")
 
             if cdf["Ruta resultante"].nunique() == 1:
                 st.info("En este par origen-destino los tres criterios coinciden en la misma ruta: "
@@ -205,12 +209,15 @@ with tabs[3]:
                 secuencia = [depot] + res["orden_paradas"] + [depot]
                 st.success(" → ".join(node_map[n] for n in secuencia))
 
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric("Distancia del circuito", f"{res['distancia_total_km']:,.0f} km")
-                m2.metric("Tiempo total", f"{res['tiempo_total_h']:,.1f} h")
-                m3.metric("Costo total", f"${res['costo_total']:,.2f}")
-                m4.metric("Mejora del 2-opt", f"{res['mejora_pct']:.2f}%",
-                          help=f"Vecino más cercano: {res['costo_nn']:,.0f} → 2-opt: {res['costo_2opt']:,.0f}")
+                render_kpi_row([
+                    {"title": "Distancia del circuito", "value": f"{res['distancia_total_km']:,.0f} km",
+                     "icon": "📏"},
+                    {"title": "Tiempo total", "value": f"{res['tiempo_total_h']:,.1f} h", "icon": "⏱️"},
+                    {"title": "Costo total", "value": f"${res['costo_total']:,.2f}", "icon": "💵"},
+                    {"title": "Mejora del 2-opt", "value": f"{res['mejora_pct']:.2f}%",
+                     "delta": f"NN {res['costo_nn']:,.0f} → 2-opt {res['costo_2opt']:,.0f}",
+                     "is_positive": res["mejora_pct"] > 0 or None, "icon": "🧮"},
+                ])
 
                 if res["mejora_pct"] > 0:
                     st.info(f"El 2-opt mejoró la solución inicial en {res['mejora_pct']:.2f}%, "
@@ -224,20 +231,20 @@ with tabs[3]:
                 tdf["Hasta"] = tdf["hasta"].map(node_map)
                 disp = tdf[["Desde", "Hasta", "distancia_km", "tiempo_h", "costo"]]
                 disp.columns = ["Desde", "Hasta", "Distancia (km)", "Tiempo (h)", "Costo (USD)"]
-                st.dataframe(disp, use_container_width=True, hide_index=True)
+                st.dataframe(disp, width="stretch", hide_index=True)
 
     if "ms_result" in st.session_state and st.session_state["ms_result"].get("found"):
         res = st.session_state["ms_result"]
         secuencia = [depot] + res["orden_paradas"] + [depot]
         st.markdown("**Circuito sobre el mapa:**")
         st.pydeck_chart(build_network_deck(nodes, corridors, highlight_path=secuencia),
-                         use_container_width=True)
+                         width="stretch", height=560)
 
         st.markdown("##### Guardar y programar esta ruta")
         vehiculos = Vehicle.all()
         gc1, gc2, gc3 = st.columns(3)
         nombre = gc1.text_input("Nombre de la ruta", value=f"RUTA-{date.today().strftime('%Y%m%d')}")
-        veh_map = {v["vehicle_id"]: f"{v['plate']} ({v['vehicle_type']})" for v in vehiculos}
+        veh_map = {v["vehicle_id"]: f"{v['plate']} ({vehicle_label(v['vehicle_type'])})" for v in vehiculos}
         veh_sel = gc2.selectbox("Vehículo asignado", options=[None] + list(veh_map.keys()),
                                  format_func=lambda x: "Sin asignar" if x is None else veh_map[x])
         inicio = gc3.date_input("Fecha de inicio programada", value=date.today())
@@ -273,7 +280,7 @@ with tabs[4]:
                      "eta_hours", "actual_hours", "desviacion_pct", "plate", "driver_name"]].copy()
         show.columns = ["Ruta", "Envío", "Algoritmo", "Distancia (km)", "Costo", "ETA (h)",
                         "Real (h)", "Desviación %", "Vehículo", "Conductor"]
-        st.dataframe(show, use_container_width=True, hide_index=True)
+        st.dataframe(show, width="stretch", hide_index=True)
 
         st.markdown("##### Asignar recursos a una ruta")
         route_id = st.selectbox("Ruta", options=rdf["route_id"].tolist())
@@ -284,16 +291,18 @@ with tabs[4]:
             st.warning("La ruta no tiene un envío asociado.")
         else:
             e = envio.to_dict(orient="records")[0]
-            i1, i2 = st.columns(2)
-            i1.metric("Peso de la carga", f"{e['weight_kg']:,.0f} kg")
-            i2.metric("Volumen de la carga", f"{e['volume_m3']:,.1f} m³")
+            render_kpi_row([
+                {"title": "Peso de la carga", "value": f"{e['weight_kg']:,.0f} kg", "icon": "⚖️"},
+                {"title": "Volumen de la carga", "value": f"{e['volume_m3']:,.1f} m³", "icon": "📦"},
+            ])
 
             vehiculos = Vehicle.all()
             evaluacion = []
             for v in vehiculos:
                 chk = check_vehicle_capacity(v, e["weight_kg"], e["volume_m3"])
                 evaluacion.append({
-                    "vehicle_id": v["vehicle_id"], "Placa": v["plate"], "Tipo": v["vehicle_type"],
+                    "vehicle_id": v["vehicle_id"], "Placa": v["plate"],
+                    "Tipo": vehicle_label(v["vehicle_type"]),
                     "Estado": v["status"],
                     "Cap. peso (kg)": v["capacity_kg"], "Cap. vol (m³)": v["capacity_m3"],
                     "Uso peso %": chk["utilizacion_peso_pct"],
@@ -306,13 +315,13 @@ with tabs[4]:
 
             def color_apto(row):
                 if not row["_apto"]:
-                    return ["background-color: #FADBD8"] * len(row)
+                    return [ROW_TINT["bad"]] * len(row)
                 if not row["_disponible"]:
-                    return ["background-color: #FCF3CF"] * len(row)
-                return ["background-color: #D5F5E3"] * len(row)
+                    return [ROW_TINT["warn"]] * len(row)
+                return [ROW_TINT["ok"]] * len(row)
 
             st.dataframe(edf.drop(columns=["vehicle_id"]).style.apply(color_apto, axis=1),
-                         use_container_width=True, hide_index=True,
+                         width="stretch", hide_index=True,
                          column_config={"_apto": None, "_disponible": None})
 
             aptos = edf[edf["_apto"] & edf["_disponible"]]
@@ -364,7 +373,7 @@ with tabs[5]:
                       "total_time_h", "total_cost", "scheduled_start", "scheduled_end"]].copy()
         disp.columns = ["ID", "Ruta", "Depósito", "Vehículo", "Distancia (km)", "Duración (h)",
                         "Costo", "Inicio", "Fin"]
-        st.dataframe(disp, use_container_width=True, hide_index=True)
+        st.dataframe(disp, width="stretch", hide_index=True)
 
         gantt = prog.copy()
         gantt["Recurso"] = gantt["plate"].fillna("Sin asignar")
@@ -377,7 +386,7 @@ with tabs[5]:
                                 labels={"name": "Ruta"}, title="Ocupación programada de la flota")
             figg.update_yaxes(autorange="reversed")
             figg.update_layout(height=400)
-            st.plotly_chart(figg, use_container_width=True)
+            st.plotly_chart(figg, width="stretch")
 
         st.download_button("📊 Exportar programación",
                             dataframe_to_excel_bytes(disp, "Programacion", "Rutas Programadas"),
@@ -400,20 +409,25 @@ with tabs[6]:
             st.info("Ninguna ruta tiene tiempo real registrado todavía.")
         else:
             con_real["Ruta"] = con_real["route_id"].astype(str)
-            k1, k2, k3 = st.columns(3)
-            k1.metric("Desviación media", f"{con_real['desviacion_pct'].mean():+.1f}%")
-            k2.metric("Rutas a tiempo o antes",
-                      int((con_real["desviacion_pct"] <= 0).sum()))
-            k3.metric("Rutas con retraso", int((con_real["desviacion_pct"] > 0).sum()))
+            desv_media = con_real["desviacion_pct"].mean()
+            render_kpi_row([
+                {"title": "Desviación media", "value": f"{desv_media:+.1f}%",
+                 "delta": "sobre el ETA" if desv_media > 0 else "dentro del ETA",
+                 "is_positive": desv_media <= 0, "icon": "📐"},
+                {"title": "Rutas a tiempo o antes",
+                 "value": int((con_real["desviacion_pct"] <= 0).sum()), "icon": "✅"},
+                {"title": "Rutas con retraso",
+                 "value": int((con_real["desviacion_pct"] > 0).sum()), "icon": "⏰"},
+            ])
 
             figd = go.Figure()
             figd.add_trace(go.Bar(x=con_real["Ruta"], y=con_real["eta_hours"],
-                                   name="ETA estimado (h)", marker_color="#2A9D8F"))
+                                   name="ETA estimado (h)", marker_color=CYAN))
             figd.add_trace(go.Bar(x=con_real["Ruta"], y=con_real["actual_hours"],
-                                   name="Tiempo real (h)", marker_color="#E76F51"))
+                                   name="Tiempo real (h)", marker_color=ROSE))
             figd.update_layout(barmode="group", height=400, xaxis_title="Ruta",
                                 yaxis_title="Horas", legend=dict(orientation="h", y=1.12))
-            st.plotly_chart(figd, use_container_width=True)
+            st.plotly_chart(figd, width="stretch")
 
             disp = con_real[["route_id", "shipment_id", "total_distance_km", "eta_hours",
                               "actual_hours", "desviacion_pct", "plate"]].copy()
@@ -422,12 +436,12 @@ with tabs[6]:
 
             def color_desv(row):
                 if row["Desviación %"] > 20:
-                    return ["background-color: #FADBD8"] * len(row)
+                    return [ROW_TINT["bad"]] * len(row)
                 if row["Desviación %"] > 5:
-                    return ["background-color: #FCF3CF"] * len(row)
-                return ["background-color: #D5F5E3"] * len(row)
+                    return [ROW_TINT["warn"]] * len(row)
+                return [ROW_TINT["ok"]] * len(row)
 
-            st.dataframe(disp.style.apply(color_desv, axis=1), use_container_width=True,
+            st.dataframe(disp.style.apply(color_desv, axis=1), width="stretch",
                          hide_index=True)
 
         st.markdown("##### Registrar tiempo real de una ruta")

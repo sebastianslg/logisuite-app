@@ -67,7 +67,7 @@ with tabs[0]:
                       "Consolidado": "#E8DAEF", "Registrado": ""}
             return [f"background-color: {colors.get(row['Estado'], '')}"] * len(row)
 
-        st.dataframe(df.style.apply(color_estado, axis=1), use_container_width=True, hide_index=True)
+        st.dataframe(df.style.apply(color_estado, axis=1), width="stretch", hide_index=True)
 
         otif = Shipment.otif_kpi()
         k1, k2, k3 = st.columns(3)
@@ -191,9 +191,9 @@ with tabs[2]:
         "Valor": [result["transaction_cost"], result["distance_friction_cost"], result["shipment_cost"]],
     })
     figc = px.pie(comp_df, names="Componente", values="Valor", hole=0.45,
-                   color_discrete_sequence=["#264653", "#2A9D8F", "#E9C46A"],
+                   color_discrete_sequence=["#4FACFE", "#00F2FE", "#F59E0B"],
                    title="Composición del costo total")
-    st.plotly_chart(figc, use_container_width=True)
+    st.plotly_chart(figc, width="stretch")
     st.caption("Desglose detallado:")
     st.json(result["breakdown"])
 
@@ -230,7 +230,7 @@ with tabs[3]:
                 "Ahorro": ev["ahorro"], "Ahorro %": ev["ahorro_pct"],
             })
         rdf = pd.DataFrame(resumen)
-        st.dataframe(rdf, use_container_width=True, hide_index=True)
+        st.dataframe(rdf, width="stretch", hide_index=True)
 
         a1, a2 = st.columns(2)
         a1.metric("Ahorro potencial total", f"${rdf['Ahorro'].sum():,.2f}")
@@ -238,12 +238,12 @@ with tabs[3]:
 
         figs = go.Figure()
         figs.add_trace(go.Bar(x=rdf["Grupo"], y=rdf["Costo separado"], name="Sin consolidar",
-                               marker_color="#E76F51"))
+                               marker_color="#F43F5E"))
         figs.add_trace(go.Bar(x=rdf["Grupo"], y=rdf["Costo consolidado"], name="Consolidado",
-                               marker_color="#2A9D8F"))
+                               marker_color="#00F2FE"))
         figs.update_layout(barmode="group", height=380, xaxis_title="Grupo",
                             yaxis_title="Costo (USD)", legend=dict(orientation="h", y=1.12))
-        st.plotly_chart(figs, use_container_width=True)
+        st.plotly_chart(figs, width="stretch")
 
         st.markdown("##### Ejecutar consolidación")
         gsel = st.selectbox("Grupo a consolidar", options=list(range(1, len(grupos) + 1)),
@@ -272,7 +272,7 @@ with tabs[3]:
                                    "cost_before", "cost_after", "savings"]]
         cdf.columns = ["ID", "Nombre", "Origen", "Destino", "Fecha", "Envíos", "Peso (kg)",
                        "Costo antes", "Costo después", "Ahorro"]
-        st.dataframe(cdf, use_container_width=True, hide_index=True)
+        st.dataframe(cdf, width="stretch", hide_index=True)
         st.metric("Ahorro acumulado por consolidación", f"${cdf['Ahorro'].sum():,.2f}")
     else:
         st.caption("Aún no se ha ejecutado ninguna consolidación.")
@@ -320,7 +320,7 @@ with tabs[4]:
             "kg CO₂e": em["kg_co2e"],
         })
     sdf = pd.DataFrame(filas)
-    st.dataframe(sdf, use_container_width=True, hide_index=True)
+    st.dataframe(sdf, width="stretch", hide_index=True)
 
     mejor_costo = sdf.loc[sdf["Costo total"].idxmin()]
     mejor_tiempo = sdf.loc[sdf["Tiempo (h)"].idxmin()]
@@ -332,13 +332,13 @@ with tabs[4]:
 
     figm = go.Figure()
     figm.add_trace(go.Bar(x=sdf["Modo"], y=sdf["Costo total"], name="Costo total (USD)",
-                           marker_color="#2A9D8F"))
+                           marker_color="#00F2FE"))
     figm.add_trace(go.Scatter(x=sdf["Modo"], y=sdf["kg CO₂e"], name="kg CO₂e", yaxis="y2",
-                               mode="lines+markers", line=dict(color="#E76F51", width=3)))
+                               mode="lines+markers", line=dict(color="#F43F5E", width=3)))
     figm.update_layout(yaxis=dict(title="Costo (USD)"),
                         yaxis2=dict(title="kg CO₂e", overlaying="y", side="right"),
                         height=420, legend=dict(orientation="h", y=1.12))
-    st.plotly_chart(figm, use_container_width=True)
+    st.plotly_chart(figm, width="stretch")
 
     if mejor_costo["Modo"] != mejor_tiempo["Modo"]:
         dif_costo = mejor_tiempo["Costo total"] - mejor_costo["Costo total"]
@@ -357,7 +357,7 @@ with tabs[5]:
                "Fórmula: kg CO₂e = factor(modo) × toneladas × kilómetros.")
 
     fdf = pd.DataFrame([{"Modo": m, "kg CO₂e por ton-km": f} for m, f in EMISSION_FACTORS.items()])
-    st.dataframe(fdf, use_container_width=True, hide_index=True)
+    st.dataframe(fdf, width="stretch", hide_index=True)
 
     st.markdown("##### Calcular y registrar la huella de los envíos existentes")
     if st.button("♻️ Recalcular huella de todos los envíos") and require_write_or_warn():
@@ -382,7 +382,7 @@ with tabs[5]:
                                    "distance_km", "weight_kg", "ton_km", "kg_co2e"]]
         edf.columns = ["Envío", "Origen", "Destino", "Modo", "Distancia (km)", "Peso (kg)",
                        "ton-km", "kg CO₂e"]
-        st.dataframe(edf, use_container_width=True, hide_index=True)
+        st.dataframe(edf, width="stretch", hide_index=True)
 
         t1, t2, t3 = st.columns(3)
         t1.metric("Huella total", f"{edf['kg CO₂e'].sum():,.1f} kg CO₂e")
@@ -393,9 +393,9 @@ with tabs[5]:
 
         fige = px.bar(edf.sort_values("kg CO₂e", ascending=False),
                        x="Envío", y="kg CO₂e", color="Distancia (km)",
-                       color_continuous_scale="Teal",
+                       color_continuous_scale=["#0F172A", "#00F2FE"],
                        title="Huella de carbono por envío")
-        st.plotly_chart(fige, use_container_width=True)
+        st.plotly_chart(fige, width="stretch")
 
         st.download_button("📊 Exportar huella a Excel",
                             dataframe_to_excel_bytes(edf, "Huella", "Huella de Carbono por Envío"),
@@ -429,13 +429,13 @@ with tabs[6]:
                                                    "corredor": "Corredor"},
                             title="Costo por km a lo largo del tiempo")
             figh.update_layout(height=430, legend=dict(orientation="h", y=-0.25))
-            st.plotly_chart(figh, use_container_width=True)
+            st.plotly_chart(figh, width="stretch")
 
             figf = px.line(sub, x="record_date", y="fuel_index", color="corredor",
                             labels={"record_date": "Fecha", "fuel_index": "Índice de combustible"},
                             title="Índice de combustible (base 100)")
             figf.update_layout(height=350, showlegend=False)
-            st.plotly_chart(figf, use_container_width=True)
+            st.plotly_chart(figf, width="stretch")
 
             st.markdown("##### Variación por corredor")
             resumen = sub.groupby("corredor").agg(
@@ -448,4 +448,4 @@ with tabs[6]:
                 resumen[["inicial", "final", "minimo", "maximo", "promedio"]].round(3)
             resumen.columns = ["Corredor", "Inicial", "Final", "Mínimo", "Máximo",
                                "Promedio", "Variación %"]
-            st.dataframe(resumen, use_container_width=True, hide_index=True)
+            st.dataframe(resumen, width="stretch", hide_index=True)

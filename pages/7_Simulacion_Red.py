@@ -85,15 +85,15 @@ with tabs[0]:
             "Después": [r["after"]["avg_distance_km"], r["after"]["total_network_cost"],
                         r["after"]["service_level_pct"], r["after"]["n_nodes"], r["after"]["n_edges"]],
         })
-        st.dataframe(comp_df, use_container_width=True, hide_index=True)
+        st.dataframe(comp_df, width="stretch", hide_index=True)
 
         vis = comp_df.head(3)
         fig = go.Figure(data=[
-            go.Bar(name="Antes", x=vis["Métrica"], y=vis["Antes"], marker_color="#264653"),
-            go.Bar(name="Después", x=vis["Métrica"], y=vis["Después"], marker_color="#E76F51"),
+            go.Bar(name="Antes", x=vis["Métrica"], y=vis["Antes"], marker_color="#4FACFE"),
+            go.Bar(name="Después", x=vis["Métrica"], y=vis["Después"], marker_color="#F43F5E"),
         ])
         fig.update_layout(barmode="group", height=400, legend=dict(orientation="h", y=1.12))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         if r["delta_service_level_pct"] is not None and r["delta_service_level_pct"] < 0:
             st.error(f"⚠️ Cerrar este nodo deja clientes sin cobertura: el nivel de servicio cae "
@@ -108,7 +108,7 @@ with tabs[0]:
             build_network_deck([n for n in nodes if n["node_id"] != rid],
                                 [c for c in corridors
                                  if c["origin_node_id"] != rid and c["dest_node_id"] != rid]),
-            use_container_width=True)
+            width="stretch")
     else:
         st.info("Selecciona un nodo y ejecuta la simulación para ver el impacto.")
 
@@ -168,10 +168,10 @@ with tabs[1]:
             disp = disp.sort_values("Score", ascending=False)
 
             def color_top(row):
-                return ["background-color: #D5F5E3"] * len(row) if row.name == disp.index[0] else [""] * len(row)
+                return ["background-color: rgba(16,185,129,0.12)"] * len(row) if row.name == disp.index[0] else [""] * len(row)
 
             st.markdown("#### Todas las combinaciones evaluadas")
-            st.dataframe(disp.style.apply(color_top, axis=1), use_container_width=True, hide_index=True)
+            st.dataframe(disp.style.apply(color_top, axis=1), width="stretch", hide_index=True)
 
             figf = px.scatter(tdf, x="total_network_cost", y="service_level_pct",
                                size="avg_distance_km", color="score",
@@ -181,7 +181,7 @@ with tabs[1]:
                                         "score": "Score"},
                                title="Frontera costo-servicio de las configuraciones evaluadas")
             figf.update_layout(height=440)
-            st.plotly_chart(figf, use_container_width=True)
+            st.plotly_chart(figf, width="stretch")
             st.caption("Cada punto es una configuración de instalaciones. Las que están arriba y a "
                        "la izquierda dominan: dan más servicio por menos costo.")
 
@@ -192,7 +192,7 @@ with tabs[1]:
                                 [c for c in corridors
                                  if c["origin_node_id"] not in cerradas
                                  and c["dest_node_id"] not in cerradas]),
-            use_container_width=True)
+            width="stretch")
 
 # ==========================================================================
 # 3. CRITICIDAD DE LA RED
@@ -217,32 +217,32 @@ with tabs[2]:
         def color_crit(row):
             v = row["Índice de criticidad"]
             if v >= 60:
-                return ["background-color: #F5B7B1"] * len(row)
+                return ["background-color: rgba(244,63,94,0.24)"] * len(row)
             if v >= 35:
-                return ["background-color: #FCF3CF"] * len(row)
-            return ["background-color: #D5F5E3"] * len(row)
+                return ["background-color: rgba(245,158,11,0.13)"] * len(row)
+            return ["background-color: rgba(16,185,129,0.12)"] * len(row)
 
-        st.dataframe(disp.style.apply(color_crit, axis=1), use_container_width=True, hide_index=True)
+        st.dataframe(disp.style.apply(color_crit, axis=1), width="stretch", hide_index=True)
 
         top = cdf.iloc[0]
         st.error(f"🔴 Nodo más crítico: **{top['nombre']}** ({top['tipo']}). Su caída reduce el "
                  f"nivel de servicio en {top['caida_servicio_pp']} puntos porcentuales.")
 
         figc = px.bar(cdf.head(10), x="nombre", y="indice_criticidad", color="tipo",
-                       color_discrete_sequence=px.colors.qualitative.Set2,
+                       
                        labels={"nombre": "Nodo", "indice_criticidad": "Índice de criticidad",
                                 "tipo": "Tipo"},
                        title="Nodos ordenados por criticidad")
-        st.plotly_chart(figc, use_container_width=True)
+        st.plotly_chart(figc, width="stretch")
 
         figs = px.scatter(cdf, x="betweenness", y="caida_servicio_pp", size="indice_criticidad",
                            color="tipo", hover_name="nombre",
-                           color_discrete_sequence=px.colors.qualitative.Set2,
+                           
                            labels={"betweenness": "Centralidad de intermediación",
                                     "caida_servicio_pp": "Caída de servicio al eliminarlo (pp)",
                                     "tipo": "Tipo"},
                            title="Centralidad estructural vs. daño real medido")
-        st.plotly_chart(figs, use_container_width=True)
+        st.plotly_chart(figs, width="stretch")
         st.caption("Un nodo puede tener alta intermediación pero poco daño real si existen rutas "
                    "alternativas. Los que combinan ambas cosas son los verdaderos puntos únicos de falla.")
 
@@ -298,24 +298,24 @@ with tabs[3]:
         k4.metric("Percentil 95 (pesimista)", f"${cos['p95']:,.2f}")
 
         figh = go.Figure()
-        figh.add_trace(go.Histogram(x=mc["muestras_costo"], nbinsx=50, marker_color="#2A9D8F",
+        figh.add_trace(go.Histogram(x=mc["muestras_costo"], nbinsx=50, marker_color="#00F2FE",
                                      name="Costo total"))
-        figh.add_vline(x=cos["media"], line_dash="dash", line_color="#264653",
+        figh.add_vline(x=cos["media"], line_dash="dash", line_color="#4FACFE",
                         annotation_text="Media")
-        figh.add_vline(x=cos["p95"], line_dash="dot", line_color="#E76F51",
+        figh.add_vline(x=cos["p95"], line_dash="dot", line_color="#F43F5E",
                         annotation_text="P95")
         figh.update_layout(height=400, xaxis_title="Costo total (USD)", yaxis_title="Frecuencia",
                             title="Distribución simulada del costo total", showlegend=False)
-        st.plotly_chart(figh, use_container_width=True)
+        st.plotly_chart(figh, width="stretch")
 
         figd = go.Figure()
-        figd.add_trace(go.Histogram(x=mc["muestras_demanda"], nbinsx=50, marker_color="#457B9D",
+        figd.add_trace(go.Histogram(x=mc["muestras_demanda"], nbinsx=50, marker_color="#10B981",
                                      name="Demanda"))
         figd.add_vline(x=capacidad, line_dash="dash", line_color="red",
                         annotation_text="Capacidad")
         figd.update_layout(height=380, xaxis_title="Demanda (unidades)", yaxis_title="Frecuencia",
                             title="Distribución de la demanda frente a la capacidad", showlegend=False)
-        st.plotly_chart(figd, use_container_width=True)
+        st.plotly_chart(figd, width="stretch")
 
         prob = mc["prob_desabastecimiento_pct"]
         st.metric("Probabilidad de desabastecimiento", f"{prob}%")
@@ -377,9 +377,9 @@ with tabs[4]:
     sdf = pd.DataFrame(filas)
 
     figs = go.Figure()
-    for col, color in [("Demanda (peso/volumen)", "#2A9D8F"),
-                        ("Costo laboral (tiempo)", "#E9C46A"),
-                        ("Costo energético", "#E76F51")]:
+    for col, color in [("Demanda (peso/volumen)", "#00F2FE"),
+                        ("Costo laboral (tiempo)", "#F59E0B"),
+                        ("Costo energético", "#F43F5E")]:
         figs.add_trace(go.Scatter(x=sdf["Variación (%)"], y=sdf[col], mode="lines+markers",
                                    name=col, line=dict(width=3, color=color)))
     figs.add_vline(x=0, line_dash="dash", line_color="#888", annotation_text="Escenario base")
@@ -387,9 +387,9 @@ with tabs[4]:
                         yaxis_title="Costo total del envío (USD)",
                         legend=dict(orientation="h", y=1.12),
                         title="Sensibilidad del costo ante cada factor (variados uno a la vez)")
-    st.plotly_chart(figs, use_container_width=True)
+    st.plotly_chart(figs, width="stretch")
 
-    st.dataframe(sdf.round(2), use_container_width=True, hide_index=True)
+    st.dataframe(sdf.round(2), width="stretch", hide_index=True)
 
     # Elasticidad: cuánto cambia el costo por cada 1% de cambio del factor
     base_cost = _costo(0, "demanda")
@@ -406,7 +406,7 @@ with tabs[4]:
                      "Δ Costo": round(c_alto - base_cost, 2),
                      "Elasticidad": round(elasticidad, 4)})
     edf = pd.DataFrame(elas).sort_values("Elasticidad", ascending=False)
-    st.dataframe(edf, use_container_width=True, hide_index=True)
+    st.dataframe(edf, width="stretch", hide_index=True)
 
     dominante = edf.iloc[0]
     st.info(f"El factor más influyente es **{dominante['Factor']}**: un aumento del 10% eleva el "
