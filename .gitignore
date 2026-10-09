@@ -1,7 +1,8 @@
 __pycache__/
 *.pyc
-.streamlit/secrets.toml
-data/logistics.db
 .venv/
-.env
 .pytest_cache/
+.env
+
+# Base SQLite generada (volumen en Docker)
+backend/data/
