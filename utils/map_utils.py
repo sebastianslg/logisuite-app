@@ -206,10 +206,15 @@ def build_network_deck(nodes: list, corridors: list, highlight_path: list = None
                     "TextLayer", data=text_df, id="etiquetas",
                     get_position=["longitude", "latitude"], get_text="label",
                     get_size=12, get_color=[226, 232, 240, 230], get_pixel_offset=[0, -22],
-                    font_family="Inter, sans-serif", font_weight=600,
-                    character_set="auto", billboard=True,
+                    # pydeck evalúa los strings como expresiones (@@=): los
+                    # literales van entre comillas. 'auto' genera el atlas de
+                    # glifos con las tildes de los nombres (Bogotá, Ibagué...).
+                    font_family='"Inter, sans-serif"', font_weight=600,
+                    character_set='"auto"', billboard=True,
                     font_settings={"sdf": True}, outline_width=2,
                     outline_color=[10, 14, 23, 255],
+                    # Sin test de profundidad: las columnas 3D no tapan el texto.
+                    parameters={"depthTest": False},
                 ))
 
     view_state = pdk.ViewState(**(view or COLOMBIA_VIEW))

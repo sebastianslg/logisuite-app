@@ -164,12 +164,12 @@ hr {{ border-color: {BORDER} !important; }}
     border-color: {CYAN} !important; box-shadow: 0 0 0 1px rgba(0,242,254,0.25),
     0 6px 20px rgba(0,242,254,0.10); transform: translateY(-1px);
 }}
-.stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {{
+button[kind^="primary"], button[data-testid^="stBaseButton-primary"] {{
     background: linear-gradient(135deg, {CYAN} 0%, {ELECTRIC_BLUE} 100%) !important;
     color: #04121A !important; border: none !important; font-weight: 600;
 }}
-.stButton > button[kind="primary"] p, .stFormSubmitButton > button[kind="primary"] p {{
-    color: #04121A !important;
+button[kind^="primary"] p, button[data-testid^="stBaseButton-primary"] p {{
+    color: #04121A !important; font-weight: 600;
 }}
 
 /* Inputs */

@@ -148,6 +148,7 @@ def _render_login_screen() -> None:
         font-size:2.3rem; font-weight:800; margin:10px 0 6px 0; letter-spacing:-0.03em;
         background: linear-gradient(90deg, #F8FAFC 0%, {CYAN} 65%, {EMERALD} 100%);
         -webkit-background-clip: text; background-clip: text; color: transparent !important;
+        -webkit-text-fill-color: transparent;
     }}
     .lg-login-hero p {{ color:{TEXT_MUTED} !important; font-size:1rem; margin:0; }}
     .lg-login-badge {{

@@ -79,6 +79,7 @@ with tabs[0]:
             df.style.apply(color_status, axis=1), width="stretch", hide_index=True,
             column_config={
                 "Capacidad (kg)": st.column_config.NumberColumn(format="%d kg"),
+                "Capacidad (m³)": st.column_config.NumberColumn(format="%.0f m³"),
                 "Odómetro (km)": st.column_config.ProgressColumn(
                     format="%d km", min_value=0, max_value=float(df["Odómetro (km)"].max() or 1)),
             })
@@ -95,6 +96,9 @@ with tabs[0]:
             figc = px.bar(df.sort_values("Capacidad (kg)", ascending=False), x="Placa",
                            y="Capacidad (kg)", color="Tipo",
                            title="Capacidad de carga por vehículo")
+            # Cada placa tiene un solo tipo: apilar evita que Plotly reparta el
+            # ancho de la barra entre las cuatro tipologías.
+            figc.update_layout(barmode="stack")
             st.plotly_chart(figc, width="stretch")
 
         ce1, ce2 = st.columns(2)

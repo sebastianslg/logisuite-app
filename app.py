@@ -79,6 +79,7 @@ st.markdown(f"""
     font-size: 2.6rem; font-weight: 800; margin: 0 0 10px 0; letter-spacing: -0.03em;
     background: linear-gradient(90deg, #F8FAFC 0%, {CYAN} 60%, {EMERALD} 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent !important;
+    -webkit-text-fill-color: transparent;
 }}
 .lg-hero p {{ color: {TEXT_MUTED} !important; font-size: 1.05rem; margin: 0; max-width: 640px; }}
 .lg-hero .lg-badge {{
@@ -125,7 +126,9 @@ div[data-testid="stPageLink"] p {{ font-weight: 600 !important; font-size: 0.92r
 # HERO: banner de bienvenida con ilustración SVG (ruta + camión + nodos)
 # ---------------------------------------------------------------------------
 from utils.illustrations import warehouse_scene_svg
-hero_svg = warehouse_scene_svg(width=260, height=170)
+# El SVG se compacta en una sola línea: sus líneas en blanco seguidas de
+# líneas indentadas harían que Markdown lo pinte como bloque de código.
+hero_svg = " ".join(warehouse_scene_svg(width=260, height=170).split())
 
 st.markdown(f"""
 <div class="lg-hero">

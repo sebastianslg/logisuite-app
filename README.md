@@ -10,6 +10,27 @@ Community Cloud sin configuración adicional.
 
 ---
 
+## Despliegue con Docker (producción)
+
+```bash
+cp .env.example .env          # opcional: puerto, zona horaria, token de Mapbox
+docker compose up -d --build
+```
+
+La aplicación queda en `http://localhost:8501` (o en el `APP_PORT` del `.env`).
+
+- `entrypoint.sh` crea y siembra `data/logistics.db` si no existe, y luego lanza
+  Streamlit en `0.0.0.0:8501` como usuario sin privilegios (uid 1000).
+- `./data` se monta como volumen: la base SQLite persiste entre reinicios y
+  reconstrucciones de la imagen. Para empezar de cero: `docker compose down`,
+  borrar `data/logistics.db` y volver a levantar.
+- El contenedor reinicia solo (`restart: unless-stopped`) y expone un
+  healthcheck sobre `/_stcore/health`.
+- Logs: `docker compose logs -f app`.
+
+Los mapas usan CARTO Dark Matter, que no requiere token. Si defines
+`MAPBOX_API_KEY` en `.env`, se usa `mapbox://styles/mapbox/dark-v11`.
+
 ## Instalación y ejecución local
 
 ```bash
@@ -72,6 +93,7 @@ logistics_app/
 ├── init_db.py                   # Esquema + datos de prueba (migración aditiva)
 ├── test_logisuite.py            # Suite de pruebas (pytest)
 ├── requirements.txt
+├── Dockerfile / docker-compose.yml / entrypoint.sh / .env.example
 ├── .streamlit/config.toml       # Tema base de la aplicación
 ├── database/
 │   ├── schema.py                 # Esquema base con claves foráneas estrictas
@@ -95,9 +117,10 @@ logistics_app/
 │   ├── audit.py                  # Bitácora de auditoría
 │   ├── data_tools.py             # Importación validada, exportación y búsqueda global
 │   ├── i18n.py                   # Internacionalización español / inglés
-│   ├── map_utils.py              # Capas de mapa (pydeck)
+│   ├── map_utils.py              # Mapas WebGL (pydeck): arcos 3D, fletes activos, columnas
+│   ├── theme.py                  # Sistema de diseño oscuro, KPI cards, plantilla Plotly
 │   ├── report_exporter.py        # Exportación a Excel y PDF
-│   └── seed_data.py              # Datos de prueba (red logística colombiana)
+│   └── seed_data.py              # Red de Colombia: CEDIs, puertos, flota y fletes
 ├── pages/                        # Páginas de la interfaz multipágina
 │   ├── 1_Dashboard_Ejecutivo.py
 │   ├── 2_Warehouse_Management.py
@@ -192,7 +215,20 @@ Documentación aduanera, liquidación de tributos y:
   **exportación consolidada** a un único libro con una hoja por módulo.
 - **Búsqueda global** por SKU, placa, documento o envío desde la barra lateral.
 - **Autenticación por roles** y **bitácora de auditoría** de cada cambio.
-- **Idioma español/inglés** y **modo claro/oscuro** conmutables por el usuario.
+- **Idioma español/inglés** conmutable por el usuario, sobre un tema oscuro
+  único (estilo Vercel/Linear) con tipografía Inter y tarjetas KPI glassmorphism.
+
+### 8. Datos semilla: red logística de Colombia
+- **CEDIs**: Bogotá (Funza), Medellín (Girardota), Cali (Yumbo), Barranquilla y
+  Bucaramanga (Girón). **Puertos**: SPRC Cartagena (Mamonal) y Buenaventura.
+- **Corredores troncales** con distancias y tiempos de tractomula por carretera,
+  más el enlace marítimo Cartagena–Buenaventura vía Canal de Panamá.
+- **Flota** con nomenclatura local —Tractomula 3S3 (35 t), Dobletroque (18 t),
+  Camión Sencillo (10 t), Turbo NPR (5 t)— y placas con formato `ABC-123`. La
+  columna `vehicle_type` guarda los valores del `CHECK` del esquema y la
+  interfaz muestra el nombre comercial (`models/fleet.py: VEHICLE_CLASSES`).
+- **Fletes** sobre corredores reales (Cartagena→Bogotá, Bogotá→Buenaventura,
+  Medellín→Cartagena…) con documentos aduaneros coherentes con cada operación.
 
 ---
 

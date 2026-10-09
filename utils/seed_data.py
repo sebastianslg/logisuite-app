@@ -268,7 +268,8 @@ def _seed_shipments_routes():
         ("SPRC Cartagena (Mamonal)", "CEDI Bogotá (Funza)", 2, 28000, 66, "Entregado", 3, 3, 185000),
         ("CEDI Bogotá (Funza)", "Puerto de Buenaventura", 2, 30000, 70, "En Transito", 17, None, 410000),
         ("CEDI Medellín (Girardota)", "SPRC Cartagena (Mamonal)", 2, 24000, 60, "Entregado", 5, 5, 230000),
-        ("CEDI Cali (Yumbo)", "Cliente Pereira", 6, 9000, 30, "Entregado", 7, 6, 42000),
+        # Entregado un día tarde: el OTIF de la base semilla no es un 100% irreal.
+        ("CEDI Cali (Yumbo)", "Cliente Pereira", 6, 9000, 30, "Entregado", 7, 8, 42000),
         ("Puerto de Buenaventura", "CEDI Cali (Yumbo)", 2, 31000, 68, "Retrasado", 8, 11, 265000),
         ("CEDI Barranquilla", "CEDI Bucaramanga", 4, 16000, 42, "Retrasado", 9, 13, 88000),
         ("CEDI Bogotá (Funza)", "CEDI Barranquilla", 2, 33000, 76, "En Transito", 18, None, 150000),
