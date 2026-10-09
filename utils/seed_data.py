@@ -1,13 +1,13 @@
 """
 seed_data.py
-Carga de datos de prueba realistas (red logística colombiana) para que la
-aplicación funcione de inmediato tras el despliegue en la nube.
+Carga de datos de prueba realistas de la red logística de Colombia: CEDIs en
+los parques logísticos de Funza, Girardota, Yumbo, Barranquilla y Bucaramanga,
+los puertos de Cartagena (SPRC Mamonal) y Buenaventura, flota con nomenclatura
+local y placas colombianas, y fletes sobre los corredores troncales.
 """
 from datetime import datetime, timedelta
 from database.db import run_write, run_query
 from models.freight import compute_transport_cost
-
-random_dates = lambda base, n: [(base + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(n)]
 
 
 def seed_all():
@@ -38,25 +38,60 @@ def ensure_core_seeded():
     _seed_customs()
 
 
+# ---------------------------------------------------------------------------
+# Red logística de Colombia
+# ---------------------------------------------------------------------------
+# Coordenadas de los parques logísticos reales donde operan los CEDIs de las
+# grandes cadenas del país, y de los dos puertos que mueven la mayor parte del
+# comercio exterior colombiano. node_type usa los valores del CHECK del
+# esquema: los CEDIs son 'CD' y los puertos 'Gateway'.
+NODES = [
+    # nombre, tipo, lat, lon, ciudad
+    ("CEDI Bogotá (Funza)", "CD", 4.7166, -74.2119, "Funza"),
+    ("CEDI Medellín (Girardota)", "CD", 6.3770, -75.4460, "Girardota"),
+    ("CEDI Cali (Yumbo)", "CD", 3.5852, -76.4954, "Yumbo"),
+    ("CEDI Barranquilla", "CD", 10.9685, -74.7813, "Barranquilla"),
+    ("CEDI Bucaramanga", "CD", 7.0700, -73.1690, "Girón"),
+    ("SPRC Cartagena (Mamonal)", "Gateway", 10.3600, -75.5050, "Cartagena"),
+    ("Puerto de Buenaventura", "Gateway", 3.8906, -77.0786, "Buenaventura"),
+    ("Hub Logístico Ibagué", "Hub", 4.4389, -75.2322, "Ibagué"),
+    ("Cliente Bogotá (Corabastos)", "Cliente", 4.6280, -74.1530, "Bogotá"),
+    ("Cliente Medellín (Itagüí)", "Cliente", 6.1719, -75.6114, "Itagüí"),
+    ("Cliente Cali (Sur)", "Cliente", 3.3800, -76.5300, "Cali"),
+    ("Cliente Barranquilla (Centro)", "Cliente", 10.9878, -74.7889, "Barranquilla"),
+    ("Cliente Bucaramanga (Centro)", "Cliente", 7.1254, -73.1198, "Bucaramanga"),
+    ("Cliente Pereira", "Cliente", 4.8143, -75.6946, "Pereira"),
+]
+
+# Corredores viales troncales (distancias y tiempos de tractomula por
+# carretera) más el enlace marítimo entre puertos vía Canal de Panamá.
+CORRIDORS = [
+    # origen, destino, km, horas, modo, USD/km
+    ("CEDI Bogotá (Funza)", "Hub Logístico Ibagué", 195, 4.5, "Terrestre", 1.6),
+    ("Hub Logístico Ibagué", "CEDI Cali (Yumbo)", 270, 6.5, "Terrestre", 1.6),
+    ("CEDI Cali (Yumbo)", "Puerto de Buenaventura", 120, 3.0, "Terrestre", 1.8),
+    ("CEDI Bogotá (Funza)", "CEDI Medellín (Girardota)", 430, 9.5, "Terrestre", 1.5),
+    ("CEDI Medellín (Girardota)", "SPRC Cartagena (Mamonal)", 640, 13.0, "Terrestre", 1.4),
+    ("CEDI Bogotá (Funza)", "CEDI Bucaramanga", 400, 9.0, "Terrestre", 1.5),
+    ("CEDI Bucaramanga", "CEDI Barranquilla", 570, 11.0, "Terrestre", 1.4),
+    ("CEDI Bucaramanga", "SPRC Cartagena (Mamonal)", 620, 12.0, "Terrestre", 1.4),
+    ("CEDI Barranquilla", "SPRC Cartagena (Mamonal)", 125, 2.5, "Terrestre", 1.7),
+    ("CEDI Bogotá (Funza)", "CEDI Barranquilla", 1000, 18.0, "Terrestre", 1.35),
+    ("CEDI Medellín (Girardota)", "CEDI Cali (Yumbo)", 420, 9.0, "Terrestre", 1.5),
+    ("Hub Logístico Ibagué", "Cliente Pereira", 160, 3.5, "Terrestre", 1.7),
+    ("CEDI Medellín (Girardota)", "Cliente Pereira", 230, 5.0, "Terrestre", 1.7),
+    ("CEDI Cali (Yumbo)", "Cliente Pereira", 210, 4.5, "Terrestre", 1.7),
+    ("CEDI Bogotá (Funza)", "Cliente Bogotá (Corabastos)", 22, 0.9, "Terrestre", 2.1),
+    ("CEDI Medellín (Girardota)", "Cliente Medellín (Itagüí)", 35, 1.0, "Terrestre", 2.1),
+    ("CEDI Cali (Yumbo)", "Cliente Cali (Sur)", 25, 0.8, "Terrestre", 2.1),
+    ("CEDI Barranquilla", "Cliente Barranquilla (Centro)", 8, 0.4, "Terrestre", 2.1),
+    ("CEDI Bucaramanga", "Cliente Bucaramanga (Centro)", 12, 0.5, "Terrestre", 2.1),
+    ("SPRC Cartagena (Mamonal)", "Puerto de Buenaventura", 1450, 72.0, "Maritimo", 0.55),
+]
+
+
 def _seed_nodes():
-    nodes = [
-        ("Planta Cartagena", "Planta", 10.3910, -75.4794, "Cartagena"),
-        ("Planta Barranquilla", "Planta", 10.9639, -74.7964, "Barranquilla"),
-        ("CD Bogota Norte", "CD", 4.7110, -74.0721, "Bogota"),
-        ("CD Medellin", "CD", 6.2442, -75.5812, "Medellin"),
-        ("CD Cali", "CD", 3.4516, -76.5320, "Cali"),
-        ("Almacen Bucaramanga", "Almacen", 7.1193, -73.1227, "Bucaramanga"),
-        ("Hub Logistico Ibague", "Hub", 4.4389, -75.2322, "Ibague"),
-        ("Gateway Puerto Cartagena", "Gateway", 10.4236, -75.5540, "Cartagena"),
-        ("Gateway Puerto Buenaventura", "Gateway", 3.8801, -77.0312, "Buenaventura"),
-        ("Cliente Bogota Sur", "Cliente", 4.5981, -74.1469, "Bogota"),
-        ("Cliente Medellin Poblado", "Cliente", 6.2088, -75.5680, "Medellin"),
-        ("Cliente Cali Norte", "Cliente", 3.4750, -76.5230, "Cali"),
-        ("Cliente Barranquilla Centro", "Cliente", 10.9878, -74.7889, "Barranquilla"),
-        ("Cliente Bucaramanga Centro", "Cliente", 7.1254, -73.1198, "Bucaramanga"),
-        ("Cliente Pereira", "Cliente", 4.8143, -75.6946, "Pereira"),
-    ]
-    for name, ntype, lat, lon, city in nodes:
+    for name, ntype, lat, lon, city in NODES:
         run_write(
             "INSERT INTO nodes (name, node_type, latitude, longitude, city, active) VALUES (?,?,?,?,?,1)",
             (name, ntype, lat, lon, city),
@@ -69,27 +104,7 @@ def _node_id(name: str) -> int:
 
 
 def _seed_corridors():
-    edges = [
-        ("Planta Cartagena", "Gateway Puerto Cartagena", 15, 0.5, "Terrestre", 1.8),
-        ("Planta Cartagena", "CD Bogota Norte", 1050, 18, "Terrestre", 1.4),
-        ("Planta Cartagena", "Almacen Bucaramanga", 620, 11, "Terrestre", 1.5),
-        ("Planta Barranquilla", "Cliente Barranquilla Centro", 20, 0.6, "Terrestre", 1.8),
-        ("Planta Barranquilla", "CD Bogota Norte", 990, 17, "Terrestre", 1.4),
-        ("Planta Barranquilla", "Almacen Bucaramanga", 450, 9, "Terrestre", 1.5),
-        ("CD Bogota Norte", "Cliente Bogota Sur", 18, 0.7, "Terrestre", 2.0),
-        ("CD Bogota Norte", "Hub Logistico Ibague", 210, 4, "Terrestre", 1.6),
-        ("CD Bogota Norte", "Almacen Bucaramanga", 400, 7.5, "Terrestre", 1.5),
-        ("Hub Logistico Ibague", "CD Cali", 300, 6, "Terrestre", 1.5),
-        ("Hub Logistico Ibague", "CD Medellin", 280, 5.5, "Terrestre", 1.5),
-        ("Hub Logistico Ibague", "Cliente Pereira", 130, 2.5, "Terrestre", 1.6),
-        ("CD Medellin", "Cliente Medellin Poblado", 12, 0.4, "Terrestre", 2.0),
-        ("CD Cali", "Cliente Cali Norte", 15, 0.5, "Terrestre", 2.0),
-        ("CD Cali", "Gateway Puerto Buenaventura", 115, 2.5, "Terrestre", 1.6),
-        ("Gateway Puerto Buenaventura", "CD Medellin", 380, 8, "Terrestre", 1.5),
-        ("Almacen Bucaramanga", "Cliente Bucaramanga Centro", 8, 0.3, "Terrestre", 2.0),
-        ("Gateway Puerto Cartagena", "Gateway Puerto Buenaventura", 900, 60, "Maritimo", 0.6),
-    ]
-    for o, d, dist, t, mode, cost_km in edges:
+    for o, d, dist, t, mode, cost_km in CORRIDORS:
         run_write(
             """INSERT INTO corridors (origin_node_id, dest_node_id, distance_km, transit_time_h,
                mode, cost_per_km, active) VALUES (?,?,?,?,?,?,1)""",
@@ -98,8 +113,11 @@ def _seed_corridors():
 
 
 def _seed_warehouses_inventory():
-    whs = [("CD Bogota Norte", 5000, "Laura Gomez"), ("CD Medellin", 4200, "Carlos Ruiz"),
-           ("CD Cali", 3600, "Ana Torres"), ("Almacen Bucaramanga", 2100, "Pedro Leon")]
+    whs = [("CEDI Bogotá (Funza)", 12000, "Laura Gómez"),
+           ("CEDI Medellín (Girardota)", 9500, "Carlos Restrepo"),
+           ("CEDI Cali (Yumbo)", 8200, "Ana María Torres"),
+           ("CEDI Barranquilla", 7000, "Javier Charris"),
+           ("CEDI Bucaramanga", 4800, "Pedro León")]
     wh_ids = {}
     for node_name, cap, mgr in whs:
         wid = run_write("INSERT INTO warehouses (node_id, capacity_m3, manager) VALUES (?,?,?)",
@@ -107,14 +125,16 @@ def _seed_warehouses_inventory():
         wh_ids[node_name] = wid
 
     items = [
-        ("CD Bogota Norte", "SKU-1001", "Panel Solar 250W", "Alta", 420, 100, 800, 185.0),
-        ("CD Bogota Norte", "SKU-1002", "Inversor 5kW", "Media", 60, 20, 150, 640.0),
-        ("CD Bogota Norte", "SKU-1003", "Bateria Litio 5kWh", "Baja", 15, 10, 60, 1250.0),
-        ("CD Medellin", "SKU-2001", "Tuberia PVC 6m", "Alta", 900, 300, 1500, 12.5),
-        ("CD Medellin", "SKU-2002", "Valvula Industrial", "Media", 140, 50, 300, 78.0),
-        ("CD Cali", "SKU-3001", "Motor Electrico 10HP", "Media", 35, 15, 90, 520.0),
-        ("CD Cali", "SKU-3002", "Cable AWG 12", "Alta", 2200, 800, 4000, 1.1),
-        ("Almacen Bucaramanga", "SKU-4001", "Kit Herramientas", "Baja", 8, 10, 50, 95.0),
+        ("CEDI Bogotá (Funza)", "SKU-1001", "Café Excelso UGQ (saco 70 kg)", "Alta", 1800, 500, 3000, 245.0),
+        ("CEDI Bogotá (Funza)", "SKU-1002", "Flor de corte - caja tabaco", "Alta", 950, 300, 1600, 38.0),
+        ("CEDI Bogotá (Funza)", "SKU-1003", "Llanta 295/80R22.5", "Baja", 40, 60, 240, 410.0),
+        ("CEDI Medellín (Girardota)", "SKU-2001", "Textil - rollo índigo 100 m", "Alta", 1200, 400, 2000, 95.0),
+        ("CEDI Medellín (Girardota)", "SKU-2002", "Electrodoméstico línea blanca", "Media", 260, 80, 500, 320.0),
+        ("CEDI Cali (Yumbo)", "SKU-3001", "Azúcar refinada (bulto 50 kg)", "Alta", 4200, 1500, 7000, 31.0),
+        ("CEDI Cali (Yumbo)", "SKU-3002", "Papel kraft (bobina)", "Media", 180, 60, 400, 690.0),
+        ("CEDI Barranquilla", "SKU-4001", "Resina PET (big bag 1 t)", "Media", 120, 40, 260, 1150.0),
+        ("CEDI Barranquilla", "SKU-4002", "Cemento gris (bulto 50 kg)", "Alta", 6000, 2000, 10000, 7.5),
+        ("CEDI Bucaramanga", "SKU-5001", "Fertilizante NPK (bulto 50 kg)", "Baja", 90, 120, 600, 36.0),
     ]
     item_ids = {}
     for wh_name, sku, name, zone, qty, mn, mx, cost in items:
@@ -127,12 +147,14 @@ def _seed_warehouses_inventory():
 
     base = datetime.today() - timedelta(days=20)
     moves = [
-        ("SKU-1001", "Inbound-Recepcion", 300, 0), ("SKU-1001", "Inbound-Inspeccion", 300, 1),
-        ("SKU-1001", "Outbound-Picking", 120, 5), ("SKU-1001", "Outbound-Empaque", 120, 5),
-        ("SKU-1001", "Outbound-Despacho", 120, 6),
-        ("SKU-2001", "Inbound-Recepcion", 600, 2), ("SKU-2001", "Outbound-Despacho", 300, 10),
-        ("SKU-3002", "Inbound-Recepcion", 1500, 3), ("SKU-3002", "Outbound-Despacho", 900, 12),
-        ("SKU-4001", "Outbound-Despacho", 12, 15),
+        ("SKU-1001", "Inbound-Recepcion", 900, 0), ("SKU-1001", "Inbound-Inspeccion", 900, 1),
+        ("SKU-1001", "Outbound-Picking", 420, 5), ("SKU-1001", "Outbound-Empaque", 420, 5),
+        ("SKU-1001", "Outbound-Despacho", 420, 6),
+        ("SKU-1002", "Inbound-Recepcion", 700, 3), ("SKU-1002", "Outbound-Despacho", 520, 4),
+        ("SKU-2001", "Inbound-Recepcion", 800, 2), ("SKU-2001", "Outbound-Despacho", 450, 10),
+        ("SKU-3001", "Inbound-Recepcion", 3000, 3), ("SKU-3001", "Outbound-Despacho", 2100, 12),
+        ("SKU-4002", "Inbound-Recepcion", 4000, 6), ("SKU-4002", "Outbound-Despacho", 3100, 14),
+        ("SKU-5001", "Outbound-Despacho", 140, 15),
     ]
     for sku, mtype, qty, day_offset in moves:
         date = (base + timedelta(days=day_offset)).strftime("%Y-%m-%d")
@@ -143,46 +165,93 @@ def _seed_warehouses_inventory():
         )
 
 
+# Tipologías de la flota: (tipo en el esquema, kg, m3). El nombre comercial
+# (Tractomula 3S3, Dobletroque, ...) vive en models.fleet.VEHICLE_CLASSES.
+FLEET_SPECS = {
+    "Tractomula": (35000, 80),     # Tractomula 3S3
+    "Camion 3 ejes": (18000, 45),  # Dobletroque
+    "Camion 2 ejes": (10000, 36),  # Camión Sencillo
+    "Furgon": (5000, 22),          # Turbo NPR
+}
+
+# tipo, estado, odómetro, base
+FLEET = [
+    ("Tractomula", "En Ruta", 186000, "CEDI Bogotá (Funza)"),
+    ("Tractomula", "Disponible", 142500, "SPRC Cartagena (Mamonal)"),
+    ("Tractomula", "En Ruta", 211300, "Puerto de Buenaventura"),
+    ("Tractomula", "Mantenimiento", 238900, "CEDI Medellín (Girardota)"),
+    ("Tractomula", "Disponible", 97800, "CEDI Barranquilla"),
+    ("Camion 3 ejes", "En Ruta", 121400, "CEDI Cali (Yumbo)"),
+    ("Camion 3 ejes", "Disponible", 88600, "CEDI Bucaramanga"),
+    ("Camion 3 ejes", "Disponible", 64200, "CEDI Bogotá (Funza)"),
+    ("Camion 2 ejes", "Disponible", 73100, "CEDI Medellín (Girardota)"),
+    ("Camion 2 ejes", "En Ruta", 55400, "CEDI Bogotá (Funza)"),
+    ("Camion 2 ejes", "Mantenimiento", 102700, "CEDI Cali (Yumbo)"),
+    ("Furgon", "Disponible", 41800, "CEDI Bogotá (Funza)"),
+    ("Furgon", "En Ruta", 38200, "CEDI Medellín (Girardota)"),
+    ("Furgon", "Disponible", 26900, "CEDI Barranquilla"),
+]
+
+
+def _colombian_plates(n: int, seed: int = 57) -> list:
+    """Placas de servicio público de carga con el formato colombiano ABC-123.
+    Se generan con semilla fija para que la base sea reproducible."""
+    import random
+    rng = random.Random(seed)
+    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    # Primera letra acotada para que las placas luzcan como de vehículo de carga
+    prefixes = ["S", "T", "W", "X", "U", "Q", "K", "G"]
+    plates = set()
+    while len(plates) < n:
+        plate = (rng.choice(prefixes) + rng.choice(letters) + rng.choice(letters)
+                 + "-" + f"{rng.randint(100, 999)}")
+        plates.add(plate)
+    return sorted(plates, key=lambda p: rng.random())
+
+
 def _seed_vehicles_drivers():
-    vehicles = [
-        ("CTG-101", "Tractomula", 32000, 90, "Disponible", 85000, "Planta Cartagena"),
-        ("CTG-202", "Camion 3 ejes", 17000, 55, "Disponible", 62000, "CD Bogota Norte"),
-        ("MED-303", "Camion 2 ejes", 9000, 35, "En Ruta", 41000, "CD Medellin"),
-        ("CAL-404", "Furgon", 4500, 20, "Disponible", 28000, "CD Cali"),
-        ("BAQ-505", "Van", 1800, 10, "Mantenimiento", 55000, "Planta Barranquilla"),
-    ]
-    for plate, vtype, kg, m3, status, odo, home in vehicles:
+    plates = _colombian_plates(len(FLEET))
+    for plate, (vtype, status, odo, home) in zip(plates, FLEET):
+        kg, m3 = FLEET_SPECS[vtype]
         run_write(
             """INSERT INTO vehicles (plate, vehicle_type, capacity_kg, capacity_m3, status,
                odometer_km, home_node_id) VALUES (?,?,?,?,?,?,?)""",
             (plate, vtype, kg, m3, status, odo, _node_id(home)),
         )
 
+    today = datetime.today()
+    # Categorías del RUNT: C2 camión rígido, C3 vehículo articulado.
     drivers = [
-        ("Jorge Martinez", "L-88451", "C2", "2027-03-15"),
-        ("Sandra Pinzon", "L-77213", "C3", "2026-10-02"),
-        ("Felipe Cardenas", "L-66120", "C2", "2026-09-25"),
-        ("Diana Ospina", "L-55980", "C3", "2028-01-10"),
+        ("Jorge Martínez", "CC-79451882", "C3", 540),
+        ("Sandra Pinzón", "CC-52771310", "C2", 20),     # vence pronto -> alerta
+        ("Felipe Cárdenas", "CC-1020456", "C3", 12),    # vence pronto -> alerta
+        ("Diana Ospina", "CC-43980112", "C3", 820),
+        ("Wilson Mosquera", "CC-16288901", "C3", 365),
+        ("Luz Dary Henao", "CC-42110987", "C2", 610),
+        ("Edwin Barrios", "CC-72198033", "C3", 95),
+        ("Yeison Rodríguez", "CC-1098712", "C2", 450),
     ]
-    for name, lic, cat, exp in drivers:
+    for name, lic, cat, days in drivers:
+        exp = (today + timedelta(days=days)).strftime("%Y-%m-%d")
         run_write(
             """INSERT INTO drivers (name, license_number, license_category, license_expiry, status)
                VALUES (?,?,?,?,'Activo')""",
             (name, lic, cat, exp),
         )
 
+    # Todos los valores monetarios del sistema están en USD, para que el TCO
+    # sea coherente con el precio del combustible y la depreciación.
     maint = [
-        # IMPORTANTE: todos los valores monetarios del sistema están en USD.
-        # Estos costos se expresan en USD para que el TCO por vehículo sea
-        # coherente con el precio del combustible y la depreciación, que
-        # también están en USD. Mezclar COP y USD haría que el TCO no
-        # signifique nada.
-        (1, "Preventivo", "2026-07-01", 82000, 115.0, "Cambio de aceite y filtros"),
-        (1, "Correctivo", "2026-08-10", 84500, 305.0, "Reparacion sistema de frenos"),
-        (3, "Preventivo", "2026-08-20", 40000, 95.0, "Mantenimiento 40,000 km"),
-        (5, "Correctivo", "2026-09-01", 54800, 535.0, "Falla de transmision"),
+        (1, "Preventivo", 95, 176000, 420.0, "Cambio de aceite, filtros y engrase quinta rueda"),
+        (1, "Correctivo", 40, 182500, 1150.0, "Reparación sistema de frenos de aire"),
+        (3, "Preventivo", 60, 200000, 450.0, "Mantenimiento 200.000 km"),
+        (4, "Correctivo", 6, 238900, 2300.0, "Falla de caja de cambios (en taller)"),
+        (6, "Preventivo", 30, 120000, 260.0, "Revisión técnico-mecánica"),
+        (11, "Correctivo", 3, 102700, 780.0, "Cambio de embrague"),
+        (13, "Preventivo", 50, 36000, 140.0, "Mantenimiento 36.000 km"),
     ]
-    for vid, mtype, date, odo, cost, desc in maint:
+    for vid, mtype, days_ago, odo, cost, desc in maint:
+        date = (today - timedelta(days=days_ago)).strftime("%Y-%m-%d")
         run_write(
             """INSERT INTO maintenance_records (vehicle_id, maintenance_type, maintenance_date,
                odometer_km, cost, description) VALUES (?,?,?,?,?,?)""",
@@ -193,32 +262,40 @@ def _seed_vehicles_drivers():
 def _seed_shipments_routes():
     import json
     base = datetime.today() - timedelta(days=15)
+    # origen, destino, unidades, kg, m3, estado, día promesa, día entrega, valor declarado USD
+    # Los tres primeros se referencian en las semillas de aduanas (ids 1, 3, 5).
     shipments = [
-        ("Planta Cartagena", "Cliente Bogota Sur", 8, 12000, 40, "Entregado", 0, 4, 25000),
-        ("Planta Barranquilla", "Cliente Medellin Poblado", 3, 3200, 15, "Entregado", 2, 6, 9000),
-        ("CD Bogota Norte", "Cliente Cali Norte", 12, 18000, 60, "En Transito", 5, None, 42000),
-        ("CD Medellin", "Cliente Pereira", 2, 1800, 8, "Registrado", 8, None, 5000),
-        ("Planta Cartagena", "Cliente Bucaramanga Centro", 6, 9000, 30, "Retrasado", 3, 9, 18000),
-        # --- Envíos pequeños al MISMO corredor y en la misma ventana de fechas.
-        # Existen para que el motor de consolidación tenga candidatos reales que
-        # agrupar: por separado cada uno paga su propio costo de transacción y
-        # ninguno alcanza el umbral de masificación; consolidados, sí.
-        ("CD Bogota Norte", "Cliente Bogota Sur", 2, 1500, 6, "Registrado", 10, None, 4200),
-        ("CD Bogota Norte", "Cliente Bogota Sur", 1, 900, 4, "Registrado", 11, None, 2600),
-        ("CD Bogota Norte", "Cliente Bogota Sur", 3, 2100, 9, "Registrado", 12, None, 5800),
-        ("CD Medellin", "Cliente Medellin Poblado", 2, 1200, 5, "Registrado", 9, None, 3400),
-        ("CD Medellin", "Cliente Medellin Poblado", 1, 800, 3, "Registrado", 10, None, 2100),
+        ("SPRC Cartagena (Mamonal)", "CEDI Bogotá (Funza)", 2, 28000, 66, "Entregado", 3, 3, 185000),
+        ("CEDI Bogotá (Funza)", "Puerto de Buenaventura", 2, 30000, 70, "En Transito", 17, None, 410000),
+        ("CEDI Medellín (Girardota)", "SPRC Cartagena (Mamonal)", 2, 24000, 60, "Entregado", 5, 5, 230000),
+        ("CEDI Cali (Yumbo)", "Cliente Pereira", 6, 9000, 30, "Entregado", 7, 6, 42000),
+        ("Puerto de Buenaventura", "CEDI Cali (Yumbo)", 2, 31000, 68, "Retrasado", 8, 11, 265000),
+        ("CEDI Barranquilla", "CEDI Bucaramanga", 4, 16000, 42, "Retrasado", 9, 13, 88000),
+        ("CEDI Bogotá (Funza)", "CEDI Barranquilla", 2, 33000, 76, "En Transito", 18, None, 150000),
+        ("CEDI Bucaramanga", "Cliente Bucaramanga (Centro)", 3, 4200, 18, "En Transito", 16, None, 12500),
+        # Envíos pequeños al MISMO corredor y en la misma ventana de fechas:
+        # candidatos reales para el motor de consolidación de carga.
+        ("CEDI Bogotá (Funza)", "Cliente Bogotá (Corabastos)", 2, 1500, 6, "Registrado", 10, None, 4200),
+        ("CEDI Bogotá (Funza)", "Cliente Bogotá (Corabastos)", 1, 900, 4, "Registrado", 11, None, 2600),
+        ("CEDI Bogotá (Funza)", "Cliente Bogotá (Corabastos)", 3, 2100, 9, "Registrado", 12, None, 5800),
+        ("CEDI Medellín (Girardota)", "Cliente Medellín (Itagüí)", 2, 1200, 5, "Registrado", 9, None, 3400),
+        ("CEDI Medellín (Girardota)", "Cliente Medellín (Itagüí)", 1, 800, 3, "Registrado", 10, None, 2100),
     ]
     # Se resuelve la ruta real sobre la red para costear cada envío con su
-    # distancia y tiempo verdaderos. Usar una distancia fija para todos los
-    # envíos haría que los costos, las emisiones y los ahorros por
-    # consolidación no correspondieran a la topología de la red.
+    # distancia y tiempo verdaderos (Dijkstra sobre los corredores viales).
     from models.network import Node, Corridor
     from utils.network_algorithms import build_graph, shortest_path
     _nodes, _corridors = Node.all(), Corridor.all()
     _G = build_graph(_nodes, _corridors)
 
-    for origin, dest, units, w, v, status, prom_off, deliv_off, value in shipments:
+    # Asignación de flota: cada envío toma el vehículo más pequeño que lo
+    # puede cargar, rotando entre las unidades operativas de esa tipología.
+    vehicles = run_query("""SELECT vehicle_id, capacity_kg FROM vehicles
+                            WHERE status NOT IN ('Mantenimiento', 'Fuera de Servicio')
+                            ORDER BY capacity_kg, vehicle_id""")
+    n_drivers = int(run_query("SELECT COUNT(*) c FROM drivers").iloc[0]["c"])
+
+    for i, (origin, dest, units, w, v, status, prom_off, deliv_off, value) in enumerate(shipments):
         promised = (base + timedelta(days=prom_off)).strftime("%Y-%m-%d")
         delivered = (base + timedelta(days=deliv_off)).strftime("%Y-%m-%d") if deliv_off else None
 
@@ -239,30 +316,47 @@ def _seed_shipments_routes():
              breakdown["transaction_cost"], breakdown["distance_friction_cost"],
              breakdown["shipment_cost"], breakdown["total_cost"]),
         )
-        # El camino guardado es el que realmente calculó Dijkstra sobre la red,
-        # con sus nodos intermedios, no un salto directo origen-destino.
         path = ruta["path"] if ruta["found"] else [_node_id(origin), _node_id(dest)]
-        # El tiempo real se simula como una desviación sobre el ETA, para que el
-        # control de ETA vs. real del módulo de transporte tenga datos con los
-        # que trabajar (algunos envíos llegan tarde, otros a tiempo).
+        # El tiempo real se simula como una desviación sobre el ETA para que el
+        # control de ETA vs. real tenga envíos a tiempo y envíos tarde.
         desviacion = {"Entregado": 1.05, "En Transito": 1.12, "Retrasado": 1.35}.get(status)
         horas_reales = round(tiempo_real * desviacion, 2) if desviacion else None
+
+        aptos = vehicles[vehicles["capacity_kg"] >= w]
+        aptos = aptos if not aptos.empty else vehicles
+        smallest = aptos[aptos["capacity_kg"] == aptos["capacity_kg"].min()]
+        vehicle_id = int(smallest.iloc[i % len(smallest)]["vehicle_id"])
         run_write(
             """INSERT INTO routes (shipment_id, path_json, algorithm, total_distance_km,
                total_cost, eta_hours, actual_hours, vehicle_id, driver_id)
                VALUES (?,?,?,?,?,?,?,?,?)""",
             (sid, json.dumps(path), "dijkstra_distancia", dist_real, breakdown["total_cost"],
-             tiempo_real, horas_reales, (sid % 5) + 1, (sid % 4) + 1),
+             tiempo_real, horas_reales, vehicle_id, (sid % n_drivers) + 1),
         )
 
 
 def _seed_customs():
     from models.customs import CustomsDuty
+    today = datetime.today()
+
+    def d(offset):
+        return (today + timedelta(days=offset)).strftime("%Y-%m-%d")
+
     docs = [
-        (1, "Bill of Lading", "BL-2026-001", "2026-08-20", None, "Liberado"),
-        (1, "Manifiesto de Carga", "MC-2026-001", "2026-08-20", None, "Liberado"),
-        (3, "Declaracion de Exportacion", "DEX-2026-014", "2026-08-28", "2026-09-15", "En Revision"),
-        (5, "Certificado de Origen", "CO-2026-007", "2026-08-25", "2026-09-10", "Pendiente"),
+        # 1: importación por Cartagena hacia Bogotá
+        (1, "Bill of Lading", "MSCU-BL-2026-0418", d(-20), None, "Liberado"),
+        (1, "Declaracion de Importacion", "DI-482026000118", d(-17), None, "Liberado"),
+        (1, "Manifiesto de Carga", "MC-CTG-2026-0921", d(-17), None, "Liberado"),
+        # 2: exportación por Buenaventura
+        (2, "Declaracion de Exportacion", "DEX-602026004471", d(-3), d(12), "En Revision"),
+        (2, "Certificado de Origen", "CO-VUCE-2026-1187", d(-4), d(25), "Pendiente"),
+        # 3: exportación por Cartagena desde Medellín
+        (3, "Declaracion de Exportacion", "DEX-602026003902", d(-14), d(16), "Liberado"),
+        (3, "Bill of Lading", "HLCU-BL-2026-7731", d(-11), None, "Liberado"),
+        # 5: importación por Buenaventura hacia Cali (retrasada en puerto)
+        (5, "Bill of Lading", "CMDU-BL-2026-3350", d(-9), None, "Liberado"),
+        (5, "Declaracion de Importacion", "DI-482026000502", d(-6), d(5), "En Revision"),
+        (5, "Certificado de Origen", "CO-CN-2026-88412", d(-12), d(8), "Pendiente"),
     ]
     for sid, dtype, num, issue, expiry, status in docs:
         run_write(
@@ -271,7 +365,7 @@ def _seed_customs():
             (sid, dtype, num, issue, expiry, status),
         )
 
-    duties = [(1, 8.0, 25000, 19.0), (3, 5.0, 42000, 19.0), (5, 10.0, 18000, 19.0)]
+    duties = [(1, 5.0, 185000, 19.0), (5, 10.0, 265000, 19.0)]
     for sid, tariff, value, vat in duties:
         calc = CustomsDuty.compute(value, tariff, vat)
         run_write(

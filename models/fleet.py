@@ -9,6 +9,23 @@ from typing import Optional
 from datetime import datetime, timedelta
 from database.db import run_query, run_write
 
+# Nomenclatura comercial colombiana de cada tipología. La columna
+# vehicles.vehicle_type conserva los valores que admite el CHECK del esquema
+# (así no hay que migrar bases ya desplegadas); la interfaz muestra el nombre
+# con el que se conoce el vehículo en el transporte de carga del país.
+VEHICLE_CLASSES = {
+    "Tractomula": "Tractomula 3S3",
+    "Camion 3 ejes": "Dobletroque",
+    "Camion 2 ejes": "Camión Sencillo",
+    "Furgon": "Turbo NPR",
+    "Van": "Van de reparto",
+}
+
+
+def vehicle_label(vehicle_type: str) -> str:
+    """Nombre comercial de una tipología del esquema (ej. 'Tractomula 3S3')."""
+    return VEHICLE_CLASSES.get(vehicle_type, vehicle_type)
+
 
 @dataclass
 class Vehicle:
