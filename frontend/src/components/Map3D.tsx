@@ -31,6 +31,7 @@ import { setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { boundsOf, flightArc, positionAt, splitTrip, type Position3, type TripSegment } from "./map/geometry";
+import { useApp } from "@/components/providers";
 import { MODES } from "@/lib/modes";
 import type { DepartmentsGeo, FleetLive, LiveAsset, Mode, NetworkGeo, RouteResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,7 @@ const rgba = (mode: Mode, a = 255): RGBA => [...MODES[mode].rgb, a];
 const CYAN: RGBA = [34, 211, 238, 255];
 const VIOLET: RGBA = [161, 115, 232, 255];
 const AMBER: RGBA = [245, 158, 11, 255];
+const ROSE: RGBA = [251, 113, 133, 255];
 
 const NODE_STYLE: Record<string, { color: [number, number, number]; radius: number }> = {
   aeropuerto: { color: MODES.aereo.rgb, radius: 6 },
@@ -113,6 +115,7 @@ export default function Map3D({
     compact ? { ...COLOMBIA_VIEW, latitude: 1.4, zoom: 4.25, pitch: 40 } : COLOMBIA_VIEW,
   );
   const [hover, setHover] = useState<Hover>(null);
+  const { money } = useApp();
   const [clock, setClock] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const [routeStart, setRouteStart] = useState(0);
@@ -138,20 +141,32 @@ export default function Map3D({
     const pts = route.legs.flatMap((l) => l.path);
     const { width, height } = containerRef.current.getBoundingClientRect();
     if (!width || !height || pts.length < 2) return;
-    const vp = new WebMercatorViewport({ width, height });
-    const { longitude, latitude, zoom } = vp.fitBounds(boundsOf(pts), {
-      padding: { top: 80, bottom: 80, left: compact ? 40 : 420, right: 80 },
-    });
-    setViewState((v) => ({
-      ...v,
-      longitude,
-      latitude,
-      zoom: Math.min(zoom, 7.5),
-      pitch: 50,
-      bearing: -12,
-      transitionDuration: 1800,
-      transitionInterpolator: new FlyToInterpolator({ speed: 1.4 }),
-    }));
+    // Márgenes según el ancho: en celular el simulador es una hoja inferior y
+    // el margen de escritorio (420 px) supera la pantalla, lo que hace fallar
+    // deck.gl ("assertion failed") y tumba la página.
+    const narrow = width < 768;
+    const padding = {
+      top: narrow ? 40 : 80,
+      bottom: narrow ? Math.round(height * 0.55) : 80,
+      left: compact || narrow ? 24 : 420,
+      right: narrow ? 24 : 80,
+    };
+    try {
+      const vp = new WebMercatorViewport({ width, height });
+      const { longitude, latitude, zoom } = vp.fitBounds(boundsOf(pts), { padding });
+      setViewState((v) => ({
+        ...v,
+        longitude,
+        latitude,
+        zoom: Math.min(zoom, 7.5),
+        pitch: 50,
+        bearing: -12,
+        transitionDuration: 1800,
+        transitionInterpolator: new FlyToInterpolator({ speed: 1.4 }),
+      }));
+    } catch {
+      // Si el encuadre no es posible, la ruta sigue dibujada sin mover la cámara
+    }
     // Solo se re-encuadra cuando cambia la ruta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route]);
@@ -177,8 +192,11 @@ export default function Map3D({
     () => network.links.features.filter((f) => isVisible(f.properties.mode)),
     [network, isVisible],
   );
-  const groundLinks = useMemo(() => links.filter((f) => f.properties.mode !== "aereo"), [links]);
-  const airLinks = useMemo(() => links.filter((f) => f.properties.mode === "aereo"), [links]);
+  // Vías cerradas: fuera de las capas normales, en una capa propia (rojo punteado)
+  const openLinks = useMemo(() => links.filter((f) => !f.properties.closed), [links]);
+  const closedLinks = useMemo(() => links.filter((f) => f.properties.closed), [links]);
+  const groundLinks = useMemo(() => openLinks.filter((f) => f.properties.mode !== "aereo"), [openLinks]);
+  const airLinks = useMemo(() => openLinks.filter((f) => f.properties.mode === "aereo"), [openLinks]);
   const nodes = network.nodes.features;
   // Una etiqueta por ciudad, sobre su nodo principal
   const cityLabels = useMemo(() => {
@@ -327,6 +345,21 @@ export default function Map3D({
       autoHighlight: true,
       updateTriggers: { getSourceColor: dim, getTargetColor: dim },
     }),
+    closedLinks.length > 0 &&
+      new PathLayer<LinkDatum, PathStyleExtensionProps<LinkDatum>>({
+        id: "cerrados",
+        data: closedLinks,
+        getPath: (f) => f.geometry.coordinates as [number, number][],
+        getColor: [...ROSE.slice(0, 3), Math.round(230 * dim)] as RGBA,
+        getWidth: 2.6,
+        widthUnits: "pixels",
+        getDashArray: () => [3, 3],
+        dashJustified: true,
+        extensions: [new PathStyleExtension({ dash: true })],
+        pickable: true,
+        autoHighlight: true,
+        updateTriggers: { getColor: dim },
+      }),
 
     // Flota en vivo: estelas de luz y cabezas brillantes
     showFleet &&
@@ -501,7 +534,7 @@ export default function Map3D({
     } else if (id === "nodos") {
       const n = (o as unknown as NodeDatum).properties;
       content = (
-        <TooltipBody title={n.name} subtitle={`${KIND_LABEL[n.kind]} · ${n.city}`}>
+        <TooltipBody title={n.name} subtitle={`${KIND_LABEL[n.kind]} · ${n.city}${n.approximate ? " · ubicación aproximada" : ""}`}>
           <div className="mt-2 flex gap-1">
             {n.modes.map((m) => {
               const Icon = MODES[m].icon;
@@ -510,13 +543,15 @@ export default function Map3D({
           </div>
         </TooltipBody>
       );
-    } else if (["corredores", "ferreo", "vuelos"].includes(id)) {
+    } else if (["corredores", "ferreo", "vuelos", "cerrados"].includes(id)) {
       const p = (o as unknown as LinkDatum).properties;
       content = (
         <TooltipBody title={p.corridor} subtitle={`${p.origin_name} → ${p.destination_name}`} mode={p.mode}>
+          {p.closed && <div className="mb-1 font-medium text-neon-rose">Cerrada: {p.closure_reason}</div>}
           <Row k="Distancia" v={p.distance_fmt} />
           <Row k="Tiempo" v={p.time_fmt} />
           <Row k="Capacidad por despacho" v={p.capacity_fmt} />
+          {p.approximate && <div className="mt-1 text-[11px] text-muted-foreground">Trazado y distancia aproximados</div>}
         </TooltipBody>
       );
     } else if (id === "flota") {
@@ -534,12 +569,12 @@ export default function Map3D({
       content = (
         <TooltipBody title={t.label} subtitle={t.node.name}>
           <Row k="Manipulación" v={t.time_fmt} />
-          <Row k="Costo" v={t.cost_fmt} />
+          <Row k="Costo" v={money(t.cost)} />
         </TooltipBody>
       );
     }
     setHover(content ? { x: info.x, y: info.y, content } : null);
-  }, []);
+  }, [money]);
 
   return (
     <div ref={containerRef} className={cn("relative h-full min-h-80 w-full overflow-hidden bg-[#030712]", className)}>

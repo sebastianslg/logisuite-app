@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 
+import { AppProvider } from "@/components/providers";
 import { Sidebar } from "@/components/shell/sidebar";
 
 import "./globals.css";
@@ -22,10 +24,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-background text-foreground">
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="min-w-0 flex-1">{children}</main>
-        </div>
+        <AppProvider>
+          <div className="flex min-h-screen">
+            {/* usePathname es dinámico en rutas con parámetros: la barra se
+                transmite y mientras tanto se reserva su ancho */}
+            <Suspense fallback={<aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 border-r border-border bg-[#05080f]/90 md:block" />}>
+              <Sidebar />
+            </Suspense>
+            <main className="min-w-0 flex-1 pt-14 md:pt-0">{children}</main>
+          </div>
+        </AppProvider>
       </body>
     </html>
   );

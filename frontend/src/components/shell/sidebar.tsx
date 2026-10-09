@@ -5,21 +5,31 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
+  CircleDollarSign,
   LayoutDashboard,
+  Menu,
   Network,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
+  Settings,
+  TrafficCone,
+  UserRound,
   Waypoints,
+  X,
   type LucideIcon,
 } from "lucide-react";
 
+import { useApp } from "@/components/providers";
+import type { Currency } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const NAV: { href: string; label: string; icon: LucideIcon; hint: string }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, hint: "Torre de control" },
   { href: "/envios", label: "Envíos", icon: Package, hint: "Órdenes y estados" },
   { href: "/red", label: "Red multimodal", icon: Network, hint: "Mapa 3D y simulador" },
+  { href: "/vias", label: "Vías", icon: TrafficCone, hint: "Cierres y desvíos" },
+  { href: "/configuracion", label: "Configuración", icon: Settings, hint: "TRM, historial, enlaces" },
 ];
 
 const spring = { type: "spring", stiffness: 420, damping: 36, mass: 0.8 } as const;
@@ -27,14 +37,68 @@ const spring = { type: "spring", stiffness: 420, damping: 36, mass: 0.8 } as con
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   return (
+    <>
+    {/* Celular: barra superior con botón de menú */}
+    <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-[#05080f]/95 px-4 backdrop-blur-xl md:hidden">
+      <Link href="/" className="flex items-center gap-2.5">
+        <span className="flex size-8 items-center justify-center rounded-lg border border-neon-cyan/30 bg-neon-cyan/10">
+          <Waypoints className="size-4 text-neon-cyan" />
+        </span>
+        <span className="text-sm font-semibold">LogiSuite</span>
+      </Link>
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        aria-label="Abrir menú"
+        aria-expanded={mobileOpen}
+        className="flex size-10 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.03]"
+      >
+        <Menu className="size-5" />
+      </button>
+    </header>
+
+    {mobileOpen && (
+      <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Menú">
+        <button type="button" className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} aria-label="Cerrar menú" />
+        <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-border bg-[#05080f] shadow-2xl">
+          <div className="flex h-14 items-center justify-between px-4">
+            <span className="text-sm font-semibold">Menú</span>
+            <button type="button" onClick={() => setMobileOpen(false)} aria-label="Cerrar menú" className="flex size-10 items-center justify-center rounded-md">
+              <X className="size-5" />
+            </button>
+          </div>
+          <nav className="flex flex-col gap-1 px-3 pt-2" aria-label="Navegación principal (celular)">
+            {NAV.map(({ href, label, icon: Icon, hint }) => {
+              const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+              return (
+                <Link key={href} href={href} aria-current={active ? "page" : undefined} onClick={() => setMobileOpen(false)}
+                  className={cn("flex min-h-12 items-center gap-3 rounded-md px-3 text-sm",
+                    active ? "bg-neon-cyan/[0.08] text-foreground" : "text-muted-foreground")}>
+                  <Icon className={cn("size-5", active && "text-neon-cyan")} />
+                  <span className="flex flex-col leading-tight">
+                    <span className="font-medium">{label}</span>
+                    <span className="text-[11px] text-muted-foreground/80">{hint}</span>
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="mt-auto overflow-y-auto border-t border-border">
+            <OperatorPanel />
+          </div>
+        </div>
+      </div>
+    )}
+
     <motion.aside
       animate={{ width: collapsed ? 72 : 248 }}
       transition={spring}
-      className="sticky top-0 z-30 flex h-screen shrink-0 flex-col border-r border-border bg-[#05080f]/90 backdrop-blur-xl"
+      className="sticky top-0 z-30 hidden h-screen shrink-0 flex-col border-r border-border bg-[#05080f]/90 backdrop-blur-xl md:flex"
     >
       <div className="flex h-16 items-center gap-3 px-4">
         <div className="relative flex size-9 shrink-0 items-center justify-center rounded-lg border border-neon-cyan/30 bg-neon-cyan/10">
@@ -100,6 +164,8 @@ export function Sidebar() {
         </LayoutGroup>
       </nav>
 
+      {!collapsed && <OperatorPanel />}
+
       <div className="border-t border-border p-3">
         <button
           type="button"
@@ -112,5 +178,64 @@ export function Sidebar() {
         </button>
       </div>
     </motion.aside>
+    </>
+  );
+}
+
+/** Moneda de visualización y nombre del operador que firma los cambios. */
+function OperatorPanel() {
+  const { currency, setCurrency, fx, operator, setOperator } = useApp();
+  const hasRate = Boolean(fx?.rate);
+  return (
+    <div className="flex flex-col gap-3 border-t border-border p-3 text-xs">
+      <div>
+        <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <CircleDollarSign className="size-3.5" /> Moneda
+        </div>
+        <div className="flex rounded-md border border-white/[0.06] p-0.5" role="radiogroup" aria-label="Moneda">
+          {(["USD", "COP"] as Currency[]).map((c) => {
+            const disabled = c === "COP" && !hasRate;
+            return (
+              <button
+                key={c}
+                type="button"
+                role="radio"
+                aria-checked={currency === c}
+                disabled={disabled}
+                onClick={() => setCurrency(c)}
+                title={disabled ? "Configura la TRM para ver montos en COP" : undefined}
+                className={cn(
+                  "h-7 flex-1 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                  currency === c ? "bg-white/[0.08] text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {c}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1 text-[10px] leading-snug text-muted-foreground/80">
+          {hasRate ? (
+            <>TRM {fx!.rate!.toLocaleString("es-CO")} · {fx!.date}</>
+          ) : (
+            <Link href="/configuracion" className="underline underline-offset-2 hover:text-foreground">
+              TRM sin configurar
+            </Link>
+          )}
+        </p>
+      </div>
+      <label className="block">
+        <span className="mb-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <UserRound className="size-3.5" /> Operador
+        </span>
+        <input
+          value={operator}
+          onChange={(e) => setOperator(e.target.value)}
+          placeholder="Tu nombre (firma cambios)"
+          maxLength={60}
+          className="h-8 w-full rounded-md border border-input bg-white/[0.02] px-2.5 text-xs outline-none placeholder:text-muted-foreground/60 focus:border-neon-cyan/40"
+        />
+      </label>
+    </div>
   );
 }

@@ -1,16 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
   ArrowDownUp,
   ArrowRightLeft,
   ChevronDown,
+  Maximize2,
+  Minimize2,
+  Rows3,
   Clock,
   CircleDollarSign,
   Layers,
   LoaderCircle,
   Map as MapIcon,
+  PackagePlus,
   Radio,
   Route,
   Waypoints,
@@ -21,6 +26,7 @@ import {
 import { Map3DLazy, MapLoading } from "./map-3d-lazy";
 import { MapLegend } from "./map-legend";
 import { useMapData } from "./use-map-data";
+import { useApp } from "@/components/providers";
 import { ModeChain, ModeIcon } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { MODE_ORDER, MODES, PRIORITIES } from "@/lib/modes";
@@ -42,6 +48,12 @@ export function NetworkExplorer() {
   const [modes, setModes] = useState<Set<Mode>>(new Set(MODE_ORDER));
   const [showDepartments, setShowDepartments] = useState(true);
   const [showFleet, setShowFleet] = useState(true);
+  // Vista: mapa visible u ocultos (solo datos) y panel del simulador abierto o plegado
+  const [showMap, setShowMap] = useState(true);
+  const [panelOpen, setPanelOpen] = useState(true);
+  // Pantalla completa dentro de la página (funciona también en iPhone)
+  const [mapFull, setMapFull] = useState(false);
+  const [panelFull, setPanelFull] = useState(false);
 
   useEffect(() => {
     fetch("/api/locations")
@@ -89,8 +101,8 @@ export function NetworkExplorer() {
   const route = result?.route ?? null;
 
   return (
-    <div className="relative h-screen w-full overflow-hidden">
-      <div className="absolute inset-0">
+    <div className="relative h-[calc(100dvh-3.5rem)] w-full overflow-hidden md:h-dvh">
+      <div className={cn("absolute inset-0", !showMap && "hidden", mapFull && "fixed inset-0 z-[60] h-dvh")}>
         {network && departments ? (
           <Map3DLazy
             network={network}
@@ -107,35 +119,86 @@ export function NetworkExplorer() {
       </div>
 
       {/* Encabezado */}
-      <div className="pointer-events-none absolute top-0 right-0 left-0 flex items-start justify-between gap-4 p-6">
+      <div className="pointer-events-none absolute top-0 right-0 left-0 z-20 flex flex-wrap items-start justify-between gap-3 p-3 md:gap-4 md:p-6">
         <div className="pointer-events-auto">
           <div className="flex items-center gap-2 text-[11px] font-medium tracking-[0.14em] text-neon-cyan uppercase">
             <Waypoints className="size-3.5" /> GIS 3D · Red multimodal
           </div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Colombia en movimiento</h1>
         </div>
-        <LayerPanel
-          modes={modes}
-          toggleMode={toggleMode}
-          showDepartments={showDepartments}
-          setShowDepartments={setShowDepartments}
-          showFleet={showFleet}
-          setShowFleet={setShowFleet}
-          fleetCount={fleet?.count ?? 0}
-        />
+        <div className="pointer-events-auto flex w-full flex-wrap items-center gap-2 md:w-auto">
+          <ViewToggle showMap={showMap} setShowMap={setShowMap} />
+          {showMap && (
+            <Button
+              variant="secondary"
+              size="icon"
+              className="size-9"
+              aria-label="Mapa a pantalla completa"
+              title="Pantalla completa"
+              onClick={() => setMapFull(true)}
+            >
+              <Maximize2 />
+            </Button>
+          )}
+          {showMap && (
+            <LayerPanel
+              modes={modes}
+              toggleMode={toggleMode}
+              showDepartments={showDepartments}
+              setShowDepartments={setShowDepartments}
+              showFleet={showFleet}
+              setShowFleet={setShowFleet}
+              fleetCount={fleet?.count ?? 0}
+            />
+          )}
+        </div>
       </div>
 
-      {/* Simulador */}
+      {/* Simulador: panel flotante (mapa), hoja inferior (celular) o pantalla completa (solo datos) */}
+      {panelOpen ? (
       <motion.aside
         initial={{ opacity: 0, x: -16 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute top-28 bottom-6 left-6 z-10 flex w-[380px] flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0b0f19]/75 shadow-2xl shadow-black/50 backdrop-blur-xl"
+        className={cn(
+          "absolute z-10 flex flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0b0f19]/90 shadow-2xl shadow-black/50 backdrop-blur-xl",
+          showMap
+            ? "inset-x-2 bottom-2 max-h-[52vh] md:inset-x-auto md:top-28 md:bottom-6 md:left-6 md:max-h-none md:w-[380px] md:bg-[#0b0f19]/75"
+            : "inset-x-2 top-36 bottom-2 md:inset-x-auto md:top-28 md:bottom-6 md:left-1/2 md:w-[min(960px,calc(100%-3rem))] md:-translate-x-1/2 md:bg-[#0b0f19]/85",
+          panelFull && "fixed inset-0 z-[65] h-dvh max-h-none w-full rounded-none pb-[env(safe-area-inset-bottom)] md:w-full md:translate-x-0",
+        )}
       >
-        <div className="border-b border-white/[0.06] p-5">
+        <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] p-5">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Route className="size-4 text-neon-cyan" /> Simulador de rutas multimodales
           </div>
+          <div className="-mt-1 -mr-2 flex shrink-0 items-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              aria-label={panelFull ? "Salir de pantalla completa" : "Simulador a pantalla completa"}
+              title={panelFull ? "Salir de pantalla completa" : "Pantalla completa"}
+              onClick={() => setPanelFull((v) => !v)}
+            >
+              {panelFull ? <Minimize2 /> : <Maximize2 />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              aria-label="Ocultar simulador"
+              title="Ocultar simulador"
+              onClick={() => {
+                setPanelFull(false);
+                setPanelOpen(false);
+              }}
+            >
+              <ChevronDown />
+            </Button>
+          </div>
+        </div>
+        <div className="border-b border-white/[0.06] p-5">
           <div className="mt-4 grid grid-cols-[1fr_auto] items-end gap-2">
             <div className="flex flex-col gap-2">
               <CitySelect label="Origen" value={origin} onChange={setOrigin} cities={cities} />
@@ -234,10 +297,59 @@ export function NetworkExplorer() {
           </AnimatePresence>
         </div>
       </motion.aside>
+      ) : (
+        <Button
+          variant="secondary"
+          className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-3 z-10 shadow-xl md:top-28 md:bottom-auto md:left-6"
+          onClick={() => setPanelOpen(true)}
+        >
+          <Route />
+          Mostrar simulador
+        </Button>
+      )}
 
-      <div className="pointer-events-none absolute right-6 bottom-6 rounded-lg border border-white/[0.06] bg-[#0b0f19]/70 px-4 py-3 backdrop-blur-md">
-        <MapLegend />
-      </div>
+      {mapFull && (
+        <Button
+          variant="secondary"
+          className="fixed top-3 right-3 z-[70] shadow-xl"
+          onClick={() => setMapFull(false)}
+        >
+          <Minimize2 />
+          Salir
+        </Button>
+      )}
+
+      {showMap && (
+        <div className="pointer-events-none absolute right-6 bottom-6 hidden rounded-lg border border-white/[0.06] bg-[#0b0f19]/70 px-4 py-3 backdrop-blur-md md:block">
+          <MapLegend />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Mapa visible u oculto (solo datos). En celular la leyenda queda fuera. */
+function ViewToggle({ showMap, setShowMap }: { showMap: boolean; setShowMap: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center gap-0.5 rounded-lg border border-white/[0.08] bg-[#0b0f19]/75 p-1 backdrop-blur-xl" role="group" aria-label="Vista">
+      {[
+        { key: true, label: "Mapa", icon: <MapIcon className="size-3.5" /> },
+        { key: false, label: "Datos", icon: <Rows3 className="size-3.5" /> },
+      ].map((v) => (
+        <button
+          key={v.label}
+          type="button"
+          onClick={() => setShowMap(v.key)}
+          aria-pressed={showMap === v.key}
+          className={cn(
+            "flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors [&_svg]:size-3.5",
+            showMap === v.key ? "bg-white/[0.08] text-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {v.icon}
+          {v.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -292,6 +404,7 @@ function RouteResultView({
   onClear: () => void;
 }) {
   const r = data.route;
+  const { money } = useApp();
   // Línea de tiempo: tramos intercalados con sus transbordos
   const steps: ({ kind: "leg"; i: number } | { kind: "transfer"; i: number })[] = [];
   r.legs.forEach((_, i) => {
@@ -323,7 +436,7 @@ function RouteResultView({
 
       <div className="grid grid-cols-2 gap-2">
         <Metric icon={<Clock />} label="Tiempo total" value={r.time_fmt} />
-        <Metric icon={<CircleDollarSign />} label="Costo total" value={r.cost_fmt} />
+        <Metric icon={<CircleDollarSign />} label="Costo total" value={money(r.cost)} />
         <Metric icon={<Route />} label="Distancia" value={r.distance_fmt} />
         <Metric icon={<ArrowRightLeft />} label="Transbordos" value={String(r.n_transfers)} />
       </div>
@@ -349,7 +462,7 @@ function RouteResultView({
                 <div className="tabular mt-1.5 flex gap-3 text-[11px] text-slate-300">
                   <span>{r.legs[s.i].distance_fmt}</span>
                   <span>{r.legs[s.i].time_fmt}</span>
-                  <span>{r.legs[s.i].cost_fmt}</span>
+                  <span>{money(r.legs[s.i].cost)}</span>
                 </div>
               </div>
             </motion.li>
@@ -364,12 +477,26 @@ function RouteResultView({
               <ArrowRightLeft className="size-3.5" />
               <span className="font-medium">{r.transfers[s.i].label}</span>
               <span className="truncate text-muted-foreground">
-                {r.transfers[s.i].node.name} · {r.transfers[s.i].time_fmt} · {r.transfers[s.i].cost_fmt}
+                {r.transfers[s.i].node.name} · {r.transfers[s.i].time_fmt} · {money(r.transfers[s.i].cost)}
               </span>
             </motion.li>
           ),
         )}
       </ol>
+
+      <Button variant="secondary" size="sm" asChild>
+        <Link
+          href={`/envios/nuevo?${new URLSearchParams({
+            origin: r.origin,
+            destination: r.destination,
+            priority: r.priority,
+            weight: String(r.weight_t),
+          })}`}
+        >
+          <PackagePlus />
+          Crear envío con esta ruta
+        </Link>
+      </Button>
 
       <div>
         <div className="mb-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
@@ -395,7 +522,7 @@ function RouteResultView({
                   <ModeChain modes={a.modes} />
                   <span className="tabular ml-auto text-right text-slate-300">
                     {a.time_fmt}
-                    <span className="block text-muted-foreground">{a.cost_fmt}</span>
+                    <span className="block text-muted-foreground">{money(a.cost)}</span>
                   </span>
                 </>
               ) : (
@@ -439,7 +566,7 @@ function LayerPanel({
   fleetCount: number;
 }) {
   return (
-    <div className="pointer-events-auto flex items-center gap-1 rounded-lg border border-white/[0.08] bg-[#0b0f19]/75 p-1 backdrop-blur-xl">
+    <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-1 rounded-lg border border-white/[0.08] bg-[#0b0f19]/75 p-1 backdrop-blur-xl">
       {MODE_ORDER.map((m) => {
         const { icon: Icon, color, label } = MODES[m];
         const on = modes.has(m);
@@ -459,8 +586,8 @@ function LayerPanel({
         );
       })}
       <span className="mx-1 h-5 w-px bg-white/10" />
-      <ToggleChip on={showDepartments} onClick={() => setShowDepartments(!showDepartments)} icon={<Layers />} label="Departamentos" />
-      <ToggleChip on={showFleet} onClick={() => setShowFleet(!showFleet)} icon={<Radio />} label={`Flota ${fleetCount}`} />
+      <ToggleChip on={showDepartments} onClick={() => setShowDepartments(!showDepartments)} icon={<Layers />} label="Departamentos" short="Mapa" />
+      <ToggleChip on={showFleet} onClick={() => setShowFleet(!showFleet)} icon={<Radio />} label={`Flota ${fleetCount}`} short={`${fleetCount}`} />
     </div>
   );
 }
@@ -470,11 +597,14 @@ function ToggleChip({
   onClick,
   icon,
   label,
+  short,
 }: {
   on: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  /** Texto corto para celular */
+  short?: string;
 }) {
   return (
     <button
@@ -487,7 +617,14 @@ function ToggleChip({
       )}
     >
       {icon}
-      {label}
+      {short ? (
+        <>
+          <span className="sm:hidden">{short}</span>
+          <span className="hidden sm:inline">{label}</span>
+        </>
+      ) : (
+        label
+      )}
     </button>
   );
 }

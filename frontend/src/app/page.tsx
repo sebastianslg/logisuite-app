@@ -1,6 +1,9 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import {
   Activity,
+  CircleOff,
+  TrafficCone,
   ArrowRightLeft,
   BarChart3,
   Gauge,
@@ -15,6 +18,7 @@ import {
 import { BentoCell, BentoGrid, KpiCard } from "@/components/dashboard/bento";
 import { DispatchTrend, ModalSplit, TopCorridors } from "@/components/dashboard/charts";
 import { LiveFleet } from "@/components/dashboard/live-fleet";
+import { Money } from "@/components/money";
 import { NetworkMapCard } from "@/components/dashboard/network-map-card";
 import { StatusBreakdown } from "@/components/dashboard/status-breakdown";
 import { PageHeader, Skeleton } from "@/components/page-header";
@@ -44,8 +48,30 @@ async function DashboardContent() {
     apiGet<FleetLive>("/api/fleet/live"),
   ]);
   const k = summary.kpis;
+  const { closed_corridors: closed, no_route: noRoute } = summary.alerts;
 
   return (
+    <>
+    {(closed.length > 0 || noRoute.length > 0) && (
+      <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-neon-rose/25 bg-neon-rose/[0.06] px-4 py-3 text-sm">
+        {closed.length > 0 && (
+          <Link href="/vias" className="flex items-center gap-2 hover:underline">
+            <TrafficCone className="size-4 text-neon-rose" />
+            {closed.length} {closed.length === 1 ? "vía cerrada" : "vías cerradas"}:
+            <span className="text-muted-foreground">
+              {closed.slice(0, 3).join(", ")}
+              {closed.length > 3 && "…"}
+            </span>
+          </Link>
+        )}
+        {noRoute.length > 0 && (
+          <Link href="/envios" className="flex items-center gap-2 hover:underline">
+            <CircleOff className="size-4 text-neon-rose" />
+            {noRoute.length} {noRoute.length === 1 ? "envío sin ruta" : "envíos sin ruta"}
+          </Link>
+        )}
+      </div>
+    )}
     <BentoGrid>
       <KpiCard
         className="md:col-span-3 xl:col-span-3"
@@ -53,6 +79,7 @@ async function DashboardContent() {
         value={k.active.fmt}
         icon={<Navigation />}
         accent="#10b981"
+        href="/envios?estado=En%20Ruta,Transferencia%20Modal,Retrasado"
         footnote={`${k.delayed.fmt} retrasados · ${k.scheduled.fmt} programados`}
       />
       <KpiCard
@@ -61,6 +88,7 @@ async function DashboardContent() {
         value={k.in_transfer.fmt}
         icon={<ArrowRightLeft />}
         accent="#f59e0b"
+        href="/envios?estado=Transferencia%20Modal"
         footnote="Cargas en transbordo entre modos"
       />
       <KpiCard
@@ -69,7 +97,8 @@ async function DashboardContent() {
         value={k.tons_in_transit.fmt}
         icon={<Weight />}
         accent="#22d3ee"
-        footnote={`Flete comprometido ${k.cost_in_transit.fmt}`}
+        href="/envios?estado=En%20Ruta,Transferencia%20Modal,Retrasado"
+        footnote={<>Flete comprometido <Money usd={k.cost_in_transit.value} /></>}
       />
       <KpiCard
         className="md:col-span-3 xl:col-span-3"
@@ -77,6 +106,7 @@ async function DashboardContent() {
         value={k.otif.fmt}
         icon={<Gauge />}
         accent="#a78bfa"
+        href="/envios?estado=Entregado"
         footnote={`${k.delivered.fmt} entregas cerradas`}
       />
 
@@ -132,6 +162,7 @@ async function DashboardContent() {
         <StatusBreakdown counts={summary.status_counts} />
       </BentoCell>
     </BentoGrid>
+    </>
   );
 }
 

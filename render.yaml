@@ -1,0 +1,29 @@
+# Blueprint de Render: API FastAPI + frontend Next.js, ambos en plan gratuito.
+# En Render: New > Blueprint > conectar este repositorio y la rama.
+services:
+  - type: web
+    name: logisuite-api
+    runtime: docker
+    rootDir: backend
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: TZ
+        value: America/Bogota
+      - key: LOGISUITE_DB_PATH
+        value: /tmp/logistics.db
+      - key: CORS_ORIGINS
+        value: https://logisuite-web.onrender.com
+
+  - type: web
+    name: logisuite-web
+    runtime: docker
+    rootDir: frontend
+    plan: free
+    healthCheckPath: /red
+    envVars:
+      - key: TZ
+        value: America/Bogota
+      # URL completa con esquema: el proxy de Next.js la usa para llamar a la API
+      - key: API_INTERNAL_URL
+        value: https://logisuite-api.onrender.com

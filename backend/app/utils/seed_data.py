@@ -483,40 +483,62 @@ def _seed_emissions():
 # ===========================================================================
 def seed_multimodal():
     """Siembra la red multimodal de Colombia y la carga inicial de envíos.
-    Idempotente: solo actúa si las tablas están vacías."""
-    if run_query("SELECT COUNT(*) c FROM mm_nodes").iloc[0]["c"] == 0:
-        _seed_mm_network()
+    Idempotente: agrega nodos y enlaces que falten (también en bases ya
+    desplegadas) y siembra envíos solo si la tabla está vacía."""
+    _seed_mm_network()
     if run_query("SELECT COUNT(*) c FROM mm_shipments").iloc[0]["c"] == 0:
         _seed_mm_shipments()
 
 
 def _seed_mm_network():
     import json
-    from app.data.colombia_multimodal import (NODES, LINKS, MODE_PARAMS, TRANSFER_BY_KIND,
-                                              CAPACITY_OVERRIDES)
+    from app.data.colombia_multimodal import (NODES, LINKS, NODES_V2, LINKS_V2, MODE_PARAMS,
+                                              TRANSFER_BY_KIND, CAPACITY_OVERRIDES, CLOSED_AT_SEED,
+                                              air_corridor_name)
     from app.engine.multimodal import haversine_km
+    from app.engine.operations import approx_air_time_h
 
-    coords = {}
-    for code, name, kind, city, dept, lat, lon, iata in NODES:
-        t_h, t_cost = TRANSFER_BY_KIND[kind]
-        run_write("""INSERT INTO mm_nodes (node_code, name, kind, city, department_code, latitude,
-                     longitude, iata, transfer_time_h, transfer_cost_per_t)
-                     VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                   (code, name, kind, city, dept, lat, lon, iata, t_h, t_cost))
-        coords[code] = (lat, lon)
+    existing = set(run_query("SELECT node_code FROM mm_nodes")["node_code"])
+    coords, cities = {}, {}
+    for approx, nodes in ((0, NODES), (1, NODES_V2)):
+        for code, name, kind, city, dept, lat, lon, iata in nodes:
+            coords[code], cities[code] = (lat, lon), city
+            if code in existing:
+                continue
+            t_h, t_cost = TRANSFER_BY_KIND[kind]
+            run_write("""INSERT INTO mm_nodes (node_code, name, kind, city, department_code, latitude,
+                         longitude, iata, transfer_time_h, transfer_cost_per_t, approximate)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                      (code, name, kind, city, dept, lat, lon, iata, t_h, t_cost, approx))
 
-    for o, d, mode, corridor, km, hours, via in LINKS:
-        points = [coords[o], *via, coords[d]]
-        geometry = [[round(lon, 4), round(lat, 4)] for lat, lon in points]
-        if km is None:
-            km = haversine_km(*coords[o], *coords[d])
-        params = MODE_PARAMS[mode]
-        capacity = CAPACITY_OVERRIDES.get((o, d), params["capacity_t"])
-        run_write("""INSERT INTO mm_links (origin_code, dest_code, mode, corridor, distance_km,
-                     time_h, cost_per_tkm, fixed_cost, capacity_t, geometry_json)
-                     VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                   (o, d, mode, corridor, round(km), hours, params["cost_per_tkm"],
-                    params["fixed_cost"], capacity, json.dumps(geometry)))
+    have = {(r["origin_code"], r["dest_code"], r["mode"], r["corridor"])
+            for r in run_query("SELECT origin_code, dest_code, mode, corridor FROM mm_links")
+            .to_dict(orient="records")}
+    for approx, links in ((0, LINKS), (1, LINKS_V2)):
+        for o, d, mode, corridor, km, hours, via in links:
+            if corridor is None:
+                corridor = air_corridor_name(cities[o], cities[d])
+            if (o, d, mode, corridor) in have:
+                continue
+            points = [coords[o], *via, coords[d]]
+            geometry = [[round(lon, 4), round(lat, 4)] for lat, lon in points]
+            if km is None:
+                km = haversine_km(*coords[o], *coords[d])
+            if hours is None:
+                hours = approx_air_time_h(*coords[o], *coords[d])
+            params = MODE_PARAMS[mode]
+            capacity = CAPACITY_OVERRIDES.get((o, d), params["capacity_t"])
+            run_write("""INSERT INTO mm_links (origin_code, dest_code, mode, corridor, distance_km,
+                         time_h, cost_per_tkm, fixed_cost, capacity_t, geometry_json, approximate)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                      (o, d, mode, corridor, round(km), hours, params["cost_per_tkm"],
+                       params["fixed_cost"], capacity, json.dumps(geometry), approx))
+
+    for corridor, reason in CLOSED_AT_SEED.items():
+        if run_query("SELECT 1 FROM mm_corridor_status WHERE corridor = ?", (corridor,)).empty:
+            run_write("""INSERT INTO mm_corridor_status (corridor, active, reason, changed_at, changed_by)
+                         VALUES (?, 0, ?, ?, 'semilla')""",
+                      (corridor, reason, datetime.now().isoformat(timespec="seconds")))
 
 
 def _seed_mm_shipments():

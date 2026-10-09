@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Radio } from "lucide-react";
 
@@ -54,8 +55,12 @@ export function LiveFleet({ initial }: { initial: FleetLive }) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex items-center gap-3 py-2.5"
             >
+              <Link
+                href={`/envios/${a.shipment_code}`}
+                className="-mx-2 flex items-center gap-3 rounded-md px-2 py-2.5 transition-colors hover:bg-white/[0.03]"
+                title={`Ver envío ${a.shipment_code}`}
+              >
               <ModeIcon mode={a.mode} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 text-sm">
@@ -75,6 +80,7 @@ export function LiveFleet({ initial }: { initial: FleetLive }) {
                 </div>
               </div>
               <StatusBadge status={a.status} className="hidden 2xl:inline-flex" />
+              </Link>
             </motion.li>
           ))}
         </AnimatePresence>
