@@ -127,38 +127,43 @@ def _render_login_screen() -> None:
     """Pantalla de login a página completa: banner de marca con degradado e
     ilustración de bodega (consistente con el hero de la portada), tarjeta de
     formulario centrada y credenciales de prueba visibles para evaluación."""
-    from utils.theme import BRAND
-    from utils.illustrations import warehouse_scene_svg, page_background_css
+    from utils.theme import CYAN, EMERALD, TEXT_MUTED, inject_global_styles
+    from utils.illustrations import warehouse_scene_svg
 
-    st.markdown(page_background_css(dark=False), unsafe_allow_html=True)
+    inject_global_styles()
 
     st.markdown(f"""
     <style>
     [data-testid="stSidebar"] {{ display: none; }}
     .lg-login-hero {{
-        background: linear-gradient(120deg, {BRAND['secondary']} 0%,
-                    {BRAND['primary_dark']} 55%, {BRAND['primary']} 100%);
-        border-radius: 18px; padding: 32px 40px; text-align:left;
-        margin-bottom: 26px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-        display:flex; align-items:center; justify-content:space-between; gap:20px;
-        flex-wrap: wrap;
+        border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 32px 40px;
+        margin-bottom: 26px; display:flex; align-items:center; justify-content:space-between;
+        gap:20px; flex-wrap: wrap;
+        background:
+            radial-gradient(600px 260px at 0% 0%, rgba(0,242,254,0.14), transparent 60%),
+            radial-gradient(500px 260px at 100% 100%, rgba(16,185,129,0.10), transparent 60%),
+            rgba(255,255,255,0.02);
     }}
-    .lg-login-hero h1 {{ color:#FFFFFF; font-size:2.1rem; font-weight:800; margin:10px 0 6px 0; }}
-    .lg-login-hero p {{ color:rgba(255,255,255,0.88); font-size:1rem; margin:0; }}
+    .lg-login-hero h1 {{
+        font-size:2.3rem; font-weight:800; margin:10px 0 6px 0; letter-spacing:-0.03em;
+        background: linear-gradient(90deg, #F8FAFC 0%, {CYAN} 65%, {EMERALD} 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent !important;
+    }}
+    .lg-login-hero p {{ color:{TEXT_MUTED} !important; font-size:1rem; margin:0; }}
     .lg-login-badge {{
-        display:inline-block; background: rgba(255,255,255,0.18); color:#fff;
-        padding: 4px 16px; border-radius: 999px; font-size: 0.78rem; margin-bottom: 10px;
-        letter-spacing: 0.04em;
+        display:inline-block; background: rgba(0,242,254,0.08); color:{CYAN} !important;
+        border: 1px solid rgba(0,242,254,0.25); padding: 4px 14px; border-radius: 999px;
+        font-size: 0.74rem; margin-bottom: 10px; letter-spacing: 0.08em; font-weight: 600;
     }}
     .lg-login-text {{ text-align:left; min-width: 260px; }}
     </style>
     <div class="lg-login-hero">
         <div class="lg-login-text">
-            <span class="lg-login-badge">🚛 LOGÍSTICA · DISTRIBUCIÓN · TRANSPORTE</span>
+            <span class="lg-login-badge">TMS · LOGÍSTICA · DISTRIBUCIÓN · TRANSPORTE</span>
             <h1>LogiSuite</h1>
-            <p>Plataforma integral de logística, distribución y transporte</p>
+            <p>Transportation Management System para la red logística de Colombia</p>
         </div>
-        <div>{warehouse_scene_svg(width=280, height=170)}</div>
+        <div style="opacity:0.6">{warehouse_scene_svg(width=280, height=170)}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -171,7 +176,7 @@ def _render_login_screen() -> None:
                 username = st.text_input("Usuario", placeholder="usuario")
                 password = st.text_input("Contraseña", type="password", placeholder="••••••••")
                 submitted = st.form_submit_button("Ingresar", type="primary",
-                                                    use_container_width=True)
+                                                    width="stretch")
                 if submitted:
                     user = authenticate(username, password)
                     if user:
@@ -215,7 +220,7 @@ def render_sidebar_user() -> None:
     with st.sidebar:
         st.markdown(f"**👤 {user['full_name']}**")
         st.caption(f"Rol: {user['role']}")
-        if st.button("Cerrar sesión", use_container_width=True):
+        if st.button("Cerrar sesión", width="stretch"):
             logout()
             st.rerun()
 

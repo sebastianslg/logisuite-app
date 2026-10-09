@@ -64,7 +64,7 @@ with tab1:
 
         if df is not None:
             st.markdown(f"**Vista previa** ({len(df)} filas leídas)")
-            st.dataframe(df.head(20), use_container_width=True)
+            st.dataframe(df.head(20), width="stretch")
 
             validas, errores = validate_import(df, tipo)
 
@@ -75,7 +75,7 @@ with tab1:
             if errores:
                 st.error(f"Se encontraron {len(errores)} filas con problemas:")
                 err_df = pd.DataFrame(errores)
-                st.dataframe(err_df, use_container_width=True, hide_index=True)
+                st.dataframe(err_df, width="stretch", hide_index=True)
 
             if validas:
                 st.success(f"{len(validas)} filas están listas para importar.")
@@ -104,7 +104,7 @@ with tab2:
             n = 0
         resumen.append({"Hoja": nombre, "Registros": n})
     res_df = pd.DataFrame(resumen)
-    st.dataframe(res_df, use_container_width=True, hide_index=True)
+    st.dataframe(res_df, width="stretch", hide_index=True)
     st.metric("Total de registros a exportar", int(res_df["Registros"].sum()))
 
     if st.button("📦 Generar Excel consolidado", type="primary"):

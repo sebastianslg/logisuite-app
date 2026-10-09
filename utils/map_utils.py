@@ -273,7 +273,7 @@ def render_colombia_network_map(nodes: list = None, corridors: list = None,
         active_paths=load_active_paths() if show_active else None,
         node_volume=load_node_volume() if show_volume else None,
     )
-    st.pydeck_chart(deck, use_container_width=True, height=height)
+    st.pydeck_chart(deck, width="stretch", height=height)
 
 
 def map_legend_html() -> str:

@@ -16,15 +16,20 @@ from models.freight import Shipment
 from models.network import Node, Corridor
 from utils.network_algorithms import build_graph, network_stats, cost_vs_service_tradeoff
 from utils.report_exporter import dataframe_to_excel_bytes, dataframe_to_pdf_bytes
+from utils.map_utils import render_colombia_network_map, map_legend_html
 
 st.set_page_config(page_title="Dashboard Ejecutivo", page_icon="🏭", layout="wide")
 
 from database.db import ensure_database_ready
 ensure_database_ready()
 
-from utils.theme import apply_page_theme, page_header
+from utils.theme import (apply_page_theme, page_header, render_kpi_card, CYAN, ELECTRIC_BLUE,
+                         EMERALD, ROSE, STATUS_COLORS)
 apply_page_theme()
-page_header("🏭", "Dashboard Ejecutivo", "Vista consolidada de KPIs de toda la red logística.")
+page_header("🏭", "Dashboard Ejecutivo",
+            "Torre de control de la red logística de Colombia: servicio, costo, flota y fletes en curso.")
+
+OTIF_TARGET = 95.0
 
 # --------------------------------------------------------------------------
 # KPIs principales
@@ -45,12 +50,50 @@ rotation_idx = None
 if not rotation_df.empty and rotation_df.iloc[0]["recibido"] > 0:
     rotation_idx = round(rotation_df.iloc[0]["despachado"] / rotation_df.iloc[0]["recibido"], 2)
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("OTIF (On-Time-In-Full)", f"{otif['otif_pct']}%" if otif["otif_pct"] is not None else "N/D",
-          help="Porcentaje de envíos entregados en la fecha prometida o antes.")
-c2.metric("Costo total de envíos", f"${total_cost_df.iloc[0]['c']:,.0f}")
-c3.metric("Utilización de flota", f"{utilization}%", help="Vehículos Disponibles + En Ruta / Total")
-c4.metric("Índice de rotación", rotation_idx if rotation_idx is not None else "N/D")
+transito_df = run_query("""SELECT COUNT(*) n, COALESCE(SUM(weight_kg),0) kg,
+                                  COALESCE(SUM(status='Retrasado'),0) retrasados
+                           FROM shipments WHERE status IN ('En Transito','Retrasado')""")
+n_activos = int(transito_df.iloc[0]["n"])
+ton_transito = float(transito_df.iloc[0]["kg"]) / 1000
+n_retrasados = int(transito_df.iloc[0]["retrasados"])
+n_shipments = int(run_query("SELECT COUNT(*) c FROM shipments").iloc[0]["c"])
+total_cost = float(total_cost_df.iloc[0]["c"])
+
+c1, c2, c3 = st.columns(3)
+with c1:
+    if otif["otif_pct"] is not None:
+        gap = otif["otif_pct"] - OTIF_TARGET
+        render_kpi_card("OTIF (On-Time-In-Full)", f"{otif['otif_pct']}%",
+                        f"{gap:+.1f} pts vs. meta {OTIF_TARGET:.0f}%", gap >= 0, "🎯")
+    else:
+        render_kpi_card("OTIF (On-Time-In-Full)", "N/D", "sin entregas aún", None, "🎯")
+with c2:
+    render_kpi_card("Costo total de fletes", f"${total_cost:,.0f}",
+                    f"${total_cost / n_shipments:,.0f} promedio por envío" if n_shipments else None,
+                    None, "💵")
+with c3:
+    render_kpi_card("Utilización de flota", f"{utilization}%",
+                    f"{n_active} de {n_vehicles} vehículos operativos", utilization >= 80, "🚛")
+
+c4, c5, c6 = st.columns(3)
+with c4:
+    render_kpi_card("Fletes en curso", n_activos,
+                    f"{n_retrasados} retrasado(s)" if n_retrasados else "todos a tiempo",
+                    n_retrasados == 0, "🛣️")
+with c5:
+    render_kpi_card("Carga en tránsito", f"{ton_transito:,.1f} t", icon="📦")
+with c6:
+    render_kpi_card("Índice de rotación", rotation_idx if rotation_idx is not None else "N/D",
+                    "despachado / recibido" if rotation_idx is not None else None, None, "🔄")
+
+# --------------------------------------------------------------------------
+# Mapa de la red (pydeck / WebGL) a todo el ancho
+# --------------------------------------------------------------------------
+st.subheader("🛰️ Red logística nacional en tiempo real")
+st.markdown(map_legend_html(), unsafe_allow_html=True)
+render_colombia_network_map(height=600)
+st.caption("Arcos: corredores troncales y ruta marítima. Arcos brillantes: fletes en tránsito. "
+           "Columnas: toneladas movidas por nodo. Pasa el cursor sobre cualquier elemento.")
 
 st.divider()
 
@@ -62,9 +105,10 @@ with colA:
     st.subheader("Estado de envíos")
     status_df = run_query("SELECT status, COUNT(*) cantidad FROM shipments GROUP BY status")
     if not status_df.empty:
-        fig = px.pie(status_df, names="status", values="cantidad", hole=0.45,
-                     color_discrete_sequence=px.colors.sequential.Teal)
-        st.plotly_chart(fig, use_container_width=True)
+        fig = px.pie(status_df, names="status", values="cantidad", hole=0.6,
+                     color="status", color_discrete_map=STATUS_COLORS)
+        fig.update_traces(marker=dict(line=dict(color="#0A0E17", width=2)))
+        st.plotly_chart(fig, width="stretch")
     else:
         st.info("Aún no hay envíos registrados.")
 
@@ -78,9 +122,9 @@ with colB:
         melted = cost_df.T.reset_index()
         melted.columns = ["Componente", "Valor"]
         fig2 = px.bar(melted, x="Componente", y="Valor", color="Componente",
-                      color_discrete_sequence=["#2A9D8F", "#E76F51", "#264653"], text_auto=".2s")
+                      color_discrete_sequence=[CYAN, ELECTRIC_BLUE, EMERALD], text_auto=".2s")
         fig2.update_layout(showlegend=False)
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, width="stretch")
     else:
         st.info("Sin datos de costos aún.")
 
@@ -108,20 +152,21 @@ if tradeoff:
     fig3 = go.Figure()
     fig3.add_trace(go.Scatter(x=df_t["n_facilities_active"], y=df_t["total_network_cost"],
                                name="Costo total de la red", mode="lines+markers",
-                               line=dict(color="#E76F51", width=3), yaxis="y1"))
+                               line=dict(color=ROSE, width=3), yaxis="y1"))
     fig3.add_trace(go.Scatter(x=df_t["n_facilities_active"], y=df_t["service_level_pct"],
                                name="Nivel de servicio (%)", mode="lines+markers",
-                               line=dict(color="#2A9D8F", width=3), yaxis="y2"))
+                               line=dict(color=CYAN, width=3), yaxis="y2"))
     fig3.update_layout(
         xaxis_title="Número de instalaciones (CDs) activas",
         yaxis=dict(title="Costo total de la red (USD)", side="left"),
         yaxis2=dict(title="Nivel de servicio (%)", side="right", overlaying="y", range=[0, 105]),
         legend=dict(orientation="h", y=1.12), height=460,
     )
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, width="stretch")
     with st.expander("Ver tabla de datos de la curva"):
         st.dataframe(df_t[["n_facilities_active", "avg_distance_km", "total_network_cost",
-                            "service_level_pct", "n_nodes", "n_edges"]], use_container_width=True)
+                            "service_level_pct", "n_nodes", "n_edges"]],
+                     width="stretch", hide_index=True)
 else:
     st.warning("No hay suficientes nodos/corredores para construir la curva. Agrega nodos tipo 'CD'.")
 
@@ -134,10 +179,16 @@ st.subheader("🌐 Estadísticas actuales de la red completa")
 G = build_graph(nodes, corridors)
 stats = network_stats(G)
 s1, s2, s3, s4 = st.columns(4)
-s1.metric("Nodos", stats["n_nodes"])
-s2.metric("Corredores (dirigidos)", stats["n_edges"])
-s3.metric("Distancia promedio a clientes", f"{stats['avg_distance_km']} km" if stats['avg_distance_km'] else "N/D")
-s4.metric("Nivel de servicio (cobertura)", f"{stats['service_level_pct']}%")
+with s1:
+    render_kpi_card("Nodos", stats["n_nodes"], icon="📍")
+with s2:
+    render_kpi_card("Corredores (dirigidos)", stats["n_edges"], icon="🛣️")
+with s3:
+    render_kpi_card("Distancia promedio a clientes",
+                    f"{stats['avg_distance_km']} km" if stats['avg_distance_km'] else "N/D", icon="📏")
+with s4:
+    render_kpi_card("Nivel de servicio (cobertura)", f"{stats['service_level_pct']}%",
+                    icon="🛡️")
 
 st.divider()
 st.subheader("⬇️ Exportar reporte ejecutivo")

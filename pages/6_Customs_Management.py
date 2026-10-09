@@ -60,14 +60,14 @@ with tabs[0]:
 
         def alert_style(row):
             if row["Estado"] == "Rechazado":
-                return ["background-color: #F5B7B1"] * len(row)
+                return ["background-color: rgba(244,63,94,0.24)"] * len(row)
             if row["Alerta"]:
-                return ["background-color: #FADBD8"] * len(row)
+                return ["background-color: rgba(244,63,94,0.14)"] * len(row)
             if row["Estado"] == "Liberado":
-                return ["background-color: #D5F5E3"] * len(row)
+                return ["background-color: rgba(16,185,129,0.12)"] * len(row)
             return [""] * len(row)
 
-        st.dataframe(ddf.style.apply(alert_style, axis=1), use_container_width=True, hide_index=True)
+        st.dataframe(ddf.style.apply(alert_style, axis=1), width="stretch", hide_index=True)
 
         k1, k2, k3, k4 = st.columns(4)
         k1.metric("Documentos", len(ddf))
@@ -81,10 +81,10 @@ with tabs[0]:
 
         figs = px.pie(ddf.groupby("Estado").size().reset_index(name="n"), names="Estado", values="n",
                        hole=0.45, color="Estado",
-                       color_discrete_map={"Liberado": "#2A9D8F", "En Revision": "#457B9D",
-                                            "Pendiente": "#E9C46A", "Rechazado": "#E76F51"},
+                       color_discrete_map={"Liberado": "#00F2FE", "En Revision": "#10B981",
+                                            "Pendiente": "#F59E0B", "Rechazado": "#F43F5E"},
                        title="Estado de los trámites aduaneros")
-        st.plotly_chart(figs, use_container_width=True)
+        st.plotly_chart(figs, width="stretch")
 
         st.subheader("Actualizar estado de trámite")
         c1, c2 = st.columns(2)
@@ -118,7 +118,7 @@ with tabs[1]:
     if duties:
         dudf = pd.DataFrame(duties)[["shipment_id", "tariff_pct", "taxable_value", "taxes", "total_duty"]]
         dudf.columns = ["Envío", "Arancel (%)", "Valor Gravable", "Impuestos (IVA)", "Total a Pagar"]
-        st.dataframe(dudf, use_container_width=True, hide_index=True)
+        st.dataframe(dudf, width="stretch", hide_index=True)
         k1, k2 = st.columns(2)
         k1.metric("Total de tributos", f"${dudf['Total a Pagar'].sum():,.2f}")
         k2.metric("Valor gravable acumulado", f"${dudf['Valor Gravable'].sum():,.2f}")
@@ -174,12 +174,12 @@ with tabs[2]:
 
         def color_mejor(row):
             if row.name == 0:
-                return ["background-color: #D5F5E3"] * len(row)
+                return ["background-color: rgba(16,185,129,0.12)"] * len(row)
             if row.name == len(disp) - 1:
-                return ["background-color: #FADBD8"] * len(row)
+                return ["background-color: rgba(244,63,94,0.14)"] * len(row)
             return [""] * len(row)
 
-        st.dataframe(disp.style.apply(color_mejor, axis=1), use_container_width=True, hide_index=True)
+        st.dataframe(disp.style.apply(color_mejor, axis=1), width="stretch", hide_index=True)
 
         mejor, peor = escenarios[0], escenarios[-1]
         ahorro = peor["costo_total_importacion"] - mejor["costo_total_importacion"]
@@ -193,17 +193,17 @@ with tabs[2]:
 
         figc = go.Figure()
         figc.add_trace(go.Bar(x=edf["escenario"], y=edf["valor_gravable"],
-                               name="Valor en aduana", marker_color="#264653"))
+                               name="Valor en aduana", marker_color="#4FACFE"))
         figc.add_trace(go.Bar(x=edf["escenario"], y=edf["arancel"], name="Arancel",
-                               marker_color="#E76F51"))
+                               marker_color="#F43F5E"))
         figc.add_trace(go.Bar(x=edf["escenario"], y=edf["iva"], name="IVA",
-                               marker_color="#E9C46A"))
+                               marker_color="#F59E0B"))
         figc.add_trace(go.Bar(x=edf["escenario"], y=edf["otros_gastos"], name="Otros gastos",
-                               marker_color="#2A9D8F"))
+                               marker_color="#00F2FE"))
         figc.update_layout(barmode="stack", height=440, xaxis_title="Escenario",
                             yaxis_title="USD", title="Costo nacionalizado por escenario",
                             legend=dict(orientation="h", y=1.12))
-        st.plotly_chart(figc, use_container_width=True)
+        st.plotly_chart(figc, width="stretch")
 
         st.info(f"Importar bajo **{mejor['escenario']}** en lugar de **{peor['escenario']}** "
                 f"reduce el costo total en **${ahorro:,.2f}** sobre una mercancía de "
@@ -259,12 +259,12 @@ with tabs[3]:
 
         def color_completitud(row):
             if row["Completitud"] == 100:
-                return ["background-color: #D5F5E3"] * len(row)
+                return ["background-color: rgba(16,185,129,0.12)"] * len(row)
             if row["Completitud"] >= 50:
-                return ["background-color: #FCF3CF"] * len(row)
-            return ["background-color: #FADBD8"] * len(row)
+                return ["background-color: rgba(245,158,11,0.13)"] * len(row)
+            return ["background-color: rgba(244,63,94,0.14)"] * len(row)
 
-        st.dataframe(cdf.style.apply(color_completitud, axis=1), use_container_width=True,
+        st.dataframe(cdf.style.apply(color_completitud, axis=1), width="stretch",
                      hide_index=True)
 
         k1, k2, k3 = st.columns(3)
@@ -277,7 +277,7 @@ with tabs[3]:
                        labels={"Completitud": "% documentos liberados"},
                        title=f"Completitud documental para operación de {tipo_op}")
         figb.add_hline(y=100, line_dash="dash", line_color="green")
-        st.plotly_chart(figb, use_container_width=True)
+        st.plotly_chart(figb, width="stretch")
 
         incompletos = cdf[cdf["Completitud"] < 100]
         if not incompletos.empty:
@@ -306,24 +306,28 @@ with tabs[4]:
 
         if not tdf.empty:
             figl = px.timeline(tdf, x_start="inicio", x_end="fin", y="etiqueta", color="status",
-                                color_discrete_map={"Liberado": "#2A9D8F", "En Revision": "#457B9D",
-                                                     "Pendiente": "#E9C46A", "Rechazado": "#E76F51"},
+                                color_discrete_map={"Liberado": "#00F2FE", "En Revision": "#10B981",
+                                                     "Pendiente": "#F59E0B", "Rechazado": "#F43F5E"},
                                 hover_data=["shipment_id"],
                                 labels={"etiqueta": "Documento", "status": "Estado"},
                                 title="Vigencia y estado de los documentos aduaneros")
             figl.update_yaxes(autorange="reversed")
-            figl.add_vline(x=pd.Timestamp(date.today()), line_dash="dash", line_color="red",
-                            annotation_text="Hoy")
+            # La anotación va aparte: add_vline(annotation_text=...) sobre un eje
+            # de fechas falla en Plotly al intentar promediar Timestamps.
+            hoy = date.today().isoformat()
+            figl.add_vline(x=hoy, line_dash="dash", line_color="#F43F5E")
+            figl.add_annotation(x=hoy, y=1.02, yref="paper", text="Hoy", showarrow=False,
+                                font=dict(color="#F43F5E"))
             figl.update_layout(height=420)
-            st.plotly_chart(figl, use_container_width=True)
+            st.plotly_chart(figl, width="stretch")
 
         st.markdown("##### Progresión del flujo de estados")
         flujo = ["Pendiente", "En Revision", "Liberado"]
         conteo = [int((tdf["status"] == e).sum()) for e in flujo]
         figf = go.Figure(go.Funnel(y=flujo, x=conteo,
-                                    marker=dict(color=["#E9C46A", "#457B9D", "#2A9D8F"])))
+                                    marker=dict(color=["#F59E0B", "#10B981", "#00F2FE"])))
         figf.update_layout(height=330, title="Documentos por etapa del trámite")
-        st.plotly_chart(figf, use_container_width=True)
+        st.plotly_chart(figf, width="stretch")
 
         rechazados = int((tdf["status"] == "Rechazado").sum())
         if rechazados:

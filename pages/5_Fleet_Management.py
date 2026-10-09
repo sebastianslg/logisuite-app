@@ -16,7 +16,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import date, datetime
 
-from models.fleet import Vehicle, Driver, MaintenanceRecord
+from models.fleet import Vehicle, Driver, MaintenanceRecord, VEHICLE_CLASSES, vehicle_label
 from models.network import Node
 from database.db import run_query
 from utils.fleet_analytics import (tco_all_vehicles, compute_tco, maintenance_forecast_all,
@@ -31,7 +31,8 @@ st.set_page_config(page_title="Fleet Management", page_icon="🚛", layout="wide
 from database.db import ensure_database_ready
 ensure_database_ready()
 
-from utils.theme import apply_page_theme, page_header
+from utils.theme import (apply_page_theme, page_header, render_kpi_row, ROW_TINT,
+                         STATUS_COLORS, CYAN, ELECTRIC_BLUE, EMERALD, AMBER, ROSE)
 apply_page_theme()
 
 if not login_form():
@@ -51,38 +52,50 @@ with tabs[0]:
     if vehicles:
         df = pd.DataFrame(vehicles)[["plate", "vehicle_type", "capacity_kg", "capacity_m3",
                                        "status", "odometer_km", "home_name"]]
+        df["vehicle_type"] = df["vehicle_type"].map(vehicle_label)
         df.columns = ["Placa", "Tipo", "Capacidad (kg)", "Capacidad (m³)", "Estado",
                       "Odómetro (km)", "Sede"]
 
-        def color_status(row):
-            colors = {"Disponible": "#D5F5E3", "En Ruta": "#D6EAF8",
-                      "Mantenimiento": "#FCF3CF", "Fuera de Servicio": "#FADBD8"}
-            return [f"background-color: {colors.get(row['Estado'], '')}"] * len(row)
-
-        st.dataframe(df.style.apply(color_status, axis=1), use_container_width=True, hide_index=True)
-
-        k1, k2, k3, k4 = st.columns(4)
-        k1.metric("Vehículos", len(df))
-        k2.metric("Capacidad total", f"{df['Capacidad (kg)'].sum():,.0f} kg")
-        k3.metric("Km acumulados", f"{df['Odómetro (km)'].sum():,.0f}")
         disponibles = int((df["Estado"] == "Disponible").sum())
-        k4.metric("Disponibles ahora", f"{disponibles} / {len(df)}")
+        en_ruta = int((df["Estado"] == "En Ruta").sum())
+        render_kpi_row([
+            {"title": "Vehículos", "value": len(df),
+             "delta": f"{en_ruta} en ruta", "is_positive": None, "icon": "🚛"},
+            {"title": "Capacidad total", "value": f"{df['Capacidad (kg)'].sum() / 1000:,.0f} t",
+             "icon": "⚖️"},
+            {"title": "Km acumulados", "value": f"{df['Odómetro (km)'].sum():,.0f}", "icon": "🛣️"},
+            {"title": "Disponibles ahora", "value": f"{disponibles} / {len(df)}",
+             "delta": f"{100 * disponibles / len(df):.0f}% de la flota",
+             "is_positive": disponibles > 0, "icon": "🟢"},
+        ])
+
+        tint = {"Disponible": "ok", "En Ruta": "info", "Mantenimiento": "warn",
+                "Fuera de Servicio": "bad"}
+
+        def color_status(row):
+            return [ROW_TINT[tint.get(row["Estado"], "none")]] * len(row)
+
+        st.dataframe(
+            df.style.apply(color_status, axis=1), width="stretch", hide_index=True,
+            column_config={
+                "Capacidad (kg)": st.column_config.NumberColumn(format="%d kg"),
+                "Odómetro (km)": st.column_config.ProgressColumn(
+                    format="%d km", min_value=0, max_value=float(df["Odómetro (km)"].max() or 1)),
+            })
 
         c1, c2 = st.columns(2)
         with c1:
             sdf = df.groupby("Estado").size().reset_index(name="Cantidad")
-            figs = px.pie(sdf, names="Estado", values="Cantidad", hole=0.45,
-                           color="Estado",
-                           color_discrete_map={"Disponible": "#2A9D8F", "En Ruta": "#457B9D",
-                                                "Mantenimiento": "#E9C46A",
-                                                "Fuera de Servicio": "#E76F51"},
+            figs = px.pie(sdf, names="Estado", values="Cantidad", hole=0.6,
+                           color="Estado", color_discrete_map=STATUS_COLORS,
                            title="Estado operativo de la flota")
-            st.plotly_chart(figs, use_container_width=True)
+            figs.update_traces(marker=dict(line=dict(color="#0A0E17", width=2)))
+            st.plotly_chart(figs, width="stretch")
         with c2:
-            figc = px.bar(df, x="Placa", y="Capacidad (kg)", color="Tipo",
-                           color_discrete_sequence=px.colors.qualitative.Set2,
+            figc = px.bar(df.sort_values("Capacidad (kg)", ascending=False), x="Placa",
+                           y="Capacidad (kg)", color="Tipo",
                            title="Capacidad de carga por vehículo")
-            st.plotly_chart(figc, use_container_width=True)
+            st.plotly_chart(figc, width="stretch")
 
         ce1, ce2 = st.columns(2)
         with ce1:
@@ -105,22 +118,25 @@ with tabs[1]:
         mdf = pd.DataFrame(records)[["plate", "maintenance_type", "maintenance_date",
                                        "odometer_km", "cost", "description"]]
         mdf.columns = ["Vehículo", "Tipo", "Fecha", "Odómetro (km)", "Costo (USD)", "Descripción"]
-        st.dataframe(mdf, use_container_width=True, hide_index=True)
-
-        k1, k2, k3 = st.columns(3)
-        k1.metric("Costo total", f"${mdf['Costo (USD)'].sum():,.2f}")
         prev = mdf[mdf["Tipo"] == "Preventivo"]["Costo (USD)"].sum()
         corr = mdf[mdf["Tipo"] == "Correctivo"]["Costo (USD)"].sum()
-        k2.metric("Preventivo", f"${prev:,.2f}")
-        k3.metric("Correctivo", f"${corr:,.2f}")
+        render_kpi_row([
+            {"title": "Costo total", "value": f"${mdf['Costo (USD)'].sum():,.2f}", "icon": "🔧"},
+            {"title": "Preventivo", "value": f"${prev:,.2f}", "icon": "🛡️"},
+            {"title": "Correctivo", "value": f"${corr:,.2f}",
+             "delta": "supera al preventivo" if corr > prev else "bajo control",
+             "is_positive": corr <= prev, "icon": "🚨"},
+        ])
+        st.dataframe(mdf, width="stretch", hide_index=True,
+                     column_config={"Costo (USD)": st.column_config.NumberColumn(format="$%.2f")})
         if corr > prev and prev >= 0:
             st.warning("El gasto correctivo supera al preventivo. Un plan preventivo más frecuente "
                        "suele reducir el costo total al evitar fallas mayores.")
 
         figm = px.bar(mdf, x="Vehículo", y="Costo (USD)", color="Tipo",
-                       color_discrete_map={"Preventivo": "#2A9D8F", "Correctivo": "#E76F51"},
+                       color_discrete_map={"Preventivo": CYAN, "Correctivo": ROSE},
                        title="Gasto de mantenimiento por vehículo y tipo")
-        st.plotly_chart(figm, use_container_width=True)
+        st.plotly_chart(figm, width="stretch")
     else:
         st.info("No hay mantenimientos registrados.")
 
@@ -161,19 +177,21 @@ with tabs[2]:
 
         def alert_color(row):
             if row["Días para vencer"] < 0:
-                return ["background-color: #F5B7B1"] * len(row)
+                return [ROW_TINT["critical"]] * len(row)
             if row["Alerta"]:
-                return ["background-color: #FADBD8"] * len(row)
+                return [ROW_TINT["bad"]] * len(row)
             return [""] * len(row)
-
-        st.dataframe(ddf.style.apply(alert_color, axis=1), use_container_width=True, hide_index=True)
 
         vencidas = int((ddf["Días para vencer"] < 0).sum())
         proximas = int(ddf["Alerta"].sum()) - vencidas
-        k1, k2, k3 = st.columns(3)
-        k1.metric("Conductores", len(ddf))
-        k2.metric("Licencias vencidas", vencidas)
-        k3.metric("Por vencer (≤30 días)", max(proximas, 0))
+        render_kpi_row([
+            {"title": "Conductores", "value": len(ddf), "icon": "🧑‍✈️"},
+            {"title": "Licencias vencidas", "value": vencidas,
+             "delta": "no asignables" if vencidas else "ninguna", "is_positive": vencidas == 0,
+             "icon": "🚫"},
+            {"title": "Por vencer (≤30 días)", "value": max(proximas, 0), "icon": "⏳"},
+        ])
+        st.dataframe(ddf.style.apply(alert_color, axis=1), width="stretch", hide_index=True)
         if vencidas:
             st.error(f"🚫 {vencidas} conductor(es) con licencia VENCIDA. No pueden ser asignados a rutas.")
         elif proximas > 0:
@@ -196,35 +214,38 @@ with tabs[3]:
         st.info("No hay vehículos para analizar.")
     else:
         tdf = pd.DataFrame(tco)
+        tdf["tipo"] = tdf["tipo"].map(vehicle_label)
         disp = tdf[["placa", "tipo", "odometro_km", "litros_estimados", "costo_combustible",
                      "costo_mantenimiento", "n_mantenimientos", "depreciacion_anual",
                      "tco_total", "costo_por_km"]].copy()
         disp.columns = ["Placa", "Tipo", "Odómetro (km)", "Litros est.", "Combustible",
                         "Mantenimiento", "N° mant.", "Depreciación anual", "TCO total",
                         "Costo por km"]
-        st.dataframe(disp, use_container_width=True, hide_index=True)
+        st.dataframe(disp, width="stretch", hide_index=True)
 
-        k1, k2, k3 = st.columns(3)
-        k1.metric("TCO de la flota", f"${tdf['tco_total'].sum():,.2f}")
-        k2.metric("Costo medio por km", f"${tdf['costo_por_km'].mean():.3f}")
         peor = tdf.loc[tdf["costo_por_km"].idxmax()]
-        k3.metric("Vehículo más costoso por km", peor["placa"], f"${peor['costo_por_km']:.3f}/km")
+        render_kpi_row([
+            {"title": "TCO de la flota", "value": f"${tdf['tco_total'].sum():,.0f}", "icon": "💰"},
+            {"title": "Costo medio por km", "value": f"${tdf['costo_por_km'].mean():.3f}", "icon": "📏"},
+            {"title": "Más costoso por km", "value": peor["placa"],
+             "delta": f"${peor['costo_por_km']:.3f}/km", "is_positive": False, "icon": "⚠️"},
+        ])
 
         figt = go.Figure()
-        for col, nombre, color in [("costo_combustible", "Combustible", "#2A9D8F"),
-                                     ("costo_mantenimiento", "Mantenimiento", "#E76F51"),
-                                     ("depreciacion_anual", "Depreciación", "#E9C46A")]:
+        for col, nombre, color in [("costo_combustible", "Combustible", CYAN),
+                                     ("costo_mantenimiento", "Mantenimiento", ROSE),
+                                     ("depreciacion_anual", "Depreciación", ELECTRIC_BLUE)]:
             figt.add_trace(go.Bar(x=tdf["placa"], y=tdf[col], name=nombre, marker_color=color))
         figt.update_layout(barmode="stack", height=420, xaxis_title="Vehículo",
                             yaxis_title="USD", title="Composición del TCO por vehículo",
                             legend=dict(orientation="h", y=1.12))
-        st.plotly_chart(figt, use_container_width=True)
+        st.plotly_chart(figt, width="stretch")
 
         figk = px.bar(tdf.sort_values("costo_por_km", ascending=False), x="placa", y="costo_por_km",
-                       color="tipo", color_discrete_sequence=px.colors.qualitative.Set2,
+                       color="tipo",
                        labels={"placa": "Vehículo", "costo_por_km": "USD por km", "tipo": "Tipo"},
                        title="Eficiencia económica: costo por kilómetro")
-        st.plotly_chart(figk, use_container_width=True)
+        st.plotly_chart(figk, width="stretch")
 
         st.download_button("📊 Exportar TCO",
                             dataframe_to_excel_bytes(disp, "TCO", "Costo Total de Propiedad"),
@@ -254,30 +275,34 @@ with tabs[4]:
 
         def color_urgencia(row):
             if row["Km faltantes"] <= 0:
-                return ["background-color: #F5B7B1"] * len(row)
+                return [ROW_TINT["critical"]] * len(row)
             if row["Km faltantes"] <= intervalo * 0.15:
-                return ["background-color: #FCF3CF"] * len(row)
-            return ["background-color: #D5F5E3"] * len(row)
+                return [ROW_TINT["warn"]] * len(row)
+            return [ROW_TINT["ok"]] * len(row)
 
-        st.dataframe(disp.style.apply(color_urgencia, axis=1), use_container_width=True,
+        st.dataframe(disp.style.apply(color_urgencia, axis=1), width="stretch",
                      hide_index=True)
 
         vencidos = int(fdf["vencido"].sum())
         proximos = int(fdf["alerta"].sum()) - vencidos
-        k1, k2, k3 = st.columns(3)
-        k1.metric("Mantenimientos vencidos", vencidos)
-        k2.metric("Próximos (≤15% del intervalo)", max(proximos, 0))
-        k3.metric("Al día", len(fdf) - int(fdf["alerta"].sum()))
+        render_kpi_row([
+            {"title": "Mantenimientos vencidos", "value": vencidos,
+             "delta": "atender ya" if vencidos else "ninguno", "is_positive": vencidos == 0,
+             "icon": "🚫"},
+            {"title": "Próximos (≤15% del intervalo)", "value": max(proximos, 0), "icon": "⏳"},
+            {"title": "Al día", "value": len(fdf) - int(fdf["alerta"].sum()), "icon": "✅"},
+        ])
 
         if vencidos:
             st.error(f"🚫 {vencidos} vehículo(s) superaron su kilometraje objetivo de mantenimiento.")
 
         figf = px.bar(fdf.sort_values("km_faltantes"), x="placa", y="km_faltantes",
-                       color="km_faltantes", color_continuous_scale="RdYlGn",
+                       color="km_faltantes",
+                       color_continuous_scale=[[0, ROSE], [0.5, AMBER], [1, EMERALD]],
                        labels={"placa": "Vehículo", "km_faltantes": "Km hasta el próximo servicio"},
                        title="Kilómetros restantes hasta el próximo mantenimiento")
-        figf.add_hline(y=0, line_dash="dash", line_color="red")
-        st.plotly_chart(figf, use_container_width=True)
+        figf.add_hline(y=0, line_dash="dash", line_color=ROSE)
+        st.plotly_chart(figf, width="stretch")
 
         st.info("Nota metodológica: los vehículos sin ningún preventivo registrado no se marcan "
                 "como vencidos por todo su odómetro. Se les programa el siguiente múltiplo del "
@@ -300,18 +325,18 @@ with tabs[5]:
     vehicles = Vehicle.all()
     vdf = pd.DataFrame(vehicles)
 
-    k1, k2, k3, k4 = st.columns(4)
     total = len(vdf)
-    for col, estado, etiqueta in [(k1, "Disponible", "🟢 Disponibles"),
-                                    (k2, "En Ruta", "🔵 En ruta"),
-                                    (k3, "Mantenimiento", "🟡 En mantenimiento"),
-                                    (k4, "Fuera de Servicio", "🔴 Fuera de servicio")]:
-        n = int((vdf["status"] == estado).sum()) if not vdf.empty else 0
-        col.metric(etiqueta, n, f"{100*n/total:.0f}% de la flota" if total else "")
-
     operativos = int(vdf["status"].isin(["Disponible", "En Ruta"]).sum()) if not vdf.empty else 0
-    st.metric("Utilización de flota (operativos / total)",
-              f"{100*operativos/total:.1f}%" if total else "N/D")
+    tarjetas = [{"title": "Utilización de flota", "value": f"{100*operativos/total:.1f}%" if total else "N/D",
+                 "delta": "operativos / total", "is_positive": None, "icon": "📈"}]
+    for estado, etiqueta, icono in [("Disponible", "Disponibles", "🟢"), ("En Ruta", "En ruta", "🔵"),
+                                    ("Mantenimiento", "En mantenimiento", "🟡"),
+                                    ("Fuera de Servicio", "Fuera de servicio", "🔴")]:
+        n = int((vdf["status"] == estado).sum()) if not vdf.empty else 0
+        tarjetas.append({"title": etiqueta, "value": n,
+                         "delta": f"{100*n/total:.0f}% de la flota" if total else None,
+                         "is_positive": None, "icon": icono})
+    render_kpi_row(tarjetas)
 
     programadas = ocupacion.dropna(subset=["scheduled_start", "scheduled_end"])
     if not programadas.empty:
@@ -325,7 +350,7 @@ with tabs[5]:
                                 title="Ocupación programada por vehículo")
             figg.update_yaxes(autorange="reversed")
             figg.update_layout(height=380)
-            st.plotly_chart(figg, use_container_width=True)
+            st.plotly_chart(figg, width="stretch")
     else:
         st.info("No hay rutas programadas asignadas a vehículos. Programa una ruta multi-parada "
                 "en el módulo de Transportation para ver el diagrama de ocupación.")
@@ -334,8 +359,9 @@ with tabs[5]:
     if not libres.empty:
         st.markdown("##### Vehículos libres para asignación inmediata")
         ldf = libres[["plate", "vehicle_type", "capacity_kg", "capacity_m3", "home_name"]].copy()
+        ldf["vehicle_type"] = ldf["vehicle_type"].map(vehicle_label)
         ldf.columns = ["Placa", "Tipo", "Capacidad (kg)", "Capacidad (m³)", "Sede"]
-        st.dataframe(ldf, use_container_width=True, hide_index=True)
+        st.dataframe(ldf, width="stretch", hide_index=True)
 
 # ==========================================================================
 # 7. ALERTAS DE FLOTA
@@ -353,27 +379,28 @@ with tabs[6]:
         adf["_orden"] = adf["severidad"].map(orden).fillna(9)
         adf = adf.sort_values("_orden")
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("🔴 Críticas", int((adf["severidad"] == "critica").sum()))
-        c2.metric("🟠 Altas", int((adf["severidad"] == "alta").sum()))
-        c3.metric("🟡 Medias", int((adf["severidad"] == "media").sum()))
+        render_kpi_row([
+            {"title": "Críticas", "value": int((adf["severidad"] == "critica").sum()), "icon": "🔴"},
+            {"title": "Altas", "value": int((adf["severidad"] == "alta").sum()), "icon": "🟠"},
+            {"title": "Medias", "value": int((adf["severidad"] == "media").sum()), "icon": "🟡"},
+        ])
 
         disp = adf[["severidad", "tipo", "titulo", "detalle", "referencia"]].copy()
         disp.columns = ["Severidad", "Tipo", "Elemento", "Detalle", "Referencia"]
 
         def color_sev(row):
-            colors = {"critica": "#F5B7B1", "alta": "#FADBD8", "media": "#FCF3CF"}
-            return [f"background-color: {colors.get(row['Severidad'], '')}"] * len(row)
+            tint = {"critica": "critical", "alta": "bad", "media": "warn"}
+            return [ROW_TINT[tint.get(row["Severidad"], "none")]] * len(row)
 
-        st.dataframe(disp.style.apply(color_sev, axis=1), use_container_width=True, hide_index=True)
+        st.dataframe(disp.style.apply(color_sev, axis=1), width="stretch", hide_index=True)
 
         figa = px.bar(adf.groupby(["tipo", "severidad"]).size().reset_index(name="n"),
                        x="tipo", y="n", color="severidad",
-                       color_discrete_map={"critica": "#C0392B", "alta": "#E76F51",
-                                            "media": "#E9C46A", "baja": "#2A9D8F"},
+                       color_discrete_map={"critica": ROSE, "alta": AMBER,
+                                            "media": ELECTRIC_BLUE, "baja": EMERALD},
                        labels={"tipo": "Tipo de alerta", "n": "Cantidad", "severidad": "Severidad"},
                        title="Alertas de flota por tipo y severidad")
-        st.plotly_chart(figa, use_container_width=True)
+        st.plotly_chart(figa, width="stretch")
 
 # ==========================================================================
 # 8. REGISTRAR
@@ -384,9 +411,8 @@ with tabs[7]:
     node_map = {n["node_id"]: n["name"] for n in nodes}
     with st.form("veh_form"):
         c1, c2 = st.columns(2)
-        plate = c1.text_input("Placa")
-        vtype = c2.selectbox("Tipo", options=["Camion 2 ejes", "Camion 3 ejes", "Tractomula",
-                                                "Furgon", "Van"])
+        plate = c1.text_input("Placa", placeholder="ABC-123")
+        vtype = c2.selectbox("Tipo", options=list(VEHICLE_CLASSES.keys()), format_func=vehicle_label)
         c3, c4 = st.columns(2)
         cap_kg = c3.number_input("Capacidad (kg)", min_value=0.0, value=9000.0)
         cap_m3 = c4.number_input("Capacidad (m³)", min_value=0.0, value=35.0)

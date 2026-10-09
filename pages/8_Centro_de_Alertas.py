@@ -69,17 +69,17 @@ with g1:
     st.subheader("Alertas por módulo")
     por_modulo = df.groupby("modulo").size().reset_index(name="cantidad")
     fig = px.bar(por_modulo, x="modulo", y="cantidad", color="modulo",
-                  color_discrete_sequence=px.colors.qualitative.Set2, text_auto=True)
+                   text_auto=True)
     fig.update_layout(showlegend=False, height=320)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 with g2:
     st.subheader("Alertas por severidad")
     por_sev = df.groupby("severidad").size().reset_index(name="cantidad")
-    colores = {"critica": "#E63946", "alta": "#F4A261", "media": "#E9C46A", "baja": "#A8DADC"}
+    colores = {"critica": "#E63946", "alta": "#8B5CF6", "media": "#F59E0B", "baja": "#A8DADC"}
     fig2 = px.pie(por_sev, names="severidad", values="cantidad", hole=0.45,
                    color="severidad", color_discrete_map=colores)
     fig2.update_layout(height=320)
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width="stretch")
 
 st.divider()
 

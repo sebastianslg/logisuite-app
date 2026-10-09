@@ -78,11 +78,6 @@ pio.templates[PLOTLY_TEMPLATE] = _build_plotly_template()
 pio.templates.default = PLOTLY_TEMPLATE
 
 
-def is_dark_mode() -> bool:
-    """La aplicación es siempre oscura; se mantiene por compatibilidad."""
-    return True
-
-
 # ---------------------------------------------------------------------------
 # CSS global
 # ---------------------------------------------------------------------------
@@ -332,6 +327,21 @@ def page_header(icon: str, title: str, subtitle: str = "") -> None:
     """, unsafe_allow_html=True)
 
 
+# Tintes de fila para DataFrames con .style.apply (legibles sobre fondo oscuro)
+ROW_TINT = {
+    "ok": "background-color: rgba(16,185,129,0.12)",
+    "info": "background-color: rgba(79,172,254,0.12)",
+    "warn": "background-color: rgba(245,158,11,0.13)",
+    "bad": "background-color: rgba(244,63,94,0.14)",
+    "critical": "background-color: rgba(244,63,94,0.24)",
+    "none": "",
+}
+
+STATUS_COLORS = {"Disponible": EMERALD, "En Ruta": CYAN, "Mantenimiento": AMBER,
+                 "Fuera de Servicio": ROSE, "Entregado": EMERALD, "En Transito": CYAN,
+                 "Retrasado": ROSE, "Registrado": TEXT_MUTED, "Consolidado": VIOLET}
+
+
 def dataframe_kwargs() -> dict:
     """Configuración visual estándar para st.dataframe: ancho total, sin índice."""
-    return {"use_container_width": True, "hide_index": True}
+    return {"width": "stretch", "hide_index": True}
