@@ -96,7 +96,7 @@ export function NetworkExplorer() {
   const route = result?.route ?? null;
 
   return (
-    <div className="relative h-screen w-full overflow-hidden">
+    <div className="relative h-[calc(100dvh-3.5rem)] w-full overflow-hidden md:h-dvh">
       <div className={cn("absolute inset-0", !showMap && "hidden")}>
         {network && departments ? (
           <Map3DLazy
@@ -114,14 +114,14 @@ export function NetworkExplorer() {
       </div>
 
       {/* Encabezado */}
-      <div className="pointer-events-none absolute top-14 right-0 left-0 z-20 flex flex-wrap items-start justify-between gap-3 p-3 md:top-0 md:gap-4 md:p-6">
+      <div className="pointer-events-none absolute top-0 right-0 left-0 z-20 flex flex-wrap items-start justify-between gap-3 p-3 md:gap-4 md:p-6">
         <div className="pointer-events-auto">
           <div className="flex items-center gap-2 text-[11px] font-medium tracking-[0.14em] text-neon-cyan uppercase">
             <Waypoints className="size-3.5" /> GIS 3D · Red multimodal
           </div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Colombia en movimiento</h1>
         </div>
-        <div className="pointer-events-auto flex items-center gap-2">
+        <div className="pointer-events-auto flex w-full flex-wrap items-center gap-2 md:w-auto">
           <ViewToggle showMap={showMap} setShowMap={setShowMap} />
           {showMap && (
             <LayerPanel
@@ -147,7 +147,7 @@ export function NetworkExplorer() {
           "absolute z-10 flex flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0b0f19]/90 shadow-2xl shadow-black/50 backdrop-blur-xl",
           showMap
             ? "inset-x-2 bottom-2 max-h-[52vh] md:inset-x-auto md:top-28 md:bottom-6 md:left-6 md:max-h-none md:w-[380px] md:bg-[#0b0f19]/75"
-            : "inset-x-2 top-48 bottom-2 md:inset-x-auto md:top-28 md:bottom-6 md:left-1/2 md:w-[min(960px,calc(100%-3rem))] md:-translate-x-1/2 md:bg-[#0b0f19]/85",
+            : "inset-x-2 top-36 bottom-2 md:inset-x-auto md:top-28 md:bottom-6 md:left-1/2 md:w-[min(960px,calc(100%-3rem))] md:-translate-x-1/2 md:bg-[#0b0f19]/85",
         )}
       >
         <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] p-5">
@@ -267,7 +267,7 @@ export function NetworkExplorer() {
       ) : (
         <Button
           variant="secondary"
-          className="absolute bottom-3 left-3 z-10 shadow-xl md:top-28 md:bottom-auto md:left-6"
+          className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-3 z-10 shadow-xl md:top-28 md:bottom-auto md:left-6"
           onClick={() => setPanelOpen(true)}
         >
           <Route />
@@ -522,7 +522,7 @@ function LayerPanel({
   fleetCount: number;
 }) {
   return (
-    <div className="pointer-events-auto flex items-center gap-1 rounded-lg border border-white/[0.08] bg-[#0b0f19]/75 p-1 backdrop-blur-xl">
+    <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-1 rounded-lg border border-white/[0.08] bg-[#0b0f19]/75 p-1 backdrop-blur-xl">
       {MODE_ORDER.map((m) => {
         const { icon: Icon, color, label } = MODES[m];
         const on = modes.has(m);
