@@ -110,7 +110,7 @@ export function NetworkExplorer() {
       </div>
 
       {/* Encabezado */}
-      <div className="pointer-events-none absolute top-0 right-0 left-0 flex items-start justify-between gap-4 p-6">
+      <div className="pointer-events-none absolute top-14 right-0 left-0 flex flex-wrap items-start justify-between gap-3 p-3 md:top-0 md:gap-4 md:p-6">
         <div className="pointer-events-auto">
           <div className="flex items-center gap-2 text-[11px] font-medium tracking-[0.14em] text-neon-cyan uppercase">
             <Waypoints className="size-3.5" /> GIS 3D · Red multimodal
@@ -133,7 +133,7 @@ export function NetworkExplorer() {
         initial={{ opacity: 0, x: -16 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute top-28 bottom-6 left-6 z-10 flex w-[380px] flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0b0f19]/75 shadow-2xl shadow-black/50 backdrop-blur-xl"
+        className="absolute inset-x-2 bottom-2 z-10 flex max-h-[52vh] flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0b0f19]/90 shadow-2xl shadow-black/50 backdrop-blur-xl md:inset-x-auto md:top-28 md:bottom-6 md:left-6 md:max-h-none md:w-[380px] md:bg-[#0b0f19]/75"
       >
         <div className="border-b border-white/[0.06] p-5">
           <div className="flex items-center gap-2 text-sm font-medium">
@@ -477,8 +477,8 @@ function LayerPanel({
         );
       })}
       <span className="mx-1 h-5 w-px bg-white/10" />
-      <ToggleChip on={showDepartments} onClick={() => setShowDepartments(!showDepartments)} icon={<Layers />} label="Departamentos" />
-      <ToggleChip on={showFleet} onClick={() => setShowFleet(!showFleet)} icon={<Radio />} label={`Flota ${fleetCount}`} />
+      <ToggleChip on={showDepartments} onClick={() => setShowDepartments(!showDepartments)} icon={<Layers />} label="Departamentos" short="Mapa" />
+      <ToggleChip on={showFleet} onClick={() => setShowFleet(!showFleet)} icon={<Radio />} label={`Flota ${fleetCount}`} short={`${fleetCount}`} />
     </div>
   );
 }
@@ -488,11 +488,14 @@ function ToggleChip({
   onClick,
   icon,
   label,
+  short,
 }: {
   on: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  /** Texto corto para celular */
+  short?: string;
 }) {
   return (
     <button
@@ -505,7 +508,14 @@ function ToggleChip({
       )}
     >
       {icon}
-      {label}
+      {short ? (
+        <>
+          <span className="sm:hidden">{short}</span>
+          <span className="hidden sm:inline">{label}</span>
+        </>
+      ) : (
+        label
+      )}
     </button>
   );
 }

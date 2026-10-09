@@ -28,10 +28,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <div className="flex min-h-screen">
             {/* usePathname es dinámico en rutas con parámetros: la barra se
                 transmite y mientras tanto se reserva su ancho */}
-            <Suspense fallback={<aside className="sticky top-0 h-screen w-[248px] shrink-0 border-r border-border bg-[#05080f]/90" />}>
+            <Suspense fallback={<aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 border-r border-border bg-[#05080f]/90 md:block" />}>
               <Sidebar />
             </Suspense>
-            <main className="min-w-0 flex-1">{children}</main>
+            <main className="min-w-0 flex-1 pt-14 md:pt-0">{children}</main>
           </div>
         </AppProvider>
       </body>
