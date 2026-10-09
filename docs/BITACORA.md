@@ -2,6 +2,7 @@
 
 Registro de todo lo construido, investigado, decidido y pendiente hasta hoy.
 Rama de trabajo: `claude/laughing-albattani-875mtq`.
+Última actualización: 9 de octubre de 2026 (partes 1 a 7 de la operación en vivo).
 
 ---
 
@@ -9,8 +10,9 @@ Rama de trabajo: `claude/laughing-albattani-875mtq`.
 
 | Parte | Estado |
 |---|---|
-| Backend (FastAPI + SQLite + NetworkX) | Funcional. 85 pruebas en verde. |
-| Frontend (Next.js 16 + Tailwind v4 + deck.gl) | Funcional. Typecheck y lint sin errores. |
+| Backend (FastAPI + SQLite + NetworkX) | Funcional. 131 pruebas en verde. |
+| Frontend (Next.js 16 + Tailwind v4 + deck.gl) | Funcional. Typecheck, lint y build sin errores; flujo completo probado con Playwright. |
+| Vías, envíos editables, USD/COP, PDF, historial | Implementados (ver sección 2 y `docs/AUDITORIA_BOTONES.md`). |
 | Docker local (`docker-compose.yml`) | Probado: ambos contenedores healthy, persistencia verificada. |
 | Render (plan gratuito) | Desplegado con blueprint. Frontend con error de servidor corregido en el último commit; pendiente de verificar. |
 | VM de Oracle (gratis) | Preparada en el repositorio, **sin crear la cuenta todavía**. |
@@ -36,6 +38,10 @@ Rama de trabajo: `claude/laughing-albattani-875mtq`.
 | `5bee700` | `render.yaml` (blueprint de Render). |
 | `c12c0ab` | Preparación de despliegue en VM: Caddy, respaldos, GitHub Actions, `DEPLOY.md`. |
 | `5527d74` | Corrección de `API_INTERNAL_URL` en Render (URL completa en lugar de host). |
+| `df60ecf` | Parte 1: esquema v4 (estado de vías, columnas de envíos editables, TRM). |
+| `7ccf509` | Partes 2, 3, 6 y 7 en el backend: cierre de vías con redirección, CRUD de envíos, PDF, enlaces, red ampliada. |
+| `66ce8e7` | Un vuelo en el aire no se devuelve al cerrar su ruta; alertas en el dashboard. |
+| `2a24771` | Partes 2 a 6 en el frontend: `/vias`, envíos editables, USD/COP, PDF y auditoría de controles. |
 
 ---
 
@@ -65,7 +71,13 @@ frontend/src/
 └── lib/modes.ts, types.ts, api.ts
 ```
 
-**Endpoints:** `/api/health`, `/api/network/multimodal`, `POST /api/routes/simulate`, `/api/fleet/live`, `/api/shipments`, `/api/shipments/{code}`, `/api/dashboard/summary`, `/api/geo/departments`, `/api/locations`.
+**Endpoints:** `/api/health`, `/api/network/multimodal`, `POST /api/routes/simulate` (acepta `modos` y `vias`), `/api/fleet/live`, `/api/shipments`, `/api/shipments/{code}`, `/api/dashboard/summary`, `/api/geo/departments`, `/api/locations`.
+
+**Operación (nuevos):** `GET /api/corridors`, `POST /api/corridors/status`, `POST /api/shipments`, `PUT|DELETE /api/shipments/{code}`, `POST /api/shipments/preview`, `GET /api/settings`, `PUT /api/settings/fx`, `PUT /api/settings/replenish`, `GET /api/audit`, `GET /api/shipments/{code}/pdf`, `POST /api/exports/pdf`, `GET|POST /api/exports`, `GET|DELETE /api/exports/{token}`.
+
+**Módulos nuevos:** `engine/operations.py` (vías, reconciliación de rutas, CRUD, TRM, historial), `engine/pdf.py` (reportlab), `database/schema_v4.py`.
+
+**Páginas nuevas:** `/vias`, `/envios/nuevo`, `/envios/[code]`, `/envios/[code]/editar`, `/configuracion`.
 
 **Motor multimodal:** cada nodo se replica por modo. Un enlace une estados del mismo modo; un transbordo une modos distintos en el mismo nodo. Las escalas aéreas tienen estado de llegada y de salida. Prioridades: `tiempo`, `costo`, `balanceado` (costo + 12 USD por t·h). Respeta la capacidad por despacho.
 
@@ -81,7 +93,15 @@ frontend/src/
 - **Departamentos:** GeoJSON real del DANE (MGN 2018, nivel departamento), con propiedades reducidas a código y nombre.
 - **Worker de MapLibre:** copiado a `public/vendor/` en `predev`/`prebuild`; con Turbopack la URL relativa no existía.
 - **Telemetría:** simulación determinista sobre el trazado de cada ruta. No hay GPS. Se repone con despachos cuando hay menos de 16 en tránsito.
-- **Moneda:** USD en todo el sistema. La conversión a COP está pendiente (ver sección 7).
+- **Moneda:** los cálculos se hacen en USD. La interfaz y los PDF convierten a COP con la TRM guardada en `system_params` (valor, fecha y fuente). No se consulta ninguna tasa automáticamente; sin TRM, COP queda deshabilitado.
+- **Autenticación:** no se implementó (decisión del 9/10/2026). Cualquiera con acceso a la URL puede crear, editar, borrar y cerrar vías. El historial guarda el nombre que el operador declara en la barra lateral, sin verificar.
+- **Compartir:** enlace con token aleatorio, de solo lectura y revocable. El PDF se genera al abrirlo, con los datos vigentes.
+- **Historial:** `audit_log` con usuario declarado y fecha para envíos, vías, TRM y enlaces.
+- **Cierre de vías:** por corredor (todos sus enlaces). Programados: se recalculan desde cero. En tránsito: se conserva lo recorrido hasta el nodo anterior al segmento cerrado; si el vehículo ya va por el segmento cerrado, se agrega un tramo de retorno (excepto vuelos en el aire, que terminan el segmento). Sin alternativa: `route_status = 'sin_ruta'`. Al reabrir, los sin ruta se restablecen y los programados redirigidos se recalculan; los envíos en tránsito redirigidos conservan el desvío.
+- **Rutas guardadas:** cada tramo guarda sus segmentos (un enlace cada uno) con horas de inicio y fin, para cortar en el nodo exacto.
+- **Envíos editables:** al guardar se recalcula la ruta completa desde el origen, también si el envío ya salió. Modos forzados filtran el grafo; vías forzadas (máx. 3) se resuelven con un grafo por capas.
+- **Códigos de envío:** consecutivo global que no reutiliza códigos borrados.
+- **Reposición automática:** parámetro `AUTO_REPLENISH`; desactivarlo permite trabajar solo con envíos modelados.
 - **Proxy `/api`:** el navegador solo habla con Next.js; `API_INTERNAL_URL` se resuelve en tiempo de ejecución.
 - **Usuarios de prueba:** `admin/admin123`, `operador/oper123`, `lector/lect123`. Visibles en la pantalla de login. Hay que cambiarlos si el enlace será público.
 
@@ -118,38 +138,43 @@ frontend/src/
 
 ---
 
-## 7. Pendientes (aprobados en principio, sin iniciar)
+## 7. Pendientes
 
-Orden propuesto:
+Hechos el 9/10/2026 (partes 1 a 7): modelo de datos, vías no disponibles, envíos modelables, auditoría de botones (`docs/AUDITORIA_BOTONES.md`), monedas, exportación a PDF y red ampliada.
 
-1. **Modelo de datos:** tablas de vías (con estado activo/cerrado y motivo), envíos creados por el usuario y configuración de TRM.
-2. **Vías no disponibles:** interruptor por corredor; recálculo de rutas y redirección de envíos en curso; historial del cambio.
-3. **Envíos modelables:** crear, editar y borrar desde la interfaz; ruta calculada al guardar; opción de forzar modos o vías.
-4. **Auditoría de botones:** identificar los controles sin acción real y conectarlos o quitarlos.
-5. **Monedas:** selector USD/COP en toda la app; TRM editable con fecha y fuente. No se usa una tasa automática porque no hay acceso confiable a la del día.
-6. **Exportación:** PDF individual por envío, PDF consolidado, visualización en navegador y enlace para compartir.
-7. **Red ampliada:**
-   - Capitales departamentales: Cúcuta, Manizales, Armenia, Montería, Valledupar, Riohacha, Yopal, Florencia, San José del Guaviare, Quibdó, Arauca, Mitú, Inírida, San Andrés.
-   - Áreas metropolitanas: Soacha, Girardot, Rionegro, Apartadó, Ipiales.
-   - Puertos: Turbo, Tumaco, Puerto Bolívar, Puerto Nuevo, Puerto Carreño.
-   - Aeropuertos: Cúcuta, Pereira, Montería, Valledupar, Rionegro, San Andrés, Villavicencio, Bucaramanga.
-   - Corredores: Troncal Central de Antioquia, Cúcuta–Bucaramanga, Troncal de la Costa, vías al Urabá y a Tumaco, ríos Meta, Atrato y Orinoco, y trazados férreos (algunos inactivos).
+Detalles de la red ampliada:
+   - 14 capitales, Soacha, Girardot, Rionegro, Apartadó e Ipiales; puertos de Turbo, Tumaco, Puerto Bolívar, Puerto Nuevo y San Andrés; puertos fluviales de Puerto López, Puerto Carreño, Inírida y Quibdó.
+   - 16 aeropuertos regionales. El aeropuerto de Rionegro ya existía como `MDE-AIR` (José María Córdova); Rionegro se conecta a él.
+   - Corredores: Bucaramanga–Cúcuta, Troncal del Caribe (Montería, Turbo, Riohacha, Puerto Nuevo), Vía al Urabá, Pasto–Tumaco, Panamericana a Ipiales, Troncal del Llano, Transversal del Cusiana, Autopista del Café, La Línea, ríos Meta, Orinoco y Atrato, cabotaje a Turbo, San Andrés, Tumaco y La Guajira.
+   - Férreos: Fenoco a Puerto Nuevo, Cerrejón y Ferrocarril Central (activos); Ferrocarril del Pacífico y Bogotá–Belencito (sembrados cerrados, estado a verificar).
+   - **No agregado:** "Troncal Central de Antioquia". No identifiqué un corredor distinto del Medellín–Caucasia (Troncal de Occidente) ya modelado. Pendiente de confirmar a qué vía se refiere.
+
+Pendientes que siguen abiertos:
+
 8. **Historial de trayectos** por ciudad y departamento; costos de peaje y combustible por corredor; alertas operativas (vía cerrada, derrumbe, paro).
 9. **Despliegue permanente:** cuenta de Oracle, VM, HTTPS con Caddy, dominio, GitHub Actions, respaldos. Ver `DEPLOY.md`.
 10. **Mejoras de velocidad:** caché de respuestas de la API, menos peticiones al abrir el dashboard, carga diferida del mapa.
 
+11. **Autenticación:** necesaria antes de publicar el enlace. Hoy cualquiera con la URL puede modificar la operación y el historial no identifica a nadie de forma verificable.
+12. **Persistencia en Render:** la base vive en `/tmp`; envíos creados, cierres, TRM y enlaces se pierden cuando el servicio duerme o se reinicia. Requiere disco persistente o la VM.
+
+### Decisiones tomadas (9/10/2026)
+
+- Autenticación: no por ahora.
+- Compartir: enlace con token revocable.
+- Historial: sí, con usuario declarado y fecha.
+
 ### Decisiones abiertas
 
-- ¿Autenticación para editar envíos y cerrar vías? (El login actual es de demostración.)
-- ¿Compartir por enlace público o solo por PDF descargado?
-- ¿Historial de cambios con usuario y fecha?
 - ¿Migrar a Hetzner antes de la revisión del profesor o usar Oracle gratis?
 
 ---
 
 ## 8. Cosas a verificar antes de confiar en ellas
 
-- Coordenadas y distancias de corredores nuevos: son aproximadas salvo que se contrasten con fuentes oficiales.
+- Coordenadas y distancias de la red ampliada: aproximadas (marcadas con `approximate = 1` y visibles como "Aproximada" en la interfaz). Contrastar con INVÍAS, ANI y Cormagdalena.
+- Estado de las líneas férreas (Pacífico, Bogotá–Belencito cerradas; Central activa): verificar con la ANI.
+- Capacidades de aeropuertos regionales (15 t) y ríos Meta, Orinoco y Atrato: supuestos de modelado.
 - Precios de Hetzner, Render y dominios: cambian; revisar en la página oficial.
 - Política de Oracle sobre instancias inactivas: revisar la documentación vigente.
 - Funcionamiento real en Render y en la VM: no probado en esos entornos.
