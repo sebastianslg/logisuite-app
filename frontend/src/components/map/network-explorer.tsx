@@ -7,6 +7,8 @@ import {
   ArrowDownUp,
   ArrowRightLeft,
   ChevronDown,
+  Maximize2,
+  Minimize2,
   Rows3,
   Clock,
   CircleDollarSign,
@@ -49,6 +51,9 @@ export function NetworkExplorer() {
   // Vista: mapa visible u ocultos (solo datos) y panel del simulador abierto o plegado
   const [showMap, setShowMap] = useState(true);
   const [panelOpen, setPanelOpen] = useState(true);
+  // Pantalla completa dentro de la página (funciona también en iPhone)
+  const [mapFull, setMapFull] = useState(false);
+  const [panelFull, setPanelFull] = useState(false);
 
   useEffect(() => {
     fetch("/api/locations")
@@ -97,7 +102,7 @@ export function NetworkExplorer() {
 
   return (
     <div className="relative h-[calc(100dvh-3.5rem)] w-full overflow-hidden md:h-dvh">
-      <div className={cn("absolute inset-0", !showMap && "hidden")}>
+      <div className={cn("absolute inset-0", !showMap && "hidden", mapFull && "fixed inset-0 z-[60] h-dvh")}>
         {network && departments ? (
           <Map3DLazy
             network={network}
@@ -124,6 +129,18 @@ export function NetworkExplorer() {
         <div className="pointer-events-auto flex w-full flex-wrap items-center gap-2 md:w-auto">
           <ViewToggle showMap={showMap} setShowMap={setShowMap} />
           {showMap && (
+            <Button
+              variant="secondary"
+              size="icon"
+              className="size-9"
+              aria-label="Mapa a pantalla completa"
+              title="Pantalla completa"
+              onClick={() => setMapFull(true)}
+            >
+              <Maximize2 />
+            </Button>
+          )}
+          {showMap && (
             <LayerPanel
               modes={modes}
               toggleMode={toggleMode}
@@ -148,22 +165,38 @@ export function NetworkExplorer() {
           showMap
             ? "inset-x-2 bottom-2 max-h-[52vh] md:inset-x-auto md:top-28 md:bottom-6 md:left-6 md:max-h-none md:w-[380px] md:bg-[#0b0f19]/75"
             : "inset-x-2 top-36 bottom-2 md:inset-x-auto md:top-28 md:bottom-6 md:left-1/2 md:w-[min(960px,calc(100%-3rem))] md:-translate-x-1/2 md:bg-[#0b0f19]/85",
+          panelFull && "fixed inset-0 z-[65] h-dvh max-h-none w-full rounded-none pb-[env(safe-area-inset-bottom)] md:w-full md:translate-x-0",
         )}
       >
         <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] p-5">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Route className="size-4 text-neon-cyan" /> Simulador de rutas multimodales
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="-mt-1 -mr-2 size-8 shrink-0"
-            aria-label="Ocultar simulador"
-            title="Ocultar simulador"
-            onClick={() => setPanelOpen(false)}
-          >
-            <ChevronDown />
-          </Button>
+          <div className="-mt-1 -mr-2 flex shrink-0 items-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              aria-label={panelFull ? "Salir de pantalla completa" : "Simulador a pantalla completa"}
+              title={panelFull ? "Salir de pantalla completa" : "Pantalla completa"}
+              onClick={() => setPanelFull((v) => !v)}
+            >
+              {panelFull ? <Minimize2 /> : <Maximize2 />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              aria-label="Ocultar simulador"
+              title="Ocultar simulador"
+              onClick={() => {
+                setPanelFull(false);
+                setPanelOpen(false);
+              }}
+            >
+              <ChevronDown />
+            </Button>
+          </div>
         </div>
         <div className="border-b border-white/[0.06] p-5">
           <div className="mt-4 grid grid-cols-[1fr_auto] items-end gap-2">
@@ -272,6 +305,17 @@ export function NetworkExplorer() {
         >
           <Route />
           Mostrar simulador
+        </Button>
+      )}
+
+      {mapFull && (
+        <Button
+          variant="secondary"
+          className="fixed top-3 right-3 z-[70] shadow-xl"
+          onClick={() => setMapFull(false)}
+        >
+          <Minimize2 />
+          Salir
         </Button>
       )}
 
