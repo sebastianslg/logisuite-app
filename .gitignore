@@ -6,3 +6,6 @@ __pycache__/
 
 # Base SQLite generada (volumen en Docker)
 backend/data/
+
+# graphify
+graphify-out/

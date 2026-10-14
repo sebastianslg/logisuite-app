@@ -1,0 +1,6 @@
+# Skills de agentes y archivos generados: no son parte del proyecto
+.claude/
+frontend/public/
+frontend/package-lock.json
+backend/app/data/*.geojson
+graphify-out/
