@@ -31,7 +31,7 @@ export interface DashboardSummary {
   top_corridors: { corridor: string; tons: number; tons_fmt: string }[];
   all_corridors: { corridor: string; tons: number; tons_fmt: string }[];
   dispatches_14d: { date: string; count: number }[];
-  alerts: { closed_corridors: string[]; no_route: string[] };
+  alerts: { closed_corridors: string[]; closed_nodes: { code: string; name: string; reason: string | null }[]; no_route: string[] };
   network: {
     nodes: number;
     links: number;
@@ -394,6 +394,30 @@ export interface Corridor {
 
 export interface CorridorChange {
   corridor: string;
+  active: boolean;
+  rerouted: string[];
+  no_route: string[];
+  restored: string[];
+  replanned: string[];
+}
+
+export interface NodeStatus {
+  code: string;
+  name: string;
+  kind: string;
+  city: string;
+  active: boolean;
+  reason: string | null;
+  changed_at: string | null;
+  changed_by: string | null;
+  approximate: boolean;
+  /** Envíos no entregados con tramos pendientes que pasan por el nodo. */
+  shipments: string[];
+}
+
+export interface NodeChange {
+  code: string;
+  name: string;
   active: boolean;
   rerouted: string[];
   no_route: string[];

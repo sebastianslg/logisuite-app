@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   CircleOff,
   TrafficCone,
+  TriangleAlert,
   ArrowRightLeft,
   Gauge,
   Navigation,
@@ -46,11 +47,11 @@ async function DashboardContent() {
     apiGet<SustainabilitySummary>("/api/sustainability/summary"),
   ]);
   const k = summary.kpis;
-  const { closed_corridors: closed, no_route: noRoute } = summary.alerts;
+  const { closed_corridors: closed, closed_nodes: closedNodes, no_route: noRoute } = summary.alerts;
 
   return (
     <>
-      {(closed.length > 0 || noRoute.length > 0) && (
+      {(closed.length > 0 || closedNodes.length > 0 || noRoute.length > 0) && (
         <div role="status" className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl bg-destructive/12 px-4 py-3 text-sm">
           {closed.length > 0 && (
             <Link href="/vias" className="flex items-center gap-2 font-medium text-destructive hover:underline">
@@ -59,6 +60,16 @@ async function DashboardContent() {
               <span className="font-normal text-foreground/80">
                 {closed.slice(0, 3).join(", ")}
                 {closed.length > 3 && "…"}
+              </span>
+            </Link>
+          )}
+          {closedNodes.length > 0 && (
+            <Link href="/vias?ver=nodos" className="flex items-center gap-2 font-medium text-destructive hover:underline">
+              <TriangleAlert className="size-4" aria-hidden />
+              {closedNodes.length} {closedNodes.length === 1 ? "nodo cerrado" : "nodos cerrados"}:
+              <span className="font-normal text-foreground/80">
+                {closedNodes.slice(0, 3).map((n) => n.name).join(", ")}
+                {closedNodes.length > 3 && "…"}
               </span>
             </Link>
           )}
