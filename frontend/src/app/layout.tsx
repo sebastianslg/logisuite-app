@@ -6,8 +6,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "LogiSuite TMS",
-    template: "%s · LogiSuite TMS",
+    default: "Westvane TMS",
+    template: "%s · Westvane TMS",
   },
   description:
     "Transportation Management System multimodal para la red logística de Colombia: carretera, río, mar, aire y ferrocarril.",

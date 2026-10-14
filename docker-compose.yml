@@ -1,17 +1,17 @@
-# LogiSuite TMS multimodal: API FastAPI (8000) + frontend Next.js (3000).
+# Westvane TMS multimodal: API FastAPI (8000) + frontend Next.js (3000).
 #   docker compose up -d --build
 services:
   backend:
     build: ./backend
-    image: logisuite-api:latest
-    container_name: logisuite-api
+    image: westvane-api:latest
+    container_name: westvane-api
     restart: unless-stopped
     env_file:
       - path: .env
         required: false
     environment:
       TZ: ${TZ:-America/Bogota}
-      LOGISUITE_DB_PATH: /data/logistics.db
+      WESTVANE_DB_PATH: /data/logistics.db
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
     ports:
       - "${API_PORT:-8000}:8000"
@@ -24,8 +24,8 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_MAP_STYLE: ${NEXT_PUBLIC_MAP_STYLE:-https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json}
-    image: logisuite-web:latest
-    container_name: logisuite-web
+    image: westvane-web:latest
+    container_name: westvane-web
     restart: unless-stopped
     environment:
       # El proxy /api/* del frontend llega a la API por la red interna

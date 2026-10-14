@@ -1,6 +1,6 @@
 """
-test_logisuite.py
-Suite de pruebas unitarias de LogiSuite.
+test_westvane.py
+Suite de pruebas unitarias de Westvane.
 
 Cubre las funciones de cálculo cuyo resultado debe ser verificable contra la
 fórmula teórica, y las invariantes que deben cumplirse siempre:

@@ -1,4 +1,4 @@
-# LogiSuite TMS - Frontend Next.js (multi-stage, salida standalone)
+# Westvane TMS - Frontend Next.js (multi-stage, salida standalone)
 
 # ---- Etapa 1: dependencias --------------------------------------------------
 FROM node:22-alpine AS deps

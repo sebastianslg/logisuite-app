@@ -1,6 +1,6 @@
 """
 main.py
-API de LogiSuite TMS (FastAPI).
+API de Westvane TMS (FastAPI).
 
 Endpoints principales:
   GET  /api/network/multimodal   Red multimodal como GeoJSON (nodos y enlaces).
@@ -61,7 +61,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="LogiSuite TMS API", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="Westvane TMS API", version="2.0.0", lifespan=lifespan)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.add_middleware(
     CORSMiddleware,

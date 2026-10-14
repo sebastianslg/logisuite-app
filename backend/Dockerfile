@@ -1,4 +1,4 @@
-# LogiSuite TMS - API FastAPI (multi-stage)
+# Westvane TMS - API FastAPI (multi-stage)
 
 # ---- Etapa 1: dependencias en un entorno virtual aislado -------------------
 FROM python:3.11-slim AS builder
@@ -17,7 +17,7 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TZ=America/Bogota \
-    LOGISUITE_DB_PATH=/data/logistics.db
+    WESTVANE_DB_PATH=/data/logistics.db
 
 RUN groupadd --system --gid 1000 app \
     && useradd --system --uid 1000 --gid app --home-dir /srv --shell /usr/sbin/nologin app
