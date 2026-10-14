@@ -3,8 +3,10 @@ db.py
 Capa de acceso a datos (Data Access Layer). Encapsula la conexión SQLite
 y expone helpers reutilizados por los modelos, el motor de red y la API.
 
-La ruta de la base se toma de LOGISUITE_DB_PATH (volumen de Docker) y, si no
-existe, de backend/data/logistics.db.
+La ruta de la base se toma de WESTVANE_DB_PATH (volumen de Docker) y, si no
+existe, de backend/data/logistics.db. LOGISUITE_DB_PATH (nombre anterior de la
+app) sigue siendo válida y tiene prioridad, para no perder la base de los
+despliegues que ya la definen.
 """
 import sqlite3
 import os
@@ -12,8 +14,9 @@ import pandas as pd
 from contextlib import contextmanager
 
 _BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DB_PATH = os.environ.get("LOGISUITE_DB_PATH",
-                         os.path.join(_BACKEND_DIR, "data", "logistics.db"))
+DB_PATH = (os.environ.get("LOGISUITE_DB_PATH")
+           or os.environ.get("WESTVANE_DB_PATH")
+           or os.path.join(_BACKEND_DIR, "data", "logistics.db"))
 
 
 def get_connection() -> sqlite3.Connection:

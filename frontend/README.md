@@ -1,4 +1,4 @@
-# LogiSuite TMS — Frontend
+# Westvane TMS — Frontend
 
 Next.js 16 (App Router), Tailwind v4, shadcn/ui, Framer Motion, TanStack
 Table y deck.gl + MapLibre. Ver el README de la raíz del repositorio para la

@@ -1,5 +1,5 @@
 /**
- * Movimiento de LogiSuite ("Apple motion"): una sola curva con resorte suave para
+ * Movimiento de Westvane ("Apple motion"): una sola curva con resorte suave para
  * toda transición, 0,3 s en interacciones rápidas y 0,5 s en entradas de vista.
  * framer-motion respeta "Reducir movimiento" vía <MotionProvider>.
  */

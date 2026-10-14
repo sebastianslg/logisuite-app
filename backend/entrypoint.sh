@@ -7,7 +7,8 @@
 #      telemetría viven en el proceso.
 set -euo pipefail
 
-DB_PATH="${LOGISUITE_DB_PATH:-/data/logistics.db}"
+# LOGISUITE_DB_PATH es el nombre anterior de la variable: se respeta para no perder la base existente
+DB_PATH="${LOGISUITE_DB_PATH:-${WESTVANE_DB_PATH:-/data/logistics.db}}"
 DATA_DIR="$(dirname "${DB_PATH}")"
 mkdir -p "${DATA_DIR}"
 

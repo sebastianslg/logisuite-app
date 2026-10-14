@@ -55,7 +55,7 @@ export function Sidebar() {
           <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-solid text-primary-foreground">
             <Waypoints className="size-4.5" aria-hidden />
           </span>
-          {!collapsed && <span className="truncate text-base font-semibold tracking-tight">LogiSuite</span>}
+          {!collapsed && <span className="truncate text-base font-semibold tracking-tight">Westvane</span>}
         </div>
 
         <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 pt-2" aria-label="Navegación principal">
