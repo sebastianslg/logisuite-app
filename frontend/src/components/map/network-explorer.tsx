@@ -282,7 +282,7 @@ export function NetworkExplorer() {
                       aria-checked={priority === p}
                       onClick={() => setPriority(p)}
                       className={cn(
-                        "press relative h-8 flex-1 rounded-[10px] text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-10",
+                        "press relative h-8 flex-1 rounded-[10px] text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:h-10",
                         priority === p ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                       )}
                     >
@@ -303,7 +303,7 @@ export function NetworkExplorer() {
                   inputMode="decimal"
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
-                  className="tabular h-9 w-full rounded-xl bg-fill pr-2 pl-7 text-sm outline-none focus:ring-[3px] focus:ring-ring/50 pointer-coarse:h-11"
+                  className="tabular h-9 w-full rounded-xl bg-fill pr-2 pl-7 text-sm outline-none focus:ring-[3px] focus:ring-ring/80 pointer-coarse:h-11"
                 />
               </span>
             </label>
@@ -409,7 +409,7 @@ function ViewToggle({ showMap, setShowMap }: { showMap: boolean; setShowMap: (v:
           onClick={() => setShowMap(v.key)}
           aria-pressed={showMap === v.key}
           className={cn(
-            "press flex h-8 items-center gap-1.5 rounded-xl px-2.5 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11 [&_svg]:size-3.5",
+            "press flex h-8 items-center gap-1.5 rounded-xl px-2.5 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:h-11 [&_svg]:size-3.5",
             showMap === v.key ? "bg-fill text-foreground" : "text-muted-foreground hover:text-foreground",
           )}
         >
@@ -533,7 +533,7 @@ function RouteResultView({
               disabled={!a.found}
               onClick={() => onPick(a.priority)}
               className={cn(
-                "press flex items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50",
+                "press flex items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 disabled:opacity-50",
                 a.priority === r.priority ? "border-primary/40 bg-primary/10" : "border-border hover:bg-fill/60",
               )}
             >
@@ -641,7 +641,7 @@ function LayerPanel({
             aria-pressed={on}
             title={label}
             aria-label={label}
-            className={cn("flex size-8 items-center justify-center rounded-md outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:size-11", !on && "opacity-50")}
+            className={cn("flex size-8 items-center justify-center rounded-md outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:size-11", !on && "opacity-50")}
             style={on ? { backgroundColor: tint(color, 14) } : undefined}
           >
             <Icon className="size-4" style={{ color }} />
@@ -672,7 +672,7 @@ function ToggleChip({
       onClick={onClick}
       aria-pressed={on}
       className={cn(
-        "flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11 [&_svg]:size-3.5",
+        "flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:h-11 [&_svg]:size-3.5",
         on ? "bg-fill text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
     >

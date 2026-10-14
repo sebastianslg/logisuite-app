@@ -13,6 +13,7 @@ import type { NodeChange, NodeStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { ChangeSummary } from "./corridor-board";
+import { GroupBlock } from "./group-block";
 
 const KINDS: Record<string, { label: string; icon: typeof Plane }> = {
   aeropuerto: { label: "Aeropuertos", icon: Plane },
@@ -53,6 +54,22 @@ export function NodeBoard({ nodes }: { nodes: NodeStatus[] }) {
   }, [nodes, query, kind, state]);
 
   const closedCount = nodes.filter((n) => !n.active).length;
+
+  const filtering = query.trim() !== "" || kind !== null || state !== "todos";
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const groups = useMemo(() => {
+    const out: { key: string; title: string; icon?: React.ReactNode; danger?: boolean; items: NodeStatus[]; defaultOpen: boolean }[] = [];
+    const closed = list.filter((n) => !n.active);
+    if (closed.length) out.push({ key: "cerrados", title: "Cerrados", danger: true, items: closed, defaultOpen: true });
+    for (const k of Object.keys(KINDS)) {
+      const items = list.filter((n) => n.active && n.kind === k);
+      if (!items.length) continue;
+      const Icon = KINDS[k].icon;
+      out.push({ key: k, title: KINDS[k].label, icon: <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />,
+        items, defaultOpen: filtering || items.length <= 8 });
+    }
+    return out;
+  }, [list, filtering]);
   const kinds = useMemo(() => Object.keys(KINDS).filter((k) => nodes.some((n) => n.kind === k)), [nodes]);
 
   async function change(code: string, active: boolean) {
@@ -114,7 +131,11 @@ export function NodeBoard({ nodes }: { nodes: NodeStatus[] }) {
 
       <ul className="flex flex-col gap-2">
         {list.length === 0 && <li className="glass rounded-3xl p-8 text-center text-sm text-muted-foreground">Ningún nodo coincide.</li>}
-        {list.map((n) => {
+        {groups.map((g) => (
+          <GroupBlock key={g.key} title={g.title} count={g.items.length} icon={g.icon} danger={g.danger}
+            open={openGroups[g.key] ?? g.defaultOpen}
+            onToggle={() => setOpenGroups((o) => ({ ...o, [g.key]: !(o[g.key] ?? g.defaultOpen) }))}>
+        {g.items.map((n) => {
           const Icon = (KINDS[n.kind] ?? KINDS.ciudad).icon;
           return (
             <li key={n.code} className={cn("rounded-lg border bg-card p-3 sm:p-4", n.active ? "border-border" : "border-destructive/25 bg-destructive/[0.03]")}>
@@ -176,6 +197,8 @@ export function NodeBoard({ nodes }: { nodes: NodeStatus[] }) {
             </li>
           );
         })}
+          </GroupBlock>
+        ))}
       </ul>
     </div>
   );

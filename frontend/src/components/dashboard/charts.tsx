@@ -58,12 +58,12 @@ export function ModalSplit({ data }: { data: DashboardSummary["modal_split"] }) 
         {rows.map((r) => {
           const Icon = MODES[r.mode].icon;
           return (
-            <li key={r.mode} className="flex items-center gap-3 text-sm">
-              <span className="size-2.5 rounded-sm" style={{ backgroundColor: MODES[r.mode].color }} />
-              <Icon className="size-3.5 text-muted-foreground" aria-hidden />
-              <span className="min-w-0 flex-1 truncate text-foreground/80">{r.label}</span>
+            <li key={r.mode} className="flex items-center gap-2.5 text-sm">
+              <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: MODES[r.mode].color }} />
+              <Icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              <span className="min-w-[4.5rem] flex-1 truncate text-foreground/80">{r.label}</span>
               <span className="tabular text-xs whitespace-nowrap text-muted-foreground">{r.tkm_fmt}</span>
-              <span className="tabular w-16 text-right font-medium whitespace-nowrap">
+              <span className="tabular w-14 shrink-0 text-right font-medium whitespace-nowrap">
                 {r.share_pct.toLocaleString("es-CO")} %
               </span>
             </li>

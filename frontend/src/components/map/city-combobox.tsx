@@ -91,7 +91,7 @@ export function CityCombobox({
         onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="press flex h-9 w-full items-center gap-2 rounded-xl bg-fill pr-2.5 pl-3 text-left text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11"
+        className="press flex h-9 w-full items-center gap-2 rounded-xl bg-fill pr-2.5 pl-3 text-left text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:h-11"
       >
         <span className="min-w-0 flex-1 truncate">{value || "Elegir ciudad"}</span>
         <span className="flex gap-0.5" aria-hidden>

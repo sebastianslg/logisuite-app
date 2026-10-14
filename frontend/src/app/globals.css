@@ -294,3 +294,28 @@
   scrollbar-width: thin;
   scrollbar-color: var(--separator-strong) transparent;
 }
+
+/* Foco visible en campos de texto: anillo del color de acento, no solo un cambio de borde. */
+input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+/* Objetivos táctiles de al menos 44 px en pantallas táctiles (el interruptor conserva su tamaño). */
+@media (pointer: coarse) {
+  :where(main, header) :is(button, select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"])):not([role="switch"]),
+  :where(main, header) a.press {
+    min-height: 44px;
+  }
+  :where(main, header) :is(button, a.press):not(:where([role="switch"], [role="radio"])):has(> svg:only-child) {
+    min-width: 44px;
+  }
+}
+
+/* Campo con error de validación: borde rojo (el anillo de foco sigue del color de acento). */
+:is(input, select, textarea)[aria-invalid="true"]:not(:focus-visible) {
+  border-color: var(--destructive);
+}

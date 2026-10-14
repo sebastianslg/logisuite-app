@@ -7,6 +7,7 @@ import { CircleAlert, CircleCheck, History, LoaderCircle, Lock, LockOpen, Search
 
 import { useApp } from "@/components/providers";
 import { ModeIcon } from "@/components/status-badge";
+import { GroupBlock } from "./group-block";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/client";
@@ -43,6 +44,23 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
   }, [corridors, query, mode, state]);
 
   const closedCount = corridors.filter((c) => !c.active).length;
+
+  // Cerradas primero y abiertas; el resto por modo principal. Con filtros activos se abre todo.
+  const filtering = query.trim() !== "" || mode !== null || state !== "todas";
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const groups = useMemo(() => {
+    const out: { key: string; title: string; icon?: React.ReactNode; danger?: boolean; items: Corridor[]; defaultOpen: boolean }[] = [];
+    const closed = list.filter((c) => !c.active);
+    if (closed.length) out.push({ key: "cerradas", title: "Cerradas", danger: true, items: closed, defaultOpen: true });
+    for (const m of MODE_ORDER) {
+      const items = list.filter((c) => c.active && c.modes[0] === m);
+      if (!items.length) continue;
+      const { icon: Icon, color, label } = MODES[m];
+      out.push({ key: m, title: label, icon: <Icon className="size-4 shrink-0" style={{ color }} aria-hidden />, items,
+        defaultOpen: filtering || items.length <= 8 });
+    }
+    return out;
+  }, [list, filtering]);
 
   async function change(corridor: string, active: boolean) {
     setBusy(corridor);
@@ -108,7 +126,11 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
 
         <ul className="flex flex-col gap-2">
           {list.length === 0 && <li className="glass rounded-3xl p-8 text-center text-sm text-muted-foreground">Ninguna vía coincide.</li>}
-          {list.map((c) => (
+          {groups.map((g) => (
+            <GroupBlock key={g.key} title={g.title} count={g.items.length} icon={g.icon} danger={g.danger}
+              open={openGroups[g.key] ?? g.defaultOpen}
+              onToggle={() => setOpenGroups((o) => ({ ...o, [g.key]: !(o[g.key] ?? g.defaultOpen) }))}>
+            {g.items.map((c) => (
             <li key={c.corridor}
               className={cn("rounded-lg border bg-card p-4", c.active ? "border-border" : "border-destructive/25 bg-destructive/[0.03]")}>
               <div className="flex items-start justify-between gap-3">
@@ -181,6 +203,8 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
                 </form>
               )}
             </li>
+            ))}
+            </GroupBlock>
           ))}
         </ul>
       </div>

@@ -133,6 +133,15 @@ export default function Map3D({
   const { money } = useApp();
   const [clock, setClock] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // deck.gl crea una capa de eventos enfocable sin nombre: se la damos para lectores de pantalla.
+  useEffect(() => {
+    const root = containerRef.current?.querySelector<HTMLElement>(".deck-events-root");
+    if (root) {
+      root.setAttribute("role", "application");
+      root.setAttribute("aria-label", "Mapa de la red multimodal. Arrastra para mover y usa la rueda para acercar.");
+    }
+  });
   const [routeStart, setRouteStart] = useState(0);
 
   // ---- Reloj de animación (requestAnimationFrame) ---------------------

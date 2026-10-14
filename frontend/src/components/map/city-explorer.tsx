@@ -44,13 +44,13 @@ export function CategoryFilter({
   };
   const chip = (active: boolean) =>
     cn(
-      "press h-8 rounded-full px-3 text-xs font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-10",
+      "press h-8 rounded-full px-3 text-xs font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:h-10",
       active ? "bg-solid text-primary-foreground" : "bg-fill text-foreground/80 hover:bg-fill/70",
     );
   return (
     <div role="group" aria-label="Categorías de ciudades" className="flex flex-wrap gap-1.5">
       <button type="button" className={chip(all)} aria-pressed={all} onClick={() => onChange(new Set(CATEGORY_FILTERS.map((f) => f.value)))}>
-        Todos <span className="tabular opacity-70">{cities.length}</span>
+        Todos <span className="tabular font-semibold">{cities.length}</span>
       </button>
       {CATEGORY_FILTERS.map((f) => (
         <button
@@ -60,7 +60,7 @@ export function CategoryFilter({
           aria-pressed={!all && value.has(f.value)}
           onClick={() => (all ? onChange(new Set([f.value])) : toggle(f.value))}
         >
-          {f.label} <span className="tabular opacity-70">{counts[f.value]}</span>
+          {f.label} <span className="tabular font-semibold">{counts[f.value]}</span>
         </button>
       ))}
     </div>
@@ -98,7 +98,7 @@ export function CityDirectory({
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar ciudad o municipio"
             aria-label="Buscar ciudad o municipio"
-            className="h-10 w-full rounded-xl bg-fill pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground focus:ring-[3px] focus:ring-ring/50"
+            className="h-10 w-full rounded-xl bg-fill pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground focus:ring-[3px] focus:ring-ring/80"
           />
         </label>
         <CategoryFilter cities={cities} value={categories} onChange={onCategories} />
@@ -108,7 +108,7 @@ export function CityDirectory({
               <button
                 type="button"
                 onClick={() => onPick(c.city)}
-                className="press flex w-full items-center gap-3 rounded-2xl bg-fill px-3 py-2.5 text-left outline-none hover:bg-fill/70 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="press flex w-full items-center gap-3 rounded-2xl bg-fill px-3 py-2.5 text-left outline-none hover:bg-fill/70 focus-visible:ring-[3px] focus-visible:ring-ring/80"
               >
                 <MapPin className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                 <span className="min-w-0 flex-1">
