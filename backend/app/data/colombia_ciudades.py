@@ -22,6 +22,11 @@ PRINCIPALES = frozenset({
     "Cúcuta", "Pereira", "Manizales", "Ibagué", "Pasto", "Neiva", "Villavicencio", "Armenia",
     "Montería", "Valledupar", "Sincelejo", "Popayán", "Tunja", "Buenaventura", "Barrancabermeja",
     "Riohacha", "Florencia", "Yopal", "Quibdó", "Leticia",
+    # Resto de capitales: con los 27 anteriores completan los 32 departamentos y Bogotá.
+    "Arauca", "Mocoa", "San José del Guaviare", "Inírida", "Mitú", "Puerto Carreño", "San Andrés",
+    # Centros logísticos regionales
+    "Cartago", "Tuluá", "Girardot", "Sogamoso", "Duitama", "Ocaña", "Maicao", "Ipiales", "Tumaco",
+    "Apartadó", "Pitalito", "Soacha", "Rionegro",
 })
 
 
