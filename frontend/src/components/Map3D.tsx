@@ -32,28 +32,17 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import { boundsOf, flightArc, positionAt, splitTrip, type Position3, type TripSegment } from "./map/geometry";
 import { MODES } from "@/lib/modes";
+import { usePrefs } from "@/lib/prefs";
 import type { DepartmentsGeo, FleetLive, LiveAsset, Mode, NetworkGeo, RouteResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 // Worker publicado por scripts/copy-maplibre-worker.mjs (ver allí el porqué)
 setWorkerUrl("/vendor/maplibre-gl-worker.mjs");
 
-// NEXT_PUBLIC_MAP_STYLE fija un estilo único; sin él, el mapa sigue la apariencia del sistema.
+// NEXT_PUBLIC_MAP_STYLE fija un estilo único; sin él, el mapa sigue la apariencia elegida (Sistema/Claro/Oscuro).
 const MAP_STYLE_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 const MAP_STYLE_LIGHT = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 
-/** Apariencia del sistema (claro/oscuro), reactiva a cambios en vivo. */
-function usePrefersDark() {
-  const [dark, setDark] = useState(true);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const update = () => setDark(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-  return dark;
-}
 
 export const COLOMBIA_VIEW: MapViewState = {
   longitude: -74.2,
@@ -108,6 +97,14 @@ export interface Map3DProps {
   showFleet?: boolean;
   compact?: boolean;
   className?: string;
+  /** Si se define, solo se dibujan los nodos de estas ciudades (filtro por categoría). */
+  visibleCities?: ReadonlySet<string> | null;
+  /** Ciudades marcadas con un aro (origen y destino elegidos). */
+  selectedCities?: readonly string[];
+  /** Ciudad a la que vuela la cámara cuando cambia. */
+  focusCity?: string | null;
+  /** Se llama al pulsar un nodo. */
+  onCityClick?: (city: string) => void;
 }
 
 export default function Map3D({
@@ -120,13 +117,17 @@ export default function Map3D({
   showFleet = true,
   compact = false,
   className,
+  visibleCities = null,
+  selectedCities = [],
+  focusCity = null,
+  onCityClick,
 }: Map3DProps) {
   // En la vista compacta el país sube para no quedar bajo los chips de resumen
   const [viewState, setViewState] = useState<MapViewState>(
     compact ? { ...COLOMBIA_VIEW, latitude: 1.4, zoom: 4.25, pitch: 40 } : COLOMBIA_VIEW,
   );
   const [hover, setHover] = useState<Hover>(null);
-  const dark = usePrefersDark();
+  const dark = usePrefs().resolved === "dark";
   const [clock, setClock] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const [routeStart, setRouteStart] = useState(0);
@@ -134,14 +135,22 @@ export default function Map3D({
   // ---- Reloj de animación (requestAnimationFrame) ---------------------
   useEffect(() => {
     let frame = 0;
+    let last = 0;
     const t0 = performance.now();
+    // La flota se mueve despacio: ~30 cuadros por segundo en el mapa completo y ~10 en la vista
+    // compacta del dashboard bastan y dejan tiempo al hilo principal (navegación, toques).
+    // En pestañas ocultas la animación se detiene.
+    const minDelta = compact ? 100 : 33;
     const tick = (now: number) => {
-      setClock((now - t0) / 1000);
+      if (!document.hidden && now - last >= minDelta) {
+        last = now;
+        setClock((now - t0) / 1000);
+      }
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [compact]);
 
   const isVisible = useCallback((m: Mode) => !visibleModes || visibleModes.has(m), [visibleModes]);
 
@@ -154,7 +163,7 @@ export default function Map3D({
     if (!width || !height || pts.length < 2) return;
     const vp = new WebMercatorViewport({ width, height });
     const { longitude, latitude, zoom } = vp.fitBounds(boundsOf(pts), {
-      padding: { top: 80, bottom: 80, left: compact ? 40 : 420, right: 80 },
+      padding: { top: 80, bottom: 80, left: compact || width < 768 ? 40 : 420, right: 80 },
     });
     setViewState((v) => ({
       ...v,
@@ -169,6 +178,31 @@ export default function Map3D({
     // Solo se re-encuadra cuando cambia la ruta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route]);
+
+  // ---- Vuelo a una ciudad elegida (lista, URL o paleta de comandos) ----
+  useEffect(() => {
+    if (!focusCity) return;
+    const rank = ["cedi", "ciudad", "aeropuerto", "puerto_maritimo", "puerto_fluvial", "terminal_ferrea"];
+    const node = network.nodes.features
+      .filter((n) => n.properties.city === focusCity)
+      .sort((a, b) => rank.indexOf(a.properties.kind) - rank.indexOf(b.properties.kind))[0];
+    if (!node) return;
+    const [longitude, latitude] = node.geometry.coordinates as [number, number];
+    // Fuera del cuerpo del efecto: el vuelo es una reacción a un evento externo, no un estado derivado
+    const t = setTimeout(
+      () =>
+        setViewState((v) => ({
+          ...v,
+          longitude,
+          latitude,
+          zoom: Math.max(v.zoom, 7),
+          transitionDuration: 1200,
+          transitionInterpolator: new FlyToInterpolator({ speed: 1.6 }),
+        })),
+      0,
+    );
+    return () => clearTimeout(t);
+  }, [focusCity, network]);
 
   // ---- Datos derivados (memorizados) ----------------------------------
   const deptData = useMemo<DeptDatum[]>(
@@ -193,19 +227,22 @@ export default function Map3D({
   );
   const groundLinks = useMemo(() => links.filter((f) => f.properties.mode !== "aereo"), [links]);
   const airLinks = useMemo(() => links.filter((f) => f.properties.mode === "aereo"), [links]);
-  const nodes = network.nodes.features;
+  const nodes = useMemo(
+    () => (visibleCities ? network.nodes.features.filter((n) => visibleCities.has(n.properties.city)) : network.nodes.features),
+    [network, visibleCities],
+  );
   // Una etiqueta por ciudad, sobre su nodo principal
   const cityLabels = useMemo(() => {
     const rank = ["cedi", "puerto_maritimo", "aeropuerto", "puerto_fluvial", "terminal_ferrea"];
     const best = new Map<string, NodeDatum>();
-    for (const n of network.nodes.features) {
+    for (const n of nodes) {
       const r = rank.indexOf(n.properties.kind);
       if (r < 0) continue;
       const cur = best.get(n.properties.city);
       if (!cur || r < rank.indexOf(cur.properties.kind)) best.set(n.properties.city, n);
     }
     return [...best.values()];
-  }, [network]);
+  }, [nodes]);
 
   const fleetSegments = useMemo<AssetSegment[]>(
     () =>
@@ -380,6 +417,20 @@ export default function Map3D({
         radiusUnits: "pixels",
         pickable: true,
       }),
+
+    // Origen y destino elegidos
+    new ScatterplotLayer<NodeDatum>({
+      id: "seleccion",
+      data: network.nodes.features.filter((n) => selectedCities.includes(n.properties.city)),
+      getPosition: (n) => n.geometry.coordinates as [number, number],
+      getFillColor: [0, 122, 255, 40],
+      getLineColor: [0, 122, 255, 255],
+      stroked: true,
+      filled: true,
+      lineWidthMinPixels: 2,
+      getRadius: 15,
+      radiusUnits: "pixels",
+    }),
 
     // Nodos
     new ScatterplotLayer<NodeDatum>({
@@ -563,6 +614,10 @@ export default function Map3D({
         controller={{ dragRotate: true, touchRotate: true, scrollZoom: !compact }}
         layers={layers}
         onHover={onHover}
+        onClick={(info) => {
+          const o = info.object as NodeDatum | undefined;
+          if (o && info.layer?.id === "nodos" && o.properties?.city) onCityClick?.(o.properties.city);
+        }}
         getCursor={({ isHovering, isDragging }) => (isDragging ? "grabbing" : isHovering ? "pointer" : "grab")}
       >
         <BaseMap mapStyle={process.env.NEXT_PUBLIC_MAP_STYLE ?? (dark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT)} reuseMaps attributionControl={{ compact: true }} />

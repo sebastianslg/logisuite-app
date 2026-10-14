@@ -8,12 +8,21 @@ import { connection } from "next/server";
  * ejecución: `connection()` evita que Next la congele durante el build.
  * Los componentes que la usan deben ir dentro de <Suspense>.
  */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   await connection();
   const base = process.env.API_INTERNAL_URL ?? "http://localhost:8000";
   const res = await fetch(`${base}${path}`, { cache: "no-store" });
   if (!res.ok) {
-    throw new Error(`La API respondió ${res.status} en ${path}`);
+    throw new ApiError(`La API respondió ${res.status} en ${path}`, res.status);
   }
   return (await res.json()) as T;
 }

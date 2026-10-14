@@ -46,3 +46,33 @@ def test_fuel_live(client):
     assert d["count"] == len(d["assets"]) > 0
     for a in d["assets"]:
         assert 0 <= a["burned_l"] <= a["total_l"]
+
+
+def test_simular_incluye_huella_y_alternativas(client):
+    d = client.post("/api/routes/simulate",
+                    json={"origen": "Cali", "destino": "Cartagena", "prioridad": "costo", "peso_t": 20}).json()
+    fp = d["footprint"]
+    assert fp["co2e_kg"] > 0 and fp["fuel_l"] > 0
+    assert len(fp["per_leg"]) == len(d["route"]["legs"])
+    assert all("co2e_kg" in a for a in d["alternatives"] if a["found"])
+
+
+def test_crear_envio_queda_en_la_operacion(client):
+    r = client.post("/api/shipments", json={"origen": "Cali", "destino": "Cartagena", "prioridad": "costo",
+                                            "peso_t": 12, "carga": "Prueba", "cliente": "QA"})
+    assert r.status_code == 201
+    d = r.json()
+    assert d["weight_t"] == 12 and d["footprint"]["co2e_kg"] > 0
+    again = client.get(f"/api/shipments/{d['code']}").json()
+    assert again["code"] == d["code"] and again["footprint"]["co2e_kg"] == d["footprint"]["co2e_kg"]
+
+
+def test_crear_envio_con_ciudad_desconocida_da_422(client):
+    r = client.post("/api/shipments", json={"origen": "Atlantis", "destino": "Cali", "peso_t": 5})
+    assert r.status_code == 422
+
+
+def test_ciudades_traen_categoria(client):
+    cities = client.get("/api/locations").json()["cities"]
+    assert {c["category"] for c in cities} <= {"principal", "municipio", "dificil_acceso"}
+    assert next(c for c in cities if c["city"] == "Leticia")["category"] == "dificil_acceso"

@@ -28,13 +28,15 @@ export function NetworkMapCard({ network: stats }: { network: DashboardSummary["
           {MODE_ORDER.map((m) => {
             const Icon = MODES[m].icon;
             return (
-              <div
+              <Link
                 key={m}
-                className="flex items-center gap-2 material rounded-md border border-border px-2.5 py-1.5"
+                href={`/red?modos=${m}`}
+                aria-label={`${MODES[m].label}: ${byMode.get(m)?.km_fmt ?? "0 km"}. Ver solo este modo en el mapa`}
+                className="material press flex items-center gap-2 rounded-xl border border-border px-2.5 py-1.5 outline-none hover:bg-fill focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
-                <Icon className="size-3.5" style={{ color: MODES[m].color }} />
+                <Icon className="size-3.5" style={{ color: MODES[m].color }} aria-hidden />
                 <span className="tabular text-xs font-medium">{byMode.get(m)?.km_fmt ?? "0 km"}</span>
-              </div>
+              </Link>
             );
           })}
         </div>

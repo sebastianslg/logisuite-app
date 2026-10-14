@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Fuel, Radio } from "lucide-react";
 
@@ -12,6 +13,7 @@ import { EASE, T_FAST } from "@/lib/motion";
 import type { FuelLive } from "@/lib/types";
 
 const REFRESH_MS = 20_000;
+const MotionLink = motion.create(Link);
 const ROW_LIFT = "0 6px 16px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)";
 
 /** Hook: la telemetría se refresca sola; si falla, se conserva la última lectura. */
@@ -78,9 +80,11 @@ export function FuelAssets({ live }: { live: FuelLive }) {
               transition={{ duration: 0.5, ease: EASE, layout: T_FAST }}
               className="overflow-hidden px-2.5"
             >
-              <motion.div
+              <MotionLink
+                href={`/envios/${a.shipment_code}`}
+                aria-label={`${a.id}, ${a.origin} a ${a.destination}. Ver envío ${a.shipment_code}`}
                 whileHover={{ scale: 1.02, y: -2, boxShadow: ROW_LIFT, transition: T_FAST }}
-                className="my-1 flex items-center gap-3 rounded-2xl bg-fill px-3 py-2.5"
+                className="my-1 flex cursor-pointer items-center gap-3 rounded-2xl bg-fill px-3 py-2.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
                 <ModeIcon mode={a.mode} />
                 <div className="min-w-0 flex-1">
@@ -98,7 +102,7 @@ export function FuelAssets({ live }: { live: FuelLive }) {
                   <EcoBar value={a.burned_pct} max={100} color={MODES[a.mode].color} className="mt-1.5 h-1.5" />
                   <div className="mt-1 text-xs text-muted-foreground">{a.fuel_type}</div>
                 </div>
-              </motion.div>
+              </MotionLink>
             </motion.li>
           ))}
         </AnimatePresence>

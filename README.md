@@ -75,12 +75,15 @@ frontend/src/
 | Método | Ruta | Descripción |
 |---|---|---|
 | GET | `/api/network/multimodal` | Nodos (Point) y enlaces (LineString con trazado real) en GeoJSON |
-| POST | `/api/routes/simulate` | `{origen, destino, prioridad, peso_t}` → ruta óptima con tramos, transbordos, tiempos, costos, recorrido animable y alternativas |
+| POST | `/api/routes/simulate` | `{origen, destino, prioridad, peso_t}` → ruta óptima con tramos, transbordos, tiempos, costos, recorrido animable, alternativas y **huella** (CO₂e y combustible por tramo, frente a carretera) |
+| POST | `/api/shipments` | Crea un envío con la ruta óptima: `{origen, destino, prioridad, peso_t, carga, cliente, salida_en_h}` |
 | GET | `/api/fleet/live` | Activos en tránsito con posición interpolada sobre su trazado |
 | GET | `/api/shipments`, `/api/shipments/{code}` | Envíos con estado, avance y ETA |
 | GET | `/api/dashboard/summary` | KPI, reparto modal, corredores, despachos |
 | GET | `/api/geo/departments` | 33 departamentos con toneladas que los atraviesan |
-| GET | `/api/locations` | Ciudades y nodos seleccionables |
+| GET | `/api/locations` | Ciudades y nodos seleccionables, con `category` (`principal`, `municipio`, `dificil_acceso`) |
+| GET | `/api/sustainability/summary` | CO₂e y combustible por modo, día y envío, frente a mover todo por carretera |
+| GET | `/api/sustainability/fuel-live` | Combustible consumido y proyectado por activo en tránsito |
 
 ## Motor multimodal
 
@@ -130,9 +133,33 @@ GPS); cuando hay menos de 16 envíos en tránsito, la API despacha nuevos.
 - El worker de MapLibre se copia a `public/vendor/` en `predev`/`prebuild`:
   empaquetado por Turbopack, su URL relativa no existe y el mapa base fallaba.
 
+## Interfaz
+
+- **Apariencia:** Sistema / Claro / Oscuro (barra superior). La elección se guarda en el navegador.
+- **Moneda:** el sistema calcula en USD; la barra superior permite verlo en pesos (COP) con una
+  **TRM editable** (valor de referencia inicial 4.000, no se actualiza sola).
+- **Paleta de comandos:** `Ctrl K` / `⌘ K` (o `/`) para ir a una página, abrir un envío o una ciudad, y ejecutar acciones.
+- **Todo lleva a algo:** los KPI abren la lista de envíos filtrada, las filas de flota abren el envío,
+  los gráficos se amplían en una hoja con tabla y exportación a CSV, y cada envío tiene su detalle
+  (`/envios/<código>`) con mapa, recorrido, costo y huella. Los filtros de `/envios` aceptan
+  `?estado=`, `?modo=` y `?q=`.
+- **Ciudades:** el simulador filtra por categoría (principales, municipios, difícil acceso) y tiene un
+  directorio con búsqueda. *Difícil acceso* = ciudad sin vía terrestre hacia otra ciudad de la red.
+- **Windows y Android:** la fuente es Inter (empaquetada), los controles táctiles miden 44 px, la
+  navegación pasa a barra de pestañas en pantallas estrechas y la app se puede instalar (PWA).
+
+## Combustible y huella de carbono
+
+Estimación por **factores de intensidad por modo** (g CO₂e por t-km, pozo a rueda): camión 80, tren 22,
+barcaza 31, buque 16, avión 602. El combustible se deriva de las mismas emisiones. Son valores de
+referencia sectorial para comparar modos y escenarios, **no un inventario certificado**; los factores
+viven en `backend/app/engine/sustainability.py`.
+
 ## Notas
 
-- Todos los valores monetarios están en USD.
+- Todos los valores monetarios se calculan en USD; la interfaz puede mostrarlos en COP.
+- Las ~1.120 municipios de Colombia **aún no están en la red**: solo se agregan los que tengan una vía real
+  conocida, sin inventar trazados. Hoy la red tiene 25 ciudades.
 - `npm audit` reporta avisos en dependencias transitivas de deck.gl (parsers
   de ZIP, glTF e imágenes de `@loaders.gl`). La aplicación no procesa ese tipo
   de archivos; la "corrección" automática propone degradar deck.gl, así que no

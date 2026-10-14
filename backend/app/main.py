@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -30,9 +31,10 @@ from pydantic import BaseModel, Field
 
 from app.api import format as F
 from app.api import serializers as S
-from app.database.db import run_query
+from app.database.db import run_query, run_write
+from app.data.colombia_ciudades import category_of
 from app.engine import geo, sustainability as SU, telemetry
-from app.engine.dispatch import status_at
+from app.engine.dispatch import build_shipment, status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
 
 SYNC_INTERVAL_S = 15  # la operación se pone al día como máximo cada 15 s
@@ -84,11 +86,18 @@ def locations() -> dict:
     cities = []
     for city, codes in sorted(net.cities.items()):
         nodes = [net.nodes[c] for c in codes]
+        modes = sorted(set().union(*(net.modes_at(c) for c in codes)))
+        # Vías hacia OTRA ciudad: un conector local aeropuerto-puerto no cuenta como acceso por tierra
+        road_modes = {l["mode"] for l in net.links
+                      if (l["origin_code"] in codes and net.nodes[l["dest_code"]]["city"] != city)
+                      or (l["dest_code"] in codes and net.nodes[l["origin_code"]]["city"] != city)}
         cities.append({
             "city": city,
             "department_code": nodes[0]["department_code"],
+            "category": category_of(city, sorted(road_modes)),
+            "lat": nodes[0]["latitude"], "lon": nodes[0]["longitude"],
             "kinds": sorted({n["kind"] for n in nodes}),
-            "modes": sorted(set().union(*(net.modes_at(c) for c in codes))),
+            "modes": modes,
             "nodes": [{"code": n["node_code"], "name": n["name"], "kind": n["kind"]} for n in nodes],
         })
     return {"cities": cities}
@@ -106,6 +115,23 @@ class SimulateRequest(BaseModel):
     peso_t: float = Field(10.0, gt=0, le=20000)
 
 
+def _footprint(legs: list, weight_t: float) -> dict:
+    """Huella (CO2e y combustible) de una ruta, con cifras y textos listos para mostrar."""
+    fp = SU.route_footprint(legs, weight_t)
+    return {
+        "co2e_kg": round(fp["co2e_kg"]), "co2e_fmt": F.number(fp["co2e_kg"]) + " kg",
+        "fuel_l": round(fp["fuel_l"]), "fuel_fmt": F.number(fp["fuel_l"]) + " L",
+        "intensity_g_tkm": round(fp["intensity_g_tkm"], 1),
+        "baseline_co2e_kg": round(fp["baseline"]["co2e_kg"]),
+        "baseline_fuel_l": round(fp["baseline"]["fuel_l"]),
+        "saved_vs_road_pct": F.pct(fp["saved_vs_road_pct"]),
+        "per_leg": [{"co2e_kg": round(e["co2e_kg"], 1), "fuel_l": round(e["fuel_l"], 1)} for e in fp["per_leg"]],
+        "by_mode": [{"mode": m, "label": F.MODE_LABELS[m], "fuel_type": SU.FACTORS[m].fuel,
+                     "co2e_kg": round(v["co2e_kg"]), "fuel_l": round(v["fuel_l"])}
+                    for m, v in fp["by_mode"].items()],
+    }
+
+
 @app.post("/api/routes/simulate")
 def simulate_route(req: SimulateRequest) -> dict:
     net = network()
@@ -113,8 +139,51 @@ def simulate_route(req: SimulateRequest) -> dict:
         best = net.route(req.origen, req.destino, req.peso_t, req.prioridad)
     except RoutingError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    alternatives = [S.route_summary(r) for r in net.compare(req.origen, req.destino, req.peso_t)]
-    return {"route": S.route(best), "alternatives": alternatives}
+    alternatives = []
+    for r in net.compare(req.origen, req.destino, req.peso_t):
+        summary = S.route_summary(r)
+        if summary.get("found"):
+            fp = SU.route_footprint(r["legs"], req.peso_t)
+            summary.update({"co2e_kg": round(fp["co2e_kg"]), "co2e_fmt": F.number(fp["co2e_kg"]) + " kg",
+                            "fuel_l": round(fp["fuel_l"]), "fuel_fmt": F.number(fp["fuel_l"]) + " L"})
+        alternatives.append(summary)
+    return {"route": S.route(best), "alternatives": alternatives,
+            "footprint": _footprint(best["legs"], req.peso_t)}
+
+
+class CreateShipmentRequest(SimulateRequest):
+    carga: str = Field("Carga general", min_length=2, max_length=120)
+    cliente: str = Field("Cliente", min_length=2, max_length=120)
+    salida_en_h: float = Field(0.0, ge=0, le=720, description="Horas hasta la salida (0 = ahora)")
+
+
+def _next_sequence() -> int:
+    rows = run_query("SELECT shipment_code FROM mm_shipments").to_dict(orient="records")
+    nums = [int(r["shipment_code"].rsplit("-", 1)[-1]) for r in rows
+            if r["shipment_code"].rsplit("-", 1)[-1].isdigit()]
+    return max(nums, default=0) + 1
+
+
+@app.post("/api/shipments", status_code=201)
+def create_shipment(req: CreateShipmentRequest) -> dict:
+    """Crea un envío con la ruta óptima del motor y lo deja en la operación."""
+    now = _sync()
+    departure = now + timedelta(hours=req.salida_en_h)
+    template = (req.origen, req.destino, req.carga.strip(), req.peso_t, req.peso_t,
+                req.prioridad, req.cliente.strip())
+    seq = _next_sequence()
+    try:
+        sh = build_shipment(network(), template, departure, seq, random.Random(seq))
+    except RoutingError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    sh["weight_t"] = req.peso_t  # el peso pedido, sin redondeos de la plantilla
+    sh["status"] = status_at(sh, now)["status"]
+    cols = list(sh.keys())
+    run_write(f"INSERT INTO mm_shipments ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
+              tuple(sh[c] for c in cols))
+    out = S.shipment(sh, status_at(sh, now), detail=True)
+    out["footprint"] = _footprint(json.loads(sh["route_json"])["legs"], sh["weight_t"])
+    return out
 
 
 @app.get("/api/fleet/live")
@@ -169,7 +238,9 @@ def shipment_detail(code: str) -> dict:
     if rows.empty:
         raise HTTPException(status_code=404, detail=f"Envío {code} no encontrado")
     r = rows.to_dict(orient="records")[0]
-    return S.shipment(r, status_at(r, now), detail=True)
+    out = S.shipment(r, status_at(r, now), detail=True)
+    out["footprint"] = _footprint(json.loads(r["route_json"])["legs"], r["weight_t"])
+    return out
 
 
 def _recent_shipments(now: datetime, days: int = 30) -> list:
@@ -227,8 +298,9 @@ def dashboard_summary() -> dict:
         "mode": m, "label": F.MODE_LABELS[m], "tkm": round(v),
         "tkm_fmt": F.number(v / 1e6, 2) + " M t-km", "share_pct": F.pct(100 * v / total_tkm),
     } for m, v in sorted(tkm_by_mode.items(), key=lambda kv: -kv[1])]
-    top_corridors = [{"corridor": c, "tons": F.tons(t), "tons_fmt": F.tons_fmt(t)}
-                     for c, t in sorted(corridor_t.items(), key=lambda kv: -kv[1])[:6]]
+    all_corridors = [{"corridor": c, "tons": F.tons(t), "tons_fmt": F.tons_fmt(t)}
+                     for c, t in sorted(corridor_t.items(), key=lambda kv: -kv[1])]
+    top_corridors = all_corridors[:6]
     active = counts["En Ruta"] + counts["Transferencia Modal"] + counts["Retrasado"]
     otif = 100 * on_time / delivered if delivered else None
 
@@ -257,6 +329,7 @@ def dashboard_summary() -> dict:
         },
         "modal_split": modal_split,
         "top_corridors": top_corridors,
+        "all_corridors": all_corridors,
         "dispatches_14d": [{"date": d.isoformat(), "count": per_day[d]} for d in days],
         "network": {"nodes": len(network().nodes), "links": len(network().links),
                     "modes": S.network_geojson(network())["stats"]},
