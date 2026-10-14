@@ -177,7 +177,22 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
                         {fp?.per_leg[i] && <span>{fp.per_leg[i].fuel_l.toLocaleString("es-CO")} L</span>}
                         {l.asset && (
                           <span className="text-muted-foreground">
-                            {l.asset.type} {l.asset.id} · {l.asset.carrier}
+                            {l.asset.own && l.asset.vehicle_ids?.length ? (
+                              <>
+                                {l.asset.type}{" "}
+                                {l.asset.vehicle_ids.map((vid, k) => (
+                                  <span key={vid}>
+                                    {k > 0 && ", "}
+                                    <Link href={`/flota/${vid}`} className="font-mono text-foreground hover:text-primary">
+                                      {l.asset?.plates?.[k] ?? vid}
+                                    </Link>
+                                  </span>
+                                ))}{" "}
+                                · {l.asset.carrier}
+                              </>
+                            ) : (
+                              <>{l.asset.type} {l.asset.id} · {l.asset.carrier}{l.asset.outsourced ? " (tercero)" : ""}</>
+                            )}
                           </span>
                         )}
                       </div>

@@ -39,6 +39,13 @@ def register(app: FastAPI, sync: Callable[[], datetime], network: Callable) -> N
         except OperationError as exc:
             raise HTTPException(status_code=422, detail=str(exc))
 
+    def read(fn, *args):
+        """Lectura de un detalle: lo que no existe responde 404 (las acciones responden 422)."""
+        try:
+            return fn(*args)
+        except OperationError as exc:
+            raise HTTPException(status_code=404 if "no existe" in str(exc) else 422, detail=str(exc))
+
     def who(body: dict) -> str | None:
         return body.get("usuario")
 
@@ -63,7 +70,7 @@ def register(app: FastAPI, sync: Callable[[], datetime], network: Callable) -> N
 
     @app.get("/api/fleet/vehicles/{vehicle_id}")
     def fleet_vehicle(vehicle_id: int) -> dict:
-        return run(fleet.vehicle_detail, vehicle_id, sync())
+        return read(fleet.vehicle_detail, vehicle_id, sync())
 
     @app.put("/api/fleet/vehicles/{vehicle_id}")
     def fleet_vehicle_update(vehicle_id: int, body: dict = Body(...)) -> dict:
@@ -166,7 +173,7 @@ def register(app: FastAPI, sync: Callable[[], datetime], network: Callable) -> N
 
     @app.get("/api/warehouses/{warehouse_id}")
     def wh_get(warehouse_id: int) -> dict:
-        return run(warehouses.get_warehouse, warehouse_id, sync())
+        return read(warehouses.get_warehouse, warehouse_id, sync())
 
     @app.put("/api/warehouses/{warehouse_id}")
     def wh_update(warehouse_id: int, body: dict = Body(...)) -> dict:

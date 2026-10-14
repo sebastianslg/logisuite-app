@@ -148,6 +148,12 @@ GPS); cuando hay menos de 16 envíos en tránsito, la API despacha nuevos.
 - **Windows y Android:** la fuente es Inter (empaquetada), los controles táctiles miden 44 px, la
   navegación pasa a barra de pestañas en pantallas estrechas y la app se puede instalar (PWA).
 
+## Flota y bodegas
+
+- **Flota** (`/flota`): 60 vehículos editables (terrestres, aéreos, fluviales, marítimos y férreos), conductores, mantenimientos y fallas. El estado **se deriva**, nunca se guarda: Dado de baja > En mantenimiento > Inhabilitado (falla que bloquea o licencia vencida) > Mantenimiento vencido > En ruta > Reservado > Disponible. El mantenimiento vence por días o kilómetros, lo que ocurra primero. Cuando un vehículo se inhabilita o entra a taller, sus tramos pendientes pasan a otro vehículo libre o a un tercero, y queda nota en el envío y en la auditoría.
+- **Bodegas** (`/bodegas`): 41 bodegas en 22 ciudades con roles distintos (centro nacional, regional, última milla, frío, puerto, aduana, frontera, aérea, peligrosos, agro, devoluciones). Inventario con entradas, salidas, mermas y ajustes; no se excede el volumen ni queda stock negativo. Los traslados entre ciudades crean un envío y el inventario entra cuando ese envío se entrega.
+- API: `/api/fleet/*` y `/api/warehouses/*` (`backend/app/api/fleet_wh.py`); lógica en `engine/fleet.py` y `engine/warehouses.py`; tablas `fl_*` y `wh_*` en `schema_v5.py`.
+
 ## Combustible y huella de carbono
 
 Estimación por **factores de intensidad por modo** (g CO₂e por t-km, pozo a rueda): camión 80, tren 22,

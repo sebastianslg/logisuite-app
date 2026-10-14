@@ -32,6 +32,8 @@ export interface DashboardSummary {
   all_corridors: { corridor: string; tons: number; tons_fmt: string }[];
   dispatches_14d: { date: string; count: number }[];
   alerts: {
+    fleet?: { disabled: number; in_shop: number; overdue: number; open_faults: number };
+    warehouses?: { low_stock: number; full: string[] };
     closed_corridors: string[];
     closed_nodes: { code: string; name: string; reason: string | null }[];
     no_route: string[];
@@ -59,6 +61,11 @@ export interface Asset {
   type: string;
   units: number;
   carrier: string;
+  /** Flota propia: vehículos reales del tramo (si es de un tercero, queda vacío). */
+  own?: boolean;
+  outsourced?: boolean;
+  vehicle_ids?: number[];
+  plates?: string[];
 }
 
 export interface Leg {
@@ -449,4 +456,312 @@ export interface ShareLink {
   created_by: string | null;
   revoked_at: string | null;
   path: string;
+}
+
+// ---------------------------------------------------------------------------
+// Flota de vehículos
+// ---------------------------------------------------------------------------
+export type VehicleStatus =
+  | "Disponible"
+  | "Reservado"
+  | "En ruta"
+  | "En mantenimiento"
+  | "Inhabilitado"
+  | "Mantenimiento vencido"
+  | "Dado de baja";
+
+export type FaultSeverity = "Leve" | "Moderada" | "Crítica";
+export type FaultStatus = "Abierta" | "En reparación" | "Resuelta";
+export type MaintenanceKind = "Preventivo" | "Correctivo" | "Inspección";
+export type MaintenanceStatus = "Programado" | "En curso" | "Completado" | "Cancelado";
+
+export interface ServiceClock {
+  state: "Al día" | "Próximo" | "Vencido";
+  due_at: string;
+  days_left: number;
+  due_km: number;
+  km_left: number;
+  interval_days: number;
+  interval_km: number;
+  pct_used: number;
+  limiting: "días" | "km";
+  last_service_at: string;
+}
+
+export interface VehicleDriver {
+  id: number;
+  name: string;
+  license_cat: string;
+  license_expiry: string;
+  license_days_left: number;
+  status: string;
+}
+
+export interface Vehicle {
+  id: number;
+  code: string;
+  mode: Mode;
+  mode_label: string;
+  vehicle_type: string;
+  make: string | null;
+  model: string | null;
+  year: number | null;
+  capacity_t: number;
+  capacity_m3: number | null;
+  home_warehouse_id: number | null;
+  home_name: string | null;
+  home_city: string | null;
+  home_code: string | null;
+  driver: VehicleDriver | null;
+  odometer_km: number;
+  status: VehicleStatus;
+  operable: boolean;
+  blockers: string[];
+  warnings: string[];
+  service: ServiceClock;
+  open_faults: number;
+  blocking_faults: number;
+  next_maintenance: { id: number; kind: MaintenanceKind; start: string; end: string; workshop: string | null } | null;
+  in_maintenance: { id: number; kind: MaintenanceKind; end: string; workshop: string | null } | null;
+  current: { shipment_code: string; end_at: string; leg: number } | null;
+  upcoming_assignments: number;
+  trips_total: number;
+  retired: boolean;
+  retired_reason: string | null;
+  notes: string | null;
+  source: string | null;
+  service_interval_days: number;
+  service_interval_km: number;
+  last_service_at: string | null;
+  last_service_km: number;
+}
+
+export interface Fault {
+  fault_id: number;
+  vehicle_id: number;
+  severity: FaultSeverity;
+  category: string;
+  description: string;
+  blocks_operation: number;
+  status: FaultStatus;
+  reported_at: string;
+  reported_by: string | null;
+  shipment_code: string | null;
+  resolved_at: string | null;
+  resolution: string | null;
+  repair_cost_usd: number | null;
+  code?: string;
+  vehicle_type?: string;
+  mode?: Mode;
+}
+
+export interface Maintenance {
+  maint_id: number;
+  vehicle_id: number;
+  kind: MaintenanceKind;
+  status: MaintenanceStatus;
+  scheduled_start: string;
+  scheduled_end: string;
+  workshop: string | null;
+  est_cost_usd: number;
+  cost_usd: number | null;
+  odometer_km: number | null;
+  notes: string | null;
+  completed_at: string | null;
+  fault_id: number | null;
+  created_by: string | null;
+  code?: string;
+  vehicle_type?: string;
+  mode?: Mode;
+}
+
+export interface VehicleTrip {
+  assign_id: number;
+  shipment_code: string;
+  leg_index: number;
+  start_at: string;
+  end_at: string;
+  km: number;
+  load_t: number;
+  origin: string | null;
+  destination: string | null;
+  cargo: string | null;
+  shipment_status: string | null;
+  phase: "En curso" | "Próximo" | "Terminado";
+}
+
+export interface VehicleDetail extends Vehicle {
+  faults: Fault[];
+  maintenance: Maintenance[];
+  trips: VehicleTrip[];
+  maintenance_cost_usd: number;
+  faults_total: number;
+  reassigned?: {
+    replaced: { shipment_code: string; from: string; to: string }[];
+    outsourced: { shipment_code: string; from: string }[];
+  };
+}
+
+export interface FleetSummary {
+  total: number;
+  by_status: Record<VehicleStatus, number>;
+  by_mode: { mode: Mode; label: string; total: number; operable: number }[];
+  availability_pct: number;
+  maintenance_due: { id: number; code: string; vehicle_type: string; mode: Mode; state: string; days_left: number; km_left: number; limiting: string }[];
+  open_faults: Fault[];
+  upcoming_maintenance: Maintenance[];
+  licenses_expiring: { id: number; code: string; driver: string; days_left: number }[];
+  maintenance_cost_90d_usd: number;
+}
+
+export interface FleetCatalog {
+  modes: {
+    key: Mode;
+    label: string;
+    types: {
+      name: string;
+      capacity_t: number;
+      capacity_m3: number;
+      service_interval_days: number;
+      service_interval_km: number;
+      makes: { make: string; model: string }[];
+    }[];
+  }[];
+  fault_categories: string[];
+  severities: FaultSeverity[];
+  maintenance_kinds: MaintenanceKind[];
+  workshops: Record<Mode, string[]>;
+}
+
+export interface Driver {
+  driver_id: number;
+  name: string;
+  license_cat: string;
+  license_expiry: string;
+  status: "Activo" | "Inactivo";
+  vehicle_code: string | null;
+  vehicle_id: number | null;
+  license_days_left: number;
+  license_state: "Vigente" | "Por vencer" | "Vencida";
+}
+
+// ---------------------------------------------------------------------------
+// Bodegas
+// ---------------------------------------------------------------------------
+export type WarehouseStatus = "Operativa" | "Mantenimiento" | "Cerrada";
+export type StockState = "Normal" | "Bajo" | "Exceso";
+export type MovementKind = "Entrada" | "Salida" | "Traslado salida" | "Traslado entrada" | "Ajuste" | "Merma";
+
+export interface Warehouse {
+  warehouse_id: number;
+  code: string;
+  name: string;
+  city: string;
+  node_code: string | null;
+  role: string;
+  role_label: string;
+  role_description: string;
+  stores: string;
+  capacity_m3: number;
+  capacity_pallets: number;
+  docks: number;
+  latitude: number | null;
+  longitude: number | null;
+  manager: string | null;
+  shift: string | null;
+  temp_controlled: boolean;
+  hazmat: boolean;
+  bonded: boolean;
+  status: WarehouseStatus;
+  strategic_reason: string | null;
+  source: string;
+  used_m3: number;
+  occupancy_pct: number;
+  free_m3: number;
+  stock_lines: number;
+  low_stock: number;
+  over_stock: number;
+  vehicles: number;
+  in_transit: number;
+  alerts: string[];
+}
+
+export interface StockItem {
+  stock_id: number;
+  warehouse_id: number;
+  sku: string;
+  name: string;
+  category: string;
+  unit: string;
+  qty: number;
+  min_qty: number;
+  max_qty: number;
+  volume_m3: number;
+  weight_kg: number;
+  unit_cost_usd: number;
+  zone: string | null;
+  state: StockState;
+  volume_total_m3: number;
+  value_usd: number;
+}
+
+export interface WarehouseMovement {
+  move_id: number;
+  warehouse_id: number;
+  sku: string;
+  kind: MovementKind;
+  qty: number;
+  at: string;
+  reference: string | null;
+  by_user: string | null;
+  note: string | null;
+}
+
+export interface WarehouseTransfer {
+  transfer_id: number;
+  from_wh: number;
+  to_wh: number;
+  sku: string;
+  qty: number;
+  shipment_code: string | null;
+  status: "En tránsito" | "Recibido" | "Cancelado";
+  created_at: string;
+  created_by: string | null;
+  received_at: string | null;
+  from_name: string;
+  from_city: string;
+  from_code?: string;
+  to_name: string;
+  to_city: string;
+  to_code?: string;
+}
+
+export interface WarehouseDetail extends Warehouse {
+  stock: StockItem[];
+  movements: WarehouseMovement[];
+  transfers: WarehouseTransfer[];
+  vehicles_list: Vehicle[];
+  value_usd: number;
+}
+
+export interface WarehouseRole {
+  key: string;
+  label: string;
+  description: string;
+  stores: string;
+}
+
+export interface WarehouseSummary {
+  warehouses: number;
+  cities: number;
+  operating: number;
+  capacity_m3: number;
+  used_m3: number;
+  occupancy_pct: number;
+  low_stock_lines: number;
+  over_stock_lines: number;
+  full_warehouses: string[];
+  in_transit: number;
+  by_role: { role: string; label: string; count: number; capacity_m3: number; used_m3: number; occupancy_pct: number }[];
+  network: { id: number; code: string; name: string; city: string; role: string; lat: number | null; lon: number | null; parent: string | null }[];
 }

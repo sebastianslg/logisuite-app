@@ -19,6 +19,8 @@ import {
   Settings,
   Sun,
   TrafficCone,
+  Truck,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 
@@ -118,7 +120,11 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
       { id: "p-fuel", group: "Ir a", label: "Combustible", icon: Fuel, run: go("/combustible") },
       { id: "p-co2", group: "Ir a", label: "Huella de carbono", icon: Leaf, run: go("/huella") },
       { id: "p-vias", group: "Ir a", label: "Vías y cierres", icon: TrafficCone, run: go("/vias") },
+      { id: "p-fleet", group: "Ir a", label: "Flota de vehículos", icon: Truck, run: go("/flota") },
+      { id: "p-wh", group: "Ir a", label: "Bodegas", icon: Warehouse, run: go("/bodegas") },
       { id: "p-cfg", group: "Ir a", label: "Configuración", icon: Settings, run: go("/configuracion") },
+      { id: "a-veh", group: "Acciones", label: "Agregar un vehículo", hint: "Flota", icon: Truck, run: go("/flota/nuevo") },
+      { id: "a-wh", group: "Acciones", label: "Crear una bodega", hint: "Bodegas", icon: Warehouse, run: go("/bodegas/nueva") },
       { id: "a-new", group: "Acciones", label: "Crear envío", hint: "Simulador de rutas", icon: PackagePlus, run: go("/envios/nuevo") },
       ...(fx?.rate ? [{ id: "a-cop", group: "Acciones" as const, label: "Mostrar costos en pesos (COP)", icon: Banknote, run: () => { setCurrency("COP"); close(); } }] : []),
       { id: "a-usd", group: "Acciones", label: "Mostrar costos en dólares (USD)", icon: Banknote, run: () => { setCurrency("USD"); close(); } },
