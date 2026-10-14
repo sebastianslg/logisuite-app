@@ -593,7 +593,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
             ? "0 envíos"
             : `${pageIndex * pageSize + 1}–${Math.min((pageIndex + 1) * pageSize, filteredCount)} de ${filteredCount} envíos`}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs">Filas</span>
           <div className="flex rounded-md border border-border p-0.5">
             {PAGE_SIZES.map((n) => (

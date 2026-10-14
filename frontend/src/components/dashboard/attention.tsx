@@ -75,9 +75,9 @@ export function Attention({ alerts }: { alerts: DashboardSummary["alerts"] }) {
       <h2 id="atencion" className="mb-2 px-1 text-sm font-semibold text-muted-foreground">
         Requiere atención
       </h2>
-      <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2 md:grid-cols-2 xl:grid-cols-3">
         {items.map((it) => (
-          <li key={it.key}>
+          <li key={it.key} className="min-w-0">
             <Link
               href={it.href}
               className={cn(

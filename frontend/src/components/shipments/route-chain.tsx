@@ -20,8 +20,9 @@ export function RouteChain({
   if (legs.length === 0) return null;
   const totalH = legs[legs.length - 1].end_h || 1;
   const doneH = (Math.min(Math.max(progressPct, 0), 100) / 100) * totalH;
-  const transferAt = (leg: Leg) =>
-    transfers.find((t) => Math.abs(t.start_h - leg.start_h) < 1e-3 + 0.5 && t.node.code === leg.from.code);
+  /** Transbordo que ocurre entre el tramo anterior y este: en el mismo nodo, antes de que arranque el tramo. */
+  const transferAt = (leg: Leg, prev: Leg) =>
+    transfers.find((t) => t.node.code === leg.from.code && t.start_h >= prev.end_h - 1e-3 && t.start_h <= leg.start_h + 1e-3);
 
   return (
     <div className="overflow-x-auto pb-2" role="group" aria-label="Cadena de modos del envío">
@@ -30,7 +31,7 @@ export function RouteChain({
           const { icon: Icon, color, label } = MODES[l.mode];
           const span = Math.max(l.end_h - l.start_h, 1e-6);
           const fill = Math.min(Math.max((doneH - l.start_h) / span, 0), 1);
-          const tr = i > 0 ? transferAt(l) : undefined;
+          const tr = i > 0 ? transferAt(l, legs[i - 1]) : undefined;
           const weight = Math.max(l.end_h - l.start_h, totalH * 0.1);
           return (
             <li key={i} className="min-w-36" style={{ flexGrow: weight, flexBasis: 0 }}>
