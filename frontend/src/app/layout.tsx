@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/inter";
 
 import { CommandPalette } from "@/components/shell/command-palette";
+import { Shortcuts } from "@/components/shell/shortcuts";
 import { Toolbar } from "@/components/shell/toolbar";
 import { MotionProvider } from "@/components/motion-provider";
 import { AppProvider } from "@/components/providers";
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <AppProvider>
             <MotionProvider>
               <CommandPalette>
+                <Shortcuts />
                 <div className="flex min-h-screen">
                   {/* usePathname() en rutas dinámicas (/envios/[code]) exige un límite de Suspense */}
                   <Suspense fallback={<aside className="hidden w-60 shrink-0 border-r border-border md:block" aria-hidden />}>

@@ -16,12 +16,12 @@ export function StatusBreakdown({ counts }: { counts: DashboardSummary["status_c
         <li key={s}>
           <Link
             href={`/envios?estado=${encodeURIComponent(s)}`}
-            className="press flex min-h-10 items-center justify-between gap-3 rounded-xl px-2 outline-none hover:bg-fill focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="press flex min-h-10 min-w-0 items-center justify-between gap-2 rounded-xl px-2 outline-none hover:bg-fill focus-visible:ring-[3px] focus-visible:ring-ring/80"
           >
-            <StatusBadge status={s} />
-            <span className="flex items-baseline gap-2">
+            <span className="min-w-0 truncate"><StatusBadge status={s} /></span>
+            <span className="flex shrink-0 items-baseline gap-1.5">
               <span className="tabular text-sm font-medium">{counts[s] ?? 0}</span>
-              <span className="tabular w-10 text-right text-xs text-muted-foreground">
+              <span className="tabular w-9 text-right text-xs text-muted-foreground">
                 {Math.round((100 * (counts[s] ?? 0)) / total)} %
               </span>
               <ChevronRight className="size-4 self-center text-muted-foreground" aria-hidden />

@@ -330,7 +330,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                 whileTap={{ scale: 0.96 }}
                 onClick={() => toggle("status", statusFilter, s)}
                 aria-pressed={active}
-                className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/80"
               >
                 <Badge
                   tone={active ? STATUSES[s].tone : "neutral"}
@@ -338,7 +338,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                 >
                   <Icon />
                   {s}
-                  <span className="tabular opacity-70">{statusCounts.get(s) ?? 0}</span>
+                  <span className="tabular font-semibold">{statusCounts.get(s) ?? 0}</span>
                 </Badge>
               </motion.button>
             );
@@ -432,7 +432,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                   const sorted = header.column.getIsSorted();
                   const canSort = header.column.getCanSort();
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} className={header.column.id === "client" ? "hidden 2xl:table-cell" : undefined}>
                       {header.isPlaceholder ? null : canSort ? (
                         <button
                           type="button"
@@ -484,7 +484,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                     />
                   </TableCell>
                   {row.getAllCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} className={cell.column.id === "client" ? "hidden 2xl:table-cell" : undefined}>
                       <table.FlexRender cell={cell} />
                     </TableCell>
                   ))}
@@ -545,7 +545,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
             <li key={row.id}>
               <Link
                 href={`/envios/${sh.code}`}
-                className="glass press block rounded-2xl p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="glass press block rounded-2xl p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -593,7 +593,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
             ? "0 envíos"
             : `${pageIndex * pageSize + 1}–${Math.min((pageIndex + 1) * pageSize, filteredCount)} de ${filteredCount} envíos`}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs">Filas</span>
           <div className="flex rounded-md border border-border p-0.5">
             {PAGE_SIZES.map((n) => (

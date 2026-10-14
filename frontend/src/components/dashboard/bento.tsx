@@ -64,7 +64,7 @@ export function BentoCell({
         : {})}
       className={cn(
         "glass relative col-span-2 flex flex-col overflow-hidden rounded-3xl outline-none md:col-span-1",
-        onOpen && "cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        onOpen && "cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/80",
         className,
       )}
       {...props}
@@ -129,7 +129,7 @@ export function KpiCard({
       whileHover={hoverLift}
       className={cn(
         "glass relative col-span-1 block rounded-2xl p-4 outline-none md:p-5",
-        href && "cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        href && "cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/80",
         className,
       )}
     >

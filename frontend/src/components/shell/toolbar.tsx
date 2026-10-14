@@ -25,11 +25,11 @@ const THEMES: { value: ThemePref; label: string; icon: typeof Sun }[] = [
 export function Toolbar() {
   const { open, shortcut } = useCommandPalette();
   return (
-    <div className="material sticky top-14 z-30 flex h-12 md:top-0 shrink-0 items-center gap-2 border-b border-border px-3 md:px-5">
+    <div className="material sticky top-0 z-30 hidden h-12 shrink-0 items-center gap-2 border-b border-border px-5 md:flex">
       <button
         type="button"
         onClick={open}
-        className="press flex h-8 min-w-0 flex-1 items-center gap-2 rounded-xl bg-fill px-3 text-sm text-muted-foreground outline-none hover:bg-fill/70 focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-10 md:max-w-md"
+        className="press flex h-8 min-w-0 flex-1 items-center gap-2 rounded-xl bg-fill px-3 text-sm text-muted-foreground outline-none hover:bg-fill/70 focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:h-10 md:max-w-md"
         aria-label="Buscar o ejecutar un comando"
       >
         <Search className="size-4 shrink-0" aria-hidden />
@@ -68,7 +68,7 @@ export function ThemeControl({ className }: { className?: string }) {
             title={label}
             onClick={() => setTheme(value)}
             className={cn(
-              "press relative flex size-7 items-center justify-center rounded-[10px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:size-9",
+              "press relative flex size-7 items-center justify-center rounded-[10px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:size-9",
               theme === value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -80,7 +80,7 @@ export function ThemeControl({ className }: { className?: string }) {
         type="button"
         onClick={() => setTheme(THEMES[(idx + 1) % THEMES.length].value)}
         aria-label={`Apariencia: ${THEMES[idx].label}. Cambiar`}
-        className="press flex size-9 items-center justify-center rounded-xl bg-fill text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:hidden"
+        className="press flex size-9 items-center justify-center rounded-xl bg-fill text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 sm:hidden"
       >
         <Current className="size-4" aria-hidden />
       </button>
@@ -154,7 +154,7 @@ export function CurrencyControl() {
         }}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="press flex h-8 items-center gap-1.5 rounded-xl bg-fill px-2.5 text-sm font-medium outline-none hover:bg-fill/70 focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-10"
+        className="press flex h-8 items-center gap-1.5 rounded-xl bg-fill px-2.5 text-sm font-medium outline-none hover:bg-fill/70 focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:h-10"
       >
         <Banknote className="size-4" aria-hidden />
         {currency}
@@ -185,7 +185,7 @@ export function CurrencyControl() {
                     title={disabled ? "Escribe una TRM para ver montos en COP" : undefined}
                     onClick={() => setCurrency(c)}
                     className={cn(
-                      "press h-8 rounded-[10px] text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-40",
+                      "press h-8 rounded-[10px] text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 disabled:opacity-40",
                       currency === c ? "bg-card shadow-sm" : "text-muted-foreground",
                     )}
                   >
@@ -204,7 +204,7 @@ export function CurrencyControl() {
                 onKeyDown={(e) => e.key === "Enter" && save()}
                 placeholder={String(DEFAULT_TRM)}
                 aria-invalid={draft !== "" && !valid}
-                className="tabular mt-1.5 h-9 w-full rounded-xl bg-fill px-3 outline-none placeholder:text-muted-foreground focus:ring-[3px] focus:ring-ring/50 aria-[invalid=true]:ring-[3px] aria-[invalid=true]:ring-destructive/50 pointer-coarse:h-11"
+                className="tabular mt-1.5 h-9 w-full rounded-xl bg-fill px-3 outline-none placeholder:text-muted-foreground focus:ring-[3px] focus:ring-ring/80 aria-[invalid=true]:ring-[3px] aria-[invalid=true]:ring-destructive/50 pointer-coarse:h-11"
               />
             </label>
             {error && <p role="alert" className="mt-1 text-xs text-destructive">{error}</p>}
@@ -212,7 +212,7 @@ export function CurrencyControl() {
               type="button"
               onClick={save}
               disabled={!valid || saving}
-              className="press mt-3 h-9 w-full rounded-xl bg-solid text-sm font-medium text-primary-foreground outline-none hover:bg-solid/90 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50 pointer-coarse:h-11"
+              className="press mt-3 h-9 w-full rounded-xl bg-solid text-sm font-medium text-primary-foreground outline-none hover:bg-solid/90 focus-visible:ring-[3px] focus-visible:ring-ring/80 disabled:opacity-50 pointer-coarse:h-11"
             >
               {saving ? "Guardando…" : "Guardar TRM"}
             </button>

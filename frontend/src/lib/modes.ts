@@ -17,8 +17,9 @@ import type { Mode, Priority, ShipmentStatus } from "./types";
 /**
  * Paleta por modo (fuente única para mapa, gráficos y badges).
  * `color` es una variable CSS con variante clara y oscura (globals.css); `rgb`
- * es la variante oscura para deck.gl. La paleta se validó en modo oscuro para
- * separación CVD; el ORDEN es parte de la validación: los gráficos de partes
+ * es la variante oscura para deck.gl. La paleta se validó en claro y oscuro para
+ * separación CVD (diferencia de color mínima ΔE 18,8 en claro y 19,5 en oscuro, medida con
+ * simulación de protano, deutero y tritanopía); el ORDEN es parte de la validación: los gráficos de partes
  * de un todo usan MODE_ORDER, nunca un orden por valor. El modo nunca se
  * comunica solo con color: siempre va con ícono y texto.
  */
@@ -30,9 +31,9 @@ export const MODES: Record<
 > = {
   maritimo: { label: "Marítimo", vehicle: "Buque", color: "var(--mode-maritimo)", rgb: [74, 124, 240], icon: Ship },
   terrestre: { label: "Terrestre", vehicle: "Camión", color: "var(--mode-terrestre)", rgb: [25, 158, 112], icon: Truck },
-  aereo: { label: "Aéreo", vehicle: "Avión", color: "var(--mode-aereo)", rgb: [161, 115, 232], icon: Plane },
+  aereo: { label: "Aéreo", vehicle: "Avión", color: "var(--mode-aereo)", rgb: [198, 57, 156], icon: Plane },
   ferreo: { label: "Férreo", vehicle: "Tren", color: "var(--mode-ferreo)", rgb: [201, 133, 0], icon: TrainFront },
-  fluvial: { label: "Fluvial", vehicle: "Barcaza", color: "var(--mode-fluvial)", rgb: [17, 164, 196], icon: Sailboat },
+  fluvial: { label: "Fluvial", vehicle: "Barcaza", color: "var(--mode-fluvial)", rgb: [44, 200, 224], icon: Sailboat },
 };
 
 export type Tone = "neutral" | "accent" | "info" | "success" | "warning" | "danger";

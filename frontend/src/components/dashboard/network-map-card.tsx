@@ -32,7 +32,7 @@ export function NetworkMapCard({ network: stats }: { network: DashboardSummary["
                 key={m}
                 href={`/red?modos=${m}`}
                 aria-label={`${MODES[m].label}: ${byMode.get(m)?.km_fmt ?? "0 km"}. Ver solo este modo en el mapa`}
-                className="material press flex items-center gap-2 rounded-xl border border-border px-2.5 py-1.5 outline-none hover:bg-fill focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="material press flex items-center gap-2 rounded-xl border border-border px-2.5 py-1.5 outline-none hover:bg-fill focus-visible:ring-[3px] focus-visible:ring-ring/80"
               >
                 <Icon className="size-3.5" style={{ color: MODES[m].color }} aria-hidden />
                 <span className="tabular text-xs font-medium">{byMode.get(m)?.km_fmt ?? "0 km"}</span>
@@ -44,7 +44,7 @@ export function NetworkMapCard({ network: stats }: { network: DashboardSummary["
           <MapLegend />
           <Link
             href="/red"
-            className="pointer-events-auto inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-solid px-3 py-1.5 text-sm font-medium text-primary-foreground press hover:bg-solid/90 focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none"
+            className="pointer-events-auto inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-solid px-3 py-1.5 text-sm font-medium text-primary-foreground press hover:bg-solid/90 focus-visible:ring-[3px] focus-visible:ring-ring/80 outline-none"
           >
             Simulador de rutas
             <ArrowUpRight className="size-3.5" />

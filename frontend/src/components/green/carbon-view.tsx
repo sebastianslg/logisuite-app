@@ -162,7 +162,7 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
                 href={`/envios/${e.code}`}
                 aria-label={`${e.route}, ${e.co2e_fmt} de CO₂e. Ver envío ${e.code}`}
                 whileHover={{ scale: 1.02, y: -2, boxShadow: ROW_LIFT, transition: T_FAST }}
-                className="my-1 flex cursor-pointer items-center gap-3 rounded-2xl bg-fill px-3 py-2.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="my-1 flex cursor-pointer items-center gap-3 rounded-2xl bg-fill px-3 py-2.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80"
               >
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{e.route}</div>

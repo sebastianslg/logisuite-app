@@ -606,6 +606,13 @@ def dashboard_summary() -> dict:
                              for c, r in sorted(network().closed_nodes.items())],
             "no_route": sorted(r["shipment_code"] for r in rows
                                if r.get("route_status") == "sin_ruta" and r["status"] != "Entregado"),
+            "rerouted": sorted(r["shipment_code"] for r in rows
+                               if str(r.get("route_note") or "").startswith("Redirigida")
+                               and r["status"] != "Entregado"),
+            "delayed": [{"code": r["shipment_code"], "origin": r["origin_city"],
+                         "destination": r["dest_city"], "delay_fmt": F.duration_fmt(r["delay_h"])}
+                        for r in sorted((r for r in rows if r["status"] == "Retrasado"),
+                                        key=lambda r: -float(r["delay_h"] or 0))[:6]],
         },
         "network": {"nodes": len(network().nodes), "links": len(network().links),
                     "modes": S.network_geojson(network())["stats"]},

@@ -8,7 +8,7 @@
  *     según las toneladas que los atraviesan, con relleno al ~10 %.
  *   - PathLayer: carreteras (esmeralda, a ras de suelo), ríos y mar (azules)
  *     y ferrocarril (ámbar, punteado con PathStyleExtension).
- *   - ArcLayer: rutas aéreas, arcos altos de violeta a cian.
+ *   - ArcLayer: rutas aéreas, arcos altos de magenta a cian.
  *   - TripsLayer: partículas de luz de camiones, barcazas, buques, trenes y
  *     aviones moviéndose sobre su propio trazado.
  *   - ScatterplotLayer / TextLayer: nodos y activos, con tooltip HTML
@@ -56,7 +56,7 @@ export const COLOMBIA_VIEW: MapViewState = {
 type RGBA = [number, number, number, number];
 const rgba = (mode: Mode, a = 255): RGBA => [...MODES[mode].rgb, a];
 const CYAN: RGBA = [34, 211, 238, 255];
-const VIOLET: RGBA = [161, 115, 232, 255];
+const VIOLET: RGBA = [198, 57, 156, 255];
 const AMBER: RGBA = [245, 158, 11, 255];
 const ROSE: RGBA = [251, 113, 133, 255];
 
@@ -133,6 +133,15 @@ export default function Map3D({
   const { money } = useApp();
   const [clock, setClock] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // deck.gl crea una capa de eventos enfocable sin nombre: se la damos para lectores de pantalla.
+  useEffect(() => {
+    const root = containerRef.current?.querySelector<HTMLElement>(".deck-events-root");
+    if (root) {
+      root.setAttribute("role", "application");
+      root.setAttribute("aria-label", "Mapa de la red multimodal. Arrastra para mover y usa la rueda para acercar.");
+    }
+  });
   const [routeStart, setRouteStart] = useState(0);
 
   // ---- Reloj de animación (requestAnimationFrame) ---------------------

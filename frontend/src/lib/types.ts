@@ -31,7 +31,13 @@ export interface DashboardSummary {
   top_corridors: { corridor: string; tons: number; tons_fmt: string }[];
   all_corridors: { corridor: string; tons: number; tons_fmt: string }[];
   dispatches_14d: { date: string; count: number }[];
-  alerts: { closed_corridors: string[]; closed_nodes: { code: string; name: string; reason: string | null }[]; no_route: string[] };
+  alerts: {
+    closed_corridors: string[];
+    closed_nodes: { code: string; name: string; reason: string | null }[];
+    no_route: string[];
+    rerouted: string[];
+    delayed: { code: string; origin: string; destination: string; delay_fmt: string }[];
+  };
   network: {
     nodes: number;
     links: number;

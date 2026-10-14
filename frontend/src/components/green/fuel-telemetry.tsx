@@ -84,7 +84,7 @@ export function FuelAssets({ live }: { live: FuelLive }) {
                 href={`/envios/${a.shipment_code}`}
                 aria-label={`${a.id}, ${a.origin} a ${a.destination}. Ver envío ${a.shipment_code}`}
                 whileHover={{ scale: 1.02, y: -2, boxShadow: ROW_LIFT, transition: T_FAST }}
-                className="my-1 flex cursor-pointer items-center gap-3 rounded-2xl bg-fill px-3 py-2.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="my-1 flex cursor-pointer items-center gap-3 rounded-2xl bg-fill px-3 py-2.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80"
               >
                 <ModeIcon mode={a.mode} />
                 <div className="min-w-0 flex-1">

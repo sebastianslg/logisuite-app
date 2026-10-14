@@ -7,6 +7,7 @@ import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
   ArrowDownUp,
   ArrowRightLeft,
+  Check,
   ChevronDown,
   Clock,
   Maximize2,
@@ -33,6 +34,7 @@ import { MapLegend } from "./map-legend";
 import { useMapData } from "./use-map-data";
 import { ModeChain, ModeIcon } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { Sheet } from "@/components/ui/sheet";
 import { Dial } from "@/components/ui/dial";
 import { Money } from "@/components/money";
 import { MODE_ORDER, MODES, PRIORITIES, tint } from "@/lib/modes";
@@ -62,6 +64,7 @@ export function NetworkExplorer() {
   });
   const [showDepartments, setShowDepartments] = useState(true);
   const [showFleet, setShowFleet] = useState(true);
+  const [layersOpen, setLayersOpen] = useState(false);
   const [categories, setCategories] = useState<Set<CityCategory>>(new Set(ALL_CATEGORIES));
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [inspect, setInspect] = useState<string | null>(params.get("ciudad"));
@@ -139,7 +142,7 @@ export function NetworkExplorer() {
   };
 
   return (
-    <div className="relative h-[calc(100dvh-6.5rem)] w-full overflow-hidden md:h-[calc(100dvh-3rem)]">
+    <div className="relative h-[calc(100dvh-3.5rem)] w-full overflow-hidden md:h-[calc(100dvh-3rem)]">
       <div className={cn("absolute inset-0", !showMap && "hidden", mapFull && "fixed inset-0 z-[60] h-dvh")}>
         {network && departments ? (
           <Map3DLazy
@@ -177,15 +180,26 @@ export function NetworkExplorer() {
             </Button>
           )}
           {showMap && (
-            <LayerPanel
-              modes={modes}
-              toggleMode={toggleMode}
-              showDepartments={showDepartments}
-              setShowDepartments={setShowDepartments}
-              showFleet={showFleet}
-              setShowFleet={setShowFleet}
-              fleetCount={fleet?.count ?? 0}
-            />
+            <div className="hidden md:block">
+              <LayerPanel
+                modes={modes}
+                toggleMode={toggleMode}
+                showDepartments={showDepartments}
+                setShowDepartments={setShowDepartments}
+                showFleet={showFleet}
+                setShowFleet={setShowFleet}
+                fleetCount={fleet?.count ?? 0}
+              />
+            </div>
+          )}
+          {showMap && (
+            <Button variant="secondary" className="md:hidden" onClick={() => setLayersOpen(true)} aria-haspopup="dialog">
+              <Layers />
+              Capas
+              {modes.size < MODE_ORDER.length && (
+                <span className="tabular rounded-full bg-primary/15 px-1.5 text-xs text-primary">{modes.size}/{MODE_ORDER.length}</span>
+              )}
+            </Button>
           )}
         </div>
       </div>
@@ -282,7 +296,7 @@ export function NetworkExplorer() {
                       aria-checked={priority === p}
                       onClick={() => setPriority(p)}
                       className={cn(
-                        "press relative h-8 flex-1 rounded-[10px] text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-10",
+                        "press relative h-8 flex-1 rounded-[10px] text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:h-10",
                         priority === p ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                       )}
                     >
@@ -303,7 +317,7 @@ export function NetworkExplorer() {
                   inputMode="decimal"
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
-                  className="tabular h-9 w-full rounded-xl bg-fill pr-2 pl-7 text-sm outline-none focus:ring-[3px] focus:ring-ring/50 pointer-coarse:h-11"
+                  className="tabular h-9 w-full rounded-xl bg-fill pr-2 pl-7 text-sm outline-none focus:ring-[3px] focus:ring-ring/80 pointer-coarse:h-11"
                 />
               </span>
             </label>
@@ -372,6 +386,18 @@ export function NetworkExplorer() {
         </div>
       )}
 
+      <Sheet open={layersOpen} onClose={() => setLayersOpen(false)} title="Capas del mapa" description="Qué modos y qué capas se dibujan">
+        <LayerList
+          modes={modes}
+          toggleMode={toggleMode}
+          showDepartments={showDepartments}
+          setShowDepartments={setShowDepartments}
+          showFleet={showFleet}
+          setShowFleet={setShowFleet}
+          fleetCount={fleet?.count ?? 0}
+        />
+      </Sheet>
+
       <CityDirectory
         open={directoryOpen}
         onClose={() => setDirectoryOpen(false)}
@@ -409,7 +435,7 @@ function ViewToggle({ showMap, setShowMap }: { showMap: boolean; setShowMap: (v:
           onClick={() => setShowMap(v.key)}
           aria-pressed={showMap === v.key}
           className={cn(
-            "press flex h-8 items-center gap-1.5 rounded-xl px-2.5 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11 [&_svg]:size-3.5",
+            "press flex h-8 items-center gap-1.5 rounded-xl px-2.5 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:h-11 [&_svg]:size-3.5",
             showMap === v.key ? "bg-fill text-foreground" : "text-muted-foreground hover:text-foreground",
           )}
         >
@@ -533,7 +559,7 @@ function RouteResultView({
               disabled={!a.found}
               onClick={() => onPick(a.priority)}
               className={cn(
-                "press flex items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50",
+                "press flex items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 disabled:opacity-50",
                 a.priority === r.priority ? "border-primary/40 bg-primary/10" : "border-border hover:bg-fill/60",
               )}
             >
@@ -641,7 +667,7 @@ function LayerPanel({
             aria-pressed={on}
             title={label}
             aria-label={label}
-            className={cn("flex size-8 items-center justify-center rounded-md outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:size-11", !on && "opacity-50")}
+            className={cn("flex size-8 items-center justify-center rounded-md outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:size-11", !on && "opacity-50")}
             style={on ? { backgroundColor: tint(color, 14) } : undefined}
           >
             <Icon className="size-4" style={{ color }} />
@@ -651,6 +677,73 @@ function LayerPanel({
       <span className="mx-1 h-5 w-px bg-border-strong" />
       <ToggleChip on={showDepartments} onClick={() => setShowDepartments(!showDepartments)} icon={<Layers />} label="Departamentos" />
       <ToggleChip on={showFleet} onClick={() => setShowFleet(!showFleet)} icon={<Radio />} label={`Flota ${fleetCount}`} />
+    </div>
+  );
+}
+
+/** Capas del mapa en lista vertical, con objetivos grandes: es el contenido de la hoja en celular. */
+function LayerList({
+  modes,
+  toggleMode,
+  showDepartments,
+  setShowDepartments,
+  showFleet,
+  setShowFleet,
+  fleetCount,
+}: {
+  modes: Set<Mode>;
+  toggleMode: (m: Mode) => void;
+  showDepartments: boolean;
+  setShowDepartments: (v: boolean) => void;
+  showFleet: boolean;
+  setShowFleet: (v: boolean) => void;
+  fleetCount: number;
+}) {
+  const row = (on: boolean) =>
+    cn(
+      "press flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[0.9375rem] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80",
+      on ? "bg-fill text-foreground" : "text-muted-foreground",
+    );
+  const mark = (on: boolean) => (
+    <span className={cn("ml-auto flex size-5 items-center justify-center rounded-full border ", on ? "border-transparent bg-solid text-primary-foreground" : "border-border-strong")} aria-hidden>
+      {on && <Check className="size-3" />}
+    </span>
+  );
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h3 className="px-3 pb-1 text-xs font-semibold text-muted-foreground">Modos</h3>
+        <div className="flex flex-col gap-1">
+          {MODE_ORDER.map((m) => {
+            const { icon: Icon, color, label } = MODES[m];
+            const on = modes.has(m);
+            return (
+              <button key={m} type="button" aria-pressed={on} onClick={() => toggleMode(m)} className={row(on)}>
+                <span className="flex size-8 items-center justify-center rounded-lg" style={{ backgroundColor: tint(color, 14) }}>
+                  <Icon className="size-4" style={{ color }} aria-hidden />
+                </span>
+                {label}
+                {mark(on)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div>
+        <h3 className="px-3 pb-1 text-xs font-semibold text-muted-foreground">Capas</h3>
+        <div className="flex flex-col gap-1">
+          <button type="button" aria-pressed={showDepartments} onClick={() => setShowDepartments(!showDepartments)} className={row(showDepartments)}>
+            <Layers className="size-5" aria-hidden />
+            Departamentos
+            {mark(showDepartments)}
+          </button>
+          <button type="button" aria-pressed={showFleet} onClick={() => setShowFleet(!showFleet)} className={row(showFleet)}>
+            <Radio className="size-5" aria-hidden />
+            Flota en vivo <span className="tabular text-xs text-muted-foreground">{fleetCount}</span>
+            {mark(showFleet)}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -672,7 +765,7 @@ function ToggleChip({
       onClick={onClick}
       aria-pressed={on}
       className={cn(
-        "flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11 [&_svg]:size-3.5",
+        "flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:h-11 [&_svg]:size-3.5",
         on ? "bg-fill text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
     >

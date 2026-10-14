@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
   Fuel,
+  Keyboard,
   LayoutDashboard,
   Leaf,
   Menu,
@@ -13,6 +14,7 @@ import {
   Package,
   PanelLeftClose,
   PanelLeftOpen,
+  Search,
   Settings,
   TrafficCone,
   UserRound,
@@ -22,6 +24,9 @@ import {
 } from "lucide-react";
 
 import { useApp } from "@/components/providers";
+import { useCommandPalette } from "@/components/shell/command-palette";
+import { OPEN_SHORTCUTS_EVENT } from "@/components/shell/shortcuts";
+import { CurrencyControl, ThemeControl } from "@/components/shell/toolbar";
 import { EASE, T_VIEW } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +53,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { open: openPalette } = useCommandPalette();
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
@@ -60,17 +66,27 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Celular: barra superior con botón de menú */}
-      <header className="material fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border px-4 md:hidden">
-        <Link href="/" className="flex items-center gap-2.5">
-          <Logo label />
+      {/* Celular: una sola barra con logo, búsqueda, moneda y menú */}
+      <header className="material fixed inset-x-0 top-0 z-40 flex h-14 items-center gap-2 border-b border-border pr-3 pl-[max(0.75rem,env(safe-area-inset-left))] md:hidden">
+        <Link href="/" aria-label="Westvane, inicio" className="flex shrink-0 items-center pointer-coarse:min-h-11 pointer-coarse:min-w-11">
+          <Logo label={false} />
         </Link>
+        <button
+          type="button"
+          onClick={openPalette}
+          aria-label="Buscar envíos, ciudades o comandos"
+          className="press flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl bg-fill px-3 text-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80"
+        >
+          <Search className="size-4 shrink-0" aria-hidden />
+          <span className="truncate">Buscar…</span>
+        </button>
+        <CurrencyControl />
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Abrir menú"
           aria-expanded={mobileOpen}
-          className="press flex size-11 items-center justify-center rounded-xl bg-fill outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="press flex size-10 shrink-0 items-center justify-center rounded-xl bg-fill outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80"
         >
           <Menu className="size-5" aria-hidden />
         </button>
@@ -102,7 +118,7 @@ export function Sidebar() {
                   type="button"
                   onClick={() => setMobileOpen(false)}
                   aria-label="Cerrar menú"
-                  className="press flex size-11 items-center justify-center rounded-xl outline-none hover:bg-fill focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  className="press flex size-11 items-center justify-center rounded-xl outline-none hover:bg-fill focus-visible:ring-[3px] focus-visible:ring-ring/80"
                 >
                   <X className="size-5" aria-hidden />
                 </button>
@@ -120,7 +136,7 @@ export function Sidebar() {
                           aria-current={active ? "page" : undefined}
                           onClick={() => setMobileOpen(false)}
                           className={cn(
-                            "press flex min-h-12 items-center gap-3 rounded-xl px-3 text-[0.9375rem] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                            "press flex min-h-12 items-center gap-3 rounded-xl px-3 text-[0.9375rem] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80",
                             active ? "bg-primary/12 font-medium text-primary" : "text-foreground/80",
                           )}
                         >
@@ -132,6 +148,10 @@ export function Sidebar() {
                   </div>
                 ))}
               </nav>
+              <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
+                <span className="text-sm text-muted-foreground">Apariencia</span>
+                <ThemeControl />
+              </div>
               <div className="border-t border-border">
                 <OperatorPanel />
               </div>
@@ -164,7 +184,7 @@ export function Sidebar() {
                       aria-label={collapsed ? label : undefined}
                       aria-current={active ? "page" : undefined}
                       className={cn(
-                        "press relative flex h-9 items-center gap-2.5 rounded-xl px-2.5 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                        "press relative flex h-9 items-center gap-2.5 rounded-xl px-2.5 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80",
                         active ? "font-medium text-primary" : "text-foreground/80 hover:bg-fill/60",
                       )}
                     >
@@ -187,11 +207,22 @@ export function Sidebar() {
 
         {!collapsed && <OperatorPanel />}
 
-        <div className="p-3">
+        <div className="flex flex-col gap-0.5 p-3">
+          {!collapsed && (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event(OPEN_SHORTCUTS_EVENT))}
+              className="press flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5 text-sm text-muted-foreground outline-none hover:bg-fill/60 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/80"
+            >
+              <Keyboard className="size-[18px]" aria-hidden />
+              <span>Atajos</span>
+              <kbd className="ml-auto rounded-md border border-border-strong px-1.5 text-xs font-medium">?</kbd>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setCollapsed((c) => !c)}
-            className="press flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5 text-sm text-muted-foreground outline-none hover:bg-fill/60 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="press flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5 text-sm text-muted-foreground outline-none hover:bg-fill/60 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/80"
             aria-label={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
             aria-expanded={!collapsed}
           >
@@ -228,7 +259,7 @@ function OperatorPanel() {
         onChange={(e) => setOperator(e.target.value)}
         placeholder="Tu nombre (firma cambios)"
         maxLength={60}
-        className="h-9 w-full rounded-xl bg-fill px-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-[3px] focus:ring-ring/50 pointer-coarse:h-11"
+        className="h-9 w-full rounded-xl bg-fill px-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-[3px] focus:ring-ring/80 pointer-coarse:h-11"
       />
     </label>
   );

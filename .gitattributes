@@ -1,0 +1,8 @@
+# Herramientas de agentes (skills, hooks, agentes): no son código de la aplicación,
+# así que no deben contar en la barra de lenguajes de GitHub.
+.agents/** linguist-vendored
+.claude/** linguist-vendored
+.codex/** linguist-vendored
+.github/skills/** linguist-vendored
+.github/agents/** linguist-vendored
+.github/hooks/** linguist-vendored

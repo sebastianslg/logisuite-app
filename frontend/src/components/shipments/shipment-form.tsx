@@ -1,6 +1,6 @@
 "use client";
 
-import { cloneElement, useEffect, useId, useMemo, useState, type ReactElement } from "react";
+import { cloneElement, useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRightLeft, Clock, CircleDollarSign, Cloud, Fuel, Leaf, LoaderCircle, Route, Save, X } from "lucide-react";
@@ -27,6 +27,29 @@ export interface ShipmentDraft {
 }
 
 const MAX_CORRIDORS = 3;
+const MAX_WEIGHT_T = 20000;
+
+type Errors = Partial<Record<keyof ShipmentDraft, string>>;
+
+const num = (v: string) => Number(v.trim().replace(",", "."));
+
+/** Valida el borrador con mensajes en español (el navegador los daría en el idioma del sistema). */
+function validate(d: ShipmentDraft): Errors {
+  const e: Errors = {};
+  if (!d.origin) e.origin = "Elige el origen.";
+  if (!d.destination) e.destination = "Elige el destino.";
+  else if (d.destination === d.origin) e.destination = "El destino debe ser distinto del origen.";
+  if (!d.cargo.trim()) e.cargo = "Describe la carga, por ejemplo “Café excelso en sacos”.";
+  if (!d.client.trim()) e.client = "Escribe el nombre del cliente.";
+  const w = num(d.weight_t);
+  if (!d.weight_t.trim() || !Number.isFinite(w)) e.weight_t = "Escribe el peso en toneladas, por ejemplo 12,5.";
+  else if (w <= 0) e.weight_t = "El peso debe ser mayor que cero.";
+  else if (w > MAX_WEIGHT_T) e.weight_t = `El peso máximo por envío es ${MAX_WEIGHT_T.toLocaleString("es-CO")} t.`;
+  if (!d.departure_at) e.departure_at = "Elige la fecha y la hora de salida.";
+  if (d.delay_h.trim() && (!Number.isFinite(num(d.delay_h)) || num(d.delay_h) < 0))
+    e.delay_h = "El retraso son horas, cero o más.";
+  return e;
+}
 
 /** Fecha local para <input type="datetime-local"> (AAAA-MM-DDTHH:MM). */
 function localInput(d: Date): string {
@@ -77,6 +100,8 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
   const [busy, setBusy] = useState<"preview" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [corridorQuery, setCorridorQuery] = useState("");
+  const [errors, setErrors] = useState<Errors>({});
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     api<{ cities: CityOption[] }>("/api/locations").then((d) => setCities(d.cities)).catch(() => undefined);
@@ -85,6 +110,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
 
   const set = <K extends keyof ShipmentDraft>(k: K, v: ShipmentDraft[K]) => {
     setDraft((d) => ({ ...d, [k]: v }));
+    setErrors((er) => (er[k] ? { ...er, [k]: undefined } : er));
     setPreview(null);
     setFootprint(null);
   };
@@ -103,7 +129,18 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
     usuario: operator,
   });
 
+  /** Marca los campos con error y lleva el foco al primero. Devuelve true si todo está bien. */
+  function check(): boolean {
+    const found = validate(draft);
+    setErrors(found);
+    if (Object.keys(found).length === 0) return true;
+    setError(null);
+    requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+    return false;
+  }
+
   async function runPreview() {
+    if (!check()) return;
     setBusy("preview");
     setError(null);
     try {
@@ -121,6 +158,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (!check()) return;
     setBusy("save");
     setError(null);
     try {
@@ -157,11 +195,11 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
     "h-9 w-full rounded-md border border-input bg-fill/50 px-3 text-sm outline-none focus:border-primary/40 [&>option]:bg-card";
 
   return (
-    <form onSubmit={save} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+    <form ref={formRef} onSubmit={save} noValidate className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="flex flex-col gap-5 glass rounded-3xl p-5">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Origen">
-            <select className={input} value={draft.origin} onChange={(e) => set("origin", e.target.value)} required>
+          <Field label="Origen" error={errors.origin}>
+            <select className={input} value={draft.origin} onChange={(e) => set("origin", e.target.value)}>
               {!cities.some((c) => c.city === draft.origin) && <option value={draft.origin}>{draft.origin}</option>}
               {cities.map((c) => (
                 <option key={c.city} value={c.city}>
@@ -170,8 +208,8 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
               ))}
             </select>
           </Field>
-          <Field label="Destino">
-            <select className={input} value={draft.destination} onChange={(e) => set("destination", e.target.value)} required>
+          <Field label="Destino" error={errors.destination}>
+            <select className={input} value={draft.destination} onChange={(e) => set("destination", e.target.value)}>
               {!cities.some((c) => c.city === draft.destination) && (
                 <option value={draft.destination}>{draft.destination}</option>
               )}
@@ -182,16 +220,16 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
               ))}
             </select>
           </Field>
-          <Field label="Carga">
-            <input className={input} value={draft.cargo} onChange={(e) => set("cargo", e.target.value)} required maxLength={120}
+          <Field label="Carga" error={errors.cargo}>
+            <input className={input} value={draft.cargo} onChange={(e) => set("cargo", e.target.value)} maxLength={120}
               placeholder="Ej. Café excelso en sacos" />
           </Field>
-          <Field label="Cliente">
-            <input className={input} value={draft.client} onChange={(e) => set("client", e.target.value)} required maxLength={120} />
+          <Field label="Cliente" error={errors.client}>
+            <input className={input} value={draft.client} onChange={(e) => set("client", e.target.value)} maxLength={120} />
           </Field>
-          <Field label="Peso (t)">
+          <Field label="Peso (t)" error={errors.weight_t}>
             <input className={cn(input, "tabular")} inputMode="decimal" value={draft.weight_t}
-              onChange={(e) => set("weight_t", e.target.value)} required />
+              onChange={(e) => set("weight_t", e.target.value)} />
           </Field>
           <Field label="Prioridad">
             <select className={input} value={draft.priority} onChange={(e) => set("priority", e.target.value as Priority)}>
@@ -202,11 +240,11 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
               ))}
             </select>
           </Field>
-          <Field label="Fecha y hora de salida">
+          <Field label="Fecha y hora de salida" error={errors.departure_at}>
             <input type="datetime-local" className={cn(input, "tabular")} value={draft.departure_at}
-              onChange={(e) => set("departure_at", e.target.value)} required />
+              onChange={(e) => set("departure_at", e.target.value)} />
           </Field>
-          <Field label="Retraso operativo (h)">
+          <Field label="Retraso operativo (h)" error={errors.delay_h}>
             <input className={cn(input, "tabular")} inputMode="decimal" value={draft.delay_h}
               onChange={(e) => set("delay_h", e.target.value)} />
           </Field>
@@ -336,14 +374,31 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
 
 /** Etiqueta asociada por id (no envuelve el control: un <select> envuelto
  * sumaría todas sus opciones al nombre accesible). */
-function Field({ label, children }: { label: string; children: ReactElement<{ id?: string }> }) {
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: ReactElement<{ id?: string; "aria-invalid"?: boolean; "aria-describedby"?: string }>;
+}) {
   const id = useId();
   return (
     <div>
       <label htmlFor={id} className="mb-1 block text-xs text-muted-foreground">
         {label}
       </label>
-      {cloneElement(children, { id })}
+      {cloneElement(children, {
+        id,
+        "aria-invalid": error ? true : undefined,
+        "aria-describedby": error ? `${id}-error` : undefined,
+      })}
+      {error && (
+        <p id={`${id}-error`} className="mt-1 text-xs text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

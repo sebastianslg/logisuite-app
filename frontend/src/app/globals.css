@@ -49,9 +49,9 @@
   /* Modos de transporte (≥ 3:1 sobre la tarjeta clara) */
   --mode-maritimo: #2f62d6;
   --mode-terrestre: #12805c;
-  --mode-aereo: #8a56d8;
+  --mode-aereo: #a63083;
   --mode-ferreo: #a86b00;
-  --mode-fluvial: #0a829c;
+  --mode-fluvial: #129dd9;
 
   color-scheme: light dark;
 }
@@ -97,9 +97,9 @@
 
     --mode-maritimo: #4a7cf0;
     --mode-terrestre: #199e70;
-    --mode-aereo: #a173e8;
+    --mode-aereo: #c6399c;
     --mode-ferreo: #c98500;
-    --mode-fluvial: #11a4c4;
+    --mode-fluvial: #2cc8e0;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -138,9 +138,9 @@
 
     --mode-maritimo: #4a7cf0;
     --mode-terrestre: #199e70;
-    --mode-aereo: #a173e8;
+    --mode-aereo: #c6399c;
     --mode-ferreo: #c98500;
-    --mode-fluvial: #11a4c4;
+    --mode-fluvial: #2cc8e0;
   }
 }
 
@@ -188,6 +188,11 @@
 @layer base {
   * {
     border-color: var(--color-border);
+  }
+
+  /* Un texto sin espacios (un código, una palabra larga) se parte en vez de ensanchar la página. */
+  main {
+    overflow-wrap: anywhere;
   }
 
   body {
@@ -257,9 +262,11 @@
   transition:
     transform 0.3s var(--ease-apple),
     box-shadow 0.3s var(--ease-apple);
-  &:hover {
-    transform: scale(1.02) translateY(-2px);
-    box-shadow: var(--glass-shadow-lift);
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      transform: scale(1.02) translateY(-2px);
+      box-shadow: var(--glass-shadow-lift);
+    }
   }
 }
 
@@ -291,4 +298,54 @@
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--separator-strong) transparent;
+}
+
+/* Foco visible en campos de texto: anillo del color de acento, no solo un cambio de borde. */
+input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+/* Objetivos táctiles de al menos 44 px en pantallas táctiles (el interruptor conserva su tamaño). */
+@media (pointer: coarse) {
+  :where(main, header) :is(button, select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"])):not([role="switch"]),
+  :where(main, header) a.press {
+    min-height: 44px;
+  }
+  :where(main, header) :is(button, a.press):not(:where([role="switch"], [role="radio"])):has(> svg:only-child) {
+    min-width: 44px;
+  }
+}
+
+/* Campo con error de validación: borde rojo (el anillo de foco sigue del color de acento). */
+:is(input, select, textarea)[aria-invalid="true"]:not(:focus-visible) {
+  border-color: var(--color-destructive);
+}
+
+/* Contraste alto del sistema ("Aumentar contraste"): bordes marcados, texto atenuado casi pleno, sin vidrio translúcido. */
+@media (prefers-contrast: more) {
+  :root:root {
+    --separator: color-mix(in srgb, var(--foreground) 55%, transparent);
+    --separator-strong: color-mix(in srgb, var(--foreground) 85%, transparent);
+    --muted-foreground: color-mix(in srgb, var(--foreground) 82%, var(--background));
+    --glass: var(--card);
+    --glass-border: color-mix(in srgb, var(--foreground) 55%, transparent);
+    --sidebar: var(--card);
+  }
+  .glass,
+  .material {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Rendimiento en celular: el desenfoque de 30 px es caro en GPUs móviles; a 20 px se ve igual y cuesta menos. */
+@media (max-width: 767px) {
+  .glass {
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
+  }
 }

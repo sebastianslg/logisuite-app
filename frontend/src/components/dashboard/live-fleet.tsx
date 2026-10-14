@@ -45,7 +45,7 @@ export function LiveFleet({ initial }: { initial: FleetLive }) {
               href={`/envios?modo=${m}`}
               title={`${MODES[m].label}: ver envíos`}
               aria-label={`${MODES[m].label}: ${fleet.by_mode[m] ?? 0} activos. Ver envíos`}
-              className="press flex flex-col items-center gap-1 rounded-2xl bg-fill py-2 outline-none hover:bg-fill/70 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="press flex flex-col items-center gap-1 rounded-2xl bg-fill py-2 outline-none hover:bg-fill/70 focus-visible:ring-[3px] focus-visible:ring-ring/80"
             >
               <Icon className="size-4" style={{ color: MODES[m].color }} />
               <span className="tabular text-sm font-semibold">{fleet.by_mode[m] ?? 0}</span>
@@ -69,7 +69,7 @@ export function LiveFleet({ initial }: { initial: FleetLive }) {
                 href={`/envios/${a.shipment_code}`}
                 aria-label={`${a.id}, ${a.origin} a ${a.destination}. Ver envío ${a.shipment_code}`}
                 whileHover={{ scale: 1.02, y: -2, boxShadow: ROW_LIFT, transition: T_FAST }}
-                className="my-1 flex cursor-pointer items-center gap-3 rounded-2xl bg-fill px-3 py-2.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="my-1 flex cursor-pointer items-center gap-3 rounded-2xl bg-fill px-3 py-2.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80"
               >
                 <ModeIcon mode={a.mode} />
                 <div className="min-w-0 flex-1">
