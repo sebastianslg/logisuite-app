@@ -54,7 +54,7 @@ export function ModalSplit({ data }: { data: DashboardSummary["modal_split"] }) 
           )}
         </ChartTooltip>
       </div>
-      <ul className="grid grid-cols-1 gap-2.5">
+      <ul className="@container grid grid-cols-1 gap-2.5">
         {rows.map((r) => {
           const Icon = MODES[r.mode].icon;
           return (
@@ -62,7 +62,7 @@ export function ModalSplit({ data }: { data: DashboardSummary["modal_split"] }) 
               <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: MODES[r.mode].color }} />
               <Icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
               <span className="min-w-[4.5rem] flex-1 truncate text-foreground/80">{r.label}</span>
-              <span className="tabular text-xs whitespace-nowrap text-muted-foreground">{r.tkm_fmt}</span>
+              <span className="tabular hidden text-xs whitespace-nowrap text-muted-foreground @xs:inline">{r.tkm_fmt}</span>
               <span className="tabular w-14 shrink-0 text-right font-medium whitespace-nowrap">
                 {r.share_pct.toLocaleString("es-CO")} %
               </span>
