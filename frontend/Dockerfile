@@ -11,7 +11,8 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 # Estilo del mapa base (se incrusta en el bundle del cliente al compilar)
-ARG NEXT_PUBLIC_MAP_STYLE=https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json
+# Vacío: el mapa sigue la apariencia elegida (claro u oscuro). Con valor, fija un único estilo.
+ARG NEXT_PUBLIC_MAP_STYLE=
 ENV NEXT_PUBLIC_MAP_STYLE=${NEXT_PUBLIC_MAP_STYLE}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

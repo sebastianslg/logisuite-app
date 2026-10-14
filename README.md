@@ -31,17 +31,26 @@ docker compose up -d --build
 
 ## Desarrollo local
 
+Necesitas Python 3.11+ y Node 22 (o solo Docker, ver arriba). Dos terminales:
+
 ```bash
-# API (desde backend/)
+# 1) API (desde backend/)
+python -m venv .venv
+.venv\Scripts\activate            # Windows (PowerShell/CMD); en Mac/Linux: source .venv/bin/activate
 pip install -r requirements-dev.txt
 uvicorn app.main:app --reload --port 8000      # crea y siembra la base al arrancar
-pytest -q                                      # 85 pruebas
+pytest -q                                      # 139 pruebas
 
-# Frontend (desde frontend/)
+# 2) Frontend (desde frontend/)
 npm install
 npm run dev                                    # http://localhost:3000
 npm run typecheck && npm run lint
 ```
+
+- El frontend llama a la API en `http://localhost:8000` por defecto (`API_INTERNAL_URL`); no necesitas `.env`.
+- La base queda en `backend/data/logistics.db`. Para empezar de cero, bórrala y reinicia la API.
+- Usa `npm run build` (no `next build`): el `prebuild` copia el worker del mapa a `public/vendor`.
+- Subir a `main` despliega en Render; el desarrollo local no lo afecta.
 
 ## Arquitectura
 
