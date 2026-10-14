@@ -1,21 +1,30 @@
 import { Suspense } from "react";
+import Link from "next/link";
+import { Plus } from "lucide-react";
 
 import { PageHeader, Skeleton } from "@/components/page-header";
 import { ShipmentsTable, type ShipmentFilters } from "@/components/shipments/shipments-table";
+import { Button } from "@/components/ui/button";
 import { apiGet } from "@/lib/api";
 import { MODE_ORDER, STATUS_ORDER } from "@/lib/modes";
 import type { Mode, Shipment, ShipmentStatus } from "@/lib/types";
 
 export const metadata = { title: "Envíos" };
 
-type Search = Promise<{ [key: string]: string | string[] | undefined }>;
-
-export default function EnviosPage({ searchParams }: { searchParams: Search }) {
+export default function EnviosPage({ searchParams }: PageProps<"/envios">) {
   return (
-    <div className="px-4 py-6 md:px-8 md:py-8 lg:px-10">
+    <div className="px-6 py-8 lg:px-10">
       <PageHeader
         title="Envíos multimodales"
-        description="Órdenes con su cadena de modos, transbordos, avance en tiempo real y ETA. Filtra por estado o por modo, ordena cualquier columna y abre un envío para ver todo su detalle."
+        description="Órdenes con su cadena de modos, transbordos, avance en tiempo real y ETA. Crea, edita o borra envíos, selecciona varios para exportarlos a PDF o compartirlos."
+        actions={
+          <Button asChild>
+            <Link href="/envios/nuevo">
+              <Plus />
+              Nuevo envío
+            </Link>
+          </Button>
+        }
       />
       <div className="mt-8">
         <Suspense fallback={<Skeleton className="h-[640px]" />}>
@@ -28,8 +37,8 @@ export default function EnviosPage({ searchParams }: { searchParams: Search }) {
 
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-/** Lee los filtros de la URL (?estado=A,B&modo=terrestre,aereo&q=texto) descartando valores desconocidos. */
-async function parseFilters(searchParams: Search): Promise<ShipmentFilters> {
+/** Filtros de la URL (?estado=A,B&modo=terrestre,aereo&q=texto); se descartan los valores desconocidos. */
+async function parseFilters(searchParams: Promise<Record<string, string | string[] | undefined>>): Promise<ShipmentFilters> {
   const sp = await searchParams;
   const list = (v: string | string[] | undefined) => (first(v) ?? "").split(",").map((x) => x.trim()).filter(Boolean);
   return {
@@ -39,11 +48,15 @@ async function parseFilters(searchParams: Search): Promise<ShipmentFilters> {
   };
 }
 
-async function ShipmentsData({ searchParams }: { searchParams: Search }) {
+async function ShipmentsData({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const [filters, { items }] = await Promise.all([
     parseFilters(searchParams),
     apiGet<{ count: number; items: Shipment[] }>("/api/shipments"),
   ]);
-  // key: al cambiar los filtros de la URL (desde un enlace del dashboard) la tabla se reinicia con ellos
+  // key: al cambiar los filtros de la URL (enlaces del dashboard) la tabla se reinicia con ellos
   return <ShipmentsTable key={JSON.stringify(filters)} data={items} initial={filters} />;
 }

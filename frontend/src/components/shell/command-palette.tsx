@@ -15,11 +15,14 @@ import {
   PackagePlus,
   Package,
   Search,
+  Settings,
   Sun,
+  TrafficCone,
   type LucideIcon,
 } from "lucide-react";
 
 import { EASE } from "@/lib/motion";
+import { useApp } from "@/components/providers";
 import { usePrefs } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +42,8 @@ const norm = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCas
 
 export function CommandPalette({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { setTheme, setCurrency } = usePrefs();
+  const { setTheme } = usePrefs();
+  const { setCurrency, fx } = useApp();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
@@ -111,8 +115,10 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
       { id: "p-red", group: "Ir a", label: "Red multimodal", icon: Network, run: go("/red") },
       { id: "p-fuel", group: "Ir a", label: "Combustible", icon: Fuel, run: go("/combustible") },
       { id: "p-co2", group: "Ir a", label: "Huella de carbono", icon: Leaf, run: go("/huella") },
-      { id: "a-new", group: "Acciones", label: "Crear envío", hint: "Simulador de rutas", icon: PackagePlus, run: go("/red?crear=1") },
-      { id: "a-cop", group: "Acciones", label: "Mostrar costos en pesos (COP)", icon: Banknote, run: () => { setCurrency("COP"); close(); } },
+      { id: "p-vias", group: "Ir a", label: "Vías y cierres", icon: TrafficCone, run: go("/vias") },
+      { id: "p-cfg", group: "Ir a", label: "Configuración", icon: Settings, run: go("/configuracion") },
+      { id: "a-new", group: "Acciones", label: "Crear envío", hint: "Simulador de rutas", icon: PackagePlus, run: go("/envios/nuevo") },
+      ...(fx?.rate ? [{ id: "a-cop", group: "Acciones" as const, label: "Mostrar costos en pesos (COP)", icon: Banknote, run: () => { setCurrency("COP"); close(); } }] : []),
       { id: "a-usd", group: "Acciones", label: "Mostrar costos en dólares (USD)", icon: Banknote, run: () => { setCurrency("USD"); close(); } },
       { id: "a-light", group: "Acciones", label: "Apariencia: claro", icon: Sun, run: () => { setTheme("light"); close(); } },
       { id: "a-dark", group: "Acciones", label: "Apariencia: oscuro", icon: Moon, run: () => { setTheme("dark"); close(); } },
@@ -126,7 +132,7 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
       icon: MapPin, run: go(`/red?ciudad=${encodeURIComponent(c.city)}`),
     }));
     return [...base, ...ships, ...cs];
-  }, [shipments, cities, go, setCurrency, setTheme, close]);
+  }, [shipments, cities, go, setCurrency, setTheme, close, fx]);
 
   const results = useMemo(() => {
     const needle = norm(q.trim());

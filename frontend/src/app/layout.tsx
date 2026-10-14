@@ -5,6 +5,7 @@ import "@fontsource-variable/inter";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { Toolbar } from "@/components/shell/toolbar";
 import { MotionProvider } from "@/components/motion-provider";
+import { AppProvider } from "@/components/providers";
 import { Sidebar } from "@/components/shell/sidebar";
 
 import { PrefsProvider, THEME_INIT_SCRIPT } from "@/lib/prefs";
@@ -38,20 +39,22 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full bg-background text-foreground">
         <PrefsProvider>
-          <MotionProvider>
-            <CommandPalette>
-              <div className="flex min-h-screen">
-                {/* usePathname() en rutas dinámicas (/envios/[code]) exige un límite de Suspense */}
-                <Suspense fallback={<aside className="hidden w-60 shrink-0 border-r border-border md:block" aria-hidden />}>
-                  <Sidebar />
-                </Suspense>
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <Toolbar />
-                  <main className="min-w-0 flex-1 pb-16 md:pb-0">{children}</main>
+          <AppProvider>
+            <MotionProvider>
+              <CommandPalette>
+                <div className="flex min-h-screen">
+                  {/* usePathname() en rutas dinámicas (/envios/[code]) exige un límite de Suspense */}
+                  <Suspense fallback={<aside className="hidden w-60 shrink-0 border-r border-border md:block" aria-hidden />}>
+                    <Sidebar />
+                  </Suspense>
+                  <div className="flex min-w-0 flex-1 flex-col pt-14 md:pt-0">
+                    <Toolbar />
+                    <main className="min-w-0 flex-1">{children}</main>
+                  </div>
                 </div>
-              </div>
-            </CommandPalette>
-          </MotionProvider>
+              </CommandPalette>
+            </MotionProvider>
+          </AppProvider>
         </PrefsProvider>
       </body>
     </html>

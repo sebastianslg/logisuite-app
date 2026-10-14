@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.database.schema import SCHEMA_SQL
 from app.database.schema_v2 import SCHEMA_V2_SQL
 from app.database.schema_v3 import SCHEMA_V3_SQL
+from app.database.schema_v4 import SCHEMA_V4_SQL, apply_v4_migration
 from app.database.db import DB_PATH
 
 
@@ -35,6 +36,8 @@ def init_database(reset: bool = False):
     conn.executescript(SCHEMA_SQL)
     conn.executescript(SCHEMA_V2_SQL)
     conn.executescript(SCHEMA_V3_SQL)
+    conn.executescript(SCHEMA_V4_SQL)
+    apply_v4_migration(conn)
     conn.commit()
     conn.close()
 
@@ -51,7 +54,7 @@ def init_database(reset: bool = False):
         from app.utils.seed_data import ensure_core_seeded, seed_v2_only
         ensure_core_seeded()
         seed_v2_only()
-        print(f"Base de datos existente actualizada al esquema v3 en: {DB_PATH}")
+        print(f"Base de datos existente actualizada al esquema v4 en: {DB_PATH}")
 
 
 if __name__ == "__main__":

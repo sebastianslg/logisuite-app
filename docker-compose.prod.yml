@@ -1,0 +1,30 @@
+# Producción en una VM: se usa junto con el compose base.
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Añade Caddy (HTTPS automático) como única puerta de entrada pública. La API
+# y el frontend dejan de publicar puertos al host.
+services:
+  backend:
+    ports: !reset []
+
+  frontend:
+    ports: !reset []
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: logisuite-caddy
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Define DOMAIN en .env (ej. logisuite.midominio.com)}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+
+volumes:
+  caddy_data:
+  caddy_config:

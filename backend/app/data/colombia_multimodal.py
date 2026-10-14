@@ -194,3 +194,190 @@ CAPACITY_OVERRIDES = {
     ("LET-AIR", "BOG-AIR"): 20.0,   # Leticia opera cargueros medianos
     ("RIV-LET", "RIV-PAS"): 400.0,  # calado del Putumayo en aguas bajas
 }
+
+
+# ===========================================================================
+# RED AMPLIADA (v4): capitales departamentales, áreas metropolitanas, puertos,
+# aeropuertos regionales, ríos Meta, Orinoco y Atrato, y líneas férreas.
+#
+# DATOS APROXIMADOS. Coordenadas tomadas del centro urbano o de la terminal
+# conocida; distancias y tiempos de carretera y río estimados por el trazado
+# entre poblaciones, sin contrastar con INVÍAS, ANI ni Cormagdalena. Se
+# siembran con approximate = 1 y la interfaz los marca como aproximados.
+# ===========================================================================
+NODES_V2 = [
+    # Capitales departamentales
+    ("CITY-CUC", "Cúcuta", "ciudad", "Cúcuta", "54", 7.8939, -72.5078, None),
+    ("CITY-MZL", "Manizales", "ciudad", "Manizales", "17", 5.0703, -75.5138, None),
+    ("CITY-AXM", "Armenia", "ciudad", "Armenia", "63", 4.5339, -75.6811, None),
+    ("CITY-MTR", "Montería", "ciudad", "Montería", "23", 8.7479, -75.8814, None),
+    ("CITY-VUP", "Valledupar", "ciudad", "Valledupar", "20", 10.4631, -73.2532, None),
+    ("CITY-RCH", "Riohacha", "ciudad", "Riohacha", "44", 11.5444, -72.9072, None),
+    ("CITY-EYP", "Yopal", "ciudad", "Yopal", "85", 5.3378, -72.3959, None),
+    ("CITY-FLA", "Florencia", "ciudad", "Florencia", "18", 1.6144, -75.6062, None),
+    ("CITY-SJE", "San José del Guaviare", "ciudad", "San José del Guaviare", "95", 2.5729, -72.6459, None),
+    ("CITY-UIB", "Quibdó", "ciudad", "Quibdó", "27", 5.6947, -76.6611, None),
+    ("CITY-AUC", "Arauca", "ciudad", "Arauca", "81", 7.0903, -70.7617, None),
+    # Áreas metropolitanas y ciudades intermedias
+    ("CITY-SOA", "Soacha", "ciudad", "Soacha", "25", 4.5794, -74.2168, None),
+    ("CITY-GIR", "Girardot", "ciudad", "Girardot", "25", 4.3031, -74.8030, None),
+    ("CITY-RNG", "Rionegro", "ciudad", "Rionegro", "05", 6.1550, -75.3740, None),
+    ("CITY-APO", "Apartadó", "ciudad", "Apartadó", "05", 7.8829, -76.6258, None),
+    ("CITY-IPI", "Ipiales", "ciudad", "Ipiales", "52", 0.8303, -77.6440, None),
+    # Puertos marítimos
+    ("PORT-TRB", "Puerto de Turbo (Urabá)", "puerto_maritimo", "Turbo", "05", 8.0926, -76.7282, None),
+    ("PORT-TCO", "Puerto de Tumaco", "puerto_maritimo", "Tumaco", "52", 1.8067, -78.7647, None),
+    ("PORT-PBO", "Puerto Bolívar (Bahía Portete)", "puerto_maritimo", "Puerto Bolívar", "44", 12.2350, -71.9590, None),
+    ("PORT-PNU", "Puerto Nuevo (Ciénaga)", "puerto_maritimo", "Ciénaga", "47", 11.0420, -74.2700, None),
+    ("PORT-ADZ", "Puerto de San Andrés", "puerto_maritimo", "San Andrés", "88", 12.5800, -81.6950, None),
+    # Puertos fluviales
+    ("RIV-PLO", "Puerto fluvial de Puerto López", "puerto_fluvial", "Puerto López", "50", 4.0848, -72.9563, None),
+    ("RIV-PCR", "Puerto fluvial de Puerto Carreño", "puerto_fluvial", "Puerto Carreño", "99", 6.1890, -67.4859, None),
+    ("RIV-INI", "Puerto fluvial de Inírida", "puerto_fluvial", "Inírida", "94", 3.8653, -67.9239, None),
+    ("RIV-UIB", "Puerto fluvial de Quibdó", "puerto_fluvial", "Quibdó", "27", 5.6900, -76.6600, None),
+    # Terminal férrea del Cerrejón
+    ("RAIL-CRJ", "Terminal férrea Cerrejón (Albania)", "terminal_ferrea", "Albania", "44", 11.1600, -72.5900, None),
+    # Aeropuertos regionales (el de Rionegro es MDE-AIR, ya existente)
+    ("CUC-AIR", "Aeropuerto Camilo Daza", "aeropuerto", "Cúcuta", "54", 7.9276, -72.5115, "CUC"),
+    ("PEI-AIR", "Aeropuerto Matecaña", "aeropuerto", "Pereira", "66", 4.8127, -75.7395, "PEI"),
+    ("MTR-AIR", "Aeropuerto Los Garzones", "aeropuerto", "Montería", "23", 8.8237, -75.8258, "MTR"),
+    ("VUP-AIR", "Aeropuerto Alfonso López Pumarejo", "aeropuerto", "Valledupar", "20", 10.4350, -73.2495, "VUP"),
+    ("ADZ-AIR", "Aeropuerto Gustavo Rojas Pinilla", "aeropuerto", "San Andrés", "88", 12.5836, -81.7112, "ADZ"),
+    ("VVC-AIR", "Aeropuerto Vanguardia", "aeropuerto", "Villavicencio", "50", 4.1679, -73.6138, "VVC"),
+    ("BGA-AIR", "Aeropuerto Palonegro", "aeropuerto", "Bucaramanga", "68", 7.1265, -73.1848, "BGA"),
+    ("MVP-AIR", "Aeropuerto Fabio Alberto León Bentley", "aeropuerto", "Mitú", "97", 1.2537, -70.2339, "MVP"),
+    ("PDA-AIR", "Aeropuerto César Gaviria Trujillo", "aeropuerto", "Inírida", "94", 3.8535, -67.9062, "PDA"),
+    ("SJE-AIR", "Aeropuerto Jorge Enrique González", "aeropuerto", "San José del Guaviare", "95", 2.5797, -72.6394, "SJE"),
+    ("UIB-AIR", "Aeropuerto El Caraño", "aeropuerto", "Quibdó", "27", 5.6908, -76.6412, "UIB"),
+    ("AUC-AIR", "Aeropuerto Santiago Pérez Quiroz", "aeropuerto", "Arauca", "81", 7.0689, -70.7369, "AUC"),
+    ("EYP-AIR", "Aeropuerto El Alcaraván", "aeropuerto", "Yopal", "85", 5.3191, -72.3840, "EYP"),
+    ("FLA-AIR", "Aeropuerto Gustavo Artunduaga", "aeropuerto", "Florencia", "18", 1.5892, -75.5644, "FLA"),
+    ("RCH-AIR", "Aeropuerto Almirante Padilla", "aeropuerto", "Riohacha", "44", 11.5262, -72.9260, "RCH"),
+    ("PCR-AIR", "Aeropuerto Germán Olano", "aeropuerto", "Puerto Carreño", "99", 6.1847, -67.4932, "PCR"),
+]
+
+_AIR = [  # rutas aéreas de carga nuevas: (origen, destino)
+    ("BOG-AIR", "CUC-AIR"), ("BOG-AIR", "PEI-AIR"), ("BOG-AIR", "MTR-AIR"), ("MDE-AIR", "MTR-AIR"),
+    ("BOG-AIR", "VUP-AIR"), ("BOG-AIR", "ADZ-AIR"), ("CTG-AIR", "ADZ-AIR"), ("BOG-AIR", "VVC-AIR"),
+    ("BOG-AIR", "BGA-AIR"), ("BOG-AIR", "UIB-AIR"), ("MDE-AIR", "UIB-AIR"), ("BOG-AIR", "AUC-AIR"),
+    ("BOG-AIR", "EYP-AIR"), ("BOG-AIR", "FLA-AIR"), ("BOG-AIR", "RCH-AIR"), ("BOG-AIR", "PCR-AIR"),
+    ("BOG-AIR", "MVP-AIR"), ("VVC-AIR", "MVP-AIR"), ("BOG-AIR", "PDA-AIR"), ("VVC-AIR", "PDA-AIR"),
+    ("VVC-AIR", "SJE-AIR"),
+]
+
+LINKS_V2 = [
+    # ---- Accesos a aeropuertos y puertos ----------------------------------
+    ("CUC-AIR", "CITY-CUC", "terrestre", "Acceso Camilo Daza", 5, 0.2, []),
+    ("PEI-AIR", "CITY-PEI", "terrestre", "Acceso Matecaña", 5, 0.2, []),
+    ("MTR-AIR", "CITY-MTR", "terrestre", "Acceso Los Garzones", 12, 0.4, []),
+    ("VUP-AIR", "CITY-VUP", "terrestre", "Acceso Alfonso López Pumarejo", 5, 0.2, []),
+    ("ADZ-AIR", "PORT-ADZ", "terrestre", "Acceso aeropuerto San Andrés", 3, 0.2, []),
+    ("VVC-AIR", "CITY-VVC", "terrestre", "Acceso Vanguardia", 5, 0.2, []),
+    ("BGA-AIR", "CEDI-BGA", "terrestre", "Acceso Palonegro", 20, 0.6, []),
+    ("SJE-AIR", "CITY-SJE", "terrestre", "Acceso aeropuerto San José del Guaviare", 3, 0.2, []),
+    ("UIB-AIR", "CITY-UIB", "terrestre", "Acceso El Caraño", 5, 0.2, []),
+    ("CITY-UIB", "RIV-UIB", "terrestre", "Acceso puerto de Quibdó", 2, 0.1, []),
+    ("AUC-AIR", "CITY-AUC", "terrestre", "Acceso aeropuerto Arauca", 4, 0.2, []),
+    ("EYP-AIR", "CITY-EYP", "terrestre", "Acceso El Alcaraván", 4, 0.2, []),
+    ("FLA-AIR", "CITY-FLA", "terrestre", "Acceso Gustavo Artunduaga", 6, 0.2, []),
+    ("RCH-AIR", "CITY-RCH", "terrestre", "Acceso Almirante Padilla", 4, 0.2, []),
+    ("PCR-AIR", "RIV-PCR", "terrestre", "Acceso aeropuerto Puerto Carreño", 3, 0.2, []),
+    ("PDA-AIR", "RIV-INI", "terrestre", "Acceso aeropuerto Inírida", 3, 0.2, []),
+    ("MDE-AIR", "CITY-RNG", "terrestre", "Acceso Rionegro", 8, 0.3, []),
+    # ---- Carreteras ---------------------------------------------------------
+    ("CEDI-BOG", "CITY-SOA", "terrestre", "Autopista Sur (Bogotá - Soacha)", 22, 0.8, []),
+    ("CITY-SOA", "CITY-GIR", "terrestre", "Autopista Bogotá - Girardot", 115, 2.8,
+     [(4.3370, -74.3640), (4.2000, -74.6400)]),
+    ("CITY-GIR", "CITY-IBG", "terrestre", "Vía Girardot - Ibagué", 75, 1.7, [(4.1500, -74.8800)]),
+    ("CEDI-BGA", "CITY-CUC", "terrestre", "Vía Bucaramanga - Cúcuta", 195, 6.0,
+     [(7.1800, -72.8900), (7.3757, -72.6479)]),
+    ("CITY-CUC", "CITY-AUC", "terrestre", "Vía Cúcuta - Saravena - Arauca", 420, 11.0,
+     [(7.3757, -72.6479), (7.3100, -72.4800), (6.9530, -71.8750)]),
+    ("CITY-VVC", "CITY-EYP", "terrestre", "Troncal del Llano (Marginal de la Selva)", 260, 5.5,
+     [(4.2700, -73.4900), (4.6100, -72.9300), (5.1700, -72.5500)]),
+    ("CITY-EYP", "CITY-AUC", "terrestre", "Troncal del Llano (Marginal de la Selva)", 330, 7.0,
+     [(5.8800, -71.8900), (6.1500, -71.7600), (6.4610, -71.7300)]),
+    ("CITY-TUN", "CITY-EYP", "terrestre", "Transversal del Cusiana", 215, 6.0,
+     [(5.7145, -72.9339), (5.1700, -72.5500)]),
+    ("CITY-PEI", "CITY-MZL", "terrestre", "Autopista del Café", 55, 1.2,
+     [(4.8700, -75.6200), (4.9800, -75.6000)]),
+    ("CITY-AXM", "CITY-PEI", "terrestre", "Autopista del Café", 45, 1.0, [(4.6600, -75.6700)]),
+    ("CITY-AXM", "CITY-IBG", "terrestre", "Vía La Línea (Calarcá - Cajamarca)", 85, 3.0,
+     [(4.5300, -75.6400), (4.4400, -75.4300)]),
+    ("CITY-MZL", "RIV-LDA", "terrestre", "Transversal de Caldas (Manizales - La Dorada)", 160, 4.5,
+     [(5.1500, -75.0400), (5.2000, -74.8900)]),
+    ("CITY-SIN", "CITY-MTR", "terrestre", "Troncal del Caribe", 115, 2.5, [(8.9500, -75.5500)]),
+    ("CITY-MTR", "PORT-TRB", "terrestre", "Troncal del Caribe", 230, 6.0,
+     [(8.8500, -76.4300), (8.4300, -76.7900)]),
+    ("PORT-TRB", "CITY-APO", "terrestre", "Vía al Urabá (Autopista al Mar 1)", 28, 0.7, []),
+    ("CEDI-MDE", "CITY-APO", "terrestre", "Vía al Urabá (Autopista al Mar 1)", 310, 9.0,
+     [(6.4500, -75.7300), (6.5560, -75.8300), (7.0000, -76.2600), (7.2400, -76.4300), (7.6700, -76.6800)]),
+    ("CEDI-MDE", "CITY-UIB", "terrestre", "Vía Medellín - Quibdó", 230, 10.0,
+     [(5.8500, -76.0200), (5.9000, -76.1500), (5.7400, -76.5300)]),
+    ("CITY-BOS", "CITY-VUP", "terrestre", "Vía Bosconia - Valledupar", 90, 1.8, [(10.0000, -73.4300)]),
+    ("CITY-VUP", "CITY-RCH", "terrestre", "Vía Valledupar - Riohacha", 190, 4.0,
+     [(10.7700, -73.0000), (10.8800, -72.8500), (11.1700, -72.6200)]),
+    ("PORT-SMR", "CITY-RCH", "terrestre", "Troncal del Caribe", 170, 3.5,
+     [(11.2500, -73.8500), (11.2500, -73.5600)]),
+    ("CITY-RCH", "PORT-PBO", "terrestre", "Vía Riohacha - Uribia - Puerto Bolívar", 160, 3.5,
+     [(11.3900, -72.4500), (11.7100, -72.2700)]),
+    ("CITY-RCH", "RAIL-CRJ", "terrestre", "Vía Riohacha - Albania (Cerrejón)", 60, 1.3, [(11.1700, -72.6200)]),
+    ("PORT-SMR", "PORT-PNU", "terrestre", "Troncal del Caribe", 25, 0.6, [(11.1500, -74.2200)]),
+    ("CITY-PSO", "CITY-IPI", "terrestre", "Panamericana (Pasto - Ipiales)", 85, 2.0,
+     [(1.0900, -77.3900), (0.9800, -77.4800)]),
+    ("CITY-PSO", "PORT-TCO", "terrestre", "Vía al Mar (Pasto - Tumaco)", 285, 7.5,
+     [(1.0866, -77.6197), (1.2100, -77.9900), (1.3300, -78.1300), (1.5500, -78.2500)]),
+    ("CITY-NVA", "CITY-FLA", "terrestre", "Vía Neiva - Florencia", 245, 6.0,
+     [(2.1959, -75.6278), (1.8600, -75.6700)]),
+    ("CITY-VVC", "CITY-SJE", "terrestre", "Vía Villavicencio - San José del Guaviare", 285, 6.5,
+     [(3.5465, -73.7067), (2.6200, -72.7600)]),
+    ("CITY-VVC", "RIV-PLO", "terrestre", "Vía Villavicencio - Puerto López", 85, 1.7, [(4.1000, -73.3000)]),
+    # ---- Fluvial ------------------------------------------------------------
+    ("RIV-PLO", "RIV-PCR", "fluvial", "Río Meta", 820, 110.0,
+     [(4.3100, -72.0800), (4.7900, -71.3400), (5.3200, -70.3000), (5.9500, -69.1000), (6.1200, -68.2000)]),
+    ("RIV-PCR", "RIV-INI", "fluvial", "Río Orinoco", 310, 45.0,
+     [(5.6000, -67.6000), (4.5000, -67.8000), (4.0500, -67.7000)]),
+    ("RIV-UIB", "PORT-TRB", "fluvial", "Río Atrato", 450, 60.0,
+     [(6.5600, -76.8800), (7.4400, -77.1100), (7.9500, -77.0000)]),
+    # ---- Marítimo -----------------------------------------------------------
+    ("PORT-TRB", "PORT-CTG", "maritimo", "Cabotaje Caribe (Urabá)", 340, 24.0,
+     [(8.6000, -76.9000), (9.4000, -76.2000), (10.0000, -75.8000)]),
+    ("PORT-CTG", "PORT-ADZ", "maritimo", "Cabotaje Cartagena - San Andrés", 720, 48.0,
+     [(11.2000, -77.5000), (12.0000, -79.8000)]),
+    ("PORT-TCO", "PORT-BUN", "maritimo", "Cabotaje Pacífico", 380, 28.0,
+     [(2.5000, -78.5500), (3.3000, -77.9000), (3.8000, -77.3000)]),
+    ("PORT-PBO", "PORT-SMR", "maritimo", "Cabotaje Caribe (La Guajira)", 330, 22.0,
+     [(12.0000, -72.3000), (11.7500, -72.8500), (11.4500, -73.6000)]),
+    # ---- Férreo -------------------------------------------------------------
+    ("RAIL-CHI", "PORT-PNU", "ferreo", "Corredor férreo Fenoco", 215, 11.0,
+     [(9.6100, -73.5800), (9.9762, -73.8899), (10.5200, -74.1900), (10.9500, -74.2200)]),
+    ("RAIL-CRJ", "PORT-PBO", "ferreo", "Ferrocarril del Cerrejón", 150, 7.0,
+     [(11.4500, -72.4500), (11.7500, -72.2000), (12.0500, -72.0500)]),
+    ("RIV-LDA", "RAIL-CHI", "ferreo", "Ferrocarril Central (La Dorada - Chiriguaná)", 520, 26.0,
+     [(6.4900, -74.4000), (7.0300, -73.9000), (7.7600, -73.3900), (8.3100, -73.6200)]),
+    ("PORT-BUN", "CEDI-CLO", "ferreo", "Ferrocarril del Pacífico", 174, 10.0,
+     [(3.7600, -76.6700), (3.6600, -76.6900)]),
+    ("CEDI-BOG", "CITY-TUN", "ferreo", "Ferrocarril Bogotá - Belencito", 160, 8.0,
+     [(5.0221, -74.0058), (5.1500, -73.6800)]),
+] + [(o, d, "aereo", None, None, None, []) for o, d in _AIR]
+
+# Capacidad por despacho: aeropuertos con pista corta y ríos de poco calado
+CAPACITY_OVERRIDES.update({
+    **{(o, d): 15.0 for o, d in _AIR if d in ("MVP-AIR", "PDA-AIR", "SJE-AIR", "PCR-AIR", "UIB-AIR",
+                                             "AUC-AIR", "FLA-AIR", "EYP-AIR", "RCH-AIR")},
+    ("BOG-AIR", "ADZ-AIR"): 40.0, ("CTG-AIR", "ADZ-AIR"): 40.0,
+    ("RIV-PLO", "RIV-PCR"): 600.0,   # Meta: navegable con restricciones en verano
+    ("RIV-PCR", "RIV-INI"): 800.0,
+    ("RIV-UIB", "PORT-TRB"): 300.0,  # Atrato: embarcaciones menores
+})
+
+# Corredores que se siembran cerrados (sin operación regular). Estado a
+# verificar con la ANI antes de usarlo en decisiones reales.
+CLOSED_AT_SEED = {
+    "Ferrocarril del Pacífico": "Sin operación comercial regular de carga (dato a verificar con la ANI)",
+    "Ferrocarril Bogotá - Belencito": "Sin operación regular de carga (dato a verificar con la ANI)",
+}
+
+
+def air_corridor_name(o_city: str, d_city: str) -> str:
+    return f"Ruta aérea {o_city} - {d_city}"

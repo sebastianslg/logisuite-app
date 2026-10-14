@@ -70,7 +70,11 @@ def refresh_statuses(now: datetime) -> None:
 
 
 def replenish(network: MultimodalNetwork, now: datetime) -> int:
-    """Despacha envíos nuevos si hay menos de MIN_ACTIVE en tránsito."""
+    """Despacha envíos nuevos si hay menos de MIN_ACTIVE en tránsito y la
+    reposición automática está activa (parámetro AUTO_REPLENISH)."""
+    from app.engine.operations import auto_replenish, next_code
+    if not auto_replenish():
+        return 0
     active = int(run_query(
         f"SELECT COUNT(*) c FROM mm_shipments WHERE status IN ({','.join('?' * len(ACTIVE_STATUSES))})",
         ACTIVE_STATUSES).iloc[0]["c"])
@@ -78,7 +82,8 @@ def replenish(network: MultimodalNetwork, now: datetime) -> int:
     if missing <= 0:
         return 0
     rng = random.Random(int(now.timestamp()))
-    seq = int(run_query("SELECT COUNT(*) c FROM mm_shipments").iloc[0]["c"]) + 1
+    # Consecutivo global: nunca reutiliza un código existente o borrado
+    seq = int(next_code(now).rsplit("-", 1)[1])
     created = 0
     for _ in range(missing):
         template = rng.choice(TEMPLATES)
@@ -90,6 +95,7 @@ def replenish(network: MultimodalNetwork, now: datetime) -> int:
         departure = now - timedelta(hours=probe["total_time_h"] * rng.uniform(0.05, 0.6))
         sh = build_shipment(network, template, departure, seq, random.Random(seq))
         sh["status"] = status_at(sh, now)["status"]
+        sh["source"] = "auto"
         cols = list(sh.keys())
         run_write(f"INSERT OR IGNORE INTO mm_shipments ({', '.join(cols)}) "
                    f"VALUES ({', '.join('?' * len(cols))})", tuple(sh[c] for c in cols))

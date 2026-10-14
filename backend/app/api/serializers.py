@@ -28,8 +28,12 @@ def leg(l: dict) -> dict:
         "start_h": round(l["start_h"], 3), "end_h": round(l["end_h"], 3),
         "path": [[F.coord(x), F.coord(y)] for x, y in l["path"]],
     }
-    if "asset" in l:
+    if l.get("asset"):
         out["asset"] = l["asset"]
+    if l.get("interrupted"):
+        out["interrupted"] = True
+    if l.get("detour"):
+        out["detour"] = True
     return out
 
 
@@ -109,6 +113,14 @@ def shipment(s: dict, state: dict | None = None, detail: bool = False) -> dict:
         "delay_h": F.hours(s["delay_h"]),
         "delay_fmt": F.duration_fmt(s["delay_h"]) if s["delay_h"] else None,
         "progress_pct": F.pct(progress * 100),
+        "source": s.get("source") or "seed",
+        "route_status": s.get("route_status") or "ok",
+        "route_note": s.get("route_note"),
+        "forced_modes": [m for m in (s.get("forced_modes") or "").split(",") if m],
+        "forced_corridors": [c for c in (s.get("forced_corridors") or "").split(",") if c],
+        "created_by": s.get("created_by"),
+        "updated_at": s.get("updated_at"),
+        "updated_by": s.get("updated_by"),
     }
     if detail:
         out["legs"] = [leg(l) for l in route_data["legs"]]
@@ -127,6 +139,7 @@ def network_geojson(network) -> dict:
         "geometry": {"type": "Point", "coordinates": [F.coord(n["longitude"]), F.coord(n["latitude"])]},
         "properties": {"code": code, "name": n["name"], "kind": n["kind"], "city": n["city"],
                        "department_code": n["department_code"], "iata": n["iata"],
+                       "approximate": bool(n.get("approximate")),
                        "modes": sorted(modes_by_node.get(code, []))},
     } for code, n in network.nodes.items()]}
     links = {"type": "FeatureCollection", "features": [{
@@ -141,6 +154,8 @@ def network_geojson(network) -> dict:
             "time_h": F.hours(l["time_h"]), "time_fmt": F.duration_fmt(l["time_h"]),
             "capacity_t": F.tons(l["capacity_t"]), "capacity_fmt": F.tons_fmt(l["capacity_t"]),
             "cost_per_tkm": round(l["cost_per_tkm"], 3),
+            "closed": bool(l.get("closed")), "closure_reason": l.get("closure_reason"),
+            "approximate": bool(l.get("approximate")),
         },
     } for l in network.links]}
     stats = {}

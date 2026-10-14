@@ -9,6 +9,9 @@ import {
   ArrowRightLeft,
   ChevronDown,
   Clock,
+  Maximize2,
+  Minimize2,
+  Rows3,
   CircleDollarSign,
   Cloud,
   Fuel,
@@ -25,14 +28,13 @@ import {
 
 import { CityCombobox } from "./city-combobox";
 import { CategoryFilter, CityDirectory, CityInspector } from "./city-explorer";
-import { CreateShipmentSheet } from "./create-shipment-sheet";
 import { Map3DLazy, MapLoading } from "./map-3d-lazy";
 import { MapLegend } from "./map-legend";
 import { useMapData } from "./use-map-data";
 import { ModeChain, ModeIcon } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dial } from "@/components/ui/dial";
-import { Money } from "@/components/ui/money";
+import { Money } from "@/components/money";
 import { MODE_ORDER, MODES, PRIORITIES, tint } from "@/lib/modes";
 import { T_FAST, T_VIEW, hoverLift } from "@/lib/motion";
 import type { CityCategory, CityOption, Footprint, Mode, Priority, SimulateResponse } from "@/lib/types";
@@ -64,9 +66,14 @@ export function NetworkExplorer() {
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [inspect, setInspect] = useState<string | null>(params.get("ciudad"));
   const [focusCity, setFocusCity] = useState<string | null>(params.get("ciudad"));
-  const [createOpen, setCreateOpen] = useState(false);
   // En pantallas estrechas el panel arranca plegado para dejar ver el mapa; desde md siempre está abierto
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  // Vista: mapa visible u oculto (solo datos) y simulador mostrado u oculto
+  const [showMap, setShowMap] = useState(true);
+  const [panelOpen, setPanelOpen] = useState(true);
+  // Pantalla completa dentro de la página (funciona también en iPhone)
+  const [mapFull, setMapFull] = useState(false);
+  const [panelFull, setPanelFull] = useState(false);
 
   useEffect(() => {
     fetch("/api/locations")
@@ -96,7 +103,7 @@ export function NetworkExplorer() {
         return null;
       }
       setResult(data as SimulateResponse);
-      setPanelOpen(true);
+      setExpanded(true);
       return data as SimulateResponse;
     } catch {
       setSimError("No se pudo contactar la API");
@@ -105,15 +112,6 @@ export function NetworkExplorer() {
       setLoading(false);
     }
   }
-
-  // Enlaces "Duplicar envío" (?crear=1&origen=…): simula y abre la hoja de creación
-  useEffect(() => {
-    if (params.get("crear") !== "1") return;
-    const t = setTimeout(() => simulate().then((r) => r && setCreateOpen(true)), 0);
-    return () => clearTimeout(t);
-    // Solo al montar con esos parámetros
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const toggleMode = (m: Mode) =>
     setModes((prev) => {
@@ -133,7 +131,6 @@ export function NetworkExplorer() {
     [cities, categories],
   );
   const inspected = cities.find((c) => c.city === inspect) ?? null;
-  const weightNum = Number(weight.replace(",", ".")) || 1;
 
   const pickCity = (city: string) => {
     setDirectoryOpen(false);
@@ -143,7 +140,7 @@ export function NetworkExplorer() {
 
   return (
     <div className="relative h-[calc(100dvh-6.5rem)] w-full overflow-hidden md:h-[calc(100dvh-3rem)]">
-      <div className="absolute inset-0">
+      <div className={cn("absolute inset-0", !showMap && "hidden", mapFull && "fixed inset-0 z-[60] h-dvh")}>
         {network && departments ? (
           <Map3DLazy
             network={network}
@@ -164,25 +161,49 @@ export function NetworkExplorer() {
       </div>
 
       {/* Encabezado */}
-      <div className="pointer-events-none absolute top-0 right-0 left-0 flex flex-wrap items-start justify-between gap-3 p-3 md:p-6">
+      <div className="pointer-events-none absolute top-0 right-0 left-0 z-20 flex flex-wrap items-start justify-between gap-3 p-3 md:gap-4 md:p-6">
         <h1 className="glass pointer-events-auto rounded-2xl px-4 py-2 text-xl font-bold">Red multimodal</h1>
-        <LayerPanel
-          modes={modes}
-          toggleMode={toggleMode}
-          showDepartments={showDepartments}
-          setShowDepartments={setShowDepartments}
-          showFleet={showFleet}
-          setShowFleet={setShowFleet}
-          fleetCount={fleet?.count ?? 0}
-        />
+        <div className="pointer-events-auto flex w-full flex-wrap items-center gap-2 md:w-auto">
+          <ViewToggle showMap={showMap} setShowMap={setShowMap} />
+          {showMap && (
+            <Button
+              variant="secondary"
+              size="icon"
+              aria-label="Mapa a pantalla completa"
+              title="Pantalla completa"
+              onClick={() => setMapFull(true)}
+            >
+              <Maximize2 />
+            </Button>
+          )}
+          {showMap && (
+            <LayerPanel
+              modes={modes}
+              toggleMode={toggleMode}
+              showDepartments={showDepartments}
+              setShowDepartments={setShowDepartments}
+              showFleet={showFleet}
+              setShowFleet={setShowFleet}
+              fleetCount={fleet?.count ?? 0}
+            />
+          )}
+        </div>
       </div>
 
       {/* Simulador */}
+      {panelOpen ? (
       <motion.aside
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={T_VIEW}
-        className="glass absolute inset-x-3 bottom-3 z-10 flex max-h-[62%] flex-col overflow-hidden rounded-3xl md:inset-x-auto md:top-24 md:bottom-6 md:left-6 md:max-h-none md:w-[400px]"
+        className={cn(
+          "glass absolute z-10 flex flex-col overflow-hidden rounded-3xl",
+          showMap
+            ? "inset-x-3 bottom-3 max-h-[62%] md:inset-x-auto md:top-24 md:bottom-6 md:left-6 md:max-h-none md:w-[400px]"
+            : "inset-x-3 top-36 bottom-3 md:inset-x-auto md:top-24 md:bottom-6 md:left-1/2 md:w-[min(960px,calc(100%-3rem))] md:-translate-x-1/2",
+          panelFull && "fixed inset-0 z-[65] h-dvh max-h-none w-full translate-x-0 rounded-none pb-[env(safe-area-inset-bottom)] md:w-full",
+        )}
+        style={panelFull ? { backgroundColor: "var(--card)" } : undefined}
       >
         <div className="shrink-0 border-b border-border p-4 md:p-5">
           <div className="flex items-center justify-between gap-2">
@@ -196,19 +217,40 @@ export function NetworkExplorer() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="md:hidden"
-                aria-label={panelOpen ? "Plegar el simulador" : "Abrir el simulador"}
-                aria-expanded={panelOpen}
-                onClick={() => setPanelOpen((o) => !o)}
+                aria-label={panelFull ? "Salir de pantalla completa" : "Simulador a pantalla completa"}
+                title={panelFull ? "Salir de pantalla completa" : "Pantalla completa"}
+                onClick={() => setPanelFull((v) => !v)}
               >
-                <ChevronDown className={cn("transition-transform duration-300 ease-apple", panelOpen && "rotate-180")} />
+                {panelFull ? <Minimize2 /> : <Maximize2 />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Ocultar simulador"
+                title="Ocultar simulador"
+                onClick={() => {
+                  setPanelFull(false);
+                  setPanelOpen(false);
+                }}
+              >
+                <X />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                aria-label={expanded ? "Plegar el simulador" : "Abrir el simulador"}
+                aria-expanded={expanded}
+                onClick={() => setExpanded((o) => !o)}
+              >
+                <ChevronDown className={cn("transition-transform duration-300 ease-apple", expanded && "rotate-180")} />
               </Button>
             </div>
           </div>
-          <div className={cn("mt-3", !panelOpen && "hidden md:block")}>
+          <div className={cn("mt-3", !expanded && "hidden md:block")}>
             <CategoryFilter cities={cities} value={categories} onChange={setCategories} />
           </div>
-          <div className={cn("mt-3 grid grid-cols-[1fr_auto] items-end gap-2", !panelOpen && "hidden md:grid")}>
+          <div className={cn("mt-3 grid grid-cols-[1fr_auto] items-end gap-2", !expanded && "hidden md:grid")}>
             <div className="flex flex-col gap-2">
               <CityCombobox label="Origen" value={origin} onChange={setOrigin} cities={selectable} />
               <CityCombobox label="Destino" value={destination} onChange={setDestination} cities={selectable} />
@@ -227,7 +269,7 @@ export function NetworkExplorer() {
             </Button>
           </div>
 
-          <div className={cn("mt-3 grid grid-cols-[1fr_96px] gap-2", !panelOpen && "hidden md:grid")}>
+          <div className={cn("mt-3 grid grid-cols-[1fr_96px] gap-2", !expanded && "hidden md:grid")}>
             <div>
               <span className="mb-1 block text-xs text-muted-foreground">Prioridad</span>
               <LayoutGroup id="priority">
@@ -267,7 +309,7 @@ export function NetworkExplorer() {
             </label>
           </div>
 
-          <Button className={cn("mt-4 w-full", !panelOpen && "hidden md:inline-flex")} onClick={() => simulate()} disabled={loading}>
+          <Button className={cn("mt-4 w-full", !expanded && "hidden md:inline-flex")} onClick={() => simulate()} disabled={loading}>
             {loading ? <LoaderCircle className="animate-spin" /> : <Route />}
             Simular ruta
           </Button>
@@ -278,7 +320,7 @@ export function NetworkExplorer() {
           )}
         </div>
 
-        <div className={cn("flex-1 overflow-y-auto", !panelOpen && "hidden md:block")}>
+        <div className={cn("flex-1 overflow-y-auto", !expanded && "hidden md:block")}>
           <AnimatePresence mode="wait">
             {result ? (
               <RouteResultView
@@ -289,7 +331,6 @@ export function NetworkExplorer() {
                   simulate(p);
                 }}
                 onClear={() => setResult(null)}
-                onCreate={() => setCreateOpen(true)}
               />
             ) : (
               <motion.div
@@ -307,10 +348,29 @@ export function NetworkExplorer() {
           </AnimatePresence>
         </div>
       </motion.aside>
+      ) : (
+        <Button
+          variant="secondary"
+          className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-3 z-10 shadow-xl md:top-24 md:bottom-auto md:left-6"
+          onClick={() => setPanelOpen(true)}
+        >
+          <Route />
+          Mostrar simulador
+        </Button>
+      )}
 
-      <div className="glass pointer-events-none absolute right-6 bottom-6 hidden rounded-2xl px-4 py-3 md:block">
-        <MapLegend />
-      </div>
+      {mapFull && (
+        <Button variant="secondary" className="fixed top-3 right-3 z-[70] shadow-xl" onClick={() => setMapFull(false)}>
+          <Minimize2 />
+          Salir
+        </Button>
+      )}
+
+      {showMap && (
+        <div className="glass pointer-events-none absolute right-6 bottom-6 hidden rounded-2xl px-4 py-3 md:block">
+          <MapLegend />
+        </div>
+      )}
 
       <CityDirectory
         open={directoryOpen}
@@ -332,7 +392,31 @@ export function NetworkExplorer() {
           setInspect(null);
         }}
       />
-      {result && <CreateShipmentSheet open={createOpen} onClose={() => setCreateOpen(false)} result={result} weight={weightNum} />}
+    </div>
+  );
+}
+
+function ViewToggle({ showMap, setShowMap }: { showMap: boolean; setShowMap: (v: boolean) => void }) {
+  return (
+    <div className="glass flex items-center gap-0.5 rounded-2xl p-1" role="group" aria-label="Vista">
+      {[
+        { key: true, label: "Mapa", icon: <MapIcon className="size-3.5" /> },
+        { key: false, label: "Datos", icon: <Rows3 className="size-3.5" /> },
+      ].map((v) => (
+        <button
+          key={v.label}
+          type="button"
+          onClick={() => setShowMap(v.key)}
+          aria-pressed={showMap === v.key}
+          className={cn(
+            "press flex h-8 items-center gap-1.5 rounded-xl px-2.5 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11 [&_svg]:size-3.5",
+            showMap === v.key ? "bg-fill text-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {v.icon}
+          {v.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -341,12 +425,10 @@ function RouteResultView({
   data,
   onPick,
   onClear,
-  onCreate,
 }: {
   data: SimulateResponse;
   onPick: (p: Priority) => void;
   onClear: () => void;
-  onCreate: () => void;
 }) {
   const r = data.route;
   const fp = data.footprint;
@@ -379,8 +461,12 @@ function RouteResultView({
         </Button>
       </div>
 
-      <Button onClick={onCreate}>
-        <PackagePlus /> Crear envío con esta ruta
+      <Button asChild>
+        <Link
+          href={`/envios/nuevo?origin=${encodeURIComponent(r.origin)}&destination=${encodeURIComponent(r.destination)}&priority=${r.priority}&weight=${r.weight_t}`}
+        >
+          <PackagePlus /> Crear envío con esta ruta
+        </Link>
       </Button>
 
       <div className="grid grid-cols-2 gap-2">
