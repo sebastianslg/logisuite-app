@@ -125,7 +125,14 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
         {result && <ChangeSummary result={result} name={result.corridor} />}
 
         <ul className="flex flex-col gap-2">
-          {list.length === 0 && <li className="glass rounded-3xl p-8 text-center text-sm text-muted-foreground">Ninguna vía coincide.</li>}
+          {list.length === 0 && (
+            <li className="glass flex flex-col items-center gap-3 rounded-3xl p-8 text-center text-sm text-muted-foreground">
+              Ninguna vía coincide con la búsqueda y los filtros.
+              <Button variant="secondary" size="sm" onClick={() => { setQuery(""); setMode(null); setState("todas"); }}>
+                Quitar filtros
+              </Button>
+            </li>
+          )}
           {groups.map((g) => (
             <GroupBlock key={g.key} title={g.title} count={g.items.length} icon={g.icon} danger={g.danger}
               open={openGroups[g.key] ?? g.defaultOpen}

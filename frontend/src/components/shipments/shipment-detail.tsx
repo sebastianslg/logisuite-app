@@ -139,7 +139,7 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
         <Kpi icon={<Clock />} label="Tiempo de ruta" value={s.time_fmt} hint={`ETA ${s.eta_fmt}${s.delay_fmt ? ` · +${s.delay_fmt}` : ""}`} />
         <Kpi icon={<CircleDollarSign />} label="Costo total" value={money(s.cost)} hint={`${money(s.cost / s.weight_t)} por t`} />
         <Kpi icon={<Route />} label="Distancia" value={s.distance_fmt} hint={`${Math.round(s.progress_pct)} % recorrido`} />
-        <Kpi icon={<Weight />} label="Carga" value={s.weight_fmt} hint={PRIORITIES[s.priority]} />
+        <Kpi icon={<Weight />} label="Carga" value={s.weight_fmt} hint={`Prioridad: ${PRIORITIES[s.priority].toLowerCase()}`} />
       </div>
 
       <section aria-label="Ruta del envío" className="glass rounded-3xl p-5">

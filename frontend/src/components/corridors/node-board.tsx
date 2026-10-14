@@ -130,7 +130,14 @@ export function NodeBoard({ nodes }: { nodes: NodeStatus[] }) {
       {result && <ChangeSummary result={result} name={result.name} feminine={false} />}
 
       <ul className="flex flex-col gap-2">
-        {list.length === 0 && <li className="glass rounded-3xl p-8 text-center text-sm text-muted-foreground">Ningún nodo coincide.</li>}
+        {list.length === 0 && (
+          <li className="glass flex flex-col items-center gap-3 rounded-3xl p-8 text-center text-sm text-muted-foreground">
+            Ningún nodo coincide con la búsqueda y los filtros.
+            <Button variant="secondary" size="sm" onClick={() => { setQuery(""); setKind(null); setState("todos"); }}>
+              Quitar filtros
+            </Button>
+          </li>
+        )}
         {groups.map((g) => (
           <GroupBlock key={g.key} title={g.title} count={g.items.length} icon={g.icon} danger={g.danger}
             open={openGroups[g.key] ?? g.defaultOpen}

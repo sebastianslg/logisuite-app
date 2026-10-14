@@ -190,6 +190,11 @@
     border-color: var(--color-border);
   }
 
+  /* Un texto sin espacios (un código, una palabra larga) se parte en vez de ensanchar la página. */
+  main {
+    overflow-wrap: anywhere;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
@@ -334,5 +339,13 @@ textarea:focus-visible {
   .material {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+}
+
+/* Rendimiento en celular: el desenfoque de 30 px es caro en GPUs móviles; a 20 px se ve igual y cuesta menos. */
+@media (max-width: 767px) {
+  .glass {
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
   }
 }

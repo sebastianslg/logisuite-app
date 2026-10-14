@@ -139,3 +139,23 @@ Trampas conocidas:
 ## 9. Límites del entorno de la sesión
 
 Salida a internet restringida: `github.com` y PyPI/npm funcionan; `www.datos.gov.co`, `router.project-osrm.org`, `overpass-api.de` e `impeccable.style` están **bloqueados**. Sin Render ni GitHub CLI: PRs vía herramientas MCP de GitHub (no pueden borrar ramas).
+
+---
+
+## 10. Actualización posterior (rediseño con impeccable y las skills de Emil Kowalski)
+
+Rama de trabajo: `claude/exciting-carson-7zscna`. Sin PR abierto.
+
+**Hecho desde el traspaso**
+- Pendiente 1: 14 ciudades intermedias sobre carreteras nacionales (aproximadas, marcadas) y las 32 capitales como "principal".
+- Pendiente 2: cierre de aeropuertos, puertos y otros nodos (`mm_node_status`, `/api/nodes/status`, pestaña "Aeropuertos y puertos" en `/vias`); los envíos se redirigen igual que con las vías.
+- Rediseño: `PRODUCT.md` y `DESIGN.md` en la raíz. Crítica formal (diseño 25/40, detector 0 hallazgos) y sus arreglos: listas de vías y nodos agrupadas y plegables, validación del formulario en español, foco visible, objetivos táctiles de 44 px, bloque "Requiere atención" en el panel, cadena de modos por envío (`RouteChain`), barra superior única en celular, hoja de "Capas" del mapa en celular, atajos de teclado (`?` los muestra), paleta de modos apta para daltonismo (Aéreo magenta, Fluvial azul-cian), `prefers-contrast: more`, desbordes corregidos (360 px y zoom 200 %).
+- Backend: 144 pruebas en verde.
+
+**Sigue pendiente**
+- Los ~1.120 municipios (bloqueado: permitir `www.datos.gov.co`, `router.project-osrm.org` y `overpass-api.de` en el acceso de red del entorno).
+- Magangué y Puerto Berrío: faltan trazados de carretera confirmados.
+- Comparador de escenarios, compensación de carbono, exportar gráficas a PDF, alertas que recalculen al cerrar una vía.
+- Decidir disco persistente en Render y borrar ramas viejas.
+- Revisar `backend/app/utils/` y `backend/app/models/` (herencia de Streamlit, no los importa `main.py`).
+- Error 530 visto en Render: casi seguro `API_INTERNAL_URL` mal puesta o API caída; comprobar `https://TU-API/api/health`.
