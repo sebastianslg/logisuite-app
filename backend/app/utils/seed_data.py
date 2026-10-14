@@ -485,9 +485,23 @@ def seed_multimodal():
     """Siembra la red multimodal de Colombia y la carga inicial de envíos.
     Idempotente: agrega nodos y enlaces que falten (también en bases ya
     desplegadas) y siembra envíos solo si la tabla está vacía."""
+    from app.engine import fleet, warehouses
+    from app.engine.multimodal import MultimodalNetwork
+    from app.engine.operations import _param, _set_param
+
     _seed_mm_network()
+    now = datetime.now()
+    # Bodegas y flota antes que los envíos: así los envíos de la carga inicial ya nacen con
+    # vehículos reales. Ambas siembras son idempotentes (solo crean lo que falta).
+    warehouses.seed_warehouses(MultimodalNetwork.from_db(), now)
+    fleet.seed_fleet(now)
     if run_query("SELECT COUNT(*) c FROM mm_shipments").iloc[0]["c"] == 0:
         _seed_mm_shipments()
+        _set_param("fleet_adopted_v5", "1", "Los envíos usan vehículos de la flota")
+    elif _param("fleet_adopted_v5") != "1":
+        # Base que ya tenía envíos antes de existir la flota: se pasan una sola vez a vehículos reales
+        fleet.adopt_existing(now)
+        _set_param("fleet_adopted_v5", "1", "Los envíos usan vehículos de la flota")
 
 
 def _seed_mm_network():
@@ -545,8 +559,12 @@ def _seed_mm_shipments():
     from app.engine.multimodal import MultimodalNetwork
     from app.engine.dispatch import generate_initial_shipments
 
+    from app.engine import fleet
+
     network = MultimodalNetwork.from_db()
-    for sh in generate_initial_shipments(network, datetime.now()):
+    now = datetime.now()
+    for sh in generate_initial_shipments(network, now):
+        fleet.assign_shipment_row(sh, now)  # vehículos reales de la flota en cada tramo
         cols = list(sh.keys())
         run_write(f"INSERT INTO mm_shipments ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
                    tuple(sh[c] for c in cols))

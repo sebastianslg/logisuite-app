@@ -13,6 +13,7 @@ Complementarios: /api/shipments, /api/shipments/{code}, /api/dashboard/summary,
 
 Operación (sin autenticación; el campo `usuario` es un nombre declarado):
   GET/POST            /api/corridors, /api/corridors/status   Vías y su cierre
+  GET/POST/PUT/DELETE /api/fleet/..., /api/warehouses/...      Flota de vehículos y bodegas (api/fleet_wh.py)
   GET/POST            /api/nodes/status                       Nodos (aeropuertos, puertos) y su cierre
   POST/PUT/DELETE     /api/shipments[/{code}]                 Envíos editables
   POST                /api/shipments/preview                  Ruta sin guardar
@@ -87,6 +88,12 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
+
+
+# Flota de vehículos y red de bodegas (endpoints en api/fleet_wh.py)
+from app.api import fleet_wh  # noqa: E402
+
+fleet_wh.register(app, sync=lambda: _sync(), network=lambda: network())
 
 
 # ---------------------------------------------------------------------------
