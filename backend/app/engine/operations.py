@@ -35,32 +35,15 @@ import re
 from datetime import datetime, timedelta
 
 from app.database.db import run_query, run_write
+from app.engine.common import ANON, OperationError, _now_iso, _user, audit  # noqa: F401 (reexportados)
+from app.engine import fleet
 from app.engine.dispatch import _asset_for, status_at
 from app.engine.multimodal import PRIORITIES, MultimodalNetwork, RoutingError, haversine_km
 
 MODES = ("terrestre", "fluvial", "maritimo", "aereo", "ferreo")
-ANON = "anónimo"
-
-
-class OperationError(ValueError):
-    """Dato inválido o acción imposible (se responde con 4xx)."""
-
-
-def _now_iso() -> str:
-    return datetime.now().isoformat(timespec="seconds")
-
-
-def _user(name: str | None) -> str:
-    name = (name or "").strip()
-    return name[:60] if name else ANON
-
-
 # ---------------------------------------------------------------------------
-# Historial
+# Historial (audit, OperationError y la firma del usuario viven en engine/common.py)
 # ---------------------------------------------------------------------------
-def audit(user: str | None, action: str, table: str, record: str | None, detail: str) -> None:
-    run_write("""INSERT INTO audit_log (username, action, table_name, record_id, detail, timestamp)
-                 VALUES (?,?,?,?,?,?)""", (_user(user), action, table, record, detail, _now_iso()))
 
 
 def audit_entries(limit: int = 200, table: str | None = None, record: str | None = None) -> list:
@@ -289,7 +272,13 @@ def _plan(net: MultimodalNetwork, origin: str, dest: str, weight: float, priorit
                      allowed_modes=forced_modes or None, required_corridors=forced_corridors or None)
 
 
-def _attach_assets(route: dict, weight: float, seed: str) -> None:
+def _attach_assets(route: dict, weight: float, seed: str, departure: datetime | None = None,
+                   now: datetime | None = None) -> None:
+    """Vehículos de cada tramo. Con la salida conocida se asignan de la flota real (sin cruces de
+    horario); sin ella se simulan como antes."""
+    if departure is not None:
+        fleet.assign_route(seed, route, weight, departure, now or datetime.now())
+        return
     rng = random.Random(seed)
     for leg in route["legs"]:
         leg.setdefault("asset", _asset_for(leg["mode"], weight, rng))
@@ -487,8 +476,8 @@ def reconcile(net: MultimodalNetwork, now: datetime, user: str | None, cause: st
                 audit(user, "UPDATE", "mm_shipments", code, f"Sin ruta disponible por {cause}")
             no_route.append(code)
             continue
-        _attach_assets(new, s["weight_t"], code)
         departure = datetime.fromisoformat(s["departure_at"])
+        _attach_assets(new, s["weight_t"], code, departure, now)
         fields = _route_fields(new, departure)
         note = (f"Recalculada por {cause}" if replan else f"Redirigida por {cause}")
         fields.update(route_status="ok", route_note=note, updated_at=_now_iso(), updated_by=_user(user))
@@ -567,7 +556,7 @@ def _row_from(net: MultimodalNetwork, v: dict, code: str, now: datetime) -> dict
                       v["forced_modes"], v["forced_corridors"])
     except RoutingError as exc:
         raise OperationError(str(exc))
-    _attach_assets(route, v["weight_t"], code)
+    _attach_assets(route, v["weight_t"], code, v["departure_at"], now)
     row = {
         "origin_city": v["origin"], "dest_city": v["destination"], "cargo": v["cargo"],
         "weight_t": v["weight_t"], "priority": v["priority"], "client": v["client"],
@@ -634,6 +623,7 @@ def delete_shipment(code: str, user: str | None) -> None:
         raise LookupError(code)
     r = rows.iloc[0]
     run_write("DELETE FROM mm_shipments WHERE shipment_code = ?", (code,))
+    fleet.release(code)
     audit(user, "DELETE", "mm_shipments", code,
           f"Envío borrado ({'semilla' if r['source'] == 'seed' else 'manual'}): "
           f"{r['origin_city']} -> {r['dest_city']}, {r['cargo']}")

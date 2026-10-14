@@ -159,3 +159,8 @@ Rama de trabajo: `claude/exciting-carson-7zscna`. Sin PR abierto.
 - Decidir disco persistente en Render y borrar ramas viejas.
 - Revisar `backend/app/utils/` y `backend/app/models/` (herencia de Streamlit, no los importa `main.py`).
 - Error 530 visto en Render: casi seguro `API_INTERNAL_URL` mal puesta o API caída; comprobar `https://TU-API/api/health`.
+
+
+## 11. Flota y bodegas
+
+Se agregaron `/flota` (vehículos, mantenimiento, fallas, conductores) y `/bodegas` (red, traslados) con backend en `engine/fleet.py`, `engine/warehouses.py`, `api/fleet_wh.py` y tablas `fl_*`/`wh_*` (`schema_v5.py`). Reglas clave: el estado del vehículo se deriva; una falla que bloquea inhabilita el vehículo y reasigna sus tramos (otro propio o tercero); los traslados entre ciudades crean un envío y se reciben al entregarse. El panel de inicio muestra las alertas de flota y bodegas y el detalle del envío enlaza cada placa a su ficha. Pruebas: `backend/tests/test_fleet_warehouses.py`.

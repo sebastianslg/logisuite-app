@@ -13,6 +13,8 @@ const GO: { key: string; href: string; label: string }[] = [
   { key: "e", href: "/envios", label: "Ir a envíos" },
   { key: "r", href: "/red", label: "Ir a la red multimodal" },
   { key: "v", href: "/vias", label: "Ir a vías y cierres" },
+  { key: "f", href: "/flota", label: "Ir a la flota" },
+  { key: "b", href: "/bodegas", label: "Ir a bodegas" },
   { key: "c", href: "/combustible", label: "Ir a combustible" },
   { key: "h", href: "/huella", label: "Ir a huella de carbono" },
   { key: "s", href: "/configuracion", label: "Ir a configuración" },

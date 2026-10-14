@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, CircleCheck, CircleOff, Clock, Route, TrafficCone, TriangleAlert } from "lucide-react";
+import { ChevronRight, CircleCheck, CircleOff, Clock, PackageX, Route, TrafficCone, TriangleAlert, Truck, Wrench } from "lucide-react";
 
 import type { DashboardSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,26 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export function Attention({ alerts }: { alerts: DashboardSummary["alerts"] }) {
   const { closed_corridors: corridors, closed_nodes: nodes, no_route: noRoute, rerouted, delayed } = alerts;
   const items: Item[] = [];
+  const fleet = alerts.fleet;
+  const wh = alerts.warehouses;
+  if (fleet && fleet.disabled + fleet.in_shop > 0)
+    items.push({
+      key: "flota-fuera", href: "/flota?ver=fallas", tone: "danger", icon: <Truck />,
+      title: plural(fleet.disabled + fleet.in_shop, "vehículo fuera de servicio", "vehículos fuera de servicio"),
+      detail: [fleet.disabled && plural(fleet.disabled, "inhabilitado", "inhabilitados"), fleet.in_shop && `${fleet.in_shop} en taller`].filter(Boolean).join(" · "),
+    });
+  if (fleet && fleet.overdue > 0)
+    items.push({
+      key: "flota-mant", href: "/flota?ver=mantenimiento", tone: "warning", icon: <Wrench />,
+      title: plural(fleet.overdue, "mantenimiento vencido", "mantenimientos vencidos"),
+      detail: "Programa el servicio antes de que se inhabiliten",
+    });
+  if (wh && (wh.low_stock > 0 || wh.full.length > 0))
+    items.push({
+      key: "bodegas", href: "/bodegas", tone: "warning", icon: <PackageX />,
+      title: [wh.low_stock && plural(wh.low_stock, "producto bajo el mínimo", "productos bajo el mínimo"), wh.full.length && plural(wh.full.length, "bodega llena", "bodegas llenas")].filter(Boolean).join(" · "),
+      detail: wh.full.slice(0, 2).join(", ") || "Reabastece desde otra bodega",
+    });
   if (noRoute.length)
     items.push({
       key: "sin-ruta", href: "/envios", tone: "danger", icon: <CircleOff />,

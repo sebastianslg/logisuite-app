@@ -13,6 +13,7 @@ Complementarios: /api/shipments, /api/shipments/{code}, /api/dashboard/summary,
 
 Operación (sin autenticación; el campo `usuario` es un nombre declarado):
   GET/POST            /api/corridors, /api/corridors/status   Vías y su cierre
+  GET/POST/PUT/DELETE /api/fleet/..., /api/warehouses/...      Flota de vehículos y bodegas (api/fleet_wh.py)
   GET/POST            /api/nodes/status                       Nodos (aeropuertos, puertos) y su cierre
   POST/PUT/DELETE     /api/shipments[/{code}]                 Envíos editables
   POST                /api/shipments/preview                  Ruta sin guardar
@@ -43,7 +44,7 @@ from app.api import format as F
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
-from app.engine import geo, operations as ops, pdf, sustainability as SU, telemetry
+from app.engine import fleet, geo, operations as ops, pdf, sustainability as SU, telemetry, warehouses
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
 
@@ -87,6 +88,12 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
+
+
+# Flota de vehículos y red de bodegas (endpoints en api/fleet_wh.py)
+from app.api import fleet_wh  # noqa: E402
+
+fleet_wh.register(app, sync=lambda: _sync(), network=lambda: network())
 
 
 # ---------------------------------------------------------------------------
@@ -581,6 +588,7 @@ def dashboard_summary() -> dict:
         if d in per_day:
             per_day[d] += 1
 
+    fs, ws = fleet.summary(now), warehouses.summary()
     return {
         "generated_at": now.isoformat(timespec="seconds"),
         "status_counts": counts,
@@ -601,6 +609,16 @@ def dashboard_summary() -> dict:
         "all_corridors": all_corridors,
         "dispatches_14d": [{"date": d.isoformat(), "count": per_day[d]} for d in days],
         "alerts": {
+            "fleet": {
+                "disabled": fs["by_status"].get("Inhabilitado", 0),
+                "in_shop": fs["by_status"].get("En mantenimiento", 0),
+                "overdue": fs["by_status"].get("Mantenimiento vencido", 0),
+                "open_faults": len(fs["open_faults"]),
+            },
+            "warehouses": {
+                "low_stock": ws["low_stock_lines"],
+                "full": list(ws["full_warehouses"]),
+            },
             "closed_corridors": sorted(network().closed_corridors),
             "closed_nodes": [{"code": c, "name": network().nodes[c]["name"], "reason": r}
                              for c, r in sorted(network().closed_nodes.items())],

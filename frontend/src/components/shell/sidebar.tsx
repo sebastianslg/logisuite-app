@@ -17,7 +17,9 @@ import {
   Search,
   Settings,
   TrafficCone,
+  Truck,
   UserRound,
+  Warehouse,
   Waypoints,
   X,
   type LucideIcon,
@@ -37,11 +39,13 @@ const NAV: NavItem[] = [
   { href: "/envios", label: "Envíos", icon: Package, group: "Operación" },
   { href: "/red", label: "Red multimodal", icon: Network, group: "Operación" },
   { href: "/vias", label: "Vías y cierres", icon: TrafficCone, group: "Operación" },
+  { href: "/flota", label: "Flota", icon: Truck, group: "Flota y bodegas" },
+  { href: "/bodegas", label: "Bodegas", icon: Warehouse, group: "Flota y bodegas" },
   { href: "/combustible", label: "Combustible", icon: Fuel, group: "Logística verde" },
   { href: "/huella", label: "Huella de carbono", icon: Leaf, group: "Logística verde" },
   { href: "/configuracion", label: "Configuración", icon: Settings, group: "Sistema" },
 ];
-const GROUPS = ["Operación", "Logística verde", "Sistema"] as const;
+const GROUPS = ["Operación", "Flota y bodegas", "Logística verde", "Sistema"] as const;
 
 const spring = T_VIEW;
 

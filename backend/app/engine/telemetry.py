@@ -21,6 +21,7 @@ import threading
 from datetime import datetime, timedelta
 
 from app.database.db import run_query, run_write
+from app.engine import fleet, warehouses
 from app.engine.dispatch import TEMPLATES, build_shipment, status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
 
@@ -94,6 +95,7 @@ def replenish(network: MultimodalNetwork, now: datetime) -> int:
         # Salida reciente para que entren a la operación a mitad de recorrido
         departure = now - timedelta(hours=probe["total_time_h"] * rng.uniform(0.05, 0.6))
         sh = build_shipment(network, template, departure, seq, random.Random(seq))
+        fleet.assign_shipment_row(sh, now)  # vehículos reales de la flota
         sh["status"] = status_at(sh, now)["status"]
         sh["source"] = "auto"
         cols = list(sh.keys())
@@ -110,6 +112,7 @@ def sync(network: MultimodalNetwork, now: datetime) -> None:
         refresh_statuses(now)
         if replenish(network, now):
             refresh_statuses(now)
+        warehouses.settle_transfers(now)  # recibe en destino los traslados cuyo envío ya llegó
 
 
 def live_fleet(now: datetime) -> list:
