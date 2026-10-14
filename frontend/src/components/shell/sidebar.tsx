@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
   Fuel,
+  Keyboard,
   LayoutDashboard,
   Leaf,
   Menu,
@@ -24,6 +25,7 @@ import {
 
 import { useApp } from "@/components/providers";
 import { useCommandPalette } from "@/components/shell/command-palette";
+import { OPEN_SHORTCUTS_EVENT } from "@/components/shell/shortcuts";
 import { CurrencyControl, ThemeControl } from "@/components/shell/toolbar";
 import { EASE, T_VIEW } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -205,7 +207,18 @@ export function Sidebar() {
 
         {!collapsed && <OperatorPanel />}
 
-        <div className="p-3">
+        <div className="flex flex-col gap-0.5 p-3">
+          {!collapsed && (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event(OPEN_SHORTCUTS_EVENT))}
+              className="press flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5 text-sm text-muted-foreground outline-none hover:bg-fill/60 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/80"
+            >
+              <Keyboard className="size-[18px]" aria-hidden />
+              <span>Atajos</span>
+              <kbd className="ml-auto rounded-md border border-border-strong px-1.5 text-xs font-medium">?</kbd>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setCollapsed((c) => !c)}

@@ -49,9 +49,9 @@
   /* Modos de transporte (≥ 3:1 sobre la tarjeta clara) */
   --mode-maritimo: #2f62d6;
   --mode-terrestre: #12805c;
-  --mode-aereo: #8a56d8;
+  --mode-aereo: #a63083;
   --mode-ferreo: #a86b00;
-  --mode-fluvial: #0a829c;
+  --mode-fluvial: #129dd9;
 
   color-scheme: light dark;
 }
@@ -97,9 +97,9 @@
 
     --mode-maritimo: #4a7cf0;
     --mode-terrestre: #199e70;
-    --mode-aereo: #a173e8;
+    --mode-aereo: #c6399c;
     --mode-ferreo: #c98500;
-    --mode-fluvial: #11a4c4;
+    --mode-fluvial: #2cc8e0;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -138,9 +138,9 @@
 
     --mode-maritimo: #4a7cf0;
     --mode-terrestre: #199e70;
-    --mode-aereo: #a173e8;
+    --mode-aereo: #c6399c;
     --mode-ferreo: #c98500;
-    --mode-fluvial: #11a4c4;
+    --mode-fluvial: #2cc8e0;
   }
 }
 
@@ -318,4 +318,21 @@ textarea:focus-visible {
 /* Campo con error de validación: borde rojo (el anillo de foco sigue del color de acento). */
 :is(input, select, textarea)[aria-invalid="true"]:not(:focus-visible) {
   border-color: var(--color-destructive);
+}
+
+/* Contraste alto del sistema ("Aumentar contraste"): bordes marcados, texto atenuado casi pleno, sin vidrio translúcido. */
+@media (prefers-contrast: more) {
+  :root:root {
+    --separator: color-mix(in srgb, var(--foreground) 55%, transparent);
+    --separator-strong: color-mix(in srgb, var(--foreground) 85%, transparent);
+    --muted-foreground: color-mix(in srgb, var(--foreground) 82%, var(--background));
+    --glass: var(--card);
+    --glass-border: color-mix(in srgb, var(--foreground) 55%, transparent);
+    --sidebar: var(--card);
+  }
+  .glass,
+  .material {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }

@@ -3,9 +3,6 @@ import Link from "next/link";
 import {
   Activity,
   ArrowUpRight,
-  CircleOff,
-  TrafficCone,
-  TriangleAlert,
   ArrowRightLeft,
   Gauge,
   Navigation,
@@ -14,6 +11,7 @@ import {
   Weight,
 } from "lucide-react";
 
+import { Attention } from "@/components/dashboard/attention";
 import { BentoCell, BentoGrid, KpiCard } from "@/components/dashboard/bento";
 import { CorridorsCell, DispatchCell, ModalSplitCell } from "@/components/dashboard/chart-cells";
 import { LiveFleet } from "@/components/dashboard/live-fleet";
@@ -47,44 +45,10 @@ async function DashboardContent() {
     apiGet<SustainabilitySummary>("/api/sustainability/summary"),
   ]);
   const k = summary.kpis;
-  const { closed_corridors: closed, closed_nodes: closedNodes, no_route: noRoute } = summary.alerts;
 
   return (
     <>
-      {(closed.length > 0 || closedNodes.length > 0 || noRoute.length > 0) && (
-        <div role="status" className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl bg-destructive/12 px-4 py-3 text-sm">
-          {closed.length > 0 && (
-            <Link href="/vias" className="flex items-start gap-2 font-medium text-destructive hover:underline">
-              <TrafficCone className="mt-0.5 size-4 shrink-0" aria-hidden />
-              <span>
-                {closed.length} {closed.length === 1 ? "vía cerrada" : "vías cerradas"}:{" "}
-                <span className="font-normal text-foreground/80">
-                  {closed.slice(0, 3).join(", ")}
-                  {closed.length > 3 && "…"}
-                </span>
-              </span>
-            </Link>
-          )}
-          {closedNodes.length > 0 && (
-            <Link href="/vias?ver=nodos" className="flex items-start gap-2 font-medium text-destructive hover:underline">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-              <span>
-                {closedNodes.length} {closedNodes.length === 1 ? "nodo cerrado" : "nodos cerrados"}:{" "}
-                <span className="font-normal text-foreground/80">
-                  {closedNodes.slice(0, 3).map((n) => n.name).join(", ")}
-                  {closedNodes.length > 3 && "…"}
-                </span>
-              </span>
-            </Link>
-          )}
-          {noRoute.length > 0 && (
-            <Link href="/envios" className="flex items-start gap-2 font-medium text-destructive hover:underline">
-              <CircleOff className="mt-0.5 size-4 shrink-0" aria-hidden />
-              {noRoute.length} {noRoute.length === 1 ? "envío sin ruta" : "envíos sin ruta"}
-            </Link>
-          )}
-        </div>
-      )}
+      <Attention alerts={summary.alerts} />
       <BentoGrid>
       <KpiCard
         className="md:col-span-3 xl:col-span-3"

@@ -7,6 +7,7 @@ import {
   Banknote,
   CornerDownLeft,
   Fuel,
+  Keyboard,
   LayoutDashboard,
   Leaf,
   MapPin,
@@ -22,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { EASE } from "@/lib/motion";
+import { OPEN_SHORTCUTS_EVENT } from "@/components/shell/shortcuts";
 import { useApp } from "@/components/providers";
 import { usePrefs } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
@@ -120,6 +122,7 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
       { id: "a-new", group: "Acciones", label: "Crear envío", hint: "Simulador de rutas", icon: PackagePlus, run: go("/envios/nuevo") },
       ...(fx?.rate ? [{ id: "a-cop", group: "Acciones" as const, label: "Mostrar costos en pesos (COP)", icon: Banknote, run: () => { setCurrency("COP"); close(); } }] : []),
       { id: "a-usd", group: "Acciones", label: "Mostrar costos en dólares (USD)", icon: Banknote, run: () => { setCurrency("USD"); close(); } },
+      { id: "a-keys", group: "Acciones", label: "Ver atajos de teclado", hint: "?", icon: Keyboard, run: () => { close(); setTimeout(() => window.dispatchEvent(new Event(OPEN_SHORTCUTS_EVENT)), 0); } },
       { id: "a-light", group: "Acciones", label: "Apariencia: claro", icon: Sun, run: () => { setTheme("light"); close(); } },
       { id: "a-dark", group: "Acciones", label: "Apariencia: oscuro", icon: Moon, run: () => { setTheme("dark"); close(); } },
     ];

@@ -24,6 +24,7 @@ import { Map3DLazy, MapLoading } from "@/components/map/map-3d-lazy";
 import { useMapData } from "@/components/map/use-map-data";
 import { useApp } from "@/components/providers";
 import { ExportActions } from "@/components/shipments/export-actions";
+import { RouteChain } from "@/components/shipments/route-chain";
 import { ModeChain, ModeIcon, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -140,6 +141,10 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
         <Kpi icon={<Route />} label="Distancia" value={s.distance_fmt} hint={`${Math.round(s.progress_pct)} % recorrido`} />
         <Kpi icon={<Weight />} label="Carga" value={s.weight_fmt} hint={PRIORITIES[s.priority]} />
       </div>
+
+      <section aria-label="Ruta del envío" className="glass rounded-3xl p-5">
+        <RouteChain legs={legs} transfers={transfers} progressPct={s.progress_pct} />
+      </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="flex flex-col gap-6">
