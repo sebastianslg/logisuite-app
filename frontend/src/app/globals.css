@@ -317,5 +317,5 @@ textarea:focus-visible {
 
 /* Campo con error de validación: borde rojo (el anillo de foco sigue del color de acento). */
 :is(input, select, textarea)[aria-invalid="true"]:not(:focus-visible) {
-  border-color: var(--destructive);
+  border-color: var(--color-destructive);
 }
