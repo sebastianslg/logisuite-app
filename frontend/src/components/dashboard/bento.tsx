@@ -1,9 +1,8 @@
 "use client";
 
 import { motion, type HTMLMotionProps } from "framer-motion";
+import { EASE as ease, hoverLift } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-
-const ease = [0.22, 1, 0.36, 1] as const;
 
 /** Contenedor de la cuadrícula: escalona la entrada de sus celdas. */
 export function BentoGrid({ className, children }: { className?: string; children: React.ReactNode }) {
@@ -11,7 +10,7 @@ export function BentoGrid({ className, children }: { className?: string; childre
     <motion.div
       initial="hidden"
       animate="show"
-      variants={{ show: { transition: { staggerChildren: 0.03 } } }}
+      variants={{ show: { transition: { staggerChildren: 0.05 } } }}
       className={cn("grid grid-cols-1 gap-4 md:grid-cols-6 xl:grid-cols-12", className)}
     >
       {children}
@@ -20,11 +19,11 @@ export function BentoGrid({ className, children }: { className?: string; childre
 }
 
 const cellVariants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: 0.25, ease } },
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease } },
 };
 
-/** Celda del dashboard: superficie de tarjeta agrupada sobre el fondo, sin borde ni brillo. */
+/** Panel principal del dashboard: vidrio de 24 px de radio. */
 export function BentoCell({
   className,
   children,
@@ -44,13 +43,13 @@ export function BentoCell({
     <motion.section
       variants={cellVariants}
       className={cn(
-        "relative flex flex-col overflow-hidden rounded-lg bg-card ring-1 ring-border",
+        "glass relative flex flex-col overflow-hidden rounded-3xl",
         className,
       )}
       {...props}
     >
       {(title || action) && (
-        <header className="flex items-start justify-between gap-3 px-5 pt-5">
+        <header className="flex items-start justify-between gap-3 px-5 pt-5 pb-4">
           <div className="flex min-w-0 items-center gap-2.5">
             {icon && (
               <span className="flex size-7 items-center justify-center rounded-md bg-fill text-muted-foreground [&_svg]:size-4">
@@ -83,7 +82,7 @@ export function KpiCard({
   className,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   /** Elemento ya renderizado (ej. <Gauge />). */
   icon: React.ReactNode;
   /** Color de estado opcional (variable CSS). */
@@ -94,7 +93,8 @@ export function KpiCard({
   return (
     <motion.div
       variants={cellVariants}
-      className={cn("relative rounded-lg bg-card p-5 ring-1 ring-border", className)}
+      whileHover={hoverLift}
+      className={cn("glass relative rounded-2xl p-5", className)}
     >
       <div className="flex items-start justify-between">
         <span className="text-sm font-medium text-muted-foreground">{label}</span>

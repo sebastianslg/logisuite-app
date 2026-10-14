@@ -23,10 +23,11 @@ import { useMapData } from "./use-map-data";
 import { ModeChain, ModeIcon } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { MODE_ORDER, MODES, PRIORITIES, tint } from "@/lib/modes";
+import { T_FAST, T_VIEW, hoverLift } from "@/lib/motion";
 import type { CityOption, Mode, Priority, SimulateResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const spring = { type: "spring", stiffness: 420, damping: 34 } as const;
+const spring = T_FAST;
 
 export function NetworkExplorer() {
   const { network, departments, fleet, error } = useMapData();
@@ -107,7 +108,7 @@ export function NetworkExplorer() {
 
       {/* Encabezado */}
       <div className="pointer-events-none absolute top-0 right-0 left-0 flex flex-wrap items-start justify-between gap-3 p-3 md:p-6">
-        <h1 className="material pointer-events-auto rounded-xl border border-border px-4 py-2 text-xl font-bold tracking-tight">
+        <h1 className="glass pointer-events-auto rounded-2xl px-4 py-2 text-xl font-bold">
           Red multimodal
         </h1>
         <LayerPanel
@@ -125,8 +126,8 @@ export function NetworkExplorer() {
       <motion.aside
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="material absolute inset-x-3 bottom-3 z-10 flex max-h-[58%] flex-col overflow-hidden rounded-2xl border border-border shadow-xl md:inset-x-auto md:top-24 md:bottom-6 md:left-6 md:max-h-none md:w-[380px]"
+        transition={T_VIEW}
+        className="glass absolute inset-x-3 bottom-3 z-10 flex max-h-[58%] flex-col overflow-hidden rounded-3xl md:inset-x-auto md:top-24 md:bottom-6 md:left-6 md:max-h-none md:w-[380px]"
       >
         <div className="shrink-0 border-b border-border p-4 md:p-5">
           <div className="flex items-center gap-2 text-[0.9375rem] font-semibold">
@@ -164,7 +165,7 @@ export function NetworkExplorer() {
                       aria-checked={priority === p}
                       onClick={() => setPriority(p)}
                       className={cn(
-                        "relative h-8 flex-1 rounded text-sm outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-10",
+                        "relative h-8 flex-1 rounded text-sm outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-10",
                         priority === p ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                       )}
                     >
@@ -231,7 +232,7 @@ export function NetworkExplorer() {
         </div>
       </motion.aside>
 
-      <div className="material pointer-events-none absolute right-6 bottom-6 hidden rounded-lg border border-border px-4 py-3 md:block">
+      <div className="glass pointer-events-none absolute right-6 bottom-6 hidden rounded-2xl px-4 py-3 md:block">
         <MapLegend />
       </div>
     </div>
@@ -332,7 +333,7 @@ function RouteResultView({
               initial={{ opacity: 0, x: -6 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: idx * 0.06 }}
-              className="flex gap-3 rounded-md bg-fill p-3"
+              className="flex gap-3 rounded-2xl bg-fill p-3"
             >
               <ModeIcon mode={r.legs[s.i].mode} />
               <div className="min-w-0 flex-1">
@@ -379,7 +380,7 @@ function RouteResultView({
               disabled={!a.found}
               onClick={() => onPick(a.priority)}
               className={cn(
-                "flex items-center gap-3 rounded-md border px-3 py-2 text-left text-sm outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50",
+                "flex items-center gap-3 rounded-md border px-3 py-2 text-left text-sm outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50",
                 a.priority === r.priority
                   ? "border-primary/40 bg-primary/10"
                   : "border-border hover:bg-fill/60",
@@ -407,13 +408,13 @@ function RouteResultView({
 
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-md bg-fill p-3">
+    <motion.div whileHover={hoverLift} className="glass rounded-2xl p-3">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground [&_svg]:size-3">
         {icon}
         {label}
       </div>
       <div className="tabular mt-1 text-base font-semibold tracking-tight">{value}</div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -435,7 +436,7 @@ function LayerPanel({
   fleetCount: number;
 }) {
   return (
-    <div className="material pointer-events-auto flex flex-wrap items-center gap-1 rounded-xl border border-border p-1">
+    <div className="glass pointer-events-auto flex flex-wrap items-center gap-1 rounded-2xl p-1">
       {MODE_ORDER.map((m) => {
         const { icon: Icon, color, label } = MODES[m];
         const on = modes.has(m);
@@ -447,7 +448,7 @@ function LayerPanel({
             aria-pressed={on}
             title={label}
             aria-label={label}
-            className={cn("flex size-8 items-center justify-center rounded-md outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:size-11", !on && "opacity-50")}
+            className={cn("flex size-8 items-center justify-center rounded-md outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:size-11", !on && "opacity-50")}
             style={on ? { backgroundColor: tint(color, 14) } : undefined}
           >
             <Icon className="size-4" style={{ color }} />
@@ -478,7 +479,7 @@ function ToggleChip({
       onClick={onClick}
       aria-pressed={on}
       className={cn(
-        "flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11 [&_svg]:size-3.5",
+        "flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11 [&_svg]:size-3.5",
         on ? "bg-fill text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
     >

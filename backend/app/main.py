@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field
 from app.api import format as F
 from app.api import serializers as S
 from app.database.db import run_query
-from app.engine import geo, telemetry
+from app.engine import geo, sustainability as SU, telemetry
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
 
@@ -261,3 +261,104 @@ def dashboard_summary() -> dict:
         "network": {"nodes": len(network().nodes), "links": len(network().links),
                     "modes": S.network_geojson(network())["stats"]},
     }
+
+
+# ---------------------------------------------------------------------------
+# Logística verde: combustible y huella de carbono (estimación por factores de modo)
+# ---------------------------------------------------------------------------
+@app.get("/api/sustainability/summary")
+def sustainability_summary(days: int = 30) -> dict:
+    """CO2e y combustible de los últimos `days` días, por modo, envío y día."""
+    now = _sync()
+    days = max(1, min(days, 365))
+    rows = _recent_shipments(now, days)
+    by_mode = {m: {"tkm": 0.0, "co2e_kg": 0.0, "fuel_l": 0.0} for m in SU.MODE_ORDER}
+    per_day = {(now - timedelta(days=d)).date(): 0.0 for d in range(13, -1, -1)}
+    per_shipment = []
+    for r in rows:
+        e = SU.shipment_emissions(json.loads(r["route_json"]), r["weight_t"])
+        for m, v in e["by_mode"].items():
+            for k, x in v.items():
+                by_mode[m][k] += x
+        d = datetime.fromisoformat(r["departure_at"]).date()
+        if d in per_day:
+            per_day[d] += e["co2e_kg"]
+        per_shipment.append({"r": r, "e": e})
+
+    tkm = sum(v["tkm"] for v in by_mode.values())
+    co2 = sum(v["co2e_kg"] for v in by_mode.values())
+    fuel = sum(v["fuel_l"] for v in by_mode.values())
+    base = SU.road_baseline(tkm)
+    saved_pct = 100 * (base["co2e_kg"] - co2) / base["co2e_kg"] if base["co2e_kg"] else 0.0
+    fuel_ratio = 100 * fuel / base["fuel_l"] if base["fuel_l"] else 0.0
+
+    modes = []
+    for m in SU.MODE_ORDER:
+        v, f = by_mode[m], SU.FACTORS[m]
+        modes.append({
+            "mode": m, "label": F.MODE_LABELS[m], "fuel_type": f.fuel,
+            "tkm": round(v["tkm"]), "tkm_fmt": F.number(v["tkm"] / 1e6, 2) + " M t-km",
+            "co2e_kg": round(v["co2e_kg"]), "co2e_fmt": F.tons_fmt(v["co2e_kg"] / 1000),
+            "fuel_l": round(v["fuel_l"]), "fuel_fmt": F.number(v["fuel_l"]) + " L",
+            "intensity_g_tkm": f.g_co2e_per_tkm,
+            "co2e_share_pct": F.pct(100 * v["co2e_kg"] / co2) if co2 else 0.0,
+        })
+    top = sorted(per_shipment, key=lambda x: -x["e"]["co2e_kg"])[:6]
+    return {
+        "generated_at": now.isoformat(timespec="seconds"),
+        "window_days": days, "shipments": len(rows),
+        "totals": {
+            "co2e_kg": round(co2), "co2e_fmt": F.tons_fmt(co2 / 1000),
+            "fuel_l": round(fuel), "fuel_fmt": F.number(fuel) + " L",
+            "tkm": round(tkm), "tkm_fmt": F.number(tkm / 1e6, 2) + " M t-km",
+            "intensity_g_tkm": round(1000 * co2 / tkm, 1) if tkm else 0.0,
+            "baseline_co2e_fmt": F.tons_fmt(base["co2e_kg"] / 1000),
+            "baseline_fuel_fmt": F.number(base["fuel_l"]) + " L",
+            # Positivo = la multimodalidad emite menos que mover todo por carretera
+            "saved_vs_road_pct": F.pct(saved_pct),
+            "fuel_vs_road_pct": F.pct(fuel_ratio),
+        },
+        "by_mode": modes,
+        "co2e_14d": [{"date": d.isoformat(), "co2e_kg": round(v)} for d, v in per_day.items()],
+        "top_emitters": [{
+            "code": x["r"]["shipment_code"],
+            "route": f"{x['r']['origin_city']} → {x['r']['dest_city']}",
+            "modes": x["r"]["modes"].split(","),
+            "co2e_kg": round(x["e"]["co2e_kg"]), "co2e_fmt": F.tons_fmt(x["e"]["co2e_kg"] / 1000),
+            "fuel_fmt": F.number(x["e"]["fuel_l"]) + " L",
+        } for x in top],
+        "method": {
+            "note": "Estimación por factores de intensidad por modo (pozo a rueda); no es un inventario certificado.",
+            "factors": [{"mode": m, "g_co2e_per_tkm": SU.FACTORS[m].g_co2e_per_tkm,
+                         "fuel": SU.FACTORS[m].fuel} for m in SU.MODE_ORDER],
+        },
+    }
+
+
+@app.get("/api/sustainability/fuel-live")
+def sustainability_fuel_live() -> dict:
+    """Telemetría de combustible por activo en tránsito (consumido y restante estimados)."""
+    now = _sync()
+    assets = []
+    for item in telemetry.live_fleet(now):
+        s, st, lg = item["shipment"], item["state"], item["leg"]
+        fb = SU.fuel_burned(item["route"], s["weight_t"], st["route_h"])
+        mode = lg["mode"]
+        asset = lg.get("asset", {})
+        assets.append({
+            "id": asset.get("id", s["shipment_code"]), "shipment_code": s["shipment_code"],
+            "mode": mode, "mode_label": F.MODE_LABELS[mode], "fuel_type": SU.FACTORS[mode].fuel,
+            "origin": s["origin_city"], "destination": s["dest_city"],
+            "progress_pct": F.pct(st["progress"] * 100),
+            "burned_l": round(fb["burned_l"]), "total_l": round(fb["total_l"]),
+            "burned_pct": F.pct(100 * fb["burned_l"] / fb["total_l"]) if fb["total_l"] else 0.0,
+            "co2e_kg": round(fb["total_l"] * SU.FACTORS[mode].kg_co2e_per_l),
+        })
+    assets.sort(key=lambda a: -a["burned_l"])
+    burned = sum(a["burned_l"] for a in assets)
+    total = sum(a["total_l"] for a in assets)
+    return {"generated_at": now.isoformat(timespec="seconds"), "count": len(assets),
+            "burned_l": burned, "burned_fmt": F.number(burned) + " L",
+            "total_l": total, "total_fmt": F.number(total) + " L",
+            "burned_pct": F.pct(100 * burned / total) if total else 0.0,
+            "assets": assets}

@@ -42,7 +42,7 @@ export function NetworkMapCard({ network: stats }: { network: DashboardSummary["
           <MapLegend />
           <Link
             href="/red"
-            className="pointer-events-auto inline-flex shrink-0 items-center gap-1.5 rounded-md bg-solid px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-solid/90 focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none"
+            className="pointer-events-auto inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-solid px-3 py-1.5 text-sm font-medium text-primary-foreground press hover:bg-solid/90 focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none"
           >
             Simulador de rutas
             <ArrowUpRight className="size-3.5" />

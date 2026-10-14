@@ -1,14 +1,16 @@
 @import "tailwindcss";
 
 /*
- * Sistema de diseño de LogiSuite, basado en las Human Interface Guidelines de Apple.
+ * Sistema de diseño de LogiSuite: app ejecutiva nativa (macOS Sequoia / iPadOS),
+ * basada en las Human Interface Guidelines de Apple.
  *
- * - Colores semánticos (por rol, no por matiz) que se adaptan a modo claro y oscuro
- *   según el sistema; no hay interruptor de apariencia propio.
+ * - Colores semánticos que se adaptan a modo claro y oscuro según el sistema.
  * - Un color significa una sola cosa: azul = interactivo; verde/naranja/rojo = estado;
  *   los colores de modo de transporte solo identifican el modo.
- * - Tipografía del sistema (SF Pro en Apple) y tamaños que respetan el zoom del usuario.
- * - El vidrio/blur se reserva a la capa flotante funcional (barra lateral, paneles del mapa).
+ * - Movimiento "Apple": una sola curva (--ease-apple), 0,3 s en interacciones y 0,5 s en
+ *   entradas de vista; presión real en :active y elevación en hover.
+ * - Materiales de vidrio (.glass) sobre un fondo con color suave para que el desenfoque
+ *   tenga qué desenfocar; con "reducir transparencia" se vuelven superficies opacas.
  */
 :root {
   --background: #f2f2f7;
@@ -19,6 +21,22 @@
   --separator-strong: rgb(60 60 67 / 0.26);
   --fill: rgb(120 120 128 / 0.1);
   --sidebar: rgb(246 246 250 / 0.82);
+
+  /* Materiales de vidrio */
+  --glass: rgb(255 255 255 / 0.65);
+  --glass-border: rgb(255 255 255 / 0.3);
+  --glass-shadow: 0 4px 24px rgb(0 0 0 / 0.04), 0 1px 2px rgb(0 0 0 / 0.02), 0 0 0 0.5px rgb(0 0 0 / 0.05);
+  --glass-shadow-lift: 0 16px 48px rgb(0 0 0 / 0.14), 0 2px 8px rgb(0 0 0 / 0.06), 0 0 0 0.5px rgb(0 0 0 / 0.06);
+  --backdrop:
+    radial-gradient(60% 45% at 12% 0%, rgb(0 122 255 / 0.1), transparent 70%),
+    radial-gradient(45% 40% at 92% 8%, rgb(175 82 222 / 0.08), transparent 70%),
+    radial-gradient(50% 40% at 70% 100%, rgb(52 199 89 / 0.07), transparent 70%);
+
+  /* Colores del sistema de Apple, para relleno y gráficos (no para texto pequeño sobre claro) */
+  --sys-blue: #007aff;
+  --sys-green: #34c759;
+  --sys-red: #ff3b30;
+  --sys-orange: #ff9500;
 
   --accent: #0066cc; /* texto/íconos interactivos: 5,6:1 sobre blanco */
   --accent-solid: #0066cc; /* relleno de botones con texto blanco: 5,6:1 */
@@ -49,6 +67,21 @@
     --fill: rgb(120 120 128 / 0.24);
     --sidebar: rgb(28 28 30 / 0.78);
 
+    /* rgba(0,0,0,.4) sobre fondo negro sería invisible: el vidrio oscuro es un gris translúcido */
+    --glass: rgb(44 44 46 / 0.55);
+    --glass-border: rgb(255 255 255 / 0.1);
+    --glass-shadow: 0 4px 24px rgb(0 0 0 / 0.35), 0 1px 2px rgb(0 0 0 / 0.3), 0 0 0 0.5px rgb(255 255 255 / 0.08);
+    --glass-shadow-lift: 0 16px 48px rgb(0 0 0 / 0.6), 0 2px 8px rgb(0 0 0 / 0.4), 0 0 0 0.5px rgb(255 255 255 / 0.14);
+    --backdrop:
+      radial-gradient(60% 45% at 12% 0%, rgb(10 132 255 / 0.2), transparent 70%),
+      radial-gradient(45% 40% at 92% 8%, rgb(191 90 242 / 0.14), transparent 70%),
+      radial-gradient(50% 40% at 70% 100%, rgb(48 209 88 / 0.1), transparent 70%);
+
+    --sys-blue: #0a84ff;
+    --sys-green: #30d158;
+    --sys-red: #ff453a;
+    --sys-orange: #ff9f0a;
+
     --accent: #4da3ff; /* 6,5:1 sobre #1c1c1e */
     --accent-solid: #0b63ce; /* texto blanco encima: 5,7:1 */
     --accent-foreground: #ffffff;
@@ -76,6 +109,10 @@
   --color-muted: var(--fill);
   --color-muted-foreground: var(--muted-foreground);
   --color-fill: var(--fill);
+  --color-sys-blue: var(--sys-blue);
+  --color-sys-green: var(--sys-green);
+  --color-sys-red: var(--sys-red);
+  --color-sys-orange: var(--sys-orange);
 
   --color-border: var(--separator);
   --color-border-strong: var(--separator-strong);
@@ -91,9 +128,11 @@
   --color-info: var(--info);
 
   /* Tipografía del sistema: SF Pro en Apple, la fuente nativa en el resto */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, "Segoe UI",
-    Roboto, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui,
+    "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  --ease-apple: cubic-bezier(0.16, 1, 0.3, 1);
 
   --radius-lg: 0.875rem;
   --radius-md: 0.625rem;
@@ -111,8 +150,21 @@
     font-family: var(--font-sans);
     font-size: 0.9375rem; /* 15 px: legible en pantalla y escala con el zoom */
     line-height: 1.45;
+    letter-spacing: -0.011em;
+    background-image: var(--backdrop);
+    background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+  }
+
+  /* Large Titles y títulos: kerning de Apple */
+  h1 {
+    letter-spacing: -0.022em;
+  }
+  h2,
+  h3 {
+    letter-spacing: -0.018em;
   }
 
   ::selection {
@@ -131,7 +183,57 @@
   backdrop-filter: saturate(180%) blur(24px);
 }
 
+/* Vidrio de contenido: tarjetas y paneles. 16 px en tarjetas interiores, 24 px en paneles. */
+@utility glass {
+  background-color: var(--glass);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  backdrop-filter: blur(30px) saturate(150%);
+}
+
+/* Presión real: se hunde al instante en :active y recupera con el resorte suave */
+@utility press {
+  transition:
+    transform 0.3s var(--ease-apple),
+    background-color 0.3s var(--ease-apple),
+    color 0.3s var(--ease-apple),
+    box-shadow 0.3s var(--ease-apple),
+    opacity 0.3s var(--ease-apple);
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+    transition-duration: 0.08s;
+  }
+}
+
+/* Elevación al pasar el cursor (para elementos que no animan transform con framer-motion) */
+@utility lift {
+  transition:
+    transform 0.3s var(--ease-apple),
+    box-shadow 0.3s var(--ease-apple);
+  &:hover {
+    transform: scale(1.02) translateY(-2px);
+    box-shadow: var(--glass-shadow-lift);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press,
+  .lift {
+    transition: none;
+  }
+  .press:active:not(:disabled),
+  .lift:hover {
+    transform: none;
+  }
+}
+
 @media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background-color: var(--color-card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
   .material {
     background-color: var(--color-card);
     -webkit-backdrop-filter: none;

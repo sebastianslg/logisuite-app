@@ -6,7 +6,11 @@ import { Radio } from "lucide-react";
 
 import { ModeIcon, StatusBadge } from "@/components/status-badge";
 import { MODE_ORDER, MODES } from "@/lib/modes";
+import { EASE, T_FAST } from "@/lib/motion";
 import type { FleetLive } from "@/lib/types";
+
+/** Sombra de elevación contenida (el <li> recorta lo que sobresale de su caja). */
+const ROW_LIFT = "0 6px 16px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)";
 
 const REFRESH_MS = 20_000;
 
@@ -36,7 +40,7 @@ export function LiveFleet({ initial }: { initial: FleetLive }) {
           return (
             <div
               key={m}
-              className="flex flex-col items-center gap-1 rounded-md bg-fill py-2"
+              className="flex flex-col items-center gap-1 rounded-2xl bg-fill py-2"
               title={MODES[m].label}
             >
               <Icon className="size-4" style={{ color: MODES[m].color }} />
@@ -45,36 +49,42 @@ export function LiveFleet({ initial }: { initial: FleetLive }) {
           );
         })}
       </div>
-      <ul className="flex flex-col divide-y divide-border">
+      <ul className="-mx-2.5 flex flex-col">
         <AnimatePresence initial={false}>
           {assets.map((a) => (
             <motion.li
               key={a.shipment_code}
-              layout
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex items-center gap-3 py-2.5"
+              layout="position"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.5, ease: EASE, layout: T_FAST }}
+              className="overflow-hidden px-2.5"
             >
-              <ModeIcon mode={a.mode} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="truncate font-medium">{a.id}</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {a.origin} → {a.destination}
-                  </span>
+              <motion.div
+                whileHover={{ scale: 1.02, y: -2, boxShadow: ROW_LIFT, transition: T_FAST }}
+                className="my-1 flex items-center gap-3 rounded-2xl bg-fill px-3 py-2.5"
+              >
+                <ModeIcon mode={a.mode} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="truncate font-medium">{a.id}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {a.origin} → {a.destination}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1 w-full rounded-full bg-fill">
+                    <motion.div
+                      className="h-full rounded-full"
+                      style={{ backgroundColor: MODES[a.mode].color }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${a.progress_pct}%` }}
+                      transition={{ duration: 0.8, ease: EASE }}
+                    />
+                  </div>
                 </div>
-                <div className="mt-1.5 h-1 w-full rounded-full bg-fill">
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: MODES[a.mode].color }}
-                    initial={false}
-                    animate={{ width: `${a.progress_pct}%` }}
-                    transition={{ duration: 0.6 }}
-                  />
-                </div>
-              </div>
-              <StatusBadge status={a.status} className="hidden 2xl:inline-flex" />
+                <StatusBadge status={a.status} className="hidden 2xl:inline-flex" />
+              </motion.div>
             </motion.li>
           ))}
         </AnimatePresence>
