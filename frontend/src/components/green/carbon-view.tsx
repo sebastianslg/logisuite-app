@@ -6,6 +6,10 @@ import { BarChart3, Cloud, Factory, Info, Leaf, Scale, Wind } from "lucide-react
 
 import { BentoCell, BentoGrid, KpiCard } from "@/components/dashboard/bento";
 import { ChartTooltip } from "@/components/dashboard/chart-tooltip";
+import { ModeFootprintTable } from "@/components/green/mode-footprint-table";
+import { DetailTable } from "@/components/ui/detail-table";
+import { Sheet } from "@/components/ui/sheet";
+import Link from "next/link";
 import { ModeChain } from "@/components/status-badge";
 import { CountUp } from "@/components/ui/count-up";
 import { Dial, EcoBar } from "@/components/ui/dial";
@@ -13,11 +17,14 @@ import { MODES } from "@/lib/modes";
 import { EASE, T_FAST } from "@/lib/motion";
 import type { SustainabilitySummary } from "@/lib/types";
 
+const MotionLink = motion.create(Link);
 const ROW_LIFT = "0 6px 16px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)";
 
 /** Huella de carbono (CO₂e): total, eco-eficiencia frente a carretera, intensidad por modo y mayores emisores. */
 export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
   const t = summary.totals;
+  const [sheet, setSheet] = useState<null | "modes" | "days" | "eco">(null);
+  const close = () => setSheet(null);
   const saved = t.saved_vs_road_pct;
   const maxIntensity = Math.max(1, ...summary.by_mode.map((m) => m.intensity_g_tkm));
 
@@ -39,6 +46,7 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
       />
       <KpiCard
         className="md:col-span-3 xl:col-span-3"
+        href="/envios"
         label="Frente a todo por carretera"
         value={<CountUp value={saved} decimals={1} suffix=" %" />}
         icon={<Scale />}
@@ -47,6 +55,7 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
       />
       <KpiCard
         className="md:col-span-3 xl:col-span-3"
+        href="/combustible"
         label="Combustible asociado"
         value={<CountUp value={t.fuel_l} suffix=" L" />}
         icon={<Wind />}
@@ -58,6 +67,7 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
         title="Eco-eficiencia"
         description="Menos CO₂e que mover todo por camión"
         icon={<Leaf />}
+        onOpen={() => setSheet("eco")}
       >
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-5 pb-6">
           <Dial
@@ -81,6 +91,7 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
         title="Intensidad por modo"
         description="g de CO₂e por tonelada-kilómetro"
         icon={<BarChart3 />}
+        onOpen={() => setSheet("modes")}
       >
         <ul className="flex flex-col gap-4 px-5 pb-5">
           {[...summary.by_mode]
@@ -106,6 +117,7 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
         title="Emisiones por modo"
         description="Participación en el total"
         icon={<Cloud />}
+        onOpen={() => setSheet("modes")}
       >
         <ul className="flex flex-col gap-4 px-5 pb-5">
           {summary.by_mode.map((m, i) => {
@@ -132,6 +144,7 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
         title="Emisiones por día"
         description="kg de CO₂e por fecha de despacho, 14 días"
         icon={<BarChart3 />}
+        onOpen={() => setSheet("days")}
       >
         <Co2Trend data={summary.co2e_14d} />
       </BentoCell>
@@ -145,9 +158,11 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
         <ul className="-mx-2.5 flex flex-col px-5 pb-4">
           {summary.top_emitters.map((e) => (
             <li key={e.code} className="px-0">
-              <motion.div
+              <MotionLink
+                href={`/envios/${e.code}`}
+                aria-label={`${e.route}, ${e.co2e_fmt} de CO₂e. Ver envío ${e.code}`}
                 whileHover={{ scale: 1.02, y: -2, boxShadow: ROW_LIFT, transition: T_FAST }}
-                className="my-1 flex items-center gap-3 rounded-2xl bg-fill px-3 py-2.5"
+                className="my-1 flex cursor-pointer items-center gap-3 rounded-2xl bg-fill px-3 py-2.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{e.route}</div>
@@ -160,7 +175,7 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
                   <div className="text-sm font-semibold">{e.co2e_fmt} CO₂e</div>
                   <div className="text-xs text-muted-foreground">{e.fuel_fmt}</div>
                 </div>
-              </motion.div>
+              </MotionLink>
             </li>
           ))}
         </ul>
@@ -183,6 +198,41 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
           </ul>
         </div>
       </BentoCell>
+      <Sheet open={sheet === "modes"} onClose={close} title="Huella por modo" description={`Últimos ${summary.window_days} días`}>
+        <ModeFootprintTable rows={summary.by_mode} csvName="huella-por-modo" />
+        <p className="mt-3 text-xs text-muted-foreground">{summary.method.note}</p>
+      </Sheet>
+      <Sheet open={sheet === "days"} onClose={close} title="Emisiones por día" description="kg de CO₂e por fecha de despacho">
+        <DetailTable
+          csvName="emisiones-por-dia"
+          getKey={(d) => d.date}
+          rows={[...summary.co2e_14d].reverse()}
+          columns={[
+            { key: "d", label: "Fecha", render: (d) => new Date(`${d.date}T12:00:00`).toLocaleDateString("es-CO", { weekday: "short", day: "numeric", month: "short" }), csv: (d) => d.date },
+            { key: "k", label: "kg CO₂e", align: "right", render: (d) => d.co2e_kg.toLocaleString("es-CO"), csv: (d) => d.co2e_kg },
+          ]}
+        />
+      </Sheet>
+      <Sheet open={sheet === "eco"} onClose={close} title="Eco-eficiencia" description="Cómo se compara con mover todo por camión">
+        <dl className="grid grid-cols-2 gap-3 text-sm">
+          {[
+            ["Emisión actual", t.co2e_fmt],
+            ["Si todo fuera por carretera", t.baseline_co2e_fmt],
+            ["Diferencia", `${saved >= 0 ? "−" : "+"}${Math.abs(saved).toLocaleString("es-CO", { maximumFractionDigits: 1 })} %`],
+            ["Intensidad media", `${t.intensity_g_tkm.toLocaleString("es-CO")} g/t-km`],
+          ].map(([k, v]) => (
+            <div key={k} className="rounded-2xl bg-fill p-3">
+              <dt className="text-xs text-muted-foreground">{k}</dt>
+              <dd className="tabular mt-1 text-lg font-bold">{v}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-3 text-sm text-muted-foreground">
+          La referencia mueve las mismas toneladas-kilómetro por camión (80 g CO₂e/t-km). El porcentaje positivo indica cuánto
+          evita la mezcla de modos actual.
+        </p>
+        <Link href="/envios" className="mt-3 inline-block text-sm text-primary hover:underline">Ver los envíos que componen la huella</Link>
+      </Sheet>
     </BentoGrid>
   );
 }

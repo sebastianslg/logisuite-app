@@ -2,7 +2,13 @@
 
 import { Activity, Fuel, Gauge, Route, Scale } from "lucide-react";
 
+import { useState } from "react";
+import Link from "next/link";
+
 import { BentoCell, BentoGrid, KpiCard } from "@/components/dashboard/bento";
+import { ModeFootprintTable } from "@/components/green/mode-footprint-table";
+import { DetailTable } from "@/components/ui/detail-table";
+import { Sheet } from "@/components/ui/sheet";
 import { FuelAssets, FuelDial, FuelEmpty, useFuelLive } from "@/components/green/fuel-telemetry";
 import { CountUp } from "@/components/ui/count-up";
 import { Dial, EcoBar } from "@/components/ui/dial";
@@ -12,6 +18,8 @@ import type { FuelLive, SustainabilitySummary } from "@/lib/types";
 /** Telemetría de combustible: consumo en vivo por activo, por modo y frente a la línea base de carretera. */
 export function FuelView({ summary, initial }: { summary: SustainabilitySummary; initial: FuelLive }) {
   const live = useFuelLive(initial);
+  const [sheet, setSheet] = useState<null | "modes" | "assets" | "road">(null);
+  const close = () => setSheet(null);
   const t = summary.totals;
   const maxFuel = Math.max(1, ...summary.by_mode.map((m) => m.fuel_l));
   const overRoad = t.fuel_vs_road_pct > 100;
@@ -20,6 +28,7 @@ export function FuelView({ summary, initial }: { summary: SustainabilitySummary;
     <BentoGrid>
       <KpiCard
         className="md:col-span-3 xl:col-span-3"
+        href="/huella"
         label={`Combustible (${summary.window_days} días)`}
         value={<CountUp value={t.fuel_l} suffix=" L" />}
         icon={<Fuel />}
@@ -54,6 +63,7 @@ export function FuelView({ summary, initial }: { summary: SustainabilitySummary;
         title="Consumo en curso"
         description="Combustible quemado sobre el proyectado"
         icon={<Gauge />}
+        onOpen={() => setSheet("assets")}
       >
         <FuelDial live={live} />
       </BentoCell>
@@ -63,6 +73,7 @@ export function FuelView({ summary, initial }: { summary: SustainabilitySummary;
         title="Combustible por modo"
         description={`Últimos ${summary.window_days} días`}
         icon={<Fuel />}
+        onOpen={() => setSheet("modes")}
       >
         <ul className="flex flex-col gap-4 px-5 pb-5">
           {summary.by_mode.map((m, i) => {
@@ -87,6 +98,7 @@ export function FuelView({ summary, initial }: { summary: SustainabilitySummary;
         title="Frente a carretera"
         description="100 % = todo por camión"
         icon={<Scale />}
+        onOpen={() => setSheet("road")}
       >
         <div className="flex flex-1 items-center justify-center px-5 pb-6">
           <Dial
@@ -107,6 +119,51 @@ export function FuelView({ summary, initial }: { summary: SustainabilitySummary;
       >
         {live.assets.length ? <FuelAssets live={live} /> : <FuelEmpty />}
       </BentoCell>
+      <Sheet open={sheet === "modes"} onClose={close} title="Combustible por modo" description={`Últimos ${summary.window_days} días`}>
+        <ModeFootprintTable rows={summary.by_mode} csvName="combustible-por-modo" />
+      </Sheet>
+      <Sheet open={sheet === "assets"} onClose={close} title="Consumo por activo" description={`${live.count} activos en tránsito`}>
+        <DetailTable
+          csvName="combustible-activos"
+          getKey={(a) => a.shipment_code}
+          rows={live.assets}
+          columns={[
+            {
+              key: "a",
+              label: "Activo",
+              render: (a) => (
+                <Link href={`/envios/${a.shipment_code}`} className="font-medium text-primary hover:underline">
+                  {a.id}
+                </Link>
+              ),
+              csv: (a) => a.id,
+            },
+            { key: "r", label: "Ruta", render: (a) => `${a.origin} → ${a.destination}`, csv: (a) => `${a.origin} → ${a.destination}` },
+            { key: "f", label: "Combustible", render: (a) => a.fuel_type, csv: (a) => a.fuel_type },
+            { key: "b", label: "Consumido (L)", align: "right", render: (a) => a.burned_l.toLocaleString("es-CO"), csv: (a) => a.burned_l },
+            { key: "t", label: "Proyectado (L)", align: "right", render: (a) => a.total_l.toLocaleString("es-CO"), csv: (a) => a.total_l },
+            { key: "p", label: "% usado", align: "right", render: (a) => `${a.burned_pct.toLocaleString("es-CO")} %`, csv: (a) => a.burned_pct },
+          ]}
+        />
+      </Sheet>
+      <Sheet open={sheet === "road"} onClose={close} title="Frente a todo por carretera" description="Combustible de la operación vs. la referencia">
+        <dl className="grid grid-cols-2 gap-3 text-sm">
+          {[
+            ["Consumo de la operación", t.fuel_fmt],
+            ["Si todo fuera por carretera", t.baseline_fuel_fmt],
+            ["Relación", `${t.fuel_vs_road_pct.toLocaleString("es-CO", { maximumFractionDigits: 1 })} %`],
+            ["Envíos analizados", String(summary.shipments)],
+          ].map(([k, v]) => (
+            <div key={k} className="rounded-2xl bg-fill p-3">
+              <dt className="text-xs text-muted-foreground">{k}</dt>
+              <dd className="tabular mt-1 text-lg font-bold">{v}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Menos de 100 % significa que la mezcla de modos quema menos combustible que el camión para las mismas toneladas-kilómetro.
+        </p>
+      </Sheet>
     </BentoGrid>
   );
 }

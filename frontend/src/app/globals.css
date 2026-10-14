@@ -56,8 +56,54 @@
   color-scheme: light dark;
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* Oscuro: elegido a mano (data-theme="dark") o heredado del sistema cuando no hay elección */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+    --background: #000000;
+    --foreground: #f5f5f7;
+    --card: #1c1c1e;
+    --muted-foreground: #9a9aa1; /* 5,9:1 sobre #1c1c1e */
+    --separator: rgb(84 84 88 / 0.5);
+    --separator-strong: rgb(84 84 88 / 0.8);
+    --fill: rgb(120 120 128 / 0.24);
+    --sidebar: rgb(28 28 30 / 0.78);
+
+    /* rgba(0,0,0,.4) sobre fondo negro sería invisible: el vidrio oscuro es un gris translúcido */
+    --glass: rgb(44 44 46 / 0.55);
+    --glass-border: rgb(255 255 255 / 0.1);
+    --glass-shadow: 0 4px 24px rgb(0 0 0 / 0.35), 0 1px 2px rgb(0 0 0 / 0.3), 0 0 0 0.5px rgb(255 255 255 / 0.08);
+    --glass-shadow-lift: 0 16px 48px rgb(0 0 0 / 0.6), 0 2px 8px rgb(0 0 0 / 0.4), 0 0 0 0.5px rgb(255 255 255 / 0.14);
+    --backdrop:
+      radial-gradient(60% 45% at 12% 0%, rgb(10 132 255 / 0.2), transparent 70%),
+      radial-gradient(45% 40% at 92% 8%, rgb(191 90 242 / 0.14), transparent 70%),
+      radial-gradient(50% 40% at 70% 100%, rgb(48 209 88 / 0.1), transparent 70%);
+
+    --sys-blue: #0a84ff;
+    --sys-green: #30d158;
+    --sys-red: #ff453a;
+    --sys-orange: #ff9f0a;
+
+    --accent: #4da3ff; /* 6,5:1 sobre #1c1c1e */
+    --accent-solid: #0b63ce; /* texto blanco encima: 5,7:1 */
+    --accent-foreground: #ffffff;
+    --success: #32d74b;
+    --warning: #ff9f0a;
+    --danger: #ff6961;
+    --info: #7d8cff;
+
+    --mode-maritimo: #4a7cf0;
+    --mode-terrestre: #199e70;
+    --mode-aereo: #a173e8;
+    --mode-ferreo: #c98500;
+    --mode-fluvial: #11a4c4;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
     --background: #000000;
     --foreground: #f5f5f7;
     --card: #1c1c1e;
@@ -128,7 +174,7 @@
   --color-info: var(--info);
 
   /* Tipografía del sistema: SF Pro en Apple, la fuente nativa en el resto */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui,
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter Variable", "Inter", system-ui,
     "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 

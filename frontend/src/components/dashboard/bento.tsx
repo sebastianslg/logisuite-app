@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { Maximize2 } from "lucide-react";
 import { motion, type HTMLMotionProps } from "framer-motion";
 import { EASE as ease, hoverLift } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -31,8 +33,11 @@ export function BentoCell({
   description,
   icon,
   action,
+  onOpen,
   ...props
 }: HTMLMotionProps<"section"> & {
+  /** Si se define, el panel completo se puede pulsar (clic, Enter o Espacio) para ampliarlo. */
+  onOpen?: () => void;
   title?: string;
   description?: string;
   /** Elemento ya renderizado (ej. <Radio />): los Server Components no pueden pasar componentes. */
@@ -42,8 +47,24 @@ export function BentoCell({
   return (
     <motion.section
       variants={cellVariants}
+      whileHover={onOpen ? hoverLift : undefined}
+      {...(onOpen
+        ? {
+            role: "button",
+            tabIndex: 0,
+            "aria-label": `Ampliar: ${title ?? "detalle"}`,
+            onClick: onOpen,
+            onKeyDown: (e: React.KeyboardEvent) => {
+              if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                e.preventDefault();
+                onOpen();
+              }
+            },
+          }
+        : {})}
       className={cn(
-        "glass relative flex flex-col overflow-hidden rounded-3xl",
+        "glass relative flex flex-col overflow-hidden rounded-3xl outline-none",
+        onOpen && "cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/50",
         className,
       )}
       {...props}
@@ -62,12 +83,19 @@ export function BentoCell({
             </div>
           </div>
           {action}
+          {onOpen && !action && (
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground" aria-hidden>
+              <Maximize2 className="size-3.5" />
+            </span>
+          )}
         </header>
       )}
       {children as React.ReactNode}
     </motion.section>
   );
 }
+
+const MotionLink = motion.create(Link);
 
 /**
  * Tarjeta KPI. El color del ícono solo aparece cuando el KPI corresponde a un
@@ -80,7 +108,10 @@ export function KpiCard({
   accent,
   footnote,
   className,
+  href,
 }: {
+  /** Destino al pulsar la tarjeta (lista filtrada, detalle…). */
+  href?: string;
   label: string;
   value: React.ReactNode;
   /** Elemento ya renderizado (ej. <Gauge />). */
@@ -90,11 +121,17 @@ export function KpiCard({
   footnote?: React.ReactNode;
   className?: string;
 }) {
+  const Comp = href ? MotionLink : motion.div;
   return (
-    <motion.div
+    <Comp
+      {...(href ? { href } : {})}
       variants={cellVariants}
       whileHover={hoverLift}
-      className={cn("glass relative rounded-2xl p-5", className)}
+      className={cn(
+        "glass relative block rounded-2xl p-5 outline-none",
+        href && "cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        className,
+      )}
     >
       <div className="flex items-start justify-between">
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
@@ -107,6 +144,6 @@ export function KpiCard({
       </div>
       <div className="tabular mt-3 text-3xl font-bold tracking-tight">{value}</div>
       {footnote && <div className="mt-1.5 text-sm text-muted-foreground">{footnote}</div>}
-    </motion.div>
+    </Comp>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
   ArrowDownUp,
@@ -8,40 +10,63 @@ import {
   ChevronDown,
   Clock,
   CircleDollarSign,
+  Cloud,
+  Fuel,
   Layers,
+  ListFilter,
   LoaderCircle,
   Map as MapIcon,
+  PackagePlus,
   Radio,
   Route,
   Weight,
   X,
 } from "lucide-react";
 
+import { CityCombobox } from "./city-combobox";
+import { CategoryFilter, CityDirectory, CityInspector } from "./city-explorer";
+import { CreateShipmentSheet } from "./create-shipment-sheet";
 import { Map3DLazy, MapLoading } from "./map-3d-lazy";
 import { MapLegend } from "./map-legend";
 import { useMapData } from "./use-map-data";
 import { ModeChain, ModeIcon } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { Dial } from "@/components/ui/dial";
+import { Money } from "@/components/ui/money";
 import { MODE_ORDER, MODES, PRIORITIES, tint } from "@/lib/modes";
 import { T_FAST, T_VIEW, hoverLift } from "@/lib/motion";
-import type { CityOption, Mode, Priority, SimulateResponse } from "@/lib/types";
+import type { CityCategory, CityOption, Footprint, Mode, Priority, SimulateResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const spring = T_FAST;
+const ALL_CATEGORIES: CityCategory[] = ["principal", "municipio", "dificil_acceso"];
+
+const asPriority = (v: string | null): Priority => (v === "tiempo" || v === "costo" || v === "balanceado" ? v : "balanceado");
 
 export function NetworkExplorer() {
+  const params = useSearchParams();
   const { network, departments, fleet, error } = useMapData();
   const [cities, setCities] = useState<CityOption[]>([]);
-  const [origin, setOrigin] = useState("Leticia");
-  const [destination, setDestination] = useState("Cartagena");
-  const [priority, setPriority] = useState<Priority>("balanceado");
-  const [weight, setWeight] = useState("5");
+  const [origin, setOrigin] = useState(params.get("origen") ?? "Leticia");
+  const [destination, setDestination] = useState(params.get("destino") ?? "Cartagena");
+  const [priority, setPriority] = useState<Priority>(asPriority(params.get("prioridad")));
+  const [weight, setWeight] = useState(params.get("peso") ?? "5");
   const [result, setResult] = useState<SimulateResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [simError, setSimError] = useState<string | null>(null);
-  const [modes, setModes] = useState<Set<Mode>>(new Set(MODE_ORDER));
+  const [modes, setModes] = useState<Set<Mode>>(() => {
+    const wanted = (params.get("modos") ?? "").split(",").filter((m): m is Mode => (MODE_ORDER as string[]).includes(m));
+    return new Set(wanted.length ? wanted : MODE_ORDER);
+  });
   const [showDepartments, setShowDepartments] = useState(true);
   const [showFleet, setShowFleet] = useState(true);
+  const [categories, setCategories] = useState<Set<CityCategory>>(new Set(ALL_CATEGORIES));
+  const [directoryOpen, setDirectoryOpen] = useState(false);
+  const [inspect, setInspect] = useState<string | null>(params.get("ciudad"));
+  const [focusCity, setFocusCity] = useState<string | null>(params.get("ciudad"));
+  const [createOpen, setCreateOpen] = useState(false);
+  // En pantallas estrechas el panel arranca plegado para dejar ver el mapa; desde md siempre está abierto
+  const [panelOpen, setPanelOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/locations")
@@ -50,7 +75,7 @@ export function NetworkExplorer() {
       .catch(() => undefined);
   }, []);
 
-  async function simulate(p: Priority = priority) {
+  async function simulate(p: Priority = priority): Promise<SimulateResponse | null> {
     setLoading(true);
     setSimError(null);
     try {
@@ -68,15 +93,27 @@ export function NetworkExplorer() {
       if (!res.ok) {
         setSimError(typeof data.detail === "string" ? data.detail : "Datos inválidos");
         setResult(null);
-      } else {
-        setResult(data as SimulateResponse);
+        return null;
       }
+      setResult(data as SimulateResponse);
+      setPanelOpen(true);
+      return data as SimulateResponse;
     } catch {
       setSimError("No se pudo contactar la API");
+      return null;
     } finally {
       setLoading(false);
     }
   }
+
+  // Enlaces "Duplicar envío" (?crear=1&origen=…): simula y abre la hoja de creación
+  useEffect(() => {
+    if (params.get("crear") !== "1") return;
+    const t = setTimeout(() => simulate().then((r) => r && setCreateOpen(true)), 0);
+    return () => clearTimeout(t);
+    // Solo al montar con esos parámetros
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleMode = (m: Mode) =>
     setModes((prev) => {
@@ -87,9 +124,25 @@ export function NetworkExplorer() {
     });
 
   const route = result?.route ?? null;
+  const selectable = useMemo(
+    () => cities.filter((c) => categories.has(c.category) || c.city === origin || c.city === destination),
+    [cities, categories, origin, destination],
+  );
+  const visibleCities = useMemo(
+    () => (categories.size === ALL_CATEGORIES.length ? null : new Set(cities.filter((c) => categories.has(c.category)).map((c) => c.city))),
+    [cities, categories],
+  );
+  const inspected = cities.find((c) => c.city === inspect) ?? null;
+  const weightNum = Number(weight.replace(",", ".")) || 1;
+
+  const pickCity = (city: string) => {
+    setDirectoryOpen(false);
+    setFocusCity(city);
+    setInspect(city);
+  };
 
   return (
-    <div className="relative h-[calc(100dvh-3.5rem)] w-full overflow-hidden md:h-screen">
+    <div className="relative h-[calc(100dvh-6.5rem)] w-full overflow-hidden md:h-[calc(100dvh-3rem)]">
       <div className="absolute inset-0">
         {network && departments ? (
           <Map3DLazy
@@ -100,6 +153,10 @@ export function NetworkExplorer() {
             visibleModes={modes}
             showDepartments={showDepartments}
             showFleet={showFleet}
+            visibleCities={visibleCities}
+            selectedCities={[origin, destination]}
+            focusCity={focusCity}
+            onCityClick={pickCity}
           />
         ) : (
           <MapLoading label={error ?? undefined} />
@@ -108,9 +165,7 @@ export function NetworkExplorer() {
 
       {/* Encabezado */}
       <div className="pointer-events-none absolute top-0 right-0 left-0 flex flex-wrap items-start justify-between gap-3 p-3 md:p-6">
-        <h1 className="glass pointer-events-auto rounded-2xl px-4 py-2 text-xl font-bold">
-          Red multimodal
-        </h1>
+        <h1 className="glass pointer-events-auto rounded-2xl px-4 py-2 text-xl font-bold">Red multimodal</h1>
         <LayerPanel
           modes={modes}
           toggleMode={toggleMode}
@@ -127,16 +182,36 @@ export function NetworkExplorer() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={T_VIEW}
-        className="glass absolute inset-x-3 bottom-3 z-10 flex max-h-[58%] flex-col overflow-hidden rounded-3xl md:inset-x-auto md:top-24 md:bottom-6 md:left-6 md:max-h-none md:w-[380px]"
+        className="glass absolute inset-x-3 bottom-3 z-10 flex max-h-[62%] flex-col overflow-hidden rounded-3xl md:inset-x-auto md:top-24 md:bottom-6 md:left-6 md:max-h-none md:w-[400px]"
       >
         <div className="shrink-0 border-b border-border p-4 md:p-5">
-          <div className="flex items-center gap-2 text-[0.9375rem] font-semibold">
-            <Route className="size-4 text-primary" aria-hidden /> Simulador de rutas
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-[0.9375rem] font-semibold">
+              <Route className="size-4 text-primary" aria-hidden /> Simulador de rutas
+            </div>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="sm" onClick={() => setDirectoryOpen(true)}>
+                <ListFilter /> Ciudades
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                aria-label={panelOpen ? "Plegar el simulador" : "Abrir el simulador"}
+                aria-expanded={panelOpen}
+                onClick={() => setPanelOpen((o) => !o)}
+              >
+                <ChevronDown className={cn("transition-transform duration-300 ease-apple", panelOpen && "rotate-180")} />
+              </Button>
+            </div>
           </div>
-          <div className="mt-4 grid grid-cols-[1fr_auto] items-end gap-2">
+          <div className={cn("mt-3", !panelOpen && "hidden md:block")}>
+            <CategoryFilter cities={cities} value={categories} onChange={setCategories} />
+          </div>
+          <div className={cn("mt-3 grid grid-cols-[1fr_auto] items-end gap-2", !panelOpen && "hidden md:grid")}>
             <div className="flex flex-col gap-2">
-              <CitySelect label="Origen" value={origin} onChange={setOrigin} cities={cities} />
-              <CitySelect label="Destino" value={destination} onChange={setDestination} cities={cities} />
+              <CityCombobox label="Origen" value={origin} onChange={setOrigin} cities={selectable} />
+              <CityCombobox label="Destino" value={destination} onChange={setDestination} cities={selectable} />
             </div>
             <Button
               variant="secondary"
@@ -152,11 +227,11 @@ export function NetworkExplorer() {
             </Button>
           </div>
 
-          <div className="mt-3 grid grid-cols-[1fr_96px] gap-2">
+          <div className={cn("mt-3 grid grid-cols-[1fr_96px] gap-2", !panelOpen && "hidden md:grid")}>
             <div>
               <span className="mb-1 block text-xs text-muted-foreground">Prioridad</span>
               <LayoutGroup id="priority">
-                <div className="flex rounded-md bg-fill p-0.5" role="radiogroup" aria-label="Prioridad">
+                <div className="flex rounded-xl bg-fill p-0.5" role="radiogroup" aria-label="Prioridad">
                   {(Object.keys(PRIORITIES) as Priority[]).map((p) => (
                     <button
                       key={p}
@@ -165,16 +240,12 @@ export function NetworkExplorer() {
                       aria-checked={priority === p}
                       onClick={() => setPriority(p)}
                       className={cn(
-                        "relative h-8 flex-1 rounded text-sm outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-10",
+                        "press relative h-8 flex-1 rounded-[10px] text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-10",
                         priority === p ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                       )}
                     >
                       {priority === p && (
-                        <motion.span
-                          layoutId="priority-pill"
-                          transition={spring}
-                          className="absolute inset-0 rounded bg-card shadow-sm"
-                        />
+                        <motion.span layoutId="priority-pill" transition={spring} className="absolute inset-0 rounded-[10px] bg-card shadow-sm" />
                       )}
                       <span className="relative">{PRIORITIES[p]}</span>
                     </button>
@@ -190,20 +261,24 @@ export function NetworkExplorer() {
                   inputMode="decimal"
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
-                  className="tabular h-9 w-full rounded-md bg-fill pr-2 pl-7 text-sm outline-none focus:ring-[3px] focus:ring-ring/50 pointer-coarse:h-11"
+                  className="tabular h-9 w-full rounded-xl bg-fill pr-2 pl-7 text-sm outline-none focus:ring-[3px] focus:ring-ring/50 pointer-coarse:h-11"
                 />
               </span>
             </label>
           </div>
 
-          <Button className="mt-4 w-full" onClick={() => simulate()} disabled={loading}>
+          <Button className={cn("mt-4 w-full", !panelOpen && "hidden md:inline-flex")} onClick={() => simulate()} disabled={loading}>
             {loading ? <LoaderCircle className="animate-spin" /> : <Route />}
             Simular ruta
           </Button>
-          {simError && <p role="alert" className="mt-2 text-sm text-destructive">{simError}</p>}
+          {simError && (
+            <p role="alert" className="mt-2 text-sm text-destructive">
+              {simError}
+            </p>
+          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className={cn("flex-1 overflow-y-auto", !panelOpen && "hidden md:block")}>
           <AnimatePresence mode="wait">
             {result ? (
               <RouteResultView
@@ -214,6 +289,7 @@ export function NetworkExplorer() {
                   simulate(p);
                 }}
                 onClear={() => setResult(null)}
+                onCreate={() => setCreateOpen(true)}
               />
             ) : (
               <motion.div
@@ -224,8 +300,8 @@ export function NetworkExplorer() {
                 className="flex flex-col items-center gap-3 px-8 py-10 text-center text-xs text-muted-foreground"
               >
                 <MapIcon className="size-6 text-muted-foreground/50" aria-hidden />
-                Elige origen, destino y prioridad. El motor calcula la combinación óptima de carretera,
-                río, mar, aire y ferrocarril, con sus transbordos, y la anima sobre el mapa.
+                Elige origen, destino y prioridad. El motor calcula la combinación óptima de carretera, río, mar, aire y ferrocarril,
+                con sus transbordos, costo, combustible y huella de CO₂e, y la anima sobre el mapa.
               </motion.div>
             )}
           </AnimatePresence>
@@ -235,47 +311,29 @@ export function NetworkExplorer() {
       <div className="glass pointer-events-none absolute right-6 bottom-6 hidden rounded-2xl px-4 py-3 md:block">
         <MapLegend />
       </div>
-    </div>
-  );
-}
 
-function CitySelect({
-  label,
-  value,
-  onChange,
-  cities,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  cities: CityOption[];
-}) {
-  const current = cities.find((c) => c.city === value);
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
-      <span className="relative flex items-center">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-9 w-full appearance-none rounded-md bg-fill pr-20 pl-3 text-sm outline-none focus:ring-[3px] focus:ring-ring/50 pointer-coarse:h-11 [&>option]:bg-card"
-        >
-          {cities.length === 0 && <option value={value}>{value}</option>}
-          {cities.map((c) => (
-            <option key={c.city} value={c.city}>
-              {c.city}
-            </option>
-          ))}
-        </select>
-        <span className="pointer-events-none absolute right-8 flex gap-0.5">
-          {current?.modes.map((m) => {
-            const Icon = MODES[m].icon;
-            return <Icon key={m} className="size-3" style={{ color: MODES[m].color }} />;
-          })}
-        </span>
-        <ChevronDown className="pointer-events-none absolute right-2.5 size-4 text-muted-foreground" />
-      </span>
-    </label>
+      <CityDirectory
+        open={directoryOpen}
+        onClose={() => setDirectoryOpen(false)}
+        cities={cities}
+        categories={categories}
+        onCategories={setCategories}
+        onPick={pickCity}
+      />
+      <CityInspector
+        city={inspected}
+        onClose={() => setInspect(null)}
+        onOrigin={(c) => {
+          setOrigin(c);
+          setInspect(null);
+        }}
+        onDestination={(c) => {
+          setDestination(c);
+          setInspect(null);
+        }}
+      />
+      {result && <CreateShipmentSheet open={createOpen} onClose={() => setCreateOpen(false)} result={result} weight={weightNum} />}
+    </div>
   );
 }
 
@@ -283,12 +341,15 @@ function RouteResultView({
   data,
   onPick,
   onClear,
+  onCreate,
 }: {
   data: SimulateResponse;
   onPick: (p: Priority) => void;
   onClear: () => void;
+  onCreate: () => void;
 }) {
   const r = data.route;
+  const fp = data.footprint;
   // Línea de tiempo: tramos intercalados con sus transbordos
   const steps: ({ kind: "leg"; i: number } | { kind: "transfer"; i: number })[] = [];
   r.legs.forEach((_, i) => {
@@ -301,7 +362,7 @@ function RouteResultView({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.25 }}
+      transition={T_VIEW}
       className="flex flex-col gap-5 p-5"
     >
       <div className="flex items-start justify-between gap-2">
@@ -318,12 +379,20 @@ function RouteResultView({
         </Button>
       </div>
 
+      <Button onClick={onCreate}>
+        <PackagePlus /> Crear envío con esta ruta
+      </Button>
+
       <div className="grid grid-cols-2 gap-2">
         <Metric icon={<Clock />} label="Tiempo total" value={r.time_fmt} />
-        <Metric icon={<CircleDollarSign />} label="Costo total" value={r.cost_fmt} />
+        <Metric icon={<CircleDollarSign />} label="Costo total" value={<Money usd={r.cost} />} />
         <Metric icon={<Route />} label="Distancia" value={r.distance_fmt} />
         <Metric icon={<ArrowRightLeft />} label="Transbordos" value={String(r.n_transfers)} />
+        <Metric icon={<Cloud />} label="CO₂e" value={fp.co2e_fmt} />
+        <Metric icon={<Fuel />} label="Combustible" value={fp.fuel_fmt} />
       </div>
+
+      <FootprintSummary fp={fp} />
 
       <ol className="relative flex flex-col gap-1">
         {steps.map((s, idx) =>
@@ -332,7 +401,7 @@ function RouteResultView({
               key={`leg-${s.i}`}
               initial={{ opacity: 0, x: -6 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: idx * 0.06 }}
+              transition={{ delay: idx * 0.05, ...T_FAST }}
               className="flex gap-3 rounded-2xl bg-fill p-3"
             >
               <ModeIcon mode={r.legs[s.i].mode} />
@@ -340,13 +409,13 @@ function RouteResultView({
                 <div className="truncate text-xs font-medium">
                   {r.legs[s.i].from.name} → {r.legs[s.i].to.name}
                 </div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {r.legs[s.i].corridors.join(" · ")}
-                </div>
-                <div className="tabular mt-1.5 flex gap-3 text-xs text-foreground/80">
+                <div className="truncate text-xs text-muted-foreground">{r.legs[s.i].corridors.join(" · ")}</div>
+                <div className="tabular mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-foreground/80">
                   <span>{r.legs[s.i].distance_fmt}</span>
                   <span>{r.legs[s.i].time_fmt}</span>
-                  <span>{r.legs[s.i].cost_fmt}</span>
+                  <Money usd={r.legs[s.i].cost} />
+                  <span>{fp.per_leg[s.i].co2e_kg.toLocaleString("es-CO")} kg CO₂e</span>
+                  <span>{fp.per_leg[s.i].fuel_l.toLocaleString("es-CO")} L</span>
                 </div>
               </div>
             </motion.li>
@@ -355,13 +424,13 @@ function RouteResultView({
               key={`tr-${s.i}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: idx * 0.06 }}
+              transition={{ delay: idx * 0.05, ...T_FAST }}
               className="flex items-center gap-2 py-1 pl-3 text-sm text-warning"
             >
-              <ArrowRightLeft className="size-3.5" />
+              <ArrowRightLeft className="size-3.5" aria-hidden />
               <span className="font-medium">{r.transfers[s.i].label}</span>
               <span className="truncate text-muted-foreground">
-                {r.transfers[s.i].node.name} · {r.transfers[s.i].time_fmt} · {r.transfers[s.i].cost_fmt}
+                {r.transfers[s.i].node.name} · {r.transfers[s.i].time_fmt} · <Money usd={r.transfers[s.i].cost} />
               </span>
             </motion.li>
           ),
@@ -369,9 +438,7 @@ function RouteResultView({
       </ol>
 
       <div>
-        <div className="mb-2 text-sm font-semibold">
-          Alternativas
-        </div>
+        <div className="mb-2 text-sm font-semibold">Alternativas</div>
         <div className="flex flex-col gap-1.5">
           {data.alternatives.map((a) => (
             <button
@@ -380,10 +447,8 @@ function RouteResultView({
               disabled={!a.found}
               onClick={() => onPick(a.priority)}
               className={cn(
-                "flex items-center gap-3 rounded-md border px-3 py-2 text-left text-sm outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50",
-                a.priority === r.priority
-                  ? "border-primary/40 bg-primary/10"
-                  : "border-border hover:bg-fill/60",
+                "press flex items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50",
+                a.priority === r.priority ? "border-primary/40 bg-primary/10" : "border-border hover:bg-fill/60",
               )}
             >
               <span className="w-20 font-medium">{PRIORITIES[a.priority]}</span>
@@ -392,7 +457,10 @@ function RouteResultView({
                   <ModeChain modes={a.modes} />
                   <span className="tabular ml-auto text-right text-foreground/80">
                     {a.time_fmt}
-                    <span className="block text-muted-foreground">{a.cost_fmt}</span>
+                    <span className="block text-muted-foreground">
+                      <Money usd={a.cost ?? 0} />
+                    </span>
+                    <span className="block text-xs text-muted-foreground">{a.co2e_fmt} CO₂e</span>
                   </span>
                 </>
               ) : (
@@ -406,7 +474,46 @@ function RouteResultView({
   );
 }
 
-function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+/** Huella de la ruta: reducción frente a mover la carga por carretera y desglose por modo. */
+function FootprintSummary({ fp }: { fp: Footprint }) {
+  const less = fp.saved_vs_road_pct >= 0;
+  return (
+    <section aria-label="Huella de la ruta" className="flex items-center gap-4 rounded-2xl bg-fill p-3">
+      <Dial
+        value={Math.max(fp.saved_vs_road_pct, 0)}
+        color={less ? "var(--sys-green)" : "var(--sys-orange)"}
+        label="Reducción de CO₂e frente a mover la carga por carretera"
+        size={92}
+        stroke={9}
+      />
+      <div className="min-w-0 text-sm">
+        <div className="font-semibold">
+          {fp.saved_vs_road_pct === 0
+            ? "Igual CO₂e que por carretera"
+            : less
+              ? `${fp.saved_vs_road_pct.toLocaleString("es-CO")} % menos CO₂e que por carretera`
+              : `${Math.abs(fp.saved_vs_road_pct).toLocaleString("es-CO")} % más CO₂e que por carretera`}
+        </div>
+        <div className="mt-0.5 text-xs text-muted-foreground">
+          Por carretera: {fp.baseline_co2e_kg.toLocaleString("es-CO")} kg CO₂e · {fp.baseline_fuel_l.toLocaleString("es-CO")} L
+        </div>
+        <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+          {fp.by_mode.map((m) => (
+            <li key={m.mode} className="flex items-center gap-1 text-muted-foreground">
+              <span className="size-2 rounded-full" style={{ backgroundColor: MODES[m.mode].color }} aria-hidden />
+              {m.label} {m.co2e_kg.toLocaleString("es-CO")} kg
+            </li>
+          ))}
+        </ul>
+        <Link href="/huella" className="mt-1 inline-block text-xs text-primary hover:underline">
+          Ver huella de toda la operación
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return (
     <motion.div whileHover={hoverLift} className="glass rounded-2xl p-3">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground [&_svg]:size-3">

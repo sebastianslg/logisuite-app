@@ -29,6 +29,7 @@ export interface DashboardSummary {
   };
   modal_split: { mode: Mode; label: string; tkm: number; tkm_fmt: string; share_pct: number }[];
   top_corridors: { corridor: string; tons: number; tons_fmt: string }[];
+  all_corridors: { corridor: string; tons: number; tons_fmt: string }[];
   dispatches_14d: { date: string; count: number }[];
   network: {
     nodes: number;
@@ -89,6 +90,22 @@ export interface Trip {
   modes: string[];
 }
 
+export interface Footprint {
+  co2e_kg: number;
+  co2e_fmt: string;
+  fuel_l: number;
+  fuel_fmt: string;
+  intensity_g_tkm: number;
+  baseline_co2e_kg: number;
+  baseline_fuel_l: number;
+  /** Positivo: emite menos que mover todo por carretera. */
+  saved_vs_road_pct: number;
+  per_leg: { co2e_kg: number; fuel_l: number }[];
+  by_mode: { mode: Mode; label: string; fuel_type: string; co2e_kg: number; fuel_l: number }[];
+}
+
+export type CityCategory = "principal" | "municipio" | "dificil_acceso";
+
 export interface Shipment {
   code: string;
   origin: string;
@@ -118,6 +135,7 @@ export interface Shipment {
   legs?: Leg[];
   transfers?: Transfer[];
   trip?: Trip;
+  footprint?: Footprint;
 }
 
 export interface RouteResult {
@@ -154,11 +172,16 @@ export interface RouteAlternative {
   cost_fmt?: string;
   distance_km?: number;
   distance_fmt?: string;
+  co2e_kg?: number;
+  co2e_fmt?: string;
+  fuel_l?: number;
+  fuel_fmt?: string;
 }
 
 export interface SimulateResponse {
   route: RouteResult;
   alternatives: RouteAlternative[];
+  footprint: Footprint;
 }
 
 export interface LiveAsset {
@@ -193,6 +216,9 @@ export interface FleetLive {
 export interface CityOption {
   city: string;
   department_code: string;
+  category: CityCategory;
+  lat: number;
+  lon: number;
   kinds: string[];
   modes: Mode[];
   nodes: { code: string; name: string; kind: string }[];

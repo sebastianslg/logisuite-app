@@ -1,25 +1,25 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import {
   Activity,
+  ArrowUpRight,
   ArrowRightLeft,
-  BarChart3,
   Gauge,
   Navigation,
   Network,
-  PieChart,
   Radio,
-  Route,
   Weight,
 } from "lucide-react";
 
 import { BentoCell, BentoGrid, KpiCard } from "@/components/dashboard/bento";
-import { DispatchTrend, ModalSplit, TopCorridors } from "@/components/dashboard/charts";
+import { CorridorsCell, DispatchCell, ModalSplitCell } from "@/components/dashboard/chart-cells";
 import { LiveFleet } from "@/components/dashboard/live-fleet";
 import { NetworkMapCard } from "@/components/dashboard/network-map-card";
 import { StatusBreakdown } from "@/components/dashboard/status-breakdown";
 import { PageHeader, Skeleton } from "@/components/page-header";
+import { Money } from "@/components/ui/money";
 import { apiGet } from "@/lib/api";
-import type { DashboardSummary, FleetLive } from "@/lib/types";
+import type { DashboardSummary, FleetLive, SustainabilitySummary } from "@/lib/types";
 
 export default function DashboardPage() {
   return (
@@ -38,9 +38,10 @@ export default function DashboardPage() {
 }
 
 async function DashboardContent() {
-  const [summary, fleet] = await Promise.all([
+  const [summary, fleet, green] = await Promise.all([
     apiGet<DashboardSummary>("/api/dashboard/summary"),
     apiGet<FleetLive>("/api/fleet/live"),
+    apiGet<SustainabilitySummary>("/api/sustainability/summary"),
   ]);
   const k = summary.kpis;
 
@@ -48,6 +49,7 @@ async function DashboardContent() {
     <BentoGrid>
       <KpiCard
         className="md:col-span-3 xl:col-span-3"
+        href="/envios?estado=En Ruta,Transferencia Modal,Retrasado"
         label="Envíos en tránsito"
         value={k.active.fmt}
         icon={<Navigation />}
@@ -56,6 +58,7 @@ async function DashboardContent() {
       />
       <KpiCard
         className="md:col-span-3 xl:col-span-3"
+        href="/envios?estado=Transferencia Modal"
         label="Transferencia modal"
         value={k.in_transfer.fmt}
         icon={<ArrowRightLeft />}
@@ -64,13 +67,19 @@ async function DashboardContent() {
       />
       <KpiCard
         className="md:col-span-3 xl:col-span-3"
+        href="/envios?estado=En Ruta,Transferencia Modal,Retrasado"
         label="Carga en tránsito"
         value={k.tons_in_transit.fmt}
         icon={<Weight />}
-        footnote={`Flete comprometido ${k.cost_in_transit.fmt}`}
+        footnote={
+          <>
+            Flete comprometido <Money usd={k.cost_in_transit.value ?? 0} compact />
+          </>
+        }
       />
       <KpiCard
         className="md:col-span-3 xl:col-span-3"
+        href="/envios?estado=Entregado"
         label="OTIF (30 días)"
         value={k.otif.fmt}
         icon={<Gauge />}
@@ -82,6 +91,14 @@ async function DashboardContent() {
         title="Red multimodal"
         description={`${summary.network.nodes} nodos · ${summary.network.links} enlaces`}
         icon={<Network />}
+        action={
+          <Link
+            href="/red"
+            className="press -mr-1 flex h-8 shrink-0 items-center gap-1 rounded-xl px-2.5 text-sm font-medium text-primary outline-none hover:bg-fill focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            Abrir mapa <ArrowUpRight className="size-3.5" aria-hidden />
+          </Link>
+        }
       >
         <NetworkMapCard network={summary.network} />
       </BentoCell>
@@ -95,31 +112,9 @@ async function DashboardContent() {
         <LiveFleet initial={fleet} />
       </BentoCell>
 
-      <BentoCell
-        className="md:col-span-3 xl:col-span-3"
-        title="Reparto modal"
-        description="Toneladas-kilómetro movidas por modo"
-        icon={<PieChart />}
-      >
-        <ModalSplit data={summary.modal_split} />
-      </BentoCell>
-
-      <BentoCell
-        className="md:col-span-3 xl:col-span-3"
-        title="Corredores más cargados"
-        description="Toneladas en los últimos despachos"
-        icon={<Route />}
-      >
-        <TopCorridors data={summary.top_corridors} />
-      </BentoCell>
-
-      <BentoCell
-        className="md:col-span-3 xl:col-span-3"
-        title="Despachos"
-        icon={<BarChart3 />}
-      >
-        <DispatchTrend data={summary.dispatches_14d} />
-      </BentoCell>
+      <ModalSplitCell className="md:col-span-3 xl:col-span-3" data={summary.modal_split} footprint={green.by_mode} />
+      <CorridorsCell className="md:col-span-3 xl:col-span-3" top={summary.top_corridors} all={summary.all_corridors} />
+      <DispatchCell className="md:col-span-3 xl:col-span-3" data={summary.dispatches_14d} />
 
       <BentoCell
         className="md:col-span-3 xl:col-span-3"

@@ -74,3 +74,22 @@ def fuel_burned(route: dict, weight_t: float, route_h: float) -> dict:
         span = max(lg["end_h"] - lg["start_h"], 1e-9)
         burned += leg_l * min(max((route_h - lg["start_h"]) / span, 0.0), 1.0)
     return {"burned_l": burned, "total_l": total}
+
+
+def route_footprint(legs: list, weight_t: float) -> dict:
+    """Huella de una ruta: por tramo, por modo y frente a mover todo por carretera."""
+    per_leg, by_mode = [], {}
+    for lg in legs:
+        e = leg_emissions(lg["mode"], weight_t, lg["distance_km"])
+        per_leg.append(e)
+        acc = by_mode.setdefault(lg["mode"], {"tkm": 0.0, "co2e_kg": 0.0, "fuel_l": 0.0})
+        for k, v in e.items():
+            acc[k] += v
+    tkm = sum(e["tkm"] for e in per_leg)
+    co2 = sum(e["co2e_kg"] for e in per_leg)
+    fuel = sum(e["fuel_l"] for e in per_leg)
+    base = road_baseline(tkm)
+    saved = 100 * (base["co2e_kg"] - co2) / base["co2e_kg"] if base["co2e_kg"] else 0.0
+    return {"tkm": tkm, "co2e_kg": co2, "fuel_l": fuel, "per_leg": per_leg, "by_mode": by_mode,
+            "baseline": base, "saved_vs_road_pct": saved,
+            "intensity_g_tkm": 1000 * co2 / tkm if tkm else 0.0}

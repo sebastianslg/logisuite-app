@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDown,
@@ -33,6 +35,7 @@ import {
 
 import { ModeChain, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
+import { Money } from "@/components/ui/money";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MODE_ORDER, MODES, PRIORITIES, STATUSES, STATUS_ORDER, tint } from "@/lib/modes";
@@ -76,7 +79,12 @@ const columns = helper.columns([
   helper.accessor("code", {
     header: "Envío",
     cell: (info) => (
-      <span className="font-mono text-xs text-foreground/80">{info.getValue()}</span>
+      <Link
+        href={`/envios/${info.getValue()}`}
+        className="font-mono text-xs text-primary underline-offset-2 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
+        {info.getValue()}
+      </Link>
     ),
   }),
   helper.accessor((s) => `${s.origin} → ${s.destination}`, {
@@ -146,7 +154,7 @@ const columns = helper.columns([
   helper.accessor("cost", {
     header: "Flete",
     enableGlobalFilter: false,
-    cell: (info) => <span className="tabular">{info.row.original.cost_fmt}</span>,
+    cell: (info) => <Money usd={info.row.original.cost} className="tabular" />,
   }),
   helper.accessor("eta_at", {
     header: "ETA",
@@ -172,7 +180,14 @@ const columns = helper.columns([
 
 const PAGE_SIZES = [10, 20, 50];
 
-export function ShipmentsTable({ data }: { data: Shipment[] }) {
+export interface ShipmentFilters {
+  status?: ShipmentStatus[];
+  modes?: Mode[];
+  q?: string;
+}
+
+export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: ShipmentFilters }) {
+  const router = useRouter();
   const [rows] = useState(data);
   const table = useTable({
     features,
@@ -183,6 +198,11 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
     initialState: {
       pagination: { pageIndex: 0, pageSize: 10 },
       sorting: [{ id: "status", desc: false }],
+      columnFilters: [
+        ...(initial?.status?.length ? [{ id: "status", value: initial.status }] : []),
+        ...(initial?.modes?.length ? [{ id: "modes", value: initial.modes }] : []),
+      ],
+      globalFilter: initial?.q ?? "",
     },
   });
 
@@ -286,7 +306,7 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
         )}
       </Reveal>
 
-      <Reveal index={2} className="glass overflow-hidden rounded-3xl">
+      <Reveal index={2} className="glass hidden overflow-hidden rounded-3xl md:block">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((group) => (
@@ -330,7 +350,11 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.5, ease: EASE, delay: Math.min(i * 0.03, 0.4) }}
-                  className="border-b border-border transition-colors duration-300 ease-apple hover:bg-fill/50"
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest("a,button")) return;
+                    router.push(`/envios/${row.original.code}`);
+                  }}
+                  className="cursor-pointer border-b border-border transition-colors duration-300 ease-apple hover:bg-fill/50"
                 >
                   {row.getAllCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -343,13 +367,62 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
             {filteredCount === 0 && (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground">
-                  Ningún envío coincide con los filtros.
+                  Ningún envío coincide con los filtros. Pulsa “Limpiar” para ver todos.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </Reveal>
+
+      {/* En pantallas estrechas la tabla se convierte en una lista de tarjetas */}
+      <ul className="flex flex-col gap-3 md:hidden" aria-label="Envíos">
+        {table.getRowModel().rows.map((row) => {
+          const sh = row.original;
+          return (
+            <li key={row.id}>
+              <Link
+                href={`/envios/${sh.code}`}
+                className="glass press block rounded-2xl p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate font-semibold">
+                      {sh.origin} <span className="text-muted-foreground">→</span> {sh.destination}
+                    </div>
+                    <div className="truncate text-sm text-muted-foreground">{sh.cargo}</div>
+                  </div>
+                  <StatusBadge status={sh.status} />
+                </div>
+                <div className="mt-3 flex items-center gap-3">
+                  <ModeChain modes={sh.modes} />
+                  <div className="h-1.5 flex-1 rounded-full bg-fill">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${sh.progress_pct}%`,
+                        backgroundColor: sh.current_mode ? MODES[sh.current_mode].color : "var(--muted-foreground)",
+                      }}
+                    />
+                  </div>
+                  <span className="tabular text-xs text-muted-foreground">{Math.round(sh.progress_pct)} %</span>
+                </div>
+                <div className="mt-3 flex items-center justify-between text-sm">
+                  <span className="font-mono text-xs text-muted-foreground">{sh.code}</span>
+                  <span className="tabular">
+                    {sh.weight_fmt} · <Money usd={sh.cost} /> · ETA {sh.eta_fmt}
+                  </span>
+                </div>
+              </Link>
+            </li>
+          );
+        })}
+        {filteredCount === 0 && (
+          <li className="px-4 py-10 text-center text-sm text-muted-foreground">
+            Ningún envío coincide con los filtros. Pulsa “Limpiar” para ver todos.
+          </li>
+        )}
+      </ul>
 
       {/* Paginación */}
       <Reveal index={3} className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
