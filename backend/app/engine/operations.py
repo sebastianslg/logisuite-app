@@ -217,6 +217,65 @@ def set_corridor_status(net_factory, corridor: str, active: bool, reason: str | 
     return {"corridor": corridor, "active": active, **summary}
 
 
+def nodes_status(net: MultimodalNetwork, now: datetime) -> list:
+    """Nodos de la red con su estado operativo y los envíos pendientes que pasan por ellos."""
+    status = {r["node_code"]: r for r in
+              run_query("SELECT * FROM mm_node_status").to_dict(orient="records")}
+    usage: dict = {}
+    for r in _open_shipments():
+        route = json.loads(r["route_json"])
+        st = status_at(r, now, route)
+        if st["status"] == "Entregado":
+            continue
+        for l in route["legs"]:
+            if l["end_h"] <= st["route_h"] or l.get("interrupted"):
+                continue
+            for sg in _segments(l):
+                if sg["end_h"] > st["route_h"]:
+                    for code in (sg["from"], sg["to"]):
+                        usage.setdefault(code, set()).add(r["shipment_code"])
+    out = []
+    for code, n in net.nodes.items():
+        s = status.get(code)
+        active = not s or bool(s["active"])
+        out.append({"code": code, "name": n["name"], "kind": n["kind"], "city": n["city"],
+                    "lat": n["latitude"], "lon": n["longitude"], "active": active,
+                    "reason": s["reason"] if s and not s["active"] else None,
+                    "changed_at": s["changed_at"] if s else None,
+                    "changed_by": s["changed_by"] if s else None,
+                    "approximate": bool(n.get("approximate")),
+                    "shipments": sorted(usage.get(code, []))})
+    return sorted(out, key=lambda x: (x["active"], x["kind"], x["name"]))
+
+
+def set_node_status(net_factory, code: str, active: bool, reason: str | None,
+                    user: str | None, now: datetime) -> dict:
+    """Cierra o reabre un nodo (aeropuerto, puerto, terminal o ciudad) y reconcilia
+    los envíos, igual que `set_corridor_status` con las vías."""
+    net = net_factory()
+    if code not in net.nodes:
+        raise OperationError(f"Nodo desconocido: '{code}'.")
+    reason = (reason or "").strip()
+    if not active and not reason:
+        raise OperationError("Indica el motivo del cierre.")
+    was_active = code not in net.closed_nodes
+    if was_active == active:
+        raise OperationError(f"El nodo ya está {'operativo' if active else 'cerrado'}.")
+    run_write("""INSERT INTO mm_node_status (node_code, active, reason, changed_at, changed_by)
+                 VALUES (?,?,?,?,?)
+                 ON CONFLICT(node_code) DO UPDATE SET active = excluded.active,
+                     reason = excluded.reason, changed_at = excluded.changed_at,
+                     changed_by = excluded.changed_by""",
+              (code, int(active), None if active else reason, _now_iso(), _user(user)))
+    name = net.nodes[code]["name"]
+    audit(user, "REOPEN" if active else "CLOSE", "mm_node_status", code,
+          (f"Nodo reabierto: {name}" if active else f"Nodo cerrado ({name}): {reason}"))
+    net = net_factory(reload=True)
+    summary = reconcile(net, now, user,
+                        cause=(f"reapertura de {name}" if active else f"cierre de {name}"))
+    return {"code": code, "name": name, "active": active, **summary}
+
+
 # ---------------------------------------------------------------------------
 # Reconciliación de rutas con el estado de la red
 # ---------------------------------------------------------------------------
@@ -287,10 +346,14 @@ def _seg_corridors(seg: dict) -> set:
     return set(seg.get("corridors") or [seg["corridor"]])
 
 
-def _blocked(seg: dict, mode: str, h: float, closed: set) -> bool:
-    """Segmento pendiente que usa una vía cerrada. Un vuelo en curso no se
-    devuelve: el cierre de una ruta aérea solo afecta vuelos por despegar."""
-    if seg["end_h"] <= h or not (_seg_corridors(seg) & closed):
+def _blocked(seg: dict, mode: str, h: float, closed: set, closed_nodes=frozenset()) -> bool:
+    """Segmento pendiente que usa una vía cerrada o llega a (o parte de, si aún
+    no salió) un nodo cerrado. Un vuelo en curso no se devuelve: el cierre de
+    una ruta aérea o de un aeropuerto solo afecta vuelos por despegar."""
+    if seg["end_h"] <= h:
+        return False
+    hit_node = seg["to"] in closed_nodes or (seg["from"] in closed_nodes and seg["start_h"] > h)
+    if not (_seg_corridors(seg) & closed) and not hit_node:
         return False
     return not (mode == "aereo" and seg["start_h"] <= h)
 
@@ -315,7 +378,7 @@ def reroute(net: MultimodalNetwork, s: dict, now: datetime) -> dict:
     route = json.loads(s["route_json"])
     st = status_at(s, now, route)
     forced_modes, forced_corr = _split(s.get("forced_modes")), _split(s.get("forced_corridors"))
-    closed = net.closed_corridors
+    closed, closed_nodes = net.closed_corridors, set(net.closed_nodes)
     if st["status"] == "Programado":
         return _plan(net, s["origin_city"], s["dest_city"], s["weight_t"], s["priority"],
                      forced_modes, forced_corr)
@@ -323,7 +386,7 @@ def reroute(net: MultimodalNetwork, s: dict, now: datetime) -> dict:
     h = st["route_h"]
     legs, timeline = route["legs"], route["timeline"]
     hit = next(((i, j) for i, l in enumerate(legs) if l["end_h"] > h
-                for j, sg in enumerate(_segments(l)) if _blocked(sg, l["mode"], h, closed)),
+                for j, sg in enumerate(_segments(l)) if _blocked(sg, l["mode"], h, closed, closed_nodes)),
                None)
     if hit is None:
         return route
@@ -347,7 +410,8 @@ def reroute(net: MultimodalNetwork, s: dict, now: datetime) -> dict:
         point = {"code": "DESVIO", "name": "Punto de desvío", "city": "", "kind": "ciudad",
                  "lat": lat, "lon": lon}
         pivot_brief = net._node_brief(pivot) if pivot in net.nodes else leg["from"]
-        cut = sorted(_seg_corridors(seg) & closed)
+        cut = sorted(_seg_corridors(seg) & closed) or [
+            net.nodes[c]["name"] for c in (seg["to"], seg["from"]) if c in closed_nodes]
         part = {"mode": leg["mode"], "from": pivot_brief, "to": point,
                 "corridors": sorted(_seg_corridors(seg)), "distance_km": seg["distance_km"] * frac,
                 "time_h": ran, "cost": seg["cost"] * frac, "start_h": tp, "end_h": h,
@@ -389,21 +453,21 @@ def reroute(net: MultimodalNetwork, s: dict, now: datetime) -> dict:
     return {"legs": new_legs, "transfers": new_transfers, "timeline": new_timeline}
 
 
-def _uses_closed(route: dict, route_h: float, closed: set) -> bool:
-    return any(_blocked(sg, l["mode"], route_h, closed)
+def _uses_closed(route: dict, route_h: float, closed: set, closed_nodes=frozenset()) -> bool:
+    return any(_blocked(sg, l["mode"], route_h, closed, closed_nodes)
                for l in route["legs"] if l["end_h"] > route_h for sg in _segments(l))
 
 
 def reconcile(net: MultimodalNetwork, now: datetime, user: str | None, cause: str) -> dict:
     rerouted, no_route, restored, replanned = [], [], [], []
-    closed = net.closed_corridors
+    closed, closed_nodes = net.closed_corridors, set(net.closed_nodes)
     for s in _open_shipments():
         route = json.loads(s["route_json"])
         st = status_at(s, now, route)
         if st["status"] == "Entregado":
             continue
         code = s["shipment_code"]
-        affected = _uses_closed(route, st["route_h"], closed)
+        affected = _uses_closed(route, st["route_h"], closed, closed_nodes)
         # Un programado que se había redirigido vuelve a optimizarse al reabrir
         replan = (not affected and st["status"] == "Programado"
                   and (s.get("route_note") or s.get("route_status") == "sin_ruta"))

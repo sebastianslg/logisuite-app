@@ -13,6 +13,7 @@ Complementarios: /api/shipments, /api/shipments/{code}, /api/dashboard/summary,
 
 Operación (sin autenticación; el campo `usuario` es un nombre declarado):
   GET/POST            /api/corridors, /api/corridors/status   Vías y su cierre
+  GET/POST            /api/nodes/status                       Nodos (aeropuertos, puertos) y su cierre
   POST/PUT/DELETE     /api/shipments[/{code}]                 Envíos editables
   POST                /api/shipments/preview                  Ruta sin guardar
   GET/PUT             /api/settings[/fx|/replenish]           TRM y reposición
@@ -352,6 +353,32 @@ def corridor_status(body: CorridorStatusIn) -> dict:
     return result
 
 
+@app.get("/api/nodes/status")
+def nodes_status() -> dict:
+    now = _sync()
+    items = ops.nodes_status(network(), now)
+    return {"count": len(items), "closed": sum(1 for n in items if not n["active"]), "items": items}
+
+
+class NodeStatusIn(BaseModel):
+    code: str
+    active: bool
+    reason: str | None = None
+    usuario: str | None = None
+
+
+@app.post("/api/nodes/status")
+def node_status(body: NodeStatusIn) -> dict:
+    global _last_sync
+    try:
+        result = ops.set_node_status(_network, body.code, body.active, body.reason,
+                                     body.usuario, datetime.now())
+    except ops.OperationError as exc:
+        _op_error(exc)
+    _last_sync = 0.0
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Configuración e historial
 # ---------------------------------------------------------------------------
@@ -575,6 +602,8 @@ def dashboard_summary() -> dict:
         "dispatches_14d": [{"date": d.isoformat(), "count": per_day[d]} for d in days],
         "alerts": {
             "closed_corridors": sorted(network().closed_corridors),
+            "closed_nodes": [{"code": c, "name": network().nodes[c]["name"], "reason": r}
+                             for c, r in sorted(network().closed_nodes.items())],
             "no_route": sorted(r["shipment_code"] for r in rows
                                if r.get("route_status") == "sin_ruta" and r["status"] != "Entregado"),
         },

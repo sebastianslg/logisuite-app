@@ -140,6 +140,8 @@ def network_geojson(network) -> dict:
         "properties": {"code": code, "name": n["name"], "kind": n["kind"], "city": n["city"],
                        "department_code": n["department_code"], "iata": n["iata"],
                        "approximate": bool(n.get("approximate")),
+                       "closed": code in network.closed_nodes,
+                       "closure_reason": network.closed_nodes.get(code),
                        "modes": sorted(modes_by_node.get(code, []))},
     } for code, n in network.nodes.items()]}
     links = {"type": "FeatureCollection", "features": [{
@@ -155,6 +157,8 @@ def network_geojson(network) -> dict:
             "capacity_t": F.tons(l["capacity_t"]), "capacity_fmt": F.tons_fmt(l["capacity_t"]),
             "cost_per_tkm": round(l["cost_per_tkm"], 3),
             "closed": bool(l.get("closed")), "closure_reason": l.get("closure_reason"),
+            "node_closed": (l["origin_code"] in network.closed_nodes
+                            or l["dest_code"] in network.closed_nodes),
             "approximate": bool(l.get("approximate")),
         },
     } for l in network.links]}

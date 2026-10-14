@@ -25,6 +25,16 @@ CREATE TABLE IF NOT EXISTS mm_corridor_status (
     changed_by TEXT                             -- usuario que cambió el estado
 );
 
+-- Cierre de nodos (aeropuertos, puertos, terminales, ciudades). Un nodo
+-- cerrado queda fuera del grafo y los envíos que pasen por él se redirigen.
+CREATE TABLE IF NOT EXISTS mm_node_status (
+    node_code TEXT PRIMARY KEY,                 -- coincide con mm_nodes.node_code
+    active INTEGER NOT NULL DEFAULT 1,          -- 1 = operativo, 0 = cerrado
+    reason TEXT,
+    changed_at TEXT NOT NULL,
+    changed_by TEXT
+);
+
 -- Enlaces de solo lectura para compartir PDFs. El token es aleatorio y se
 -- puede revocar; el PDF se genera al abrirlo, con los datos vigentes.
 CREATE TABLE IF NOT EXISTS mm_share_links (
