@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
-
+import { MotionProvider } from "@/components/motion-provider";
 import { Sidebar } from "@/components/shell/sidebar";
 
 import "./globals.css";
@@ -19,13 +17,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="es"
-      className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
       <body className="min-h-full bg-background text-foreground">
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="min-w-0 flex-1">{children}</main>
-        </div>
+        <MotionProvider>
+          <div className="flex min-h-screen">
+            <Sidebar />
+            <main className="min-w-0 flex-1 pb-16 md:pb-0">{children}</main>
+          </div>
+        </MotionProvider>
       </body>
     </html>
   );

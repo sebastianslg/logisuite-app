@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { MODES, STATUSES } from "@/lib/modes";
+import { MODES, STATUSES, tint } from "@/lib/modes";
 import type { Mode, ShipmentStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -20,8 +20,8 @@ export function ModeIcon({ mode, className }: { mode: Mode; className?: string }
   return (
     <span
       title={label}
-      className={cn("inline-flex size-6 items-center justify-center rounded-md border", className)}
-      style={{ color, borderColor: `${color}40`, backgroundColor: `${color}14` }}
+      className={cn("inline-flex size-6 items-center justify-center rounded-md", className)}
+      style={{ color, backgroundColor: tint(color, 14) }}
     >
       <Icon className="size-3.5" aria-label={label} />
     </span>
@@ -34,7 +34,7 @@ export function ModeChain({ modes }: { modes: Mode[] }) {
     <span className="inline-flex items-center gap-1">
       {modes.map((m, i) => (
         <span key={`${m}-${i}`} className="inline-flex items-center gap-1">
-          {i > 0 && <span className="h-px w-2 bg-white/15" aria-hidden />}
+          {i > 0 && <span className="h-px w-2 bg-border-strong" aria-hidden />}
           <ModeIcon mode={m} />
         </span>
       ))}

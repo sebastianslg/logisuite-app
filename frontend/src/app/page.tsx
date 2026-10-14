@@ -23,10 +23,9 @@ import type { DashboardSummary, FleetLive } from "@/lib/types";
 
 export default function DashboardPage() {
   return (
-    <div className="bg-grid min-h-screen px-6 py-8 lg:px-10">
+    <div className="min-h-screen px-4 py-6 md:px-8 md:py-8 lg:px-10">
       <PageHeader
-        eyebrow="Torre de control"
-        title="Operación multimodal"
+        title="Torre de control"
         description="Carretera, río, mar, aire y ferrocarril en una sola vista: fletes en tránsito, transbordos y reparto modal de la red logística de Colombia."
       />
       <div className="mt-8">
@@ -52,7 +51,7 @@ async function DashboardContent() {
         label="Envíos en tránsito"
         value={k.active.fmt}
         icon={<Navigation />}
-        accent="#10b981"
+        accent="var(--color-success)"
         footnote={`${k.delayed.fmt} retrasados · ${k.scheduled.fmt} programados`}
       />
       <KpiCard
@@ -60,7 +59,7 @@ async function DashboardContent() {
         label="Transferencia modal"
         value={k.in_transfer.fmt}
         icon={<ArrowRightLeft />}
-        accent="#f59e0b"
+        accent="var(--color-warning)"
         footnote="Cargas en transbordo entre modos"
       />
       <KpiCard
@@ -68,7 +67,6 @@ async function DashboardContent() {
         label="Carga en tránsito"
         value={k.tons_in_transit.fmt}
         icon={<Weight />}
-        accent="#22d3ee"
         footnote={`Flete comprometido ${k.cost_in_transit.fmt}`}
       />
       <KpiCard
@@ -76,7 +74,6 @@ async function DashboardContent() {
         label="OTIF (30 días)"
         value={k.otif.fmt}
         icon={<Gauge />}
-        accent="#a78bfa"
         footnote={`${k.delivered.fmt} entregas cerradas`}
       />
 

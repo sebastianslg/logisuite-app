@@ -24,7 +24,7 @@ export function ChartTooltip({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.12 }}
-          className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-md border border-white/10 bg-[#111827]/95 px-2.5 py-1.5 text-xs whitespace-nowrap shadow-xl backdrop-blur"
+          className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-md material rounded-md border border-border-strong px-2.5 py-1.5 text-xs whitespace-nowrap shadow-lg"
           style={{ left: x, top: y - 8 }}
         >
           {children}

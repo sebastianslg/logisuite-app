@@ -13,7 +13,6 @@ import {
   Map as MapIcon,
   Radio,
   Route,
-  Waypoints,
   Weight,
   X,
 } from "lucide-react";
@@ -23,7 +22,7 @@ import { MapLegend } from "./map-legend";
 import { useMapData } from "./use-map-data";
 import { ModeChain, ModeIcon } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { MODE_ORDER, MODES, PRIORITIES } from "@/lib/modes";
+import { MODE_ORDER, MODES, PRIORITIES, tint } from "@/lib/modes";
 import type { CityOption, Mode, Priority, SimulateResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -89,7 +88,7 @@ export function NetworkExplorer() {
   const route = result?.route ?? null;
 
   return (
-    <div className="relative h-screen w-full overflow-hidden">
+    <div className="relative h-[calc(100dvh-3.5rem)] w-full overflow-hidden md:h-screen">
       <div className="absolute inset-0">
         {network && departments ? (
           <Map3DLazy
@@ -107,13 +106,10 @@ export function NetworkExplorer() {
       </div>
 
       {/* Encabezado */}
-      <div className="pointer-events-none absolute top-0 right-0 left-0 flex items-start justify-between gap-4 p-6">
-        <div className="pointer-events-auto">
-          <div className="flex items-center gap-2 text-[11px] font-medium tracking-[0.14em] text-neon-cyan uppercase">
-            <Waypoints className="size-3.5" /> GIS 3D · Red multimodal
-          </div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Colombia en movimiento</h1>
-        </div>
+      <div className="pointer-events-none absolute top-0 right-0 left-0 flex flex-wrap items-start justify-between gap-3 p-3 md:p-6">
+        <h1 className="material pointer-events-auto rounded-xl border border-border px-4 py-2 text-xl font-bold tracking-tight">
+          Red multimodal
+        </h1>
         <LayerPanel
           modes={modes}
           toggleMode={toggleMode}
@@ -127,14 +123,14 @@ export function NetworkExplorer() {
 
       {/* Simulador */}
       <motion.aside
-        initial={{ opacity: 0, x: -16 }}
-        animate={{ opacity: 1, x: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute top-28 bottom-6 left-6 z-10 flex w-[380px] flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0b0f19]/75 shadow-2xl shadow-black/50 backdrop-blur-xl"
+        className="material absolute inset-x-3 bottom-3 z-10 flex max-h-[58%] flex-col overflow-hidden rounded-2xl border border-border shadow-xl md:inset-x-auto md:top-24 md:bottom-6 md:left-6 md:max-h-none md:w-[380px]"
       >
-        <div className="border-b border-white/[0.06] p-5">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Route className="size-4 text-neon-cyan" /> Simulador de rutas multimodales
+        <div className="shrink-0 border-b border-border p-4 md:p-5">
+          <div className="flex items-center gap-2 text-[0.9375rem] font-semibold">
+            <Route className="size-4 text-primary" aria-hidden /> Simulador de rutas
           </div>
           <div className="mt-4 grid grid-cols-[1fr_auto] items-end gap-2">
             <div className="flex flex-col gap-2">
@@ -157,9 +153,9 @@ export function NetworkExplorer() {
 
           <div className="mt-3 grid grid-cols-[1fr_96px] gap-2">
             <div>
-              <span className="mb-1 block text-[11px] text-muted-foreground">Prioridad</span>
+              <span className="mb-1 block text-xs text-muted-foreground">Prioridad</span>
               <LayoutGroup id="priority">
-                <div className="flex rounded-md border border-white/[0.06] bg-white/[0.02] p-0.5" role="radiogroup">
+                <div className="flex rounded-md bg-fill p-0.5" role="radiogroup" aria-label="Prioridad">
                   {(Object.keys(PRIORITIES) as Priority[]).map((p) => (
                     <button
                       key={p}
@@ -168,7 +164,7 @@ export function NetworkExplorer() {
                       aria-checked={priority === p}
                       onClick={() => setPriority(p)}
                       className={cn(
-                        "relative h-7 flex-1 rounded text-xs transition-colors",
+                        "relative h-8 flex-1 rounded text-sm outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-10",
                         priority === p ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                       )}
                     >
@@ -176,7 +172,7 @@ export function NetworkExplorer() {
                         <motion.span
                           layoutId="priority-pill"
                           transition={spring}
-                          className="absolute inset-0 rounded border border-neon-cyan/25 bg-neon-cyan/10"
+                          className="absolute inset-0 rounded bg-card shadow-sm"
                         />
                       )}
                       <span className="relative">{PRIORITIES[p]}</span>
@@ -186,14 +182,14 @@ export function NetworkExplorer() {
               </LayoutGroup>
             </div>
             <label className="block">
-              <span className="mb-1 block text-[11px] text-muted-foreground">Peso (t)</span>
+              <span className="mb-1 block text-xs text-muted-foreground">Peso (t)</span>
               <span className="relative flex">
-                <Weight className="pointer-events-none absolute top-2 left-2 size-3.5 text-muted-foreground" />
+                <Weight className="pointer-events-none absolute top-2.5 left-2 size-3.5 text-muted-foreground pointer-coarse:top-3.5" />
                 <input
                   inputMode="decimal"
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
-                  className="tabular h-8 w-full rounded-md border border-input bg-white/[0.02] pr-2 pl-7 text-sm outline-none focus:border-neon-cyan/40"
+                  className="tabular h-9 w-full rounded-md bg-fill pr-2 pl-7 text-sm outline-none focus:ring-[3px] focus:ring-ring/50 pointer-coarse:h-11"
                 />
               </span>
             </label>
@@ -203,7 +199,7 @@ export function NetworkExplorer() {
             {loading ? <LoaderCircle className="animate-spin" /> : <Route />}
             Simular ruta
           </Button>
-          {simError && <p className="mt-2 text-xs text-neon-rose">{simError}</p>}
+          {simError && <p role="alert" className="mt-2 text-sm text-destructive">{simError}</p>}
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -226,7 +222,7 @@ export function NetworkExplorer() {
                 exit={{ opacity: 0 }}
                 className="flex flex-col items-center gap-3 px-8 py-10 text-center text-xs text-muted-foreground"
               >
-                <MapIcon className="size-6 text-white/20" />
+                <MapIcon className="size-6 text-muted-foreground/50" aria-hidden />
                 Elige origen, destino y prioridad. El motor calcula la combinación óptima de carretera,
                 río, mar, aire y ferrocarril, con sus transbordos, y la anima sobre el mapa.
               </motion.div>
@@ -235,7 +231,7 @@ export function NetworkExplorer() {
         </div>
       </motion.aside>
 
-      <div className="pointer-events-none absolute right-6 bottom-6 rounded-lg border border-white/[0.06] bg-[#0b0f19]/70 px-4 py-3 backdrop-blur-md">
+      <div className="material pointer-events-none absolute right-6 bottom-6 hidden rounded-lg border border-border px-4 py-3 md:block">
         <MapLegend />
       </div>
     </div>
@@ -256,12 +252,12 @@ function CitySelect({
   const current = cities.find((c) => c.city === value);
   return (
     <label className="block">
-      <span className="mb-1 block text-[11px] text-muted-foreground">{label}</span>
+      <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
       <span className="relative flex items-center">
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-9 w-full appearance-none rounded-md border border-input bg-white/[0.02] pr-20 pl-3 text-sm outline-none focus:border-neon-cyan/40 [&>option]:bg-[#0b0f19]"
+          className="h-9 w-full appearance-none rounded-md bg-fill pr-20 pl-3 text-sm outline-none focus:ring-[3px] focus:ring-ring/50 pointer-coarse:h-11 [&>option]:bg-card"
         >
           {cities.length === 0 && <option value={value}>{value}</option>}
           {cities.map((c) => (
@@ -336,17 +332,17 @@ function RouteResultView({
               initial={{ opacity: 0, x: -6 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: idx * 0.06 }}
-              className="flex gap-3 rounded-md border border-white/[0.05] bg-white/[0.02] p-3"
+              className="flex gap-3 rounded-md bg-fill p-3"
             >
               <ModeIcon mode={r.legs[s.i].mode} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-xs font-medium">
                   {r.legs[s.i].from.name} → {r.legs[s.i].to.name}
                 </div>
-                <div className="truncate text-[11px] text-muted-foreground">
+                <div className="truncate text-xs text-muted-foreground">
                   {r.legs[s.i].corridors.join(" · ")}
                 </div>
-                <div className="tabular mt-1.5 flex gap-3 text-[11px] text-slate-300">
+                <div className="tabular mt-1.5 flex gap-3 text-xs text-foreground/80">
                   <span>{r.legs[s.i].distance_fmt}</span>
                   <span>{r.legs[s.i].time_fmt}</span>
                   <span>{r.legs[s.i].cost_fmt}</span>
@@ -359,7 +355,7 @@ function RouteResultView({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: idx * 0.06 }}
-              className="flex items-center gap-2 py-1 pl-3 text-[11px] text-neon-amber"
+              className="flex items-center gap-2 py-1 pl-3 text-sm text-warning"
             >
               <ArrowRightLeft className="size-3.5" />
               <span className="font-medium">{r.transfers[s.i].label}</span>
@@ -372,7 +368,7 @@ function RouteResultView({
       </ol>
 
       <div>
-        <div className="mb-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+        <div className="mb-2 text-sm font-semibold">
           Alternativas
         </div>
         <div className="flex flex-col gap-1.5">
@@ -383,17 +379,17 @@ function RouteResultView({
               disabled={!a.found}
               onClick={() => onPick(a.priority)}
               className={cn(
-                "flex items-center gap-3 rounded-md border px-3 py-2 text-left text-xs transition-colors",
+                "flex items-center gap-3 rounded-md border px-3 py-2 text-left text-sm outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50",
                 a.priority === r.priority
-                  ? "border-neon-cyan/30 bg-neon-cyan/[0.06]"
-                  : "border-white/[0.05] hover:border-white/15",
+                  ? "border-primary/40 bg-primary/10"
+                  : "border-border hover:bg-fill/60",
               )}
             >
               <span className="w-20 font-medium">{PRIORITIES[a.priority]}</span>
               {a.found && a.modes ? (
                 <>
                   <ModeChain modes={a.modes} />
-                  <span className="tabular ml-auto text-right text-slate-300">
+                  <span className="tabular ml-auto text-right text-foreground/80">
                     {a.time_fmt}
                     <span className="block text-muted-foreground">{a.cost_fmt}</span>
                   </span>
@@ -411,8 +407,8 @@ function RouteResultView({
 
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-md border border-white/[0.05] bg-white/[0.02] p-3">
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground [&_svg]:size-3">
+    <div className="rounded-md bg-fill p-3">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground [&_svg]:size-3">
         {icon}
         {label}
       </div>
@@ -439,7 +435,7 @@ function LayerPanel({
   fleetCount: number;
 }) {
   return (
-    <div className="pointer-events-auto flex items-center gap-1 rounded-lg border border-white/[0.08] bg-[#0b0f19]/75 p-1 backdrop-blur-xl">
+    <div className="material pointer-events-auto flex flex-wrap items-center gap-1 rounded-xl border border-border p-1">
       {MODE_ORDER.map((m) => {
         const { icon: Icon, color, label } = MODES[m];
         const on = modes.has(m);
@@ -447,18 +443,18 @@ function LayerPanel({
           <motion.button
             key={m}
             type="button"
-            whileTap={{ scale: 0.92 }}
             onClick={() => toggleMode(m)}
             aria-pressed={on}
             title={label}
-            className={cn("flex size-8 items-center justify-center rounded-md transition-colors", !on && "opacity-40")}
-            style={on ? { backgroundColor: `${color}1f` } : undefined}
+            aria-label={label}
+            className={cn("flex size-8 items-center justify-center rounded-md outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:size-11", !on && "opacity-50")}
+            style={on ? { backgroundColor: tint(color, 14) } : undefined}
           >
             <Icon className="size-4" style={{ color }} />
           </motion.button>
         );
       })}
-      <span className="mx-1 h-5 w-px bg-white/10" />
+      <span className="mx-1 h-5 w-px bg-border-strong" />
       <ToggleChip on={showDepartments} onClick={() => setShowDepartments(!showDepartments)} icon={<Layers />} label="Departamentos" />
       <ToggleChip on={showFleet} onClick={() => setShowFleet(!showFleet)} icon={<Radio />} label={`Flota ${fleetCount}`} />
     </div>
@@ -482,8 +478,8 @@ function ToggleChip({
       onClick={onClick}
       aria-pressed={on}
       className={cn(
-        "flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors [&_svg]:size-3.5",
-        on ? "bg-white/[0.07] text-foreground" : "text-muted-foreground hover:text-foreground",
+        "flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11 [&_svg]:size-3.5",
+        on ? "bg-fill text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
     >
       {icon}
