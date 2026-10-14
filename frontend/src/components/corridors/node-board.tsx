@@ -117,7 +117,7 @@ export function NodeBoard({ nodes }: { nodes: NodeStatus[] }) {
         {list.map((n) => {
           const Icon = (KINDS[n.kind] ?? KINDS.ciudad).icon;
           return (
-            <li key={n.code} className={cn("rounded-lg border bg-card p-4", n.active ? "border-border" : "border-destructive/25 bg-destructive/[0.03]")}>
+            <li key={n.code} className={cn("rounded-lg border bg-card p-3 sm:p-4", n.active ? "border-border" : "border-destructive/25 bg-destructive/[0.03]")}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-1 gap-3">
                   <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-fill text-muted-foreground">

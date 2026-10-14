@@ -13,7 +13,7 @@ export function BentoGrid({ className, children }: { className?: string; childre
       initial="hidden"
       animate="show"
       variants={{ show: { transition: { staggerChildren: 0.05 } } }}
-      className={cn("grid grid-cols-1 gap-4 md:grid-cols-6 xl:grid-cols-12", className)}
+      className={cn("grid grid-cols-2 gap-3 md:grid-cols-6 md:gap-4 xl:grid-cols-12", className)}
     >
       {children}
     </motion.div>
@@ -63,7 +63,7 @@ export function BentoCell({
           }
         : {})}
       className={cn(
-        "glass relative flex flex-col overflow-hidden rounded-3xl outline-none",
+        "glass relative col-span-2 flex flex-col overflow-hidden rounded-3xl outline-none md:col-span-1",
         onOpen && "cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/50",
         className,
       )}
@@ -128,22 +128,22 @@ export function KpiCard({
       variants={cellVariants}
       whileHover={hoverLift}
       className={cn(
-        "glass relative block rounded-2xl p-5 outline-none",
+        "glass relative col-span-1 block rounded-2xl p-4 outline-none md:p-5",
         href && "cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/50",
         className,
       )}
     >
       <div className="flex items-start justify-between">
-        <span className="text-sm font-medium text-muted-foreground">{label}</span>
+        <span className="text-xs font-medium text-muted-foreground md:text-sm">{label}</span>
         <span
-          className="flex size-8 items-center justify-center rounded-full bg-fill text-muted-foreground [&_svg]:size-4"
+          className="hidden size-8 shrink-0 items-center justify-center rounded-full bg-fill text-muted-foreground sm:flex [&_svg]:size-4"
           style={accent ? { color: accent, backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)` } : undefined}
         >
           {icon}
         </span>
       </div>
-      <div className="tabular mt-3 text-3xl font-bold tracking-tight">{value}</div>
-      {footnote && <div className="mt-1.5 text-sm text-muted-foreground">{footnote}</div>}
+      <div className="tabular mt-2 text-2xl font-bold tracking-tight md:mt-3 md:text-3xl">{value}</div>
+      {footnote && <div className="mt-1 text-xs text-muted-foreground md:mt-1.5 md:text-sm">{footnote}</div>}
     </Comp>
   );
 }

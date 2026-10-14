@@ -569,9 +569,9 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                   </div>
                   <span className="tabular text-xs text-muted-foreground">{Math.round(sh.progress_pct)} %</span>
                 </div>
-                <div className="mt-3 flex items-center justify-between text-sm">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
                   <span className="font-mono text-xs text-muted-foreground">{sh.code}</span>
-                  <span className="tabular">
+                  <span className="tabular ml-auto text-right">
                     {sh.weight_fmt} · <Money usd={sh.cost} /> · ETA {sh.eta_fmt}
                   </span>
                 </div>
