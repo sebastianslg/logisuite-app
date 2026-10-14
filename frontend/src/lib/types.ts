@@ -249,3 +249,73 @@ export interface DepartmentsGeo {
     GeoJSON.Polygon | GeoJSON.MultiPolygon
   >[];
 }
+
+// ---------------------------------------------------------------------------
+// Logística verde: combustible y huella de carbono (backend/app/main.py)
+// ---------------------------------------------------------------------------
+export interface SustainabilitySummary {
+  generated_at: string;
+  window_days: number;
+  shipments: number;
+  totals: {
+    co2e_kg: number;
+    co2e_fmt: string;
+    fuel_l: number;
+    fuel_fmt: string;
+    tkm: number;
+    tkm_fmt: string;
+    intensity_g_tkm: number;
+    baseline_co2e_fmt: string;
+    baseline_fuel_fmt: string;
+    /** Positivo: la operación emite menos que moverlo todo por carretera. */
+    saved_vs_road_pct: number;
+    fuel_vs_road_pct: number;
+  };
+  by_mode: {
+    mode: Mode;
+    label: string;
+    fuel_type: string;
+    tkm: number;
+    tkm_fmt: string;
+    co2e_kg: number;
+    co2e_fmt: string;
+    fuel_l: number;
+    fuel_fmt: string;
+    intensity_g_tkm: number;
+    co2e_share_pct: number;
+  }[];
+  co2e_14d: { date: string; co2e_kg: number }[];
+  top_emitters: {
+    code: string;
+    route: string;
+    modes: Mode[];
+    co2e_kg: number;
+    co2e_fmt: string;
+    fuel_fmt: string;
+  }[];
+  method: { note: string; factors: { mode: Mode; g_co2e_per_tkm: number; fuel: string }[] };
+}
+
+export interface FuelLive {
+  generated_at: string;
+  count: number;
+  burned_l: number;
+  burned_fmt: string;
+  total_l: number;
+  total_fmt: string;
+  burned_pct: number;
+  assets: {
+    id: string;
+    shipment_code: string;
+    mode: Mode;
+    mode_label: string;
+    fuel_type: string;
+    origin: string;
+    destination: string;
+    progress_pct: number;
+    burned_l: number;
+    total_l: number;
+    burned_pct: number;
+    co2e_kg: number;
+  }[];
+}

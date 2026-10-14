@@ -5,9 +5,10 @@ import { motion } from "framer-motion";
 
 import { ChartTooltip } from "./chart-tooltip";
 import { MODE_ORDER, MODES } from "@/lib/modes";
+import { EASE } from "@/lib/motion";
 import type { DashboardSummary } from "@/lib/types";
 
-const ease = [0.22, 1, 0.36, 1] as const;
+const ease = EASE;
 
 /**
  * Reparto modal (t-km): barra 100% apilada en el ORDEN FIJO de modos
@@ -60,9 +61,9 @@ export function ModalSplit({ data }: { data: DashboardSummary["modal_split"] }) 
             <li key={r.mode} className="flex items-center gap-3 text-sm">
               <span className="size-2.5 rounded-sm" style={{ backgroundColor: MODES[r.mode].color }} />
               <Icon className="size-3.5 text-muted-foreground" aria-hidden />
-              <span className="flex-1 text-foreground/80">{r.label}</span>
-              <span className="tabular text-xs text-muted-foreground">{r.tkm_fmt}</span>
-              <span className="tabular w-14 text-right font-medium">
+              <span className="min-w-0 flex-1 truncate text-foreground/80">{r.label}</span>
+              <span className="tabular text-xs whitespace-nowrap text-muted-foreground">{r.tkm_fmt}</span>
+              <span className="tabular w-16 text-right font-medium whitespace-nowrap">
                 {r.share_pct.toLocaleString("es-CO")} %
               </span>
             </li>
@@ -96,9 +97,9 @@ export function DispatchTrend({ data }: { data: DashboardSummary["dispatches_14d
               initial={{ height: 0 }}
               animate={{ height: `${Math.max(4, (d.count / max) * 100)}%` }}
               transition={{ duration: 0.6, delay: i * 0.025, ease }}
-              className="w-full rounded-t-[3px] transition-colors"
+              className="w-full rounded-t-[3px] transition-[opacity,background-color] duration-300 ease-apple"
               style={{
-                backgroundColor: d.count ? "var(--color-primary)" : "var(--color-fill)",
+                backgroundColor: d.count ? "var(--sys-blue)" : "var(--color-fill)",
                 opacity: hover === null || hover === i ? 1 : 0.4,
               }}
             />
@@ -136,7 +137,7 @@ export function TopCorridors({ data }: { data: DashboardSummary["top_corridors"]
               initial={{ width: 0 }}
               animate={{ width: `${(d.tons / max) * 100}%` }}
               transition={{ duration: 0.7, delay: 0.1 + i * 0.05, ease }}
-              className="h-full rounded-full bg-primary"
+              className="h-full rounded-full bg-sys-blue"
             />
           </div>
         </li>

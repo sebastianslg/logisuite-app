@@ -36,6 +36,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MODE_ORDER, MODES, PRIORITIES, STATUSES, STATUS_ORDER, tint } from "@/lib/modes";
+import { EASE, T_FAST } from "@/lib/motion";
+import { Reveal } from "@/components/reveal";
 import type { Mode, Shipment, ShipmentStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -211,7 +213,7 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
   return (
     <div className="flex flex-col gap-4">
       {/* Filtros en una sola fila sobre la tabla */}
-      <div className="flex flex-wrap items-center gap-3">
+      <Reveal index={1} className="flex flex-wrap items-center gap-3">
         <label className="relative flex h-9 w-full max-w-xs items-center pointer-coarse:h-11">
           <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" />
           <input
@@ -219,7 +221,7 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
             onChange={(e) => table.setGlobalFilter(e.target.value)}
             placeholder="Buscar envío, ciudad, carga, cliente"
             aria-label="Buscar envíos"
-            className="h-9 w-full rounded-md bg-fill pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground focus:ring-[3px] focus:ring-ring/50 pointer-coarse:h-11"
+            className="h-9 w-full rounded-xl bg-fill pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground focus:ring-[3px] focus:ring-ring/50 pointer-coarse:h-11"
           />
         </label>
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrar por estado">
@@ -236,7 +238,7 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
               >
                 <Badge
                   tone={active ? STATUSES[s].tone : "neutral"}
-                  className={cn("cursor-pointer py-1.5 text-sm transition-colors pointer-coarse:py-2.5", !active && "hover:bg-fill/70")}
+                  className={cn("cursor-pointer py-1.5 text-sm press pointer-coarse:py-2.5", !active && "hover:bg-fill/70")}
                 >
                   <Icon />
                   {s}
@@ -258,7 +260,7 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
                 aria-pressed={active}
                 title={`${label} (${modeCounts.get(m) ?? 0})`}
                 className={cn(
-                  "flex h-8 items-center gap-1.5 rounded-md border px-2 text-sm transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11 pointer-coarse:px-3",
+                  "flex h-8 items-center gap-1.5 rounded-xl border px-2 text-sm press outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11 pointer-coarse:px-3",
                   active ? "text-foreground" : "border-transparent bg-fill text-muted-foreground hover:text-foreground",
                 )}
                 style={active ? { borderColor: tint(color, 40), backgroundColor: tint(color, 12) } : undefined}
@@ -282,9 +284,9 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
             Limpiar
           </Button>
         )}
-      </div>
+      </Reveal>
 
-      <div className="overflow-hidden rounded-lg bg-card ring-1 ring-border">
+      <Reveal index={2} className="glass overflow-hidden rounded-3xl">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((group) => (
@@ -298,7 +300,7 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
                         <button
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
-                          className="inline-flex items-center gap-1 hover:text-foreground"
+                          className="press inline-flex items-center gap-1 rounded-md hover:text-foreground"
                         >
                           <table.FlexRender header={header} />
                           {sorted === "asc" ? (
@@ -320,15 +322,15 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
           </TableHeader>
           <TableBody>
             <AnimatePresence initial={false} mode="popLayout">
-              {table.getRowModel().rows.map((row) => (
+              {table.getRowModel().rows.map((row, i) => (
                 <motion.tr
                   key={row.id}
                   layout="position"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.18 }}
-                  className="border-b border-border transition-colors hover:bg-fill/50"
+                  transition={{ duration: 0.5, ease: EASE, delay: Math.min(i * 0.03, 0.4) }}
+                  className="border-b border-border transition-colors duration-300 ease-apple hover:bg-fill/50"
                 >
                   {row.getAllCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -347,10 +349,10 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
             )}
           </TableBody>
         </Table>
-      </div>
+      </Reveal>
 
       {/* Paginación */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+      <Reveal index={3} className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
         <span className="tabular">
           {filteredCount === 0
             ? "0 envíos"
@@ -358,22 +360,22 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
         </span>
         <div className="flex items-center gap-2">
           <span className="text-xs">Filas</span>
-          <div className="flex rounded-md bg-fill p-0.5">
+          <div className="flex rounded-xl bg-fill p-0.5">
             {PAGE_SIZES.map((n) => (
               <button
                 key={n}
                 type="button"
                 onClick={() => table.setPageSize(n)}
                 className={cn(
-                  "relative h-7 rounded px-2.5 text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                  "press relative h-7 rounded-lg px-2.5 text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
                   pageSize === n ? "text-foreground" : "hover:text-foreground",
                 )}
               >
                 {pageSize === n && (
                   <motion.span
                     layoutId="page-size"
-                    className="absolute inset-0 rounded bg-card shadow-sm"
-                    transition={{ type: "spring", stiffness: 500, damping: 38 }}
+                    className="absolute inset-0 rounded-lg bg-card shadow-sm"
+                    transition={T_FAST}
                   />
                 )}
                 <span className="relative">{n}</span>
@@ -400,7 +402,7 @@ export function ShipmentsTable({ data }: { data: Shipment[] }) {
             <ChevronsRight />
           </Button>
         </div>
-      </div>
+      </Reveal>
     </div>
   );
 }
