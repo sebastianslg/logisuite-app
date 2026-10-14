@@ -387,10 +387,10 @@ export default function Map3D({
       getSourcePosition: (f) => f.geometry.coordinates[0] as [number, number],
       getTargetPosition: (f) =>
         f.geometry.coordinates[f.geometry.coordinates.length - 1] as [number, number],
-      getSourceColor: [...VIOLET.slice(0, 3), Math.round(230 * dim)] as RGBA,
-      getTargetColor: [...CYAN.slice(0, 3), Math.round(230 * dim)] as RGBA,
+      getSourceColor: [...VIOLET.slice(0, 3), Math.round(120 * dim)] as RGBA,
+      getTargetColor: [...CYAN.slice(0, 3), Math.round(120 * dim)] as RGBA,
       getHeight: 0.42,
-      getWidth: 1.8,
+      getWidth: 1.2,
       widthUnits: "pixels",
       pickable: true,
       autoHighlight: true,

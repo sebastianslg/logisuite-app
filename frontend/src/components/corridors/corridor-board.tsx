@@ -104,7 +104,7 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
         </div>
 
         {error && <p className="rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-        {result && <ChangeSummary result={result} />}
+        {result && <ChangeSummary result={result} name={result.corridor} />}
 
         <ul className="flex flex-col gap-2">
           {list.length === 0 && <li className="glass rounded-3xl p-8 text-center text-sm text-muted-foreground">Ninguna vía coincide.</li>}
@@ -210,7 +210,11 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
   );
 }
 
-function ChangeSummary({ result }: { result: CorridorChange }) {
+export function ChangeSummary({ result, name, feminine = true }: {
+  feminine?: boolean;
+  result: Pick<CorridorChange, "active" | "rerouted" | "no_route" | "restored" | "replanned">;
+  name: string;
+}) {
   const groups: [string, string[], string, React.ReactNode][] = [
     ["Redirigidos", result.rerouted, "text-warning", <TriangleAlert key="r" className="size-3.5" />],
     ["Recalculados (programados)", result.replanned, "text-primary", <CircleCheck key="p" className="size-3.5" />],
@@ -221,8 +225,8 @@ function ChangeSummary({ result }: { result: CorridorChange }) {
   return (
     <div className="rounded-lg border border-border-strong bg-card p-4 text-sm">
       <div className="font-medium">
-        {result.corridor} {result.active ? "reabierta" : "cerrada"}.{" "}
-        {!any && <span className="font-normal text-muted-foreground">Ningún envío en curso la usaba.</span>}
+        {name} {result.active ? (feminine ? "reabierta" : "reabierto") : feminine ? "cerrada" : "cerrado"}.{" "}
+        {!any && <span className="font-normal text-muted-foreground">{feminine ? "Ningún envío en curso la usaba." : "Ningún envío en curso pasaba por él."}</span>}
       </div>
       {groups.filter(([, codes]) => codes.length > 0).map(([label, codes, color, icon]) => (
         <div key={label} className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">

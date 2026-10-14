@@ -80,6 +80,7 @@ class MultimodalNetwork:
     nodes: dict                      # node_code -> dict
     links: list                      # dicts con geometry (lista [lon, lat])
     cities: dict = field(default_factory=dict)  # ciudad -> [node_code]
+    closed_nodes: dict = field(default_factory=dict)  # node_code -> motivo
 
     @classmethod
     def from_db(cls) -> "MultimodalNetwork":
@@ -88,6 +89,9 @@ class MultimodalNetwork:
                  run_query("SELECT * FROM mm_nodes WHERE active = 1").to_dict(orient="records")}
         closed = {r["corridor"]: r for r in run_query(
             "SELECT * FROM mm_corridor_status WHERE active = 0").to_dict(orient="records")}
+        closed_nodes = {r["node_code"]: r["reason"] for r in run_query(
+            "SELECT node_code, reason FROM mm_node_status WHERE active = 0").to_dict(orient="records")
+            if r["node_code"] in nodes}
         links = []
         for r in run_query("SELECT * FROM mm_links WHERE active = 1").to_dict(orient="records"):
             if r["origin_code"] in nodes and r["dest_code"] in nodes:
@@ -95,7 +99,7 @@ class MultimodalNetwork:
                 r["closed"] = r["corridor"] in closed
                 r["closure_reason"] = closed[r["corridor"]]["reason"] if r["closed"] else None
                 links.append(r)
-        return cls(nodes=nodes, links=links)
+        return cls(nodes=nodes, links=links, closed_nodes=closed_nodes)
 
     @property
     def closed_corridors(self) -> set:
@@ -131,6 +135,7 @@ class MultimodalNetwork:
     def build_graph(self, weight_t: float, excluded: set = frozenset(),
                     allowed_modes: set | None = None) -> nx.DiGraph:
         G = nx.DiGraph()
+        excluded = set(excluded) | set(self.closed_nodes)
         for l in self.links:
             o, d = l["origin_code"], l["dest_code"]
             if o in excluded or d in excluded or l["capacity_t"] < weight_t or l.get("closed"):

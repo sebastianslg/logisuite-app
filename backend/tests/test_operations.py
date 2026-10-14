@@ -184,6 +184,62 @@ class TestViasCerradas:
 
 
 # ---------------------------------------------------------------------------
+class TestNodosCerrados:
+
+    def test_cerrar_requiere_motivo_y_nodo_valido(self, client):
+        assert client.post("/api/nodes/status", json={"code": "BOG-AIR", "active": False}).status_code == 422
+        r = client.post("/api/nodes/status", json={"code": "XXX", "active": False, "reason": "x"})
+        assert r.status_code == 422 and "desconocido" in r.json()["detail"]
+
+    def test_aeropuerto_cerrado_se_evita_y_reabre(self, client):
+        sin_cerrar = client.post("/api/routes/simulate", json={
+            "origen": "Leticia", "destino": "Bogotá", "prioridad": "tiempo", "peso_t": 5}).json()
+        assert "LET-AIR" in json.dumps(sin_cerrar["route"])
+        r = client.post("/api/nodes/status", json={
+            "code": "LET-AIR", "active": False, "reason": "Pista en mantenimiento", "usuario": "Operador"})
+        assert r.status_code == 200, r.text
+        listado = {n["code"]: n for n in client.get("/api/nodes/status").json()["items"]}
+        assert not listado["LET-AIR"]["active"] and listado["LET-AIR"]["reason"]
+        feat = next(f for f in client.get("/api/network/multimodal").json()["nodes"]["features"]
+                    if f["properties"]["code"] == "LET-AIR")
+        assert feat["properties"]["closed"] is True
+        # Sin aeropuerto, Leticia solo sale por río (o no hay ruta): nunca por LET-AIR
+        d = client.post("/api/routes/simulate", json={
+            "origen": "Leticia", "destino": "Bogotá", "prioridad": "tiempo", "peso_t": 5})
+        if d.status_code == 200:
+            assert "LET-AIR" not in json.dumps(d.json()["route"])
+        # Repetir el cierre es un error; reabrir restablece
+        assert client.post("/api/nodes/status", json={"code": "LET-AIR", "active": False,
+                                                      "reason": "otra vez"}).status_code == 422
+        assert client.post("/api/nodes/status", json={"code": "LET-AIR", "active": True}).status_code == 200
+        d = client.post("/api/routes/simulate", json={
+            "origen": "Leticia", "destino": "Bogotá", "prioridad": "tiempo", "peso_t": 5}).json()
+        assert "LET-AIR" in json.dumps(d["route"])
+        log = _rows("SELECT action FROM audit_log WHERE record_id = 'LET-AIR' ORDER BY audit_id")
+        assert [l["action"] for l in log][-2:] == ["CLOSE", "REOPEN"]
+
+    def test_cerrar_un_nodo_redirige_los_envios_que_pasan_por_el(self, client):
+        nodos = client.get("/api/nodes/status").json()["items"]
+        usados = [n for n in nodos if n["shipments"] and n["kind"] in ("puerto_maritimo", "aeropuerto")]
+        if not usados:
+            pytest.skip("ningún puerto o aeropuerto en uso")
+        n = max(usados, key=lambda x: len(x["shipments"]))
+        res = client.post("/api/nodes/status", json={"code": n["code"], "active": False,
+                                                     "reason": "Cierre de prueba"}).json()
+        afectados = set(res["rerouted"]) | set(res["no_route"]) | set(res["replanned"])
+        assert afectados, "debía afectar al menos un envío"
+        for code in res["rerouted"] + res["replanned"]:
+            row = _rows("SELECT route_json, route_status FROM mm_shipments WHERE shipment_code = ?",
+                        (code,))[0]
+            assert row["route_status"] == "ok"
+            pend = {t for l in json.loads(row["route_json"])["legs"] if not l.get("interrupted")
+                    for sg in (l.get("segments") or []) for t in (sg["from"], sg["to"])}
+            assert n["code"] not in pend or code in res["no_route"]
+        r = client.post("/api/nodes/status", json={"code": n["code"], "active": True})
+        assert r.status_code == 200 and set(res["no_route"]) <= set(r.json()["restored"])
+
+
+# ---------------------------------------------------------------------------
 class TestMonedaYExportacion:
 
     def test_cop_sin_trm_falla(self, client):

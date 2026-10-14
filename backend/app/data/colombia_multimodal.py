@@ -361,6 +361,57 @@ LINKS_V2 = [
      [(5.0221, -74.0058), (5.1500, -73.6800)]),
 ] + [(o, d, "aereo", None, None, None, []) for o, d in _AIR]
 
+# ---------------------------------------------------------------------------
+# Ciudades intermedias sobre carreteras nacionales (v5). DATOS APROXIMADOS:
+# kilómetros y horas estimados por el trazado de la ruta nacional indicada;
+# se siembran con approximate = 1. Solo se incluyen ciudades con vía conocida.
+# ---------------------------------------------------------------------------
+NODES_V2.extend([
+    ("CITY-CRT", "Cartago", "ciudad", "Cartago", "76", 4.7464, -75.9116, None),
+    ("CITY-TUL", "Tuluá", "ciudad", "Tuluá", "76", 4.0847, -76.1954, None),
+    ("CITY-SQU", "Santander de Quilichao", "ciudad", "Santander de Quilichao", "19", 3.0090, -76.4846, None),
+    ("CITY-DUI", "Duitama", "ciudad", "Duitama", "15", 5.8268, -73.0339, None),
+    ("CITY-SOG", "Sogamoso", "ciudad", "Sogamoso", "15", 5.7145, -72.9339, None),
+    ("CITY-SGL", "San Gil", "ciudad", "San Gil", "68", 6.5560, -73.1330, None),
+    ("CITY-AGU", "Aguachica", "ciudad", "Aguachica", "20", 8.3089, -73.6150, None),
+    ("CITY-OCA", "Ocaña", "ciudad", "Ocaña", "54", 8.2370, -73.3560, None),
+    ("CITY-MAI", "Maicao", "ciudad", "Maicao", "44", 11.3780, -72.2410, None),
+    ("CITY-LOR", "Lorica", "ciudad", "Lorica", "23", 9.2390, -75.8160, None),
+    ("CITY-HND", "Honda", "ciudad", "Honda", "73", 5.2080, -74.7360, None),
+    ("CITY-FUS", "Fusagasugá", "ciudad", "Fusagasugá", "25", 4.3370, -74.3640, None),
+    ("CITY-GAR", "Garzón", "ciudad", "Garzón", "41", 2.1960, -75.6280, None),
+    ("CITY-PIT", "Pitalito", "ciudad", "Pitalito", "41", 1.8537, -76.0500, None),
+])
+
+LINKS_V2.extend([
+    # Troncal de Occidente / Panamericana (Ruta 25)
+    ("CEDI-CLO", "CITY-TUL", "terrestre", "Troncal de Occidente", 100, 2.0, [(3.9000, -76.3000)]),
+    ("CITY-TUL", "CITY-CRT", "terrestre", "Troncal de Occidente", 85, 1.8, [(4.3100, -75.9900)]),
+    ("CITY-CRT", "CITY-PEI", "terrestre", "Troncal de Occidente", 35, 0.8, [(4.7400, -75.9100)]),
+    ("CEDI-CLO", "CITY-SQU", "terrestre", "Panamericana (Cali - Popayán)", 45, 1.0, [(3.2600, -76.5400)]),
+    ("CITY-SQU", "CITY-PPN", "terrestre", "Panamericana (Cali - Popayán)", 100, 2.4, [(2.7500, -76.6000)]),
+    # Troncal Central del Norte (Ruta 55) y Transversal del Cusiana
+    ("CITY-TUN", "CITY-DUI", "terrestre", "Troncal Central del Norte", 50, 1.0, []),
+    ("CITY-DUI", "CITY-SOG", "terrestre", "Troncal Central del Norte", 40, 0.9, []),
+    ("CITY-TUN", "CITY-SGL", "terrestre", "Troncal Central del Norte", 170, 4.0, [(5.9300, -73.6200)]),
+    ("CITY-SGL", "CEDI-BGA", "terrestre", "Troncal Central del Norte", 95, 2.0, [(6.8200, -73.1700)]),
+    # Ruta 45A y Ruta 70 (Magdalena medio - Ocaña - Cúcuta)
+    ("RAIL-CHI", "CITY-AGU", "terrestre", "Troncal del Magdalena", 135, 2.8, [(8.8300, -73.6400)]),
+    ("CITY-AGU", "CITY-OCA", "terrestre", "Vía Aguachica - Ocaña (Ruta 70)", 80, 2.0, []),
+    ("CITY-OCA", "CITY-CUC", "terrestre", "Vía Ocaña - Cúcuta (Ruta 70)", 190, 4.8, [(8.1000, -73.0000)]),
+    # Caribe
+    ("CITY-RCH", "CITY-MAI", "terrestre", "Troncal del Caribe", 80, 1.5, []),
+    ("CITY-MTR", "CITY-LOR", "terrestre", "Vía Montería - Lorica", 55, 1.2, []),
+    # Magdalena alto y medio
+    ("RIV-LDA", "CITY-HND", "terrestre", "Troncal del Magdalena", 35, 0.8, []),
+    ("CITY-HND", "CITY-IBG", "terrestre", "Vía Honda - Ibagué", 95, 2.6, []),
+    ("CITY-SOA", "CITY-FUS", "terrestre", "Autopista Bogotá - Girardot", 50, 1.1, []),
+    ("CITY-FUS", "CITY-GIR", "terrestre", "Autopista Bogotá - Girardot", 65, 1.5, [(4.2000, -74.6400)]),
+    ("CITY-NVA", "CITY-GAR", "terrestre", "Troncal del Magdalena", 100, 2.2, [(2.5500, -75.4500)]),
+    ("CITY-GAR", "CITY-PIT", "terrestre", "Troncal del Magdalena", 85, 2.0, []),
+    ("CITY-PIT", "CITY-MCO", "terrestre", "Troncal del Magdalena", 145, 4.0, [(1.5000, -76.2800)]),
+])
+
 # Capacidad por despacho: aeropuertos con pista corta y ríos de poco calado
 CAPACITY_OVERRIDES.update({
     **{(o, d): 15.0 for o, d in _AIR if d in ("MVP-AIR", "PDA-AIR", "SJE-AIR", "PCR-AIR", "UIB-AIR",

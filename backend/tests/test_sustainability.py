@@ -73,3 +73,29 @@ def test_ciudades_traen_categoria(client):
     cities = client.get("/api/locations").json()["cities"]
     assert {c["category"] for c in cities} <= {"principal", "municipio", "dificil_acceso"}
     assert next(c for c in cities if c["city"] == "Leticia")["category"] == "dificil_acceso"
+
+
+CAPITALES = ["Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", "Bucaramanga", "Santa Marta",
+             "Cúcuta", "Pereira", "Manizales", "Ibagué", "Pasto", "Neiva", "Villavicencio", "Armenia",
+             "Montería", "Valledupar", "Sincelejo", "Popayán", "Tunja", "Riohacha", "Florencia", "Yopal",
+             "Quibdó", "Leticia", "Arauca", "Mocoa", "San José del Guaviare", "Inírida", "Mitú",
+             "Puerto Carreño", "San Andrés"]
+
+
+def test_todas_las_capitales_estan_en_la_red_como_principales(client):
+    cities = {c["city"]: c for c in client.get("/api/locations").json()["cities"]}
+    assert len(CAPITALES) == 32  # 31 capitales de departamento + Bogotá D.C.
+    faltan = [c for c in CAPITALES if c not in cities]
+    assert not faltan, faltan
+    assert all(cities[c]["category"] in ("principal", "dificil_acceso") for c in CAPITALES)
+    assert {"Cartago", "Tuluá", "Sogamoso", "Ocaña", "Maicao", "Ipiales", "Tumaco", "Apartadó",
+            "Girardot"} <= set(cities)
+
+
+def test_ciudades_nuevas_tienen_ruta_terrestre_desde_bogota(client):
+    for destino in ("Cartago", "Ocaña", "Maicao", "Pitalito", "Sogamoso"):
+        r = client.post("/api/routes/simulate", json={"origen": "Bogotá", "destino": destino,
+                                                      "prioridad": "costo", "peso_t": 5,
+                                                      "modos": ["terrestre"]})
+        assert r.status_code == 200, (destino, r.text)
+        assert r.json()["route"]["legs"], destino
