@@ -30,7 +30,7 @@ export function NetworkMapCard({ network: stats }: { network: DashboardSummary["
             return (
               <div
                 key={m}
-                className="flex items-center gap-2 rounded-md border border-white/[0.06] bg-[#0b0f19]/70 px-2.5 py-1.5 backdrop-blur-md"
+                className="flex items-center gap-2 material rounded-md border border-border px-2.5 py-1.5"
               >
                 <Icon className="size-3.5" style={{ color: MODES[m].color }} />
                 <span className="tabular text-xs font-medium">{byMode.get(m)?.km_fmt ?? "0 km"}</span>
@@ -42,7 +42,7 @@ export function NetworkMapCard({ network: stats }: { network: DashboardSummary["
           <MapLegend />
           <Link
             href="/red"
-            className="pointer-events-auto inline-flex shrink-0 items-center gap-1.5 rounded-md border border-neon-cyan/30 bg-neon-cyan/10 px-3 py-1.5 text-xs font-medium text-neon-cyan backdrop-blur-md transition-colors hover:bg-neon-cyan/20"
+            className="pointer-events-auto inline-flex shrink-0 items-center gap-1.5 rounded-md bg-solid px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-solid/90 focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none"
           >
             Simulador de rutas
             <ArrowUpRight className="size-3.5" />

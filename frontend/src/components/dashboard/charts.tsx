@@ -60,7 +60,7 @@ export function ModalSplit({ data }: { data: DashboardSummary["modal_split"] }) 
             <li key={r.mode} className="flex items-center gap-3 text-sm">
               <span className="size-2.5 rounded-sm" style={{ backgroundColor: MODES[r.mode].color }} />
               <Icon className="size-3.5 text-muted-foreground" aria-hidden />
-              <span className="flex-1 text-slate-300">{r.label}</span>
+              <span className="flex-1 text-foreground/80">{r.label}</span>
               <span className="tabular text-xs text-muted-foreground">{r.tkm_fmt}</span>
               <span className="tabular w-14 text-right font-medium">
                 {r.share_pct.toLocaleString("es-CO")} %
@@ -96,15 +96,15 @@ export function DispatchTrend({ data }: { data: DashboardSummary["dispatches_14d
               initial={{ height: 0 }}
               animate={{ height: `${Math.max(4, (d.count / max) * 100)}%` }}
               transition={{ duration: 0.6, delay: i * 0.025, ease }}
-              className="w-full rounded-t-[4px] transition-colors"
+              className="w-full rounded-t-[3px] transition-colors"
               style={{
-                backgroundColor: d.count ? "#22d3ee" : "rgb(255 255 255 / 0.06)",
+                backgroundColor: d.count ? "var(--color-primary)" : "var(--color-fill)",
                 opacity: hover === null || hover === i ? 1 : 0.4,
               }}
             />
           </div>
         ))}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-white/10" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border-strong" />
         {hover !== null && (
           <ChartTooltip open x={`${((hover + 0.5) / data.length) * 100}%`} y={0}>
             <span className="font-medium">{fmt(data[hover].date)}</span>
@@ -112,7 +112,7 @@ export function DispatchTrend({ data }: { data: DashboardSummary["dispatches_14d
           </ChartTooltip>
         )}
       </div>
-      <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
+      <div className="mt-2 flex justify-between text-xs text-muted-foreground">
         <span>{fmt(data[0].date)}</span>
         <span>Hoy</span>
       </div>
@@ -128,15 +128,15 @@ export function TopCorridors({ data }: { data: DashboardSummary["top_corridors"]
       {data.map((d, i) => (
         <li key={d.corridor} className="group/row">
           <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
-            <span className="truncate text-slate-300">{d.corridor}</span>
+            <span className="truncate text-foreground/80">{d.corridor}</span>
             <span className="tabular shrink-0 text-xs font-medium">{d.tons_fmt}</span>
           </div>
-          <div className="h-1.5 w-full rounded-full bg-white/[0.04]">
+          <div className="h-1.5 w-full rounded-full bg-fill">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${(d.tons / max) * 100}%` }}
               transition={{ duration: 0.7, delay: 0.1 + i * 0.05, ease }}
-              className="h-full rounded-full bg-neon-cyan/70 transition-colors group-hover/row:bg-neon-cyan"
+              className="h-full rounded-full bg-primary"
             />
           </div>
         </li>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
+import { LayoutGroup, motion } from "framer-motion";
 import {
   LayoutDashboard,
   Network,
@@ -16,14 +16,20 @@ import {
 
 import { cn } from "@/lib/utils";
 
-const NAV: { href: string; label: string; icon: LucideIcon; hint: string }[] = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, hint: "Torre de control" },
-  { href: "/envios", label: "Envíos", icon: Package, hint: "Órdenes y estados" },
-  { href: "/red", label: "Red multimodal", icon: Network, hint: "Mapa 3D y simulador" },
+const NAV: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/envios", label: "Envíos", icon: Package },
+  { href: "/red", label: "Red multimodal", icon: Network },
 ];
 
-const spring = { type: "spring", stiffness: 420, damping: 36, mass: 0.8 } as const;
+const spring = { type: "spring", stiffness: 420, damping: 38, mass: 0.8 } as const;
 
+/**
+ * Navegación de primer nivel. En pantallas anchas es una barra lateral de
+ * material translúcido (convención de escritorio); en estrechas se convierte en
+ * una barra de pestañas inferior (convención móvil), con las mismas tres
+ * secciones y siempre visible.
+ */
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -31,86 +37,90 @@ export function Sidebar() {
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   return (
-    <motion.aside
-      animate={{ width: collapsed ? 72 : 248 }}
-      transition={spring}
-      className="sticky top-0 z-30 flex h-screen shrink-0 flex-col border-r border-border bg-[#05080f]/90 backdrop-blur-xl"
-    >
-      <div className="flex h-16 items-center gap-3 px-4">
-        <div className="relative flex size-9 shrink-0 items-center justify-center rounded-lg border border-neon-cyan/30 bg-neon-cyan/10">
-          <Waypoints className="size-4.5 text-neon-cyan" />
-          <span className="absolute inset-0 rounded-lg shadow-[0_0_24px_-4px_rgb(34_211_238/0.55)]" />
+    <>
+      <motion.aside
+        animate={{ width: collapsed ? 68 : 232 }}
+        transition={spring}
+        className="material sticky top-0 z-30 hidden h-screen shrink-0 flex-col border-r border-border md:flex"
+      >
+        <div className="flex h-16 items-center gap-2.5 px-4">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-solid text-primary-foreground">
+            <Waypoints className="size-4.5" aria-hidden />
+          </span>
+          {!collapsed && <span className="truncate text-base font-semibold tracking-tight">LogiSuite</span>}
         </div>
-        <AnimatePresence initial={false}>
-          {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0, x: -6 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -6 }}
-              transition={{ duration: 0.15 }}
-              className="min-w-0"
-            >
-              <div className="text-sm font-semibold tracking-tight">LogiSuite</div>
-              <div className="text-[11px] text-muted-foreground">TMS Multimodal</div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
 
-      <nav className="flex flex-1 flex-col gap-1 px-3 pt-4" aria-label="Navegación principal">
-        <LayoutGroup id="sidebar">
-          {NAV.map(({ href, label, icon: Icon, hint }) => {
-            const active = isActive(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                title={collapsed ? label : undefined}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "group relative flex h-10 items-center gap-3 rounded-md px-3 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50",
-                  active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="nav-active"
-                    transition={spring}
-                    className="absolute inset-0 rounded-md border border-neon-cyan/20 bg-neon-cyan/[0.07]"
-                  >
-                    <span className="absolute top-2 bottom-2 left-0 w-0.5 rounded-full bg-neon-cyan shadow-[0_0_12px_rgb(34_211_238)]" />
-                  </motion.span>
-                )}
-                <motion.span
-                  whileHover={{ scale: 1.08 }}
-                  transition={spring}
-                  className="relative z-10 flex shrink-0"
+        <nav className="flex flex-1 flex-col gap-0.5 px-3 pt-2" aria-label="Navegación principal">
+          <LayoutGroup id="sidebar">
+            {NAV.map(({ href, label, icon: Icon }) => {
+              const active = isActive(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  title={collapsed ? label : undefined}
+                  aria-label={collapsed ? label : undefined}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "relative flex h-9 items-center gap-2.5 rounded-md px-2.5 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                    active ? "font-medium text-primary" : "text-foreground/80 hover:bg-fill/60",
+                  )}
                 >
-                  <Icon className={cn("size-4.5", active && "text-neon-cyan")} />
-                </motion.span>
-                {!collapsed && (
-                  <span className="relative z-10 flex min-w-0 flex-col leading-tight">
-                    <span className="truncate font-medium">{label}</span>
-                    <span className="truncate text-[11px] text-muted-foreground/80">{hint}</span>
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </LayoutGroup>
-      </nav>
+                  {active && (
+                    <motion.span
+                      layoutId="nav-active"
+                      transition={spring}
+                      className="absolute inset-0 rounded-md bg-primary/12"
+                    />
+                  )}
+                  <Icon className="relative size-[18px] shrink-0" aria-hidden />
+                  {!collapsed && <span className="relative truncate">{label}</span>}
+                </Link>
+              );
+            })}
+          </LayoutGroup>
+        </nav>
 
-      <div className="border-t border-border p-3">
-        <button
-          type="button"
-          onClick={() => setCollapsed((c) => !c)}
-          className="flex h-9 w-full items-center gap-3 rounded-md px-3 text-xs text-muted-foreground transition-colors hover:bg-white/[0.04] hover:text-foreground"
-          aria-label={collapsed ? "Expandir menú" : "Contraer menú"}
-        >
-          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-          {!collapsed && <span>Contraer</span>}
-        </button>
-      </div>
-    </motion.aside>
+        <div className="p-3">
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            className="flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-sm text-muted-foreground outline-none hover:bg-fill/60 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            aria-label={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
+            aria-expanded={!collapsed}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="size-[18px]" aria-hidden />
+            ) : (
+              <PanelLeftClose className="size-[18px]" aria-hidden />
+            )}
+            {!collapsed && <span>Contraer</span>}
+          </button>
+        </div>
+      </motion.aside>
+
+      <nav
+        aria-label="Navegación principal"
+        className="material fixed inset-x-0 bottom-0 z-40 flex border-t border-border pb-[env(safe-area-inset-bottom)] md:hidden"
+      >
+        {NAV.map(({ href, label, icon: Icon }) => {
+          const active = isActive(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50",
+                active ? "font-medium text-primary" : "text-muted-foreground",
+              )}
+            >
+              <Icon className="size-6" aria-hidden />
+              <span className="truncate">{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+    </>
   );
 }

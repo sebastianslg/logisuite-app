@@ -36,7 +36,7 @@ export function LiveFleet({ initial }: { initial: FleetLive }) {
           return (
             <div
               key={m}
-              className="flex flex-col items-center gap-1 rounded-md border border-white/[0.05] bg-white/[0.02] py-2"
+              className="flex flex-col items-center gap-1 rounded-md bg-fill py-2"
               title={MODES[m].label}
             >
               <Icon className="size-4" style={{ color: MODES[m].color }} />
@@ -45,7 +45,7 @@ export function LiveFleet({ initial }: { initial: FleetLive }) {
           );
         })}
       </div>
-      <ul className="flex flex-col divide-y divide-white/[0.04]">
+      <ul className="flex flex-col divide-y divide-border">
         <AnimatePresence initial={false}>
           {assets.map((a) => (
             <motion.li
@@ -64,7 +64,7 @@ export function LiveFleet({ initial }: { initial: FleetLive }) {
                     {a.origin} → {a.destination}
                   </span>
                 </div>
-                <div className="mt-1.5 h-1 w-full rounded-full bg-white/[0.05]">
+                <div className="mt-1.5 h-1 w-full rounded-full bg-fill">
                   <motion.div
                     className="h-full rounded-full"
                     style={{ backgroundColor: MODES[a.mode].color }}
@@ -79,11 +79,8 @@ export function LiveFleet({ initial }: { initial: FleetLive }) {
           ))}
         </AnimatePresence>
       </ul>
-      <div className="mt-auto flex items-center gap-2 text-[11px] text-muted-foreground">
-        <span className="relative flex size-2">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-neon-emerald/60" />
-          <span className="relative inline-flex size-2 rounded-full bg-neon-emerald" />
-        </span>
+      <div className="mt-auto flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="size-2 rounded-full bg-success" aria-hidden />
         <Radio className="size-3" aria-hidden />
         {fleet.count} activos · telemetría simulada sobre el trazado de cada ruta
       </div>

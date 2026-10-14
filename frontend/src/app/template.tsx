@@ -2,13 +2,13 @@
 
 import { motion } from "framer-motion";
 
-/** Transición de página: template.tsx se vuelve a montar en cada navegación. */
+/** Transición de página: solo un fundido breve (template.tsx se vuelve a montar en cada navegación). */
 export default function Template({ children }: { children: React.ReactNode }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
       className="min-h-full"
     >
       {children}

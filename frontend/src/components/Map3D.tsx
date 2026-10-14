@@ -38,9 +38,22 @@ import { cn } from "@/lib/utils";
 // Worker publicado por scripts/copy-maplibre-worker.mjs (ver allí el porqué)
 setWorkerUrl("/vendor/maplibre-gl-worker.mjs");
 
-const MAP_STYLE =
-  process.env.NEXT_PUBLIC_MAP_STYLE ??
-  "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+// NEXT_PUBLIC_MAP_STYLE fija un estilo único; sin él, el mapa sigue la apariencia del sistema.
+const MAP_STYLE_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+const MAP_STYLE_LIGHT = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+
+/** Apariencia del sistema (claro/oscuro), reactiva a cambios en vivo. */
+function usePrefersDark() {
+  const [dark, setDark] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => setDark(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return dark;
+}
 
 export const COLOMBIA_VIEW: MapViewState = {
   longitude: -74.2,
@@ -113,6 +126,7 @@ export default function Map3D({
     compact ? { ...COLOMBIA_VIEW, latitude: 1.4, zoom: 4.25, pitch: 40 } : COLOMBIA_VIEW,
   );
   const [hover, setHover] = useState<Hover>(null);
+  const dark = usePrefersDark();
   const [clock, setClock] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const [routeStart, setRouteStart] = useState(0);
@@ -542,7 +556,7 @@ export default function Map3D({
   }, []);
 
   return (
-    <div ref={containerRef} className={cn("relative h-full min-h-80 w-full overflow-hidden bg-[#030712]", className)}>
+    <div ref={containerRef} className={cn("relative h-full min-h-80 w-full overflow-hidden bg-background", className)}>
       <DeckGL
         viewState={viewState}
         onViewStateChange={({ viewState: v }) => setViewState(v as MapViewState)}
@@ -551,17 +565,17 @@ export default function Map3D({
         onHover={onHover}
         getCursor={({ isHovering, isDragging }) => (isDragging ? "grabbing" : isHovering ? "pointer" : "grab")}
       >
-        <BaseMap mapStyle={MAP_STYLE} reuseMaps attributionControl={{ compact: true }} />
+        <BaseMap mapStyle={process.env.NEXT_PUBLIC_MAP_STYLE ?? (dark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT)} reuseMaps attributionControl={{ compact: true }} />
       </DeckGL>
       {hover && (
         <div
-          className="pointer-events-none absolute z-20 max-w-72 -translate-x-1/2 -translate-y-[calc(100%+14px)] rounded-lg border border-white/10 bg-[#0b0f19]/70 px-3.5 py-3 text-xs shadow-2xl shadow-black/60 backdrop-blur-xl"
+          className="pointer-events-none absolute z-20 max-w-72 -translate-x-1/2 -translate-y-[calc(100%+14px)] material rounded-lg border border-border-strong px-3.5 py-3 text-xs shadow-xl"
           style={{ left: hover.x, top: hover.y }}
         >
           {hover.content}
         </div>
       )}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#030712] to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent" />
     </div>
   );
 }
@@ -594,7 +608,7 @@ function Row({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex justify-between gap-4">
       <span className="text-muted-foreground">{k}</span>
-      <span className="tabular text-right text-slate-200">{v}</span>
+      <span className="tabular text-right text-foreground/80">{v}</span>
     </div>
   );
 }

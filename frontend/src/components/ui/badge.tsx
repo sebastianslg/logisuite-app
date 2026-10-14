@@ -3,19 +3,18 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
-/** Badges translúcidos: fondo al 10%, borde al 25% y texto en el color pleno. */
+/** Etiquetas de estado: fondo tintado sin borde y texto en el color semántico. Siempre con ícono o texto. */
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap [&>svg]:pointer-events-none [&>svg]:size-3",
+  "inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     variants: {
       tone: {
-        neutral: "border-white/10 bg-white/[0.04] text-slate-300",
-        cyan: "border-neon-cyan/25 bg-neon-cyan/10 text-neon-cyan",
-        cobalt: "border-neon-cobalt/30 bg-neon-cobalt/10 text-[#7da2ff]",
-        emerald: "border-neon-emerald/25 bg-neon-emerald/10 text-neon-emerald",
-        amber: "border-neon-amber/25 bg-neon-amber/10 text-neon-amber",
-        violet: "border-neon-violet/25 bg-neon-violet/10 text-neon-violet",
-        rose: "border-neon-rose/25 bg-neon-rose/10 text-neon-rose",
+        neutral: "bg-fill text-muted-foreground",
+        accent: "bg-primary/12 text-primary",
+        info: "bg-info/14 text-info",
+        success: "bg-success/14 text-success",
+        warning: "bg-warning/14 text-warning",
+        danger: "bg-destructive/14 text-destructive",
       },
     },
     defaultVariants: { tone: "neutral" },

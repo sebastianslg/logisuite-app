@@ -11,7 +11,7 @@ export function BentoGrid({ className, children }: { className?: string; childre
     <motion.div
       initial="hidden"
       animate="show"
-      variants={{ show: { transition: { staggerChildren: 0.05 } } }}
+      variants={{ show: { transition: { staggerChildren: 0.03 } } }}
       className={cn("grid grid-cols-1 gap-4 md:grid-cols-6 xl:grid-cols-12", className)}
     >
       {children}
@@ -20,11 +20,11 @@ export function BentoGrid({ className, children }: { className?: string; childre
 }
 
 const cellVariants = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease } },
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { duration: 0.25, ease } },
 };
 
-/** Celda genérica del bento: superficie #0B0F19 con borde translúcido. */
+/** Celda del dashboard: superficie de tarjeta agrupada sobre el fondo, sin borde ni brillo. */
 export function BentoCell({
   className,
   children,
@@ -44,8 +44,7 @@ export function BentoCell({
     <motion.section
       variants={cellVariants}
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card",
-        "transition-[border-color,box-shadow] duration-300 hover:border-white/10",
+        "relative flex flex-col overflow-hidden rounded-lg bg-card ring-1 ring-border",
         className,
       )}
       {...props}
@@ -54,12 +53,12 @@ export function BentoCell({
         <header className="flex items-start justify-between gap-3 px-5 pt-5">
           <div className="flex min-w-0 items-center gap-2.5">
             {icon && (
-              <span className="flex size-7 items-center justify-center rounded-md border border-white/[0.06] bg-white/[0.03] text-muted-foreground [&_svg]:size-3.5">
+              <span className="flex size-7 items-center justify-center rounded-md bg-fill text-muted-foreground [&_svg]:size-4">
                 {icon}
               </span>
             )}
             <div className="min-w-0">
-              <h2 className="truncate text-sm font-medium tracking-tight">{title}</h2>
+              <h2 className="truncate text-[0.9375rem] font-semibold tracking-tight">{title}</h2>
               {description && <p className="truncate text-xs text-muted-foreground">{description}</p>}
             </div>
           </div>
@@ -71,19 +70,23 @@ export function BentoCell({
   );
 }
 
-/** Tarjeta KPI: hover con escala 1,02, elevación y brillo del acento. */
+/**
+ * Tarjeta KPI. El color del ícono solo aparece cuando el KPI corresponde a un
+ * estado (verde = en ruta, naranja = transbordo); el resto va en gris neutro.
+ */
 export function KpiCard({
   label,
   value,
   icon,
-  accent = "#22d3ee",
+  accent,
   footnote,
   className,
 }: {
   label: string;
   value: string;
-  /** Elemento ya renderizado (ej. <Gauge />), toma el color del acento. */
+  /** Elemento ya renderizado (ej. <Gauge />). */
   icon: React.ReactNode;
+  /** Color de estado opcional (variable CSS). */
   accent?: string;
   footnote?: React.ReactNode;
   className?: string;
@@ -91,31 +94,19 @@ export function KpiCard({
   return (
     <motion.div
       variants={cellVariants}
-      whileHover={{ scale: 1.02, y: -3 }}
-      transition={{ type: "spring", stiffness: 380, damping: 26 }}
-      className={cn(
-        "group relative overflow-hidden rounded-lg border border-border bg-card p-5",
-        "shadow-[0_1px_0_0_rgb(255_255_255/0.03)_inset] transition-shadow duration-300",
-        "hover:shadow-[0_24px_48px_-24px_rgb(0_0_0/0.8),0_0_0_1px_rgb(255_255_255/0.06)]",
-        className,
-      )}
+      className={cn("relative rounded-lg bg-card p-5 ring-1 ring-border", className)}
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -top-16 -right-16 size-40 rounded-full opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100"
-        style={{ background: `${accent}26` }}
-      />
-      <div className="relative flex items-start justify-between">
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="flex items-start justify-between">
+        <span className="text-sm font-medium text-muted-foreground">{label}</span>
         <span
-          className="flex size-8 items-center justify-center rounded-md border [&_svg]:size-4"
-          style={{ borderColor: `${accent}33`, backgroundColor: `${accent}12`, color: accent }}
+          className="flex size-8 items-center justify-center rounded-full bg-fill text-muted-foreground [&_svg]:size-4"
+          style={accent ? { color: accent, backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)` } : undefined}
         >
           {icon}
         </span>
       </div>
-      <div className="tabular relative mt-4 text-3xl font-semibold tracking-tight">{value}</div>
-      {footnote && <div className="relative mt-2 text-xs text-muted-foreground">{footnote}</div>}
+      <div className="tabular mt-3 text-3xl font-bold tracking-tight">{value}</div>
+      {footnote && <div className="mt-1.5 text-sm text-muted-foreground">{footnote}</div>}
     </motion.div>
   );
 }

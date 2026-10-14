@@ -5,24 +5,21 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default:
-          "bg-primary text-primary-foreground shadow-[0_0_24px_-6px_rgb(34_211_238/0.6)] hover:bg-primary/90",
-        secondary:
-          "border border-border-strong bg-white/[0.03] text-secondary-foreground hover:border-neon-cyan/40 hover:bg-white/[0.06]",
-        outline:
-          "border border-border-strong bg-transparent text-foreground hover:bg-white/[0.04]",
-        ghost: "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground",
+        default: "bg-solid text-primary-foreground hover:bg-solid/90 active:bg-solid/80",
+        secondary: "bg-fill text-foreground hover:bg-fill/70",
+        outline: "border border-border-strong bg-transparent text-foreground hover:bg-fill",
+        ghost: "text-muted-foreground hover:bg-fill hover:text-foreground",
         destructive: "bg-destructive text-white hover:bg-destructive/90",
       },
       size: {
-        default: "h-9 px-4",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-10 rounded-md px-6",
-        icon: "size-9",
+        default: "h-9 px-4 pointer-coarse:h-11",
+        sm: "h-8 rounded-md px-3 text-xs pointer-coarse:h-10",
+        lg: "h-11 rounded-md px-6",
+        icon: "size-9 pointer-coarse:size-11",
       },
     },
     defaultVariants: { variant: "default", size: "default" },

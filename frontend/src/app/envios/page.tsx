@@ -9,9 +9,8 @@ export const metadata = { title: "Envíos" };
 
 export default function EnviosPage() {
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="px-4 py-6 md:px-8 md:py-8 lg:px-10">
       <PageHeader
-        eyebrow="TMS"
         title="Envíos multimodales"
         description="Órdenes con su cadena de modos, transbordos, avance en tiempo real y ETA. Filtra por estado o por modo y ordena cualquier columna."
       />

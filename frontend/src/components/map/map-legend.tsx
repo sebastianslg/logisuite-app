@@ -11,7 +11,7 @@ const STYLE: Record<string, string> = {
 /** Leyenda de capas: muestra de línea + ícono + texto (identidad nunca solo color). */
 export function MapLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-slate-300">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-foreground/80">
       {MODE_ORDER.map((m) => {
         const Icon = MODES[m].icon;
         return (
@@ -22,7 +22,7 @@ export function MapLegend() {
                 m === "ferreo"
                   ? { backgroundImage: `repeating-linear-gradient(90deg, ${MODES[m].color} 0 5px, transparent 5px 8px)` }
                   : m === "aereo"
-                    ? { background: `linear-gradient(90deg, ${MODES[m].color}, #22d3ee)` }
+                    ? { background: `linear-gradient(90deg, ${MODES[m].color}, var(--mode-fluvial))` }
                     : { backgroundColor: MODES[m].color }
               }
             />
