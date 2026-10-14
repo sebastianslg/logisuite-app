@@ -17,6 +17,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DeckGL from "@deck.gl/react";
+import { Pause, Play } from "lucide-react";
 import {
   FlyToInterpolator,
   WebMercatorViewport,
@@ -36,6 +37,7 @@ import { MODES } from "@/lib/modes";
 import { usePrefs } from "@/lib/prefs";
 import type { DepartmentsGeo, FleetLive, LiveAsset, Mode, NetworkGeo, RouteResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useMapAnimation } from "@/components/map/use-map-animation";
 
 // Worker publicado por scripts/copy-maplibre-worker.mjs (ver allí el porqué)
 setWorkerUrl("/vendor/maplibre-gl-worker.mjs");
@@ -133,6 +135,12 @@ export default function Map3D({
   const { money } = useApp();
   const [clock, setClock] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { animate, setAnimate } = useMapAnimation();
+  // Resolución de dibujado: en pantallas de alta densidad (celulares, portátiles) cada punto extra cuesta
+  // cuadros; 1,5 se ve nítido y 1 basta en la vista compacta del dashboard.
+  const [maxPixelRatio] = useState(() =>
+    typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio || 1, compact ? 1 : 1.5),
+  );
 
   // deck.gl crea una capa de eventos enfocable sin nombre: se la damos para lectores de pantalla.
   useEffect(() => {
@@ -141,11 +149,34 @@ export default function Map3D({
       root.setAttribute("role", "application");
       root.setAttribute("aria-label", "Mapa de la red multimodal. Arrastra para mover y usa la rueda para acercar.");
     }
-  });
+  }, []);
+
+  // Solo se anima lo que se ve: con el mapa fuera de pantalla o con "reducir movimiento" el reloj se detiene.
+  const animateRef = useRef(true);
+  useEffect(() => {
+    const el = containerRef.current;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let onScreen = true;
+    const update = () => {
+      animateRef.current = onScreen && !reduce.matches;
+    };
+    const io = new IntersectionObserver(([e]) => {
+      onScreen = e.isIntersecting;
+      update();
+    });
+    if (el) io.observe(el);
+    reduce.addEventListener("change", update);
+    update();
+    return () => {
+      io.disconnect();
+      reduce.removeEventListener("change", update);
+    };
+  }, []);
   const [routeStart, setRouteStart] = useState(0);
 
   // ---- Reloj de animación (requestAnimationFrame) ---------------------
   useEffect(() => {
+    if (!animate) return; // pausado: sin reloj no hay fotogramas nuevos y el navegador queda libre
     let frame = 0;
     let last = 0;
     const t0 = performance.now();
@@ -154,7 +185,7 @@ export default function Map3D({
     // En pestañas ocultas la animación se detiene.
     const minDelta = compact ? 100 : 33;
     const tick = (now: number) => {
-      if (!document.hidden && now - last >= minDelta) {
+      if (!document.hidden && animateRef.current && now - last >= minDelta) {
         last = now;
         setClock((now - t0) / 1000);
       }
@@ -162,7 +193,7 @@ export default function Map3D({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [compact]);
+  }, [compact, animate]);
 
   const isVisible = useCallback((m: Mode) => !visibleModes || visibleModes.has(m), [visibleModes]);
 
@@ -653,6 +684,7 @@ export default function Map3D({
   return (
     <div ref={containerRef} className={cn("relative h-full min-h-80 w-full overflow-hidden bg-background", className)}>
       <DeckGL
+        useDevicePixels={maxPixelRatio}
         viewState={viewState}
         onViewStateChange={({ viewState: v }) => setViewState(v as MapViewState)}
         controller={{ dragRotate: true, touchRotate: true, scrollZoom: !compact }}
@@ -675,6 +707,18 @@ export default function Map3D({
         </div>
       )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent" />
+      {compact && (
+        <button
+          type="button"
+          onClick={() => setAnimate(!animate)}
+          aria-pressed={animate}
+          aria-label={animate ? "Pausar la animación del mapa" : "Reanudar la animación del mapa"}
+          title={animate ? "Pausar la animación" : "Reanudar la animación (puede ralentizar equipos sin tarjeta gráfica)"}
+          className="material press absolute top-3 right-3 z-10 flex size-9 items-center justify-center rounded-full border border-border text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80"
+        >
+          {animate ? <Pause className="size-4" aria-hidden /> : <Play className="size-4" aria-hidden />}
+        </button>
+      )}
     </div>
   );
 }

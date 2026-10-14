@@ -12,6 +12,8 @@ import {
   Clock,
   Maximize2,
   Minimize2,
+  Pause,
+  Play,
   Rows3,
   CircleDollarSign,
   Cloud,
@@ -31,6 +33,7 @@ import { CityCombobox } from "./city-combobox";
 import { CategoryFilter, CityDirectory, CityInspector } from "./city-explorer";
 import { Map3DLazy, MapLoading } from "./map-3d-lazy";
 import { MapLegend } from "./map-legend";
+import { useMapAnimation } from "./use-map-animation";
 import { useMapData } from "./use-map-data";
 import { ModeChain, ModeIcon } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -654,6 +657,7 @@ function LayerPanel({
   setShowFleet: (v: boolean) => void;
   fleetCount: number;
 }) {
+  const { animate, setAnimate } = useMapAnimation();
   return (
     <div className="glass pointer-events-auto flex flex-wrap items-center gap-1 rounded-2xl p-1">
       {MODE_ORDER.map((m) => {
@@ -677,6 +681,7 @@ function LayerPanel({
       <span className="mx-1 h-5 w-px bg-border-strong" />
       <ToggleChip on={showDepartments} onClick={() => setShowDepartments(!showDepartments)} icon={<Layers />} label="Departamentos" />
       <ToggleChip on={showFleet} onClick={() => setShowFleet(!showFleet)} icon={<Radio />} label={`Flota ${fleetCount}`} />
+      <ToggleChip on={animate} onClick={() => setAnimate(!animate)} icon={animate ? <Pause /> : <Play />} label="Animación" />
     </div>
   );
 }
@@ -699,6 +704,7 @@ function LayerList({
   setShowFleet: (v: boolean) => void;
   fleetCount: number;
 }) {
+  const { animate, setAnimate } = useMapAnimation();
   const row = (on: boolean) =>
     cn(
       "press flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[0.9375rem] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80",
@@ -741,6 +747,11 @@ function LayerList({
             <Radio className="size-5" aria-hidden />
             Flota en vivo <span className="tabular text-xs text-muted-foreground">{fleetCount}</span>
             {mark(showFleet)}
+          </button>
+          <button type="button" aria-pressed={animate} onClick={() => setAnimate(!animate)} className={row(animate)}>
+            {animate ? <Pause className="size-5" aria-hidden /> : <Play className="size-5" aria-hidden />}
+            Animación del mapa
+            {mark(animate)}
           </button>
         </div>
       </div>
