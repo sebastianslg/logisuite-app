@@ -696,7 +696,7 @@ export default function Map3D({
         }}
         getCursor={({ isHovering, isDragging }) => (isDragging ? "grabbing" : isHovering ? "pointer" : "grab")}
       >
-        <BaseMap mapStyle={process.env.NEXT_PUBLIC_MAP_STYLE ?? (dark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT)} reuseMaps attributionControl={{ compact: true }} />
+        <BaseMap mapStyle={process.env.NEXT_PUBLIC_MAP_STYLE || (dark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT)} reuseMaps attributionControl={{ compact: true }} />
       </DeckGL>
       {hover && (
         <div

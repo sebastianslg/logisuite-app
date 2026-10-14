@@ -23,7 +23,7 @@ services:
     build:
       context: ./frontend
       args:
-        NEXT_PUBLIC_MAP_STYLE: ${NEXT_PUBLIC_MAP_STYLE:-https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json}
+        NEXT_PUBLIC_MAP_STYLE: ${NEXT_PUBLIC_MAP_STYLE:-}
     image: westvane-web:latest
     container_name: westvane-web
     restart: unless-stopped
