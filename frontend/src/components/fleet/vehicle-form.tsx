@@ -64,15 +64,6 @@ export function VehicleForm({ vehicle }: { vehicle?: VehicleDetail }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Los valores que dependen de la fecha se calculan en el navegador, no al prerenderizar.
-    if (!vehicle) {
-      const today = new Date();
-      setDraft((d) => ({
-        ...d,
-        year: d.year || String(today.getFullYear() - 2),
-        last_service_at: d.last_service_at || today.toISOString().slice(0, 10),
-      }));
-    }
     api<FleetCatalog>("/api/fleet/catalog").then(setCatalog).catch(() => undefined);
     api<{ items: Warehouse[] }>("/api/warehouses").then((d) => setWarehouses(d.items)).catch(() => undefined);
     api<{ items: Driver[] }>("/api/fleet/drivers").then((d) => setDrivers(d.items)).catch(() => undefined);
@@ -122,8 +113,12 @@ export function VehicleForm({ vehicle }: { vehicle?: VehicleDetail }) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    // Lo que depende de la fecha se completa aquí, en el navegador, y no al prerenderizar.
+    const today = new Date();
     const body = {
       ...draft,
+      year: draft.year || String(today.getFullYear() - 2),
+      last_service_at: draft.last_service_at || today.toISOString().slice(0, 10),
       home_warehouse_id: draft.home_warehouse_id || null,
       driver_id: draft.driver_id || null,
       usuario: operator || null,
@@ -164,7 +159,7 @@ export function VehicleForm({ vehicle }: { vehicle?: VehicleDetail }) {
           <input className={inputClass} value={draft.code} onChange={(e) => set("code", e.target.value.toUpperCase())} maxLength={30} placeholder={draft.mode === "terrestre" ? "ABC-123" : ""} />
         </Field>
         <Field label="Año">
-          <input className={inputClass} inputMode="numeric" value={draft.year} onChange={(e) => set("year", e.target.value)} />
+          <input className={inputClass} inputMode="numeric" value={draft.year} placeholder="Año del modelo" onChange={(e) => set("year", e.target.value)} />
         </Field>
         <Field label="Marca">
           <input className={inputClass} list="marcas" value={draft.make} onChange={(e) => set("make", e.target.value)} maxLength={40} />
@@ -207,7 +202,7 @@ export function VehicleForm({ vehicle }: { vehicle?: VehicleDetail }) {
       <section className="grid gap-4 sm:grid-cols-2">
         <h2 className="text-sm font-semibold sm:col-span-2">Mantenimiento</h2>
         <Field label="Fecha del último mantenimiento">
-          <input type="date" className={inputClass} value={draft.last_service_at} onChange={(e) => set("last_service_at", e.target.value)} />
+          <input type="date" title="Si se deja vacío se usa hoy" className={inputClass} value={draft.last_service_at} onChange={(e) => set("last_service_at", e.target.value)} />
         </Field>
         <Field label="Kilometraje actual (km)">
           <input className={inputClass} inputMode="decimal" value={draft.odometer_base_km} onChange={(e) => set("odometer_base_km", e.target.value)} />
