@@ -25,7 +25,7 @@ const THEMES: { value: ThemePref; label: string; icon: typeof Sun }[] = [
 export function Toolbar() {
   const { open, shortcut } = useCommandPalette();
   return (
-    <div className="material sticky top-14 z-30 flex h-12 md:top-0 shrink-0 items-center gap-2 border-b border-border px-3 md:px-5">
+    <div className="material sticky top-0 z-30 hidden h-12 shrink-0 items-center gap-2 border-b border-border px-5 md:flex">
       <button
         type="button"
         onClick={open}

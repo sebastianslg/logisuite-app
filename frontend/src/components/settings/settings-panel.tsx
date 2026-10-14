@@ -174,7 +174,7 @@ function ReplenishToggle({ initial }: { initial: boolean }) {
         <button type="button" role="switch" aria-checked={on} onClick={toggle} disabled={busy}
           className={cn("relative h-6 w-11 rounded-full border transition-colors disabled:opacity-50",
             on ? "border-primary/40 bg-primary/30" : "border-border-strong bg-fill")}>
-          <span className={cn("absolute top-0.5 size-4.5 rounded-full bg-white transition-all", on ? "left-[22px]" : "left-0.5")} />
+          <span className={cn("absolute top-0.5 left-0.5 size-4.5 rounded-full bg-white transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none", on ? "translate-x-5" : "translate-x-0")} />
           <span className="sr-only">Reposición automática</span>
         </button>
         <span className="text-sm">{on ? "Activa" : "Desactivada"}</span>

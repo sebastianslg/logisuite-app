@@ -257,9 +257,11 @@
   transition:
     transform 0.3s var(--ease-apple),
     box-shadow 0.3s var(--ease-apple);
-  &:hover {
-    transform: scale(1.02) translateY(-2px);
-    box-shadow: var(--glass-shadow-lift);
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      transform: scale(1.02) translateY(-2px);
+      box-shadow: var(--glass-shadow-lift);
+    }
   }
 }
 

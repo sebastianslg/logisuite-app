@@ -175,7 +175,7 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.3, ease: EASE }}
+              transition={{ duration: 0.12, ease: EASE }}
               onClick={close}
               aria-hidden
             />
@@ -183,10 +183,10 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
               role="dialog"
               aria-modal="true"
               aria-label="Buscar o ejecutar un comando"
-              initial={{ opacity: 0, y: -12, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -12, scale: 0.98 }}
-              transition={{ duration: 0.3, ease: EASE }}
+              initial={{ opacity: 0, scale: 0.99 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12, ease: EASE }}
               className="glass relative w-full max-w-xl overflow-hidden rounded-3xl"
               style={{ backgroundColor: "var(--card)" }}
             >

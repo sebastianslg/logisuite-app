@@ -13,6 +13,7 @@ import {
   Package,
   PanelLeftClose,
   PanelLeftOpen,
+  Search,
   Settings,
   TrafficCone,
   UserRound,
@@ -22,6 +23,8 @@ import {
 } from "lucide-react";
 
 import { useApp } from "@/components/providers";
+import { useCommandPalette } from "@/components/shell/command-palette";
+import { CurrencyControl, ThemeControl } from "@/components/shell/toolbar";
 import { EASE, T_VIEW } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +51,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { open: openPalette } = useCommandPalette();
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
@@ -60,17 +64,27 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Celular: barra superior con botón de menú */}
-      <header className="material fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border px-4 md:hidden">
-        <Link href="/" className="flex items-center gap-2.5">
-          <Logo label />
+      {/* Celular: una sola barra con logo, búsqueda, moneda y menú */}
+      <header className="material fixed inset-x-0 top-0 z-40 flex h-14 items-center gap-2 border-b border-border pr-3 pl-[max(0.75rem,env(safe-area-inset-left))] md:hidden">
+        <Link href="/" aria-label="Westvane, inicio" className="flex shrink-0 items-center">
+          <Logo label={false} />
         </Link>
+        <button
+          type="button"
+          onClick={openPalette}
+          aria-label="Buscar envíos, ciudades o comandos"
+          className="press flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl bg-fill px-3 text-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          <Search className="size-4 shrink-0" aria-hidden />
+          <span className="truncate">Buscar…</span>
+        </button>
+        <CurrencyControl />
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Abrir menú"
           aria-expanded={mobileOpen}
-          className="press flex size-11 items-center justify-center rounded-xl bg-fill outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="press flex size-10 shrink-0 items-center justify-center rounded-xl bg-fill outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
           <Menu className="size-5" aria-hidden />
         </button>
@@ -132,6 +146,10 @@ export function Sidebar() {
                   </div>
                 ))}
               </nav>
+              <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
+                <span className="text-sm text-muted-foreground">Apariencia</span>
+                <ThemeControl />
+              </div>
               <div className="border-t border-border">
                 <OperatorPanel />
               </div>
