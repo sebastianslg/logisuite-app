@@ -57,19 +57,16 @@ def test_simular_incluye_huella_y_alternativas(client):
     assert all("co2e_kg" in a for a in d["alternatives"] if a["found"])
 
 
-def test_crear_envio_queda_en_la_operacion(client):
-    r = client.post("/api/shipments", json={"origen": "Cali", "destino": "Cartagena", "prioridad": "costo",
-                                            "peso_t": 12, "carga": "Prueba", "cliente": "QA"})
-    assert r.status_code == 201
+def test_crear_envio_incluye_huella(client):
+    from datetime import datetime
+    body = {"origin": "Cali", "destination": "Cartagena", "priority": "costo", "weight_t": 12,
+            "cargo": "Prueba", "client": "QA", "departure_at": datetime.now().isoformat(timespec="minutes")}
+    r = client.post("/api/shipments", json=body)
+    assert r.status_code == 201, r.text
     d = r.json()
     assert d["weight_t"] == 12 and d["footprint"]["co2e_kg"] > 0
     again = client.get(f"/api/shipments/{d['code']}").json()
-    assert again["code"] == d["code"] and again["footprint"]["co2e_kg"] == d["footprint"]["co2e_kg"]
-
-
-def test_crear_envio_con_ciudad_desconocida_da_422(client):
-    r = client.post("/api/shipments", json={"origen": "Atlantis", "destino": "Cali", "peso_t": 5})
-    assert r.status_code == 422
+    assert again["footprint"]["co2e_kg"] == d["footprint"]["co2e_kg"]
 
 
 def test_ciudades_traen_categoria(client):

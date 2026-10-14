@@ -2,250 +2,313 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRightLeft, Check, ChevronRight, Clock, Copy, CopyPlus, Fuel, Leaf, MapIcon, Route, Weight } from "lucide-react";
-import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  ArrowRightLeft,
+  CircleOff,
+  CopyPlus,
+  Leaf,
+  Clock,
+  CircleDollarSign,
+  FileCheck2,
+  History,
+  LoaderCircle,
+  Pencil,
+  Route,
+  Trash2,
+  Weight,
+} from "lucide-react";
 
 import { Map3DLazy, MapLoading } from "@/components/map/map-3d-lazy";
 import { useMapData } from "@/components/map/use-map-data";
-import { Reveal } from "@/components/reveal";
+import { useApp } from "@/components/providers";
+import { ExportActions } from "@/components/shipments/export-actions";
 import { ModeChain, ModeIcon, StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CountUp } from "@/components/ui/count-up";
 import { Dial } from "@/components/ui/dial";
-import { Money } from "@/components/ui/money";
-import { MODE_ORDER, MODES, PRIORITIES } from "@/lib/modes";
-import { hoverLift } from "@/lib/motion";
-import type { Mode, RouteResult, Shipment } from "@/lib/types";
+import { api } from "@/lib/client";
+import { requiredDocuments } from "@/lib/documents";
+import { MODES, PRIORITIES } from "@/lib/modes";
+import type { AuditEntry, Mode, RouteResult, Shipment } from "@/lib/types";
 
-const when = (iso: string) =>
-  new Date(iso).toLocaleString("es-CO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const SOURCE: Record<Shipment["source"], string> = {
+  seed: "Carga inicial",
+  auto: "Reposición automática",
+  manual: "Creado por usuario",
+};
 
-/** Detalle de un envío: mapa de su ruta, línea de tiempo por tramo, costo y huella. */
-export function ShipmentDetail({ shipment: s }: { shipment: Shipment }) {
-  const { network, departments, fleet, error } = useMapData();
-  const [copied, setCopied] = useState(false);
+function dt(iso: string | null) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
+}
+
+export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; history: AuditEntry[] }) {
+  const router = useRouter();
+  const { money, operator } = useApp();
+  const { network, departments } = useMapData();
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const legs = s.legs ?? [];
+  const transfers = s.transfers ?? [];
+  const legsCost = legs.reduce((a, l) => a + l.cost, 0);
+  const transfersCost = transfers.reduce((a, t) => a + t.cost, 0);
+  const docs = requiredDocuments(legs.map((l) => l.mode));
   const fp = s.footprint;
 
-  const route: RouteResult | null =
-    s.legs && s.transfers && s.trip
-      ? {
-          origin: s.origin,
-          destination: s.destination,
-          priority: s.priority,
-          weight_t: s.weight_t,
-          weight_fmt: s.weight_fmt,
-          modes: s.modes,
-          mode_labels: s.mode_labels,
-          n_transfers: s.n_transfers,
-          distance_km: s.distance_km,
-          distance_fmt: s.distance_fmt,
-          time_h: s.time_h,
-          time_fmt: s.time_fmt,
-          cost: s.cost,
-          cost_fmt: s.cost_fmt,
-          cost_per_t: s.cost / (s.weight_t || 1),
-          cost_per_t_fmt: "",
-          legs: s.legs,
-          transfers: s.transfers,
-          trip: s.trip,
-        }
-      : null;
+  // El mapa dibuja la ruta del envío con el mismo formato del simulador
+  const route = s.trip ? ({ ...s, legs, transfers, trip: s.trip } as unknown as RouteResult) : null;
 
-  const copy = async () => {
+  async function remove() {
+    if (!window.confirm(`¿Borrar el envío ${s.code}? Queda registrado en el historial y no se puede deshacer.`)) return;
+    setDeleting(true);
+    setError(null);
     try {
-      await navigator.clipboard.writeText(s.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {
-      /* el navegador no permite copiar: el código sigue visible en pantalla */
+      await api(`/api/shipments/${encodeURIComponent(s.code)}?usuario=${encodeURIComponent(operator)}`, {
+        method: "DELETE",
+      });
+      router.push("/envios");
+      router.refresh();
+    } catch (e) {
+      setError((e as Error).message);
+      setDeleting(false);
     }
-  };
-
-  const duplicate = `/red?crear=1&origen=${encodeURIComponent(s.origin)}&destino=${encodeURIComponent(s.destination)}&peso=${s.weight_t}&prioridad=${s.priority}`;
-
-  const stats = [
-    { icon: <Route />, label: "Distancia", value: s.distance_fmt },
-    { icon: <Clock />, label: "Tiempo", value: s.time_fmt },
-    { icon: <Weight />, label: "Peso", value: s.weight_fmt },
-    { icon: <ArrowRightLeft />, label: "Transbordos", value: String(s.n_transfers) },
-  ];
+  }
 
   return (
-    <div className="px-4 py-6 md:px-8 md:py-8 lg:px-10">
-      <Reveal>
-        <nav aria-label="Ruta de navegación" className="mb-3 flex items-center gap-1 text-sm text-muted-foreground">
-          <Link href="/envios" className="rounded-md outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50">
-            Envíos
-          </Link>
-          <ChevronRight className="size-4" aria-hidden />
-          <span className="font-mono text-foreground" aria-current="page">{s.code}</span>
-        </nav>
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-3xl font-bold md:text-[2.125rem] md:leading-tight">
-              {s.origin} <span className="text-muted-foreground">→</span> {s.destination}
-            </h1>
-            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-2 text-muted-foreground">
+    <div className="flex flex-col gap-6">
+      <div>
+        <Link href="/envios" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="size-3.5" /> Envíos
+        </Link>
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-mono text-2xl font-semibold tracking-tight">{s.code}</h1>
               <StatusBadge status={s.status} />
-              <ModeChain modes={s.modes} />
-              <span>{s.cargo}</span>
+              {s.route_status === "sin_ruta" && (
+                <Badge tone="danger">
+                  <CircleOff />
+                  Sin ruta
+                </Badge>
+              )}
+              <Badge tone="neutral">{SOURCE[s.source]}</Badge>
+            </div>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {s.origin} → {s.destination} · {s.cargo} · {s.client}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={copy} aria-live="polite">
-              {copied ? <Check /> : <Copy />}
-              {copied ? "Copiado" : "Copiar código"}
-            </Button>
-            <Button asChild>
-              <Link href={duplicate}>
-                <CopyPlus /> Duplicar envío
+            <Button variant="secondary" size="sm" asChild>
+              <Link
+                href={`/envios/nuevo?origin=${encodeURIComponent(s.origin)}&destination=${encodeURIComponent(s.destination)}&priority=${s.priority}&weight=${s.weight_t}`}
+              >
+                <CopyPlus />
+                Duplicar
               </Link>
             </Button>
+            <Button variant="secondary" size="sm" asChild>
+              <Link href={`/envios/${s.code}/editar`}>
+                <Pencil />
+                Editar
+              </Link>
+            </Button>
+            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={remove} disabled={deleting}>
+              {deleting ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
+              Borrar
+            </Button>
           </div>
-        </header>
-      </Reveal>
-
-      <div className="mt-8 grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <Reveal index={1} className="grid grid-cols-2 gap-4 md:grid-cols-5 xl:col-span-12">
-          <motion.div whileHover={hoverLift} className="glass col-span-2 rounded-2xl p-5 md:col-span-1">
-            <div className="text-sm font-medium text-muted-foreground">Flete</div>
-            <div className="tabular mt-3 text-2xl font-bold tracking-tight">
-              <Money usd={s.cost} />
-            </div>
-            <div className="mt-1 text-sm text-muted-foreground">
-              <Money usd={s.cost / (s.weight_t || 1)} /> por t
-            </div>
-          </motion.div>
-          {stats.map((k) => (
-            <motion.div key={k.label} whileHover={hoverLift} className="glass rounded-2xl p-5">
-              <div className="flex items-center justify-between text-sm font-medium text-muted-foreground">
-                {k.label}
-                <span className="[&_svg]:size-4" aria-hidden>{k.icon}</span>
-              </div>
-              <div className="tabular mt-3 text-2xl font-bold tracking-tight">{k.value}</div>
-            </motion.div>
-          ))}
-        </Reveal>
-
-        <Reveal index={2} className="glass relative h-[360px] overflow-hidden rounded-3xl md:h-[460px] xl:col-span-7">
-          {network && departments && route ? (
-            <Map3DLazy network={network} departments={departments} fleet={fleet} route={route} visibleModes={new Set(MODE_ORDER)} showFleet={false} showDepartments />
-          ) : (
-            <MapLoading label={error ?? undefined} />
-          )}
-          <Link
-            href={`/red?ciudad=${encodeURIComponent(s.origin)}`}
-            className="material press absolute top-3 left-3 flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-sm font-medium outline-none hover:bg-fill focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        </div>
+        {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+        {s.route_note && (
+          <p
+            className={`mt-3 rounded-md border px-3 py-2 text-sm ${
+              s.route_status === "sin_ruta"
+                ? "border-destructive/25 bg-destructive/10 text-destructive"
+                : "border-warning/25 bg-warning/10 text-warning"
+            }`}
           >
-            <MapIcon className="size-4" aria-hidden /> Abrir en la red
-          </Link>
-        </Reveal>
+            {s.route_note}
+          </p>
+        )}
+      </div>
 
-        <Reveal index={3} className="glass rounded-3xl p-5 xl:col-span-5">
-          <h2 className="text-[0.9375rem] font-semibold">Recorrido</h2>
-          <ol className="mt-4 flex flex-col gap-2">
-            {(s.legs ?? []).map((l, i) => {
-              const t = s.transfers?.[i];
-              const leg = fp?.per_leg[i];
-              return (
-                <li key={`${l.mode}-${i}`} className="flex flex-col gap-2">
-                  <div className="flex gap-3 rounded-2xl bg-fill p-3">
-                    <ModeIcon mode={l.mode as Mode} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm font-medium">
-                        <span className="truncate">{l.from.name} → {l.to.name}</span>
-                        <span className="tabular text-xs font-normal text-muted-foreground">{l.mode_label}</span>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Kpi icon={<Clock />} label="Tiempo de ruta" value={s.time_fmt} hint={`ETA ${s.eta_fmt}${s.delay_fmt ? ` · +${s.delay_fmt}` : ""}`} />
+        <Kpi icon={<CircleDollarSign />} label="Costo total" value={money(s.cost)} hint={`${money(s.cost / s.weight_t)} por t`} />
+        <Kpi icon={<Route />} label="Distancia" value={s.distance_fmt} hint={`${Math.round(s.progress_pct)} % recorrido`} />
+        <Kpi icon={<Weight />} label="Carga" value={s.weight_fmt} hint={PRIORITIES[s.priority]} />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <section className="flex flex-col gap-6">
+          <div className="relative h-[380px] overflow-hidden rounded-lg border border-border">
+            {network && departments ? (
+              <Map3DLazy network={network} departments={departments} route={route} showFleet={false} />
+            ) : (
+              <MapLoading />
+            )}
+          </div>
+
+          <Card title="Tramos y transbordos" icon={<ModeChain modes={s.modes} />}>
+            <ol className="flex flex-col gap-1.5">
+              {legs.map((l, i) => (
+                <li key={i} className="flex flex-col gap-1.5">
+                  <div className="flex gap-3 rounded-md border border-border bg-fill/50 p-3">
+                    <ModeIcon mode={l.mode} />
+                    <div className="min-w-0 flex-1 text-xs">
+                      <div className="flex flex-wrap items-center gap-2 font-medium">
+                        {l.from.name} → {l.to.name}
+                        {l.interrupted && <Badge tone="danger">Interrumpido</Badge>}
+                        {l.detour && <Badge tone="warning">Retorno</Badge>}
                       </div>
-                      <div className="truncate text-xs text-muted-foreground">{l.corridors.join(" · ")}</div>
-                      <div className="tabular mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-foreground/80">
+                      <div className="text-xs text-muted-foreground">{l.corridors.join(" · ")}</div>
+                      <div className="tabular mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground/80">
                         <span>{l.distance_fmt}</span>
                         <span>{l.time_fmt}</span>
-                        <Money usd={l.cost} />
-                        {leg && <span>{leg.co2e_kg.toLocaleString("es-CO")} kg CO₂e</span>}
-                        {leg && <span>{leg.fuel_l.toLocaleString("es-CO")} L</span>}
+                        <span>{money(l.cost)}</span>
+                        {fp?.per_leg[i] && <span>{fp.per_leg[i].co2e_kg.toLocaleString("es-CO")} kg CO₂e</span>}
+                        {fp?.per_leg[i] && <span>{fp.per_leg[i].fuel_l.toLocaleString("es-CO")} L</span>}
+                        {l.asset && (
+                          <span className="text-muted-foreground">
+                            {l.asset.type} {l.asset.id} · {l.asset.carrier}
+                          </span>
+                        )}
                       </div>
-                      {l.asset && (
-                        <div className="mt-1.5 text-xs text-muted-foreground">
-                          {l.asset.id} · {l.asset.type}
-                          {l.asset.units > 1 ? ` ×${l.asset.units}` : ""} · {l.asset.carrier}
-                        </div>
-                      )}
                     </div>
                   </div>
-                  {t && (
-                    <div className="flex items-center gap-2 pl-3 text-sm text-warning">
-                      <ArrowRightLeft className="size-3.5" aria-hidden />
-                      <span className="font-medium">{t.label}</span>
-                      <span className="truncate text-muted-foreground">
-                        {t.node.name} · {t.time_fmt} · <Money usd={t.cost} />
-                      </span>
-                    </div>
-                  )}
+                  {transfers
+                    .filter((t) => t.start_h >= l.end_h - 1e-6 && (i + 1 >= legs.length || t.start_h < legs[i + 1].start_h))
+                    .map((t, k) => (
+                      <div key={k} className="flex items-center gap-2 py-0.5 pl-3 text-xs text-warning">
+                        <ArrowRightLeft className="size-3.5" />
+                        <span className="font-medium">{t.label}</span>
+                        <span className="text-muted-foreground">
+                          {t.node.name} · {t.time_fmt} · {money(t.cost)}
+                        </span>
+                      </div>
+                    ))}
                 </li>
-              );
-            })}
-          </ol>
-        </Reveal>
+              ))}
+            </ol>
+          </Card>
+        </section>
 
-        {fp && (
-          <Reveal index={4} className="glass rounded-3xl p-5 xl:col-span-7">
-            <h2 className="flex items-center gap-2 text-[0.9375rem] font-semibold">
-              <Leaf className="size-4 text-success" aria-hidden /> Huella de este envío
-            </h2>
-            <div className="mt-4 flex flex-col items-center gap-6 sm:flex-row">
-              <Dial
-                value={Math.max(fp.saved_vs_road_pct, 0)}
-                color="var(--sys-green)"
-                label="Reducción de CO₂e frente a mover esta carga por carretera"
-                sublabel="menos que por carretera"
-                size={160}
-              />
-              <dl className="grid flex-1 grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-fill p-3">
-                  <dt className="text-xs text-muted-foreground">CO₂e</dt>
-                  <dd className="tabular mt-1 text-xl font-bold"><CountUp value={fp.co2e_kg} suffix=" kg" /></dd>
-                </div>
-                <div className="rounded-2xl bg-fill p-3">
-                  <dt className="flex items-center gap-1 text-xs text-muted-foreground"><Fuel className="size-3" aria-hidden /> Combustible</dt>
-                  <dd className="tabular mt-1 text-xl font-bold"><CountUp value={fp.fuel_l} suffix=" L" /></dd>
-                </div>
-                <div className="rounded-2xl bg-fill p-3">
-                  <dt className="text-xs text-muted-foreground">Por carretera sería</dt>
-                  <dd className="tabular mt-1 text-xl font-bold">{fp.baseline_co2e_kg.toLocaleString("es-CO")} kg</dd>
-                </div>
-                <div className="rounded-2xl bg-fill p-3">
-                  <dt className="text-xs text-muted-foreground">Intensidad</dt>
-                  <dd className="tabular mt-1 text-xl font-bold">{fp.intensity_g_tkm.toLocaleString("es-CO")} g/t-km</dd>
-                </div>
-              </dl>
-            </div>
-            <p className="mt-4 text-xs text-muted-foreground">
-              Estimación por factores de intensidad por modo; no es un inventario certificado.
-            </p>
-          </Reveal>
-        )}
+        <aside className="flex flex-col gap-6">
+          <Card title="Exportar">
+            <ExportActions codes={[s.code]} />
+          </Card>
 
-        <Reveal index={5} className="glass rounded-3xl p-5 xl:col-span-5">
-          <h2 className="text-[0.9375rem] font-semibold">Información</h2>
-          <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 text-sm">
-            {[
-              ["Cliente", s.client],
-              ["Carga", s.cargo],
-              ["Prioridad", PRIORITIES[s.priority]],
-              ["Salida", when(s.departure_at)],
-              ["ETA", when(s.eta_at)],
-              ["Retraso", s.delay_fmt ?? "Sin retraso"],
-              ["Avance", `${Math.round(s.progress_pct)} %`],
-              ["Modos", s.modes.map((m) => MODES[m].label).join(" → ")],
-            ].map(([k, v]) => (
-              <div key={k} className="contents">
-                <dt className="text-muted-foreground">{k}</dt>
-                <dd className="text-right font-medium">{v}</dd>
+          <Card title="Costos">
+            <dl className="tabular flex flex-col gap-1.5 text-xs">
+              <Row k="Fletes por tramo" v={money(legsCost)} />
+              <Row k="Manipulación en transbordos" v={money(transfersCost)} />
+              <Row k="Total" v={money(legsCost + transfersCost)} strong />
+            </dl>
+          </Card>
+
+          {fp && (
+            <Card title="Huella" icon={<Leaf className="size-3.5 text-success" aria-hidden />}>
+              <div className="flex items-center gap-4">
+                <Dial
+                  value={Math.max(fp.saved_vs_road_pct, 0)}
+                  color="var(--sys-green)"
+                  label="Reducción de CO₂e frente a mover esta carga por carretera"
+                  sublabel="menos que por carretera"
+                  size={112}
+                  stroke={10}
+                />
+                <dl className="tabular flex flex-1 flex-col gap-1.5 text-xs">
+                  <Row k="CO₂e" v={`${fp.co2e_kg.toLocaleString("es-CO")} kg`} strong />
+                  <Row k="Combustible" v={`${fp.fuel_l.toLocaleString("es-CO")} L`} />
+                  <Row k="Por carretera" v={`${fp.baseline_co2e_kg.toLocaleString("es-CO")} kg`} />
+                  <Row k="Intensidad" v={`${fp.intensity_g_tkm.toLocaleString("es-CO")} g/t-km`} />
+                </dl>
               </div>
-            ))}
-          </dl>
-        </Reveal>
+              <p className="mt-2 text-xs text-muted-foreground">Estimación por factores por modo; no es un inventario certificado.</p>
+            </Card>
+          )}
+
+          <Card title="Datos del envío">
+            <dl className="flex flex-col gap-1.5 text-xs">
+              <Row k="Salida" v={dt(s.departure_at)} />
+              <Row k="ETA planeado" v={dt(s.eta_at)} />
+              <Row k="Retraso" v={s.delay_fmt ?? "Sin retraso"} />
+              <Row k="Transbordos" v={String(s.n_transfers)} />
+              <Row k="Modos forzados" v={s.forced_modes.length ? s.forced_modes.map((m: Mode) => MODES[m].label).join(", ") : "Ninguno"} />
+              <Row k="Vías forzadas" v={s.forced_corridors.length ? s.forced_corridors.join(", ") : "Ninguna"} />
+              <Row k="Creado por" v={s.created_by ?? (s.source === "manual" ? "—" : "Sistema")} />
+              {s.updated_by && <Row k="Última edición" v={`${s.updated_by} · ${dt(s.updated_at)}`} />}
+            </dl>
+          </Card>
+
+          <Card title="Documentos requeridos" icon={<FileCheck2 className="size-3.5 text-muted-foreground" />}>
+            <ul className="flex flex-col gap-1 text-xs">
+              {docs.map((d) => (
+                <li key={d.doc} className="flex justify-between gap-3">
+                  <span>{d.doc}</span>
+                  <span className="shrink-0 text-muted-foreground">
+                    {d.scope in MODES ? MODES[d.scope as Mode].label : d.scope}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-muted-foreground">Referencia según los modos de la ruta. Westvane no los emite.</p>
+          </Card>
+
+          <Card title="Historial" icon={<History className="size-3.5 text-muted-foreground" />}>
+            {history.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sin cambios registrados.</p>
+            ) : (
+              <ul className="flex flex-col gap-2 text-xs">
+                {history.map((h) => (
+                  <li key={h.audit_id} className="border-l border-border-strong pl-3">
+                    <div className="text-muted-foreground">
+                      {dt(h.timestamp)} · <span className="text-foreground">{h.username}</span>
+                    </div>
+                    <div>{h.detail}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </aside>
       </div>
+    </div>
+  );
+}
+
+function Card({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="glass rounded-3xl p-5">
+      <header className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-sm font-medium">{title}</h2>
+        {icon}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function Kpi({ icon, label, value, hint }: { icon: React.ReactNode; label: string; value: string; hint?: string }) {
+  return (
+    <div className="glass rounded-3xl p-4">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground [&_svg]:size-3.5">
+        {icon}
+        {label}
+      </div>
+      <div className="tabular mt-2 text-xl font-semibold tracking-tight">{value}</div>
+      {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
+    </div>
+  );
+}
+
+function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-muted-foreground">{k}</dt>
+      <dd className={strong ? "font-semibold" : "text-right"}>{v}</dd>
     </div>
   );
 }

@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDown,
+  CircleOff,
+  FileText,
+  LoaderCircle,
+  Pencil,
+  Trash2,
   ArrowUp,
   ArrowUpDown,
   ChevronLeft,
@@ -33,14 +38,15 @@ import {
   type TableFeatures,
 } from "@tanstack/react-table";
 
+import { Money } from "@/components/money";
+import { useApp } from "@/components/providers";
+import { ExportActions } from "@/components/shipments/export-actions";
 import { ModeChain, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Money } from "@/components/ui/money";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MODE_ORDER, MODES, PRIORITIES, STATUSES, STATUS_ORDER, tint } from "@/lib/modes";
-import { EASE, T_FAST } from "@/lib/motion";
-import { Reveal } from "@/components/reveal";
+import { api, openBlob } from "@/lib/client";
+import { MODE_ORDER, MODES, PRIORITIES, STATUSES, STATUS_ORDER } from "@/lib/modes";
 import type { Mode, Shipment, ShipmentStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -81,7 +87,7 @@ const columns = helper.columns([
     cell: (info) => (
       <Link
         href={`/envios/${info.getValue()}`}
-        className="font-mono text-xs text-primary underline-offset-2 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="font-mono text-xs text-foreground/80 underline-offset-2 hover:text-primary hover:underline"
       >
         {info.getValue()}
       </Link>
@@ -123,7 +129,17 @@ const columns = helper.columns([
     filterFn: "inSet",
     sortFn: (a, b) =>
       STATUS_ORDER.indexOf(a.original.status) - STATUS_ORDER.indexOf(b.original.status),
-    cell: (info) => <StatusBadge status={info.getValue()} />,
+    cell: (info) => (
+      <div className="flex flex-col items-start gap-1">
+        <StatusBadge status={info.getValue()} />
+        {info.row.original.route_status === "sin_ruta" && (
+          <Badge tone="danger" title={info.row.original.route_note ?? undefined}>
+            <CircleOff />
+            Sin ruta
+          </Badge>
+        )}
+      </div>
+    ),
   }),
   helper.accessor("progress_pct", {
     header: "Avance",
@@ -154,7 +170,11 @@ const columns = helper.columns([
   helper.accessor("cost", {
     header: "Flete",
     enableGlobalFilter: false,
-    cell: (info) => <Money usd={info.row.original.cost} className="tabular" />,
+    cell: (info) => (
+      <span className="tabular">
+        <Money usd={info.getValue()} />
+      </span>
+    ),
   }),
   helper.accessor("eta_at", {
     header: "ETA",
@@ -180,6 +200,7 @@ const columns = helper.columns([
 
 const PAGE_SIZES = [10, 20, 50];
 
+/** Filtros iniciales (vienen de la URL: ?estado=, ?modo=, ?q=). */
 export interface ShipmentFilters {
   status?: ShipmentStatus[];
   modes?: Mode[];
@@ -187,8 +208,12 @@ export interface ShipmentFilters {
 }
 
 export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: ShipmentFilters }) {
+  const rows = data;
   const router = useRouter();
-  const [rows] = useState(data);
+  const { operator, currency } = useApp();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const table = useTable({
     features,
     columns,
@@ -227,21 +252,71 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
   };
 
   const filteredCount = table.getFilteredRowModel().rows.length;
+  // La selección solo conserva envíos que siguen existiendo
+  const selectedCodes = rows.map((r) => r.code).filter((c) => selected.has(c));
+  const pageCodes = table.getRowModel().rows.map((r) => r.original.code);
+  const allPageSelected = pageCodes.length > 0 && pageCodes.every((c) => selected.has(c));
+
+  const toggleRow = (code: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  const togglePage = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      pageCodes.forEach((c) => (allPageSelected ? next.delete(c) : next.add(c)));
+      return next;
+    });
+
+  async function remove(codes: string[]) {
+    const label = codes.length === 1 ? `el envío ${codes[0]}` : `${codes.length} envíos`;
+    if (!window.confirm(`¿Borrar ${label}? Queda registrado en el historial y no se puede deshacer.`)) return;
+    setBusy("delete");
+    setActionError(null);
+    try {
+      for (const code of codes) {
+        await api(`/api/shipments/${encodeURIComponent(code)}?usuario=${encodeURIComponent(operator)}`, {
+          method: "DELETE",
+        });
+      }
+      setSelected(new Set());
+      router.refresh();
+    } catch (e) {
+      setActionError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function viewPdf(code: string) {
+    setBusy(`pdf-${code}`);
+    setActionError(null);
+    try {
+      openBlob(await api<Blob>(`/api/shipments/${encodeURIComponent(code)}/pdf?moneda=${currency}`));
+    } catch (e) {
+      setActionError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
   const { pageIndex, pageSize } = table.state.pagination;
   const hasFilters = statusFilter.length > 0 || modeFilter.length > 0 || globalFilter.length > 0;
 
   return (
     <div className="flex flex-col gap-4">
       {/* Filtros en una sola fila sobre la tabla */}
-      <Reveal index={1} className="flex flex-wrap items-center gap-3">
-        <label className="relative flex h-9 w-full max-w-xs items-center pointer-coarse:h-11">
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="relative flex h-9 w-full max-w-xs items-center">
           <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" />
           <input
             value={globalFilter}
             onChange={(e) => table.setGlobalFilter(e.target.value)}
             placeholder="Buscar envío, ciudad, carga, cliente"
             aria-label="Buscar envíos"
-            className="h-9 w-full rounded-xl bg-fill pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground focus:ring-[3px] focus:ring-ring/50 pointer-coarse:h-11"
+            className="h-9 w-full rounded-md border border-input bg-fill/50 pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground/70 focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
           />
         </label>
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrar por estado">
@@ -252,13 +327,14 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
               <motion.button
                 key={s}
                 type="button"
+                whileTap={{ scale: 0.96 }}
                 onClick={() => toggle("status", statusFilter, s)}
                 aria-pressed={active}
-                className="rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               >
                 <Badge
                   tone={active ? STATUSES[s].tone : "neutral"}
-                  className={cn("cursor-pointer py-1.5 text-sm press pointer-coarse:py-2.5", !active && "hover:bg-fill/70")}
+                  className={cn("cursor-pointer transition-colors", !active && "hover:border-border-strong")}
                 >
                   <Icon />
                   {s}
@@ -276,14 +352,15 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
               <motion.button
                 key={m}
                 type="button"
+                whileTap={{ scale: 0.94 }}
                 onClick={() => toggle("modes", modeFilter, m)}
                 aria-pressed={active}
                 title={`${label} (${modeCounts.get(m) ?? 0})`}
                 className={cn(
-                  "flex h-8 items-center gap-1.5 rounded-xl border px-2 text-sm press outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11 pointer-coarse:px-3",
-                  active ? "text-foreground" : "border-transparent bg-fill text-muted-foreground hover:text-foreground",
+                  "flex h-8 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors",
+                  active ? "text-foreground" : "border-border text-muted-foreground hover:text-foreground",
                 )}
-                style={active ? { borderColor: tint(color, 40), backgroundColor: tint(color, 12) } : undefined}
+                style={active ? { borderColor: `${color}66`, backgroundColor: `${color}1a` } : undefined}
               >
                 <Icon className="size-3.5" style={{ color }} />
                 <span className="hidden sm:inline">{label}</span>
@@ -304,13 +381,53 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
             Limpiar
           </Button>
         )}
-      </Reveal>
+      </div>
 
-      <Reveal index={2} className="glass hidden overflow-hidden rounded-3xl md:block">
+      <AnimatePresence initial={false}>
+        {selectedCodes.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            className="flex flex-wrap items-start gap-3 rounded-lg border border-primary/20 bg-primary/[0.04] px-4 py-3"
+          >
+            <span className="pt-1.5 text-sm">
+              <span className="tabular font-medium">{selectedCodes.length}</span> seleccionados
+            </span>
+            <ExportActions codes={selectedCodes} />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              disabled={busy === "delete"}
+              onClick={() => remove(selectedCodes)}
+            >
+              {busy === "delete" ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
+              Borrar
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+              <X />
+              Quitar selección
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {actionError && <p className="text-sm text-destructive">{actionError}</p>}
+
+      <div className="glass hidden overflow-x-auto rounded-3xl md:block">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id} className="hover:bg-transparent">
+                <TableHead className="w-10">
+                  <input
+                    type="checkbox"
+                    checked={allPageSelected}
+                    onChange={togglePage}
+                    aria-label="Seleccionar los envíos de esta página"
+                    className="size-3.5 accent-primary"
+                  />
+                </TableHead>
                 {group.headers.map((header) => {
                   const sorted = header.column.getIsSorted();
                   const canSort = header.column.getCanSort();
@@ -320,7 +437,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                         <button
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
-                          className="press inline-flex items-center gap-1 rounded-md hover:text-foreground"
+                          className="inline-flex items-center gap-1 hover:text-foreground"
                         >
                           <table.FlexRender header={header} />
                           {sorted === "asc" ? (
@@ -337,43 +454,88 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                     </TableHead>
                   );
                 })}
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             ))}
           </TableHeader>
           <TableBody>
             <AnimatePresence initial={false} mode="popLayout">
-              {table.getRowModel().rows.map((row, i) => (
+              {table.getRowModel().rows.map((row) => (
                 <motion.tr
                   key={row.id}
                   layout="position"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.5, ease: EASE, delay: Math.min(i * 0.03, 0.4) }}
+                  transition={{ duration: 0.18 }}
                   onClick={(e) => {
-                    if ((e.target as HTMLElement).closest("a,button")) return;
+                    if ((e.target as HTMLElement).closest("a,button,input")) return;
                     router.push(`/envios/${row.original.code}`);
                   }}
                   className="cursor-pointer border-b border-border transition-colors duration-300 ease-apple hover:bg-fill/50"
                 >
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(row.original.code)}
+                      onChange={() => toggleRow(row.original.code)}
+                      aria-label={`Seleccionar ${row.original.code}`}
+                      className="size-3.5 accent-primary"
+                    />
+                  </TableCell>
                   {row.getAllCells().map((cell) => (
                     <TableCell key={cell.id}>
                       <table.FlexRender cell={cell} />
                     </TableCell>
                   ))}
+                  <TableCell>
+                    <div className="flex justify-end gap-0.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        aria-label={`Ver PDF de ${row.original.code}`}
+                        title="Ver PDF"
+                        disabled={busy === `pdf-${row.original.code}`}
+                        onClick={() => viewPdf(row.original.code)}
+                      >
+                        {busy === `pdf-${row.original.code}` ? <LoaderCircle className="animate-spin" /> : <FileText />}
+                      </Button>
+                      <Button variant="ghost" size="icon" className="size-8" asChild>
+                        <Link
+                          href={`/envios/${row.original.code}/editar`}
+                          aria-label={`Editar ${row.original.code}`}
+                          title="Editar"
+                        >
+                          <Pencil />
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 hover:text-destructive"
+                        aria-label={`Borrar ${row.original.code}`}
+                        title="Borrar"
+                        disabled={busy === "delete"}
+                        onClick={() => remove([row.original.code])}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </motion.tr>
               ))}
             </AnimatePresence>
             {filteredCount === 0 && (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground">
-                  Ningún envío coincide con los filtros. Pulsa “Limpiar” para ver todos.
+                <TableCell colSpan={columns.length + 2} className="h-32 text-center text-muted-foreground">
+                  Ningún envío coincide con los filtros.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
-      </Reveal>
+      </div>
 
       {/* En pantallas estrechas la tabla se convierte en una lista de tarjetas */}
       <ul className="flex flex-col gap-3 md:hidden" aria-label="Envíos">
@@ -425,7 +587,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
       </ul>
 
       {/* Paginación */}
-      <Reveal index={3} className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
         <span className="tabular">
           {filteredCount === 0
             ? "0 envíos"
@@ -433,22 +595,22 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
         </span>
         <div className="flex items-center gap-2">
           <span className="text-xs">Filas</span>
-          <div className="flex rounded-xl bg-fill p-0.5">
+          <div className="flex rounded-md border border-border p-0.5">
             {PAGE_SIZES.map((n) => (
               <button
                 key={n}
                 type="button"
                 onClick={() => table.setPageSize(n)}
                 className={cn(
-                  "press relative h-7 rounded-lg px-2.5 text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                  "relative h-7 rounded px-2.5 text-xs",
                   pageSize === n ? "text-foreground" : "hover:text-foreground",
                 )}
               >
                 {pageSize === n && (
                   <motion.span
                     layoutId="page-size"
-                    className="absolute inset-0 rounded-lg bg-card shadow-sm"
-                    transition={T_FAST}
+                    className="absolute inset-0 rounded bg-fill"
+                    transition={{ type: "spring", stiffness: 500, damping: 38 }}
                   />
                 )}
                 <span className="relative">{n}</span>
@@ -475,7 +637,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
             <ChevronsRight />
           </Button>
         </div>
-      </Reveal>
+      </div>
     </div>
   );
 }

@@ -28,6 +28,15 @@ Prioridades:
 
 Un enlace cuya capacidad por despacho es menor que el peso del envío se
 excluye: 30 t no salen de Leticia en el carguero de 20 t.
+
+Vías cerradas: un corredor marcado como cerrado en mm_corridor_status sigue en
+la red (el mapa lo muestra) pero sus enlaces no entran al grafo de ruteo.
+
+Restricciones opcionales por envío:
+  - allowed_modes:      solo se usan enlaces de esos modos.
+  - required_corridors: la ruta debe pasar por cada corredor indicado (máx. 3).
+    Se resuelve con un grafo por capas: cada capa es el subconjunto de
+    corredores ya recorridos, y el destino solo se alcanza en la capa completa.
 """
 from __future__ import annotations
 
@@ -38,6 +47,7 @@ from dataclasses import dataclass, field
 import networkx as nx
 
 PRIORITIES = ("tiempo", "costo", "balanceado")
+MAX_REQUIRED_CORRIDORS = 3
 VALUE_OF_TIME_USD_PER_T_H = 12.0
 AIR_CONNECTION_FACTOR = 0.6   # conexión aérea: fracción del transbordo del aeropuerto
 
@@ -76,12 +86,24 @@ class MultimodalNetwork:
         from app.database.db import run_query
         nodes = {r["node_code"]: r for r in
                  run_query("SELECT * FROM mm_nodes WHERE active = 1").to_dict(orient="records")}
+        closed = {r["corridor"]: r for r in run_query(
+            "SELECT * FROM mm_corridor_status WHERE active = 0").to_dict(orient="records")}
         links = []
         for r in run_query("SELECT * FROM mm_links WHERE active = 1").to_dict(orient="records"):
             if r["origin_code"] in nodes and r["dest_code"] in nodes:
                 r["geometry"] = json.loads(r["geometry_json"])
+                r["closed"] = r["corridor"] in closed
+                r["closure_reason"] = closed[r["corridor"]]["reason"] if r["closed"] else None
                 links.append(r)
         return cls(nodes=nodes, links=links)
+
+    @property
+    def closed_corridors(self) -> set:
+        return {l["corridor"] for l in self.links if l.get("closed")}
+
+    @property
+    def corridors(self) -> set:
+        return {l["corridor"] for l in self.links}
 
     def __post_init__(self):
         if not self.cities:
@@ -106,11 +128,14 @@ class MultimodalNetwork:
         return {l["mode"] for l in self.links if code in (l["origin_code"], l["dest_code"])}
 
     # ------------------------------------------------------------------
-    def build_graph(self, weight_t: float, excluded: set = frozenset()) -> nx.DiGraph:
+    def build_graph(self, weight_t: float, excluded: set = frozenset(),
+                    allowed_modes: set | None = None) -> nx.DiGraph:
         G = nx.DiGraph()
         for l in self.links:
             o, d = l["origin_code"], l["dest_code"]
-            if o in excluded or d in excluded or l["capacity_t"] < weight_t:
+            if o in excluded or d in excluded or l["capacity_t"] < weight_t or l.get("closed"):
+                continue
+            if allowed_modes and l["mode"] not in allowed_modes:
                 continue
             attrs = {
                 "kind": "link", "mode": l["mode"], "link_id": l["link_id"],
@@ -145,7 +170,8 @@ class MultimodalNetwork:
 
     # ------------------------------------------------------------------
     def route(self, origin: str, dest: str, weight_t: float = 10.0,
-              priority: str = "balanceado", excluded: set = frozenset()) -> dict:
+              priority: str = "balanceado", excluded: set = frozenset(),
+              allowed_modes=None, required_corridors=None) -> dict:
         if priority not in PRIORITIES:
             raise RoutingError(f"Prioridad inválida: '{priority}'. Usa {', '.join(PRIORITIES)}.")
         if weight_t <= 0:
@@ -153,8 +179,18 @@ class MultimodalNetwork:
         o_codes, d_codes = self.resolve(origin), self.resolve(dest)
         if set(o_codes) & set(d_codes):
             raise RoutingError("Origen y destino coinciden.")
+        allowed = set(allowed_modes or [])
+        required = list(dict.fromkeys(required_corridors or []))
+        if len(required) > MAX_REQUIRED_CORRIDORS:
+            raise RoutingError(f"Se pueden forzar como máximo {MAX_REQUIRED_CORRIDORS} vías.")
+        unknown = [c for c in required if c not in self.corridors]
+        if unknown:
+            raise RoutingError(f"Vía desconocida: {', '.join(unknown)}.")
+        blocked = [c for c in required if c in self.closed_corridors]
+        if blocked:
+            raise RoutingError(f"La vía forzada está cerrada: {', '.join(blocked)}.")
 
-        G = self.build_graph(weight_t, excluded)
+        G = self.build_graph(weight_t, excluded, allowed)
         for code, state in list(G.nodes):
             # Se sale desde un estado de salida y se llega a uno de llegada
             if code in o_codes and not state.endswith("_arr"):
@@ -175,10 +211,30 @@ class MultimodalNetwork:
             return e["cost"] + vot * e["time_h"]
 
         try:
-            path = nx.dijkstra_path(G, _SRC, _DST, weight=weight)
-        except nx.NetworkXNoPath:
-            raise RoutingError(f"No existe ruta multimodal de {origin} a {dest} para {weight_t:g} t.")
+            if required:
+                path = self._path_through(G, required, weight)
+            else:
+                path = nx.dijkstra_path(G, _SRC, _DST, weight=weight)
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            extra = " con las restricciones indicadas" if (allowed or required) else ""
+            raise RoutingError(
+                f"No existe ruta multimodal de {origin} a {dest} para {weight_t:g} t{extra}.")
         return self._assemble(G, path, origin, dest, weight_t, priority)
+
+    @staticmethod
+    def _path_through(G: nx.DiGraph, required: list, weight) -> list:
+        """Camino más corto que recorre cada corredor de `required`: grafo por
+        capas (estado, máscara de corredores recorridos)."""
+        bit = {c: 1 << i for i, c in enumerate(required)}
+        full = (1 << len(required)) - 1
+        H = nx.DiGraph()
+        for u, v, e in G.edges(data=True):
+            w = weight(u, v, e)
+            add = bit.get(e.get("corridor"), 0) if e["kind"] == "link" else 0
+            for mask in range(full + 1):
+                H.add_edge((u, mask), (v, mask | add), w=w)
+        layered = nx.dijkstra_path(H, (_SRC, 0), (_DST, full), weight="w")
+        return [state for state, _mask in layered]
 
     def compare(self, origin: str, dest: str, weight_t: float = 10.0) -> list:
         """La misma consulta con las tres prioridades (para comparar alternativas)."""
@@ -243,6 +299,12 @@ class MultimodalNetwork:
                 t += e["time_h"] * s / total
                 timeline.append({"lon": lon, "lat": lat, "t_h": t, "mode": mode})
             current["path"].extend(pts)
+            # Segmento por enlace: permite cortar el tramo en el nodo exacto
+            # si una de sus vías se cierra (ver operations.reroute)
+            current.setdefault("segments", []).append({
+                "from": u[0], "to": v[0], "corridor": e["corridor"], "start_h": clock,
+                "end_h": clock + e["time_h"], "time_h": e["time_h"],
+                "distance_km": e["distance_km"], "cost": e["cost"]})
             current["distance_km"] += e["distance_km"]
             current["time_h"] += e["time_h"]
             current["cost"] += e["cost"]

@@ -1,0 +1,36 @@
+# Despliegue automático a la VM en cada push a la rama.
+# Secretos requeridos en GitHub (Settings > Secrets and variables > Actions):
+#   SSH_HOST   IP o dominio de la VM
+#   SSH_USER   usuario SSH (ej. ubuntu)
+#   SSH_KEY    clave privada SSH con acceso a la VM
+name: Desplegar
+
+on:
+  push:
+    branches: [claude/laughing-albattani-875mtq]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Actualizar la VM y levantar la versión nueva
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            cd /opt/logisuite
+            git fetch origin claude/laughing-albattani-875mtq
+            git checkout claude/laughing-albattani-875mtq
+            git pull --ff-only origin claude/laughing-albattani-875mtq
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+            docker image prune -f
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml ps

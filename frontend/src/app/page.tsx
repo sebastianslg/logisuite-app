@@ -3,6 +3,8 @@ import Link from "next/link";
 import {
   Activity,
   ArrowUpRight,
+  CircleOff,
+  TrafficCone,
   ArrowRightLeft,
   Gauge,
   Navigation,
@@ -17,7 +19,7 @@ import { LiveFleet } from "@/components/dashboard/live-fleet";
 import { NetworkMapCard } from "@/components/dashboard/network-map-card";
 import { StatusBreakdown } from "@/components/dashboard/status-breakdown";
 import { PageHeader, Skeleton } from "@/components/page-header";
-import { Money } from "@/components/ui/money";
+import { Money } from "@/components/money";
 import { apiGet } from "@/lib/api";
 import type { DashboardSummary, FleetLive, SustainabilitySummary } from "@/lib/types";
 
@@ -44,9 +46,31 @@ async function DashboardContent() {
     apiGet<SustainabilitySummary>("/api/sustainability/summary"),
   ]);
   const k = summary.kpis;
+  const { closed_corridors: closed, no_route: noRoute } = summary.alerts;
 
   return (
-    <BentoGrid>
+    <>
+      {(closed.length > 0 || noRoute.length > 0) && (
+        <div role="status" className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl bg-destructive/12 px-4 py-3 text-sm">
+          {closed.length > 0 && (
+            <Link href="/vias" className="flex items-center gap-2 font-medium text-destructive hover:underline">
+              <TrafficCone className="size-4" aria-hidden />
+              {closed.length} {closed.length === 1 ? "vía cerrada" : "vías cerradas"}:
+              <span className="font-normal text-foreground/80">
+                {closed.slice(0, 3).join(", ")}
+                {closed.length > 3 && "…"}
+              </span>
+            </Link>
+          )}
+          {noRoute.length > 0 && (
+            <Link href="/envios" className="flex items-center gap-2 font-medium text-destructive hover:underline">
+              <CircleOff className="size-4" aria-hidden />
+              {noRoute.length} {noRoute.length === 1 ? "envío sin ruta" : "envíos sin ruta"}
+            </Link>
+          )}
+        </div>
+      )}
+      <BentoGrid>
       <KpiCard
         className="md:col-span-3 xl:col-span-3"
         href="/envios?estado=En Ruta,Transferencia Modal,Retrasado"
@@ -123,7 +147,8 @@ async function DashboardContent() {
       >
         <StatusBreakdown counts={summary.status_counts} />
       </BentoCell>
-    </BentoGrid>
+      </BentoGrid>
+    </>
   );
 }
 

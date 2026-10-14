@@ -16,15 +16,16 @@ async function forward(req: NextRequest, path: string[]) {
     headers: { "content-type": req.headers.get("content-type") ?? "application/json" },
     cache: "no-store",
   };
-  if (req.method === "POST") {
+  if (req.method === "POST" || req.method === "PUT") {
     init.body = await req.text();
   }
   try {
     const res = await fetch(url, init);
-    return new Response(res.body, {
-      status: res.status,
-      headers: { "content-type": res.headers.get("content-type") ?? "application/json" },
-    });
+    const headers = new Headers({ "content-type": res.headers.get("content-type") ?? "application/json" });
+    // PDF: inline (ver en el navegador) o attachment (descargar)
+    const disposition = res.headers.get("content-disposition");
+    if (disposition) headers.set("content-disposition", disposition);
+    return new Response(res.body, { status: res.status, headers });
   } catch {
     return Response.json({ detail: "No se pudo contactar la API" }, { status: 502 });
   }
@@ -35,5 +36,13 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/[...path]">)
 }
 
 export async function POST(req: NextRequest, ctx: RouteContext<"/api/[...path]">) {
+  return forward(req, (await ctx.params).path);
+}
+
+export async function PUT(req: NextRequest, ctx: RouteContext<"/api/[...path]">) {
+  return forward(req, (await ctx.params).path);
+}
+
+export async function DELETE(req: NextRequest, ctx: RouteContext<"/api/[...path]">) {
   return forward(req, (await ctx.params).path);
 }
