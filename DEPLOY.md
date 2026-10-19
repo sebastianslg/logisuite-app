@@ -39,8 +39,8 @@ ssh ubuntu@TU_IP
 Dentro de la VM:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/sebastianslg/logisuite-app/claude/laughing-albattani-875mtq/deploy/setup-server.sh
-sudo bash setup-server.sh https://github.com/sebastianslg/logisuite-app.git claude/laughing-albattani-875mtq
+curl -fsSLO https://raw.githubusercontent.com/sebastianslg/logisuite-app/main/deploy/setup-server.sh
+sudo bash setup-server.sh https://github.com/sebastianslg/logisuite-app.git main
 ```
 
 Esto instala Docker, configura el firewall (solo 22, 80 y 443), clona el código en

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Preparación de una VM Ubuntu 22.04/24.04 nueva. Ejecutar como root:
-#   sudo bash setup-server.sh https://github.com/sebastianslg/logisuite-app.git claude/laughing-albattani-875mtq
+#   sudo bash setup-server.sh https://github.com/sebastianslg/logisuite-app.git main
 set -euo pipefail
 
 REPO_URL="${1:?Falta la URL del repositorio}"
-BRANCH="${2:-claude/laughing-albattani-875mtq}"
+BRANCH="${2:-main}"
 APP_DIR=/opt/logisuite
 
 echo "[1/5] Paquetes base"
