@@ -25,6 +25,10 @@ def leg(l: dict) -> dict:
         "distance_km": F.km(l["distance_km"]), "distance_fmt": F.km_fmt(l["distance_km"]),
         "time_h": F.hours(l["time_h"]), "time_fmt": F.duration_fmt(l["time_h"]),
         "cost": F.money(l["cost"]), "cost_fmt": F.money_fmt(l["cost"]),
+        # Desglose: rutas guardadas antes de v6 no tienen estas partes; todo el costo es flete.
+        "base_cost": F.money(l.get("base_cost", l["cost"])),
+        "toll_cost": F.money(l.get("toll_cost", 0.0)),
+        "tax_cost": F.money(l.get("tax_cost", 0.0)),
         "start_h": round(l["start_h"], 3), "end_h": round(l["end_h"], 3),
         "path": [[F.coord(x), F.coord(y)] for x, y in l["path"]],
     }
@@ -46,6 +50,8 @@ def transfer(t: dict) -> dict:
         "label": label, "start_h": round(t["start_h"], 3),
         "time_h": F.hours(t["time_h"]), "time_fmt": F.duration_fmt(t["time_h"]),
         "cost": F.money(t["cost"]), "cost_fmt": F.money_fmt(t["cost"]),
+        "base_cost": F.money(t.get("base_cost", t["cost"])),
+        "tax_cost": F.money(t.get("tax_cost", 0.0)),
     }
 
 
@@ -68,6 +74,7 @@ def route(r: dict) -> dict:
         "distance_km": F.km(r["distance_km"]), "distance_fmt": F.km_fmt(r["distance_km"]),
         "time_h": F.hours(r["time_h"]), "time_fmt": F.duration_fmt(r["time_h"]),
         "cost": F.money(r["cost"]), "cost_fmt": F.money_fmt(r["cost"]),
+        "cost_breakdown": {k: F.money(v) for k, v in r["cost_breakdown"].items()} if r.get("cost_breakdown") else None,
         "cost_per_t": F.money(r["cost"] / r["weight_t"]),
         "cost_per_t_fmt": F.money_fmt(r["cost"] / r["weight_t"]) + " / t",
         "legs": [leg(l) for l in r["legs"]],

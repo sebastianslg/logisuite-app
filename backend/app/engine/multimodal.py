@@ -71,6 +71,20 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * r * math.asin(math.sqrt(a))
 
 
+def _number(raw) -> float | None:
+    """Convierte un parámetro de texto a número; None si está vacío o no es válido."""
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+def _pct(raw) -> float:
+    """Porcentaje de un parámetro de texto; 0 si no está configurado."""
+    return _number(raw) or 0.0
+
+
 class RoutingError(ValueError):
     """Origen/destino desconocido o sin ruta factible."""
 
@@ -81,10 +95,15 @@ class MultimodalNetwork:
     links: list                      # dicts con geometry (lista [lon, lat])
     cities: dict = field(default_factory=dict)  # ciudad -> [node_code]
     closed_nodes: dict = field(default_factory=dict)  # node_code -> motivo
+    tax_rate: float = 0.0            # IVA + ICA sobre el costo de cada tramo (fracción)
+    fx: float | None = None          # TRM: pesos por dólar; sin TRM los peajes no se convierten
 
     @classmethod
     def from_db(cls) -> "MultimodalNetwork":
         from app.database.db import run_query
+        params = dict(run_query("SELECT param_key, param_value FROM system_params").itertuples(index=False))
+        tax_rate = sum(_pct(params.get(k)) for k in ("TAX_IVA_PCT", "TAX_ICA_PCT")) / 100
+        fx = _number(params.get("FX_USD_COP"))
         nodes = {r["node_code"]: r for r in
                  run_query("SELECT * FROM mm_nodes WHERE active = 1").to_dict(orient="records")}
         closed = {r["corridor"]: r for r in run_query(
@@ -99,7 +118,7 @@ class MultimodalNetwork:
                 r["closed"] = r["corridor"] in closed
                 r["closure_reason"] = closed[r["corridor"]]["reason"] if r["closed"] else None
                 links.append(r)
-        return cls(nodes=nodes, links=links, closed_nodes=closed_nodes)
+        return cls(nodes=nodes, links=links, closed_nodes=closed_nodes, tax_rate=tax_rate, fx=fx)
 
     @property
     def closed_corridors(self) -> set:
@@ -142,10 +161,13 @@ class MultimodalNetwork:
                 continue
             if allowed_modes and l["mode"] not in allowed_modes:
                 continue
+            base = l["fixed_cost"] + l["cost_per_tkm"] * l["distance_km"] * weight_t
+            toll = (l.get("tolls_cop") or 0) / self.fx if self.fx else 0.0
+            tax = (base + toll) * self.tax_rate
             attrs = {
                 "kind": "link", "mode": l["mode"], "link_id": l["link_id"],
                 "corridor": l["corridor"], "distance_km": l["distance_km"], "time_h": l["time_h"],
-                "cost": l["fixed_cost"] + l["cost_per_tkm"] * l["distance_km"] * weight_t,
+                "cost": base + toll + tax, "base_cost": base, "toll_cost": toll, "tax_cost": tax,
             }
             m = l["mode"]
             G.add_edge((o, m), (d, _arrival(m)), **attrs, geometry=l["geometry"])
@@ -162,15 +184,19 @@ class MultimodalNetwork:
             for m1 in modes:
                 for m2 in modes:
                     if m1 != m2:
+                        base = n["transfer_cost_per_t"] * weight_t
                         G.add_edge((code, _arrival(m1)), (code, m2), kind="transfer",
                                    mode=f"{m1}>{m2}", distance_km=0.0,
                                    time_h=n["transfer_time_h"],
-                                   cost=n["transfer_cost_per_t"] * weight_t)
+                                   cost=base * (1 + self.tax_rate), base_cost=base,
+                                   tax_cost=base * self.tax_rate)
             if "aereo" in modes:
+                base = n["transfer_cost_per_t"] * AIR_CONNECTION_FACTOR * weight_t
                 G.add_edge((code, "aereo_arr"), (code, "aereo"), kind="transfer",
                            mode="aereo>aereo", distance_km=0.0,
                            time_h=n["transfer_time_h"] * AIR_CONNECTION_FACTOR,
-                           cost=n["transfer_cost_per_t"] * AIR_CONNECTION_FACTOR * weight_t)
+                           cost=base * (1 + self.tax_rate), base_cost=base,
+                           tax_cost=base * self.tax_rate)
         return G
 
     # ------------------------------------------------------------------
@@ -276,6 +302,7 @@ class MultimodalNetwork:
                     "node": self._node_brief(code), "from_mode": _base_mode(u[1]),
                     "to_mode": _base_mode(v[1]),
                     "start_h": clock, "time_h": e["time_h"], "cost": e["cost"],
+                    "base_cost": e["base_cost"], "tax_cost": e["tax_cost"],
                 })
                 lon, lat = self.nodes[code]["longitude"], self.nodes[code]["latitude"]
                 timeline.append({"lon": lon, "lat": lat, "t_h": clock, "mode": "transbordo"})
@@ -289,6 +316,7 @@ class MultimodalNetwork:
                     legs.append(current)
                 current = {"mode": mode, "from": self._node_brief(u[0]), "corridors": [],
                            "distance_km": 0.0, "time_h": 0.0, "cost": 0.0, "start_h": clock,
+                           "base_cost": 0.0, "toll_cost": 0.0, "tax_cost": 0.0,
                            "path": [], "stops": [u[0]]}
             if e["corridor"] not in current["corridors"]:
                 current["corridors"].append(e["corridor"])
@@ -309,10 +337,14 @@ class MultimodalNetwork:
             current.setdefault("segments", []).append({
                 "from": u[0], "to": v[0], "corridor": e["corridor"], "start_h": clock,
                 "end_h": clock + e["time_h"], "time_h": e["time_h"],
-                "distance_km": e["distance_km"], "cost": e["cost"]})
+                "distance_km": e["distance_km"], "cost": e["cost"],
+                "base_cost": e["base_cost"], "toll_cost": e["toll_cost"], "tax_cost": e["tax_cost"]})
             current["distance_km"] += e["distance_km"]
             current["time_h"] += e["time_h"]
             current["cost"] += e["cost"]
+            current["base_cost"] += e["base_cost"]
+            current["toll_cost"] += e["toll_cost"]
+            current["tax_cost"] += e["tax_cost"]
             current["to"] = self._node_brief(v[0])
             current["stops"].append(v[0])
             clock += e["time_h"]
@@ -323,6 +355,13 @@ class MultimodalNetwork:
             leg["end_h"] = leg["start_h"] + leg["time_h"]
 
         total_cost = sum(l["cost"] for l in legs) + sum(t["cost"] for t in transfers)
+        breakdown = {
+            "fletes": sum(l["base_cost"] for l in legs),
+            "peajes": sum(l["toll_cost"] for l in legs),
+            "manipulacion": sum(t["base_cost"] for t in transfers),
+            "impuestos": sum(l["tax_cost"] for l in legs) + sum(t["tax_cost"] for t in transfers),
+        }
+        breakdown["total"] = total_cost
         return {
             "found": True,
             "origin": origin, "destination": dest, "weight_t": weight_t, "priority": priority,
@@ -331,6 +370,7 @@ class MultimodalNetwork:
             "distance_km": sum(l["distance_km"] for l in legs),
             "time_h": clock,
             "cost": total_cost,
+            "cost_breakdown": breakdown,
             "legs": legs,
             "transfers": transfers,
             "timeline": timeline,

@@ -61,6 +61,10 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
   const transfers = s.transfers ?? [];
   const legsCost = legs.reduce((a, l) => a + l.cost, 0);
   const transfersCost = transfers.reduce((a, t) => a + t.cost, 0);
+  const fletes = legs.reduce((a, l) => a + l.base_cost, 0);
+  const peajes = legs.reduce((a, l) => a + l.toll_cost, 0);
+  const manipulacion = transfers.reduce((a, t) => a + t.base_cost, 0);
+  const impuestos = legs.reduce((a, l) => a + l.tax_cost, 0) + transfers.reduce((a, t) => a + t.tax_cost, 0);
   const docs = requiredDocuments(legs.map((l) => l.mode));
   const fp = s.footprint;
 
@@ -228,8 +232,10 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
 
           <Card title="Costos">
             <dl className="tabular flex flex-col gap-1.5 text-xs">
-              <Row k="Fletes por tramo" v={money(legsCost)} />
-              <Row k="Manipulación en transbordos" v={money(transfersCost)} />
+              <Row k="Fletes por tramo" v={money(fletes)} />
+              <Row k="Peajes" v={money(peajes)} />
+              <Row k="Manipulación en transbordos" v={money(manipulacion)} />
+              <Row k="Impuestos (IVA e ICA)" v={money(impuestos)} />
               <Row k="Total" v={money(legsCost + transfersCost)} strong />
             </dl>
           </Card>

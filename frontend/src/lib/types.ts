@@ -80,6 +80,9 @@ export interface Leg {
   time_fmt: string;
   cost: number;
   cost_fmt: string;
+  base_cost: number;
+  toll_cost: number;
+  tax_cost: number;
   start_h: number;
   end_h: number;
   path: [number, number][];
@@ -100,6 +103,8 @@ export interface Transfer {
   time_fmt: string;
   cost: number;
   cost_fmt: string;
+  base_cost: number;
+  tax_cost: number;
 }
 
 export interface Trip {
