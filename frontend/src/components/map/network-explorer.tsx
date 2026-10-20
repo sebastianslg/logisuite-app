@@ -159,10 +159,8 @@ export function NetworkExplorer() {
   return (
     <div
       className="relative h-[calc(100dvh-3.5rem)] w-full overflow-hidden md:h-[calc(100dvh-3rem)]"
-      onPointerDownCapture={markInteraction}
       onKeyDownCapture={markInteraction}
       onChangeCapture={markInteraction}
-      onWheelCapture={markInteraction}
     >
       <div className={cn("absolute inset-0", !showMap && "hidden", mapFull && "fixed inset-0 z-[60] h-dvh")}>
         {network && departments ? (
@@ -186,7 +184,7 @@ export function NetworkExplorer() {
       </div>
 
       {/* Encabezado */}
-      <div className="pointer-events-none absolute top-0 right-0 left-0 z-20 flex flex-wrap items-start justify-between gap-3 p-3 md:gap-4 md:p-6">
+      <div onPointerDownCapture={markInteraction} className="pointer-events-none absolute top-0 right-0 left-0 z-20 flex flex-wrap items-start justify-between gap-3 p-3 md:gap-4 md:p-6">
         <h1 className="glass pointer-events-auto rounded-2xl px-4 py-2 text-xl font-bold">Red multimodal</h1>
         <div className="pointer-events-auto flex w-full flex-wrap items-center gap-2 md:w-auto">
           <ViewToggle showMap={showMap} setShowMap={setShowMap} />
@@ -229,6 +227,8 @@ export function NetworkExplorer() {
       {/* Simulador */}
       {panelOpen ? (
       <motion.aside
+        onPointerDownCapture={markInteraction}
+        onWheelCapture={markInteraction}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={T_VIEW}
