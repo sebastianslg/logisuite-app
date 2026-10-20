@@ -19,6 +19,14 @@ TOLL_COLUMNS = [
     ("tolls_updated_at", "TEXT"),
 ]
 
+# Estimaciones provisionales, solo para tramos con una tarifa de referencia verificable.
+# Camión de dos ejes = tarifa de carro × 1,73 (Autopista Norte, jul. 2026: $27.800 / $16.100).
+# Se aplican solo a filas que nadie ha editado (tolls_updated_at IS NULL).
+TOLL_ESTIMATES = [
+    ("Vía al Llano", "CEDI-BOG", "CITY-VVC", 29500,
+     "Estimado: peaje Naranjal (carro $17.026) × 1,73 para camión de dos ejes. Confirmar con la tarifa oficial."),
+]
+
 V6_PARAMS = [
     ("TAX_IVA_PCT", "19", "IVA sobre el costo de transporte (%). Tarifa general; confirmar su aplicación al flete con contador"),
     ("TAX_ICA_PCT", "0", "ICA municipal sobre el transporte (%). Pendiente: tarifa del municipio de origen"),
@@ -31,6 +39,12 @@ def apply_v6_migration(conn):
     for nombre, definicion in TOLL_COLUMNS:
         if nombre not in existentes:
             conn.execute(f"ALTER TABLE mm_links ADD COLUMN {nombre} {definicion}")
+    for corredor, origen, destino, pesos, nota in TOLL_ESTIMATES:
+        conn.execute(
+            "UPDATE mm_links SET tolls_cop = ?, tolls_note = ?, tolls_source = 'Estimación' "
+            "WHERE corridor = ? AND origin_code = ? AND dest_code = ? AND mode = 'terrestre' AND tolls_updated_at IS NULL",
+            (pesos, nota, corredor, origen, destino),
+        )
     for clave, valor, descripcion in V6_PARAMS:
         conn.execute(
             "INSERT OR IGNORE INTO system_params (param_key, param_value, description) VALUES (?,?,?)",
