@@ -15,8 +15,8 @@
  *     glassmorphism al pasar el cursor.
  *   - Ruta simulada: tramos resaltados, transbordos y su recorrido animado.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import DeckGL from "@deck.gl/react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import DeckGL, { type DeckGLRef } from "@deck.gl/react";
 import { Pause, Play } from "lucide-react";
 import {
   FlyToInterpolator,
@@ -87,6 +87,8 @@ const ROUTE_LOOP_SECONDS = 9;
 
 type DeptDatum = { name: string; code: string; traffic: string; intensity: number; polygon: number[][][] };
 type LinkDatum = NetworkGeo["links"]["features"][number];
+type LayerList = NonNullable<React.ComponentProps<typeof DeckGL>["layers"]>;
+const NO_LAYERS: LayerList = [];
 type NodeDatum = NetworkGeo["nodes"]["features"][number];
 type AssetSegment = TripSegment & { asset: LiveAsset };
 type Hover = { x: number; y: number; content: React.ReactNode } | null;
@@ -136,7 +138,11 @@ export default function Map3D({
   const [hover, setHover] = useState<Hover>(null);
   const dark = usePrefs().resolved === "dark";
   const { money } = useApp();
-  const [clock, setClock] = useState(0);
+  // El reloj de la animación vive en una referencia: no pasa por React en cada cuadro.
+  // Así el mapa no se redibuja entero 30 veces por segundo; deck.gl recibe las capas directamente.
+  const clockRef = useRef(0);
+  const deckRef = useRef<DeckGLRef | null>(null);
+  const buildRef = useRef<((t: number) => LayerList) | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { animate, setAnimate } = useMapAnimation();
   // Resolución de dibujado: en pantallas de alta densidad (celulares, portátiles) cada punto extra cuesta
@@ -175,7 +181,7 @@ export default function Map3D({
       reduce.removeEventListener("change", update);
     };
   }, []);
-  const [routeStart, setRouteStart] = useState(0);
+  const routeStartRef = useRef(0);
 
   // ---- Reloj de animación (requestAnimationFrame) ---------------------
   useEffect(() => {
@@ -190,7 +196,9 @@ export default function Map3D({
     const tick = (now: number) => {
       if (!document.hidden && animateRef.current && now - last >= minDelta) {
         last = now;
-        setClock((now - t0) / 1000);
+        const t = (now - t0) / 1000;
+        clockRef.current = t;
+        deckRef.current?.deck?.setProps({ layers: buildRef.current?.(t) ?? NO_LAYERS });
       }
       frame = requestAnimationFrame(tick);
     };
@@ -203,7 +211,7 @@ export default function Map3D({
   // ---- Encuadre de la ruta simulada -----------------------------------
   useEffect(() => {
     if (!route || !containerRef.current) return;
-    setRouteStart(clock);
+    routeStartRef.current = clockRef.current;
     const pts = route.legs.flatMap((l) => l.path);
     const { width, height } = containerRef.current.getBoundingClientRect();
     if (!width || !height || pts.length < 2) return;
@@ -330,6 +338,9 @@ export default function Map3D({
     [route],
   );
 
+  // Las capas se construyen a partir de un instante: el bucle de animación las pide con su propio tiempo.
+  const buildLayers = (clock: number) => {
+  const routeStart = routeStartRef.current;
   // ---- Tiempo de animación -------------------------------------------
   const fleetTime = (clock * FLEET_HOURS_PER_SECOND) % FLEET_LOOP_HOURS;
   const routeTotal = route?.trip.timestamps[route.trip.timestamps.length - 1] ?? 1;
@@ -622,6 +633,14 @@ export default function Map3D({
         radiusUnits: "pixels",
       }),
   ].filter(Boolean);
+  return layers;
+  };
+  // Tras cada renderizado (antes de pintar) deck.gl recibe las capas en el instante actual.
+  // React siempre pasa la misma lista vacía, así que no sobrescribe las capas entre cuadros.
+  useLayoutEffect(() => {
+    buildRef.current = buildLayers;
+    deckRef.current?.deck?.setProps({ layers: buildLayers(clockRef.current) as LayerList });
+  });
 
   // ---- Tooltip glassmorphism ------------------------------------------
   const onHover = useCallback((info: PickingInfo) => {
@@ -691,7 +710,8 @@ export default function Map3D({
         viewState={viewState}
         onViewStateChange={({ viewState: v }) => setViewState(v as MapViewState)}
         controller={{ dragRotate: true, touchRotate: true, scrollZoom: !compact }}
-        layers={layers}
+        ref={deckRef}
+        layers={NO_LAYERS}
         onHover={onHover}
         onClick={(info) => {
           const o = info.object as NodeDatum | undefined;
