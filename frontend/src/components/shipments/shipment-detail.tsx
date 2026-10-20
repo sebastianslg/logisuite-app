@@ -281,16 +281,26 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
             {history.length === 0 ? (
               <p className="text-xs text-muted-foreground">Sin cambios registrados.</p>
             ) : (
-              <ul className="flex flex-col gap-2 text-xs">
-                {history.map((h) => (
-                  <li key={h.audit_id} className="border-l border-border-strong pl-3">
+              <ol className="flex flex-col text-xs">
+                {history.map((h, i) => (
+                  <li key={h.audit_id} className="relative pb-4 pl-5 last:pb-0">
+                    {i < history.length - 1 && (
+                      <span aria-hidden className="absolute top-3 bottom-0 left-[5px] w-px bg-border-strong" />
+                    )}
+                    <span
+                      aria-hidden
+                      className={`absolute top-1 left-0 size-[11px] rounded-full ${ACTION_DOT[h.action] ?? "bg-muted-foreground"}`}
+                    />
                     <div className="text-muted-foreground">
                       {dt(h.timestamp)} · <span className="text-foreground">{h.username}</span>
+                      <span className="ml-1.5 rounded-full bg-muted px-1.5 py-px text-[10px] uppercase tracking-wide">
+                        {ACTION_LABEL[h.action] ?? h.action}
+                      </span>
                     </div>
-                    <div>{h.detail}</div>
+                    <div className="mt-0.5">{h.detail}</div>
                   </li>
                 ))}
-              </ul>
+              </ol>
             )}
           </Card>
         </aside>
@@ -298,6 +308,28 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
     </div>
   );
 }
+
+const ACTION_DOT: Record<string, string> = {
+  INSERT: "bg-success",
+  CREATE: "bg-success",
+  UPDATE: "bg-primary",
+  DELETE: "bg-destructive",
+  CLOSE: "bg-warning",
+  REOPEN: "bg-success",
+  EXPORT: "bg-muted-foreground",
+  REVOKE: "bg-destructive",
+};
+
+const ACTION_LABEL: Record<string, string> = {
+  INSERT: "Creado",
+  CREATE: "Creado",
+  UPDATE: "Editado",
+  DELETE: "Borrado",
+  CLOSE: "Cerrado",
+  REOPEN: "Abierto",
+  EXPORT: "Exportado",
+  REVOKE: "Revocado",
+};
 
 function Card({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
