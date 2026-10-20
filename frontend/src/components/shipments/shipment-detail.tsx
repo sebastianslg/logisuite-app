@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -49,6 +49,12 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
   const router = useRouter();
   const { money, operator } = useApp();
   const { network, departments } = useMapData();
+  // El mapa 3D se monta después de que el detalle ya se pintó: así la página responde y la transición del guardado termina.
+  const [mapReady, setMapReady] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setMapReady(true), 300);
+    return () => window.clearTimeout(id);
+  }, []);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const legs = s.legs ?? [];
@@ -149,7 +155,7 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="flex flex-col gap-6">
           <div className="relative h-[380px] overflow-hidden rounded-lg border border-border">
-            {network && departments ? (
+            {network && departments && mapReady ? (
               <Map3DLazy network={network} departments={departments} route={route} showFleet={false} />
             ) : (
               <MapLoading />
