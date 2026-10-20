@@ -145,10 +145,10 @@ export default function Map3D({
   const buildRef = useRef<((t: number) => LayerList) | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { animate, setAnimate } = useMapAnimation();
-  // Resolución de dibujado: en pantallas de alta densidad (celulares, portátiles) cada punto extra cuesta
-  // cuadros; 1,5 se ve nítido y 1 basta en la vista compacta del dashboard.
+  // Resolución de dibujado: la nativa de la pantalla para que el mapa se vea nítido; la vista compacta
+  // del dashboard usa 1 porque es pequeña y no necesita el detalle.
   const [maxPixelRatio] = useState(() =>
-    typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio || 1, compact ? 1 : 1.5),
+    typeof window === "undefined" ? 1 : compact ? 1 : window.devicePixelRatio || 1,
   );
 
   // deck.gl crea una capa de eventos enfocable sin nombre: se la damos para lectores de pantalla.
