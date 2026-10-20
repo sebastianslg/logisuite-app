@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
@@ -80,6 +80,18 @@ export function NetworkExplorer() {
   // Pantalla completa dentro de la página (funciona también en iPhone)
   const [mapFull, setMapFull] = useState(false);
   const [panelFull, setPanelFull] = useState(false);
+  // Mientras la persona interactúa (toca, arrastra, escribe o usa la rueda) el mapa deja de animarse,
+  // así el navegador atiende primero sus clics. Se reanuda 1,5 s después de la última interacción.
+  const [interacting, setInteracting] = useState(false);
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const markInteraction = useCallback(() => {
+    setInteracting(true);
+    if (idleTimer.current) clearTimeout(idleTimer.current);
+    idleTimer.current = setTimeout(() => setInteracting(false), 1500);
+  }, []);
+  useEffect(() => () => {
+    if (idleTimer.current) clearTimeout(idleTimer.current);
+  }, []);
 
   useEffect(() => {
     fetch("/api/locations")
@@ -145,7 +157,13 @@ export function NetworkExplorer() {
   };
 
   return (
-    <div className="relative h-[calc(100dvh-3.5rem)] w-full overflow-hidden md:h-[calc(100dvh-3rem)]">
+    <div
+      className="relative h-[calc(100dvh-3.5rem)] w-full overflow-hidden md:h-[calc(100dvh-3rem)]"
+      onPointerDownCapture={markInteraction}
+      onKeyDownCapture={markInteraction}
+      onChangeCapture={markInteraction}
+      onWheelCapture={markInteraction}
+    >
       <div className={cn("absolute inset-0", !showMap && "hidden", mapFull && "fixed inset-0 z-[60] h-dvh")}>
         {network && departments ? (
           <Map3DLazy
@@ -160,6 +178,7 @@ export function NetworkExplorer() {
             selectedCities={[origin, destination]}
             focusCity={focusCity}
             onCityClick={pickCity}
+            paused={interacting}
           />
         ) : (
           <MapLoading label={error ?? undefined} />

@@ -30,10 +30,14 @@ function stored(): "on" | "off" | null {
   }
 }
 
-/** La animación del mapa: lo que eligió la persona, o apagada por defecto si el navegador dibuja por software. */
+/** Pantalla pequeña (celular): el mapa animado es lo que más consume, así que arranca apagado. */
+const narrowScreen = () =>
+  typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+
+/** La animación del mapa: lo que eligió la persona; por defecto, apagada en celulares y en equipos sin GPU. */
 const snapshot = () => {
   const pref = stored();
-  return pref ? pref === "on" : !usesSoftwareGL();
+  return pref ? pref === "on" : !usesSoftwareGL() && !narrowScreen();
 };
 
 const subscribe = (cb: () => void) => {

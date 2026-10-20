@@ -103,6 +103,8 @@ export interface Map3DProps {
   className?: string;
   /** Si se define, solo se dibujan los nodos de estas ciudades (filtro por categoría). */
   visibleCities?: ReadonlySet<string> | null;
+  /** Pausa la animación mientras el usuario interactúa (no cambia la preferencia guardada). */
+  paused?: boolean;
   /** Ciudades marcadas con un aro (origen y destino elegidos). */
   selectedCities?: readonly string[];
   /** Ciudad a la que vuela la cámara cuando cambia. */
@@ -116,6 +118,7 @@ export default function Map3D({
   departments,
   fleet,
   route,
+  paused = false,
   visibleModes,
   showDepartments = true,
   showFleet = true,
@@ -176,7 +179,7 @@ export default function Map3D({
 
   // ---- Reloj de animación (requestAnimationFrame) ---------------------
   useEffect(() => {
-    if (!animate) return; // pausado: sin reloj no hay fotogramas nuevos y el navegador queda libre
+    if (!animate || paused) return; // pausado: sin reloj no hay fotogramas nuevos y el navegador queda libre
     let frame = 0;
     let last = 0;
     const t0 = performance.now();
@@ -193,7 +196,7 @@ export default function Map3D({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [compact, animate]);
+  }, [compact, animate, paused]);
 
   const isVisible = useCallback((m: Mode) => !visibleModes || visibleModes.has(m), [visibleModes]);
 
