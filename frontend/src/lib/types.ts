@@ -770,3 +770,18 @@ export interface WarehouseSummary {
   by_role: { role: string; label: string; count: number; capacity_m3: number; used_m3: number; occupancy_pct: number }[];
   network: { id: number; code: string; name: string; city: string; role: string; lat: number | null; lon: number | null; parent: string | null }[];
 }
+
+/** Peaje por despacho de un tramo terrestre (tabla editable en Configuración). */
+export interface Toll {
+  link_id: number;
+  corridor: string;
+  origin_code: string;
+  dest_code: string;
+  origin: string;
+  destination: string;
+  distance_km: number;
+  tolls_cop: number;
+  tolls_note: string | null;
+  tolls_source: string | null;
+  tolls_updated_at: string | null;
+}

@@ -44,7 +44,7 @@ from app.api import format as F
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
-from app.engine import fleet, geo, operations as ops, pdf, sustainability as SU, telemetry, warehouses
+from app.engine import fleet, geo, operations as ops, pdf, sustainability as SU, telemetry, tolls, warehouses
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
 
@@ -417,6 +417,56 @@ class ReplenishIn(BaseModel):
 @app.put("/api/settings/replenish")
 def settings_replenish(body: ReplenishIn) -> dict:
     return {"auto_replenish": ops.set_auto_replenish(body.enabled, body.usuario)}
+
+
+class TollIn(BaseModel):
+    tolls_cop: float = Field(..., ge=0)
+    note: str | None = None
+    source: str | None = None
+    usuario: str | None = None
+
+
+class TollImportIn(BaseModel):
+    filename: str
+    content_b64: str
+    usuario: str | None = None
+
+
+@app.get("/api/tolls")
+def tolls_list() -> dict:
+    items = tolls.list_tolls()
+    return {"count": len(items), "items": items}
+
+
+@app.get("/api/tolls/export")
+def tolls_export() -> Response:
+    return Response(
+        content=tolls.export_csv(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="peajes-westvane.csv"'},
+    )
+
+
+@app.put("/api/tolls/{link_id}")
+def toll_update(link_id: int, body: TollIn) -> dict:
+    try:
+        result = tolls.update_toll(link_id, body.tolls_cop, body.note, body.source, body.usuario)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ops.OperationError as exc:
+        _op_error(exc)
+    _network(reload=True)
+    return result
+
+
+@app.post("/api/tolls/import")
+def toll_import(body: TollImportIn) -> dict:
+    try:
+        result = tolls.import_file(body.filename, body.content_b64, body.usuario)
+    except (ops.OperationError, ValueError) as exc:
+        _op_error(exc)
+    _network(reload=True)
+    return result
 
 
 @app.get("/api/audit")

@@ -2,8 +2,9 @@ import { Suspense } from "react";
 
 import { PageHeader, Skeleton } from "@/components/page-header";
 import { SettingsPanel } from "@/components/settings/settings-panel";
+import { TollsPanel } from "@/components/settings/tolls-panel";
 import { apiGet } from "@/lib/api";
-import type { AuditEntry, Settings, ShareLink } from "@/lib/types";
+import type { AuditEntry, Settings, ShareLink, Toll } from "@/lib/types";
 
 export const metadata = { title: "Configuración" };
 
@@ -24,10 +25,16 @@ export default function ConfiguracionPage() {
 }
 
 async function Panel() {
-  const [settings, links, audit] = await Promise.all([
+  const [settings, links, audit, tolls] = await Promise.all([
     apiGet<Settings>("/api/settings"),
     apiGet<{ items: ShareLink[] }>("/api/exports"),
     apiGet<{ items: AuditEntry[] }>("/api/audit?limit=300"),
+    apiGet<{ items: Toll[] }>("/api/tolls"),
   ]);
-  return <SettingsPanel settings={settings} links={links.items} history={audit.items} />;
+  return (
+    <>
+      <SettingsPanel settings={settings} links={links.items} history={audit.items} />
+      <TollsPanel tolls={tolls.items} />
+    </>
+  );
 }
