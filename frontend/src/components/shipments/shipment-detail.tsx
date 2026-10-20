@@ -156,7 +156,7 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
         <section className="flex flex-col gap-6">
           <div className="relative h-[380px] overflow-hidden rounded-lg border border-border">
             {network && departments && mapReady ? (
-              <Map3DLazy network={network} departments={departments} route={route} showFleet={false} />
+              <Map3DLazy network={network} departments={departments} route={route} showFleet={false} paused />
             ) : (
               <MapLoading />
             )}
