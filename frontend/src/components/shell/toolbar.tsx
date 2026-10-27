@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { Banknote, Monitor, Moon, Search, Sun } from "lucide-react";
+import { Banknote, Check, Monitor, Moon, Search, Sun } from "lucide-react";
 
 import { useCommandPalette } from "@/components/shell/command-palette";
 import { useApp } from "@/components/providers";
+import { useBurst } from "@/components/ui/burst";
 import { api } from "@/lib/client";
 import { EASE } from "@/lib/motion";
 import { usePrefs, type ThemePref } from "@/lib/prefs";
@@ -100,6 +101,7 @@ export function CurrencyControl() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const { burst, layer } = useBurst(Check, 6);
 
   useEffect(() => {
     if (!open) return;
@@ -211,10 +213,12 @@ export function CurrencyControl() {
             <button
               type="button"
               onClick={save}
+              onPointerDown={burst}
               disabled={!valid || saving}
-              className="press mt-3 h-9 w-full rounded-xl bg-solid text-sm font-medium text-primary-foreground outline-none hover:bg-solid/90 focus-visible:ring-[3px] focus-visible:ring-ring/80 disabled:opacity-50 pointer-coarse:h-11"
+              className="press relative mt-3 h-9 w-full rounded-xl bg-solid text-sm font-medium text-primary-foreground outline-none hover:bg-solid/90 focus-visible:ring-[3px] focus-visible:ring-ring/80 disabled:opacity-50 pointer-coarse:h-11"
             >
               {saving ? "Guardando…" : "Guardar TRM"}
+              {layer}
             </button>
             <p className="mt-2 text-xs text-muted-foreground">
               {fx?.rate ? `Vigente: ${fx.rate.toLocaleString("es-CO")} (${fx.date}, ${fx.source}). ` : ""}

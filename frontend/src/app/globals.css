@@ -243,17 +243,23 @@
   backdrop-filter: blur(30px) saturate(150%);
 }
 
-/* Presión real: se hunde al instante en :active y recupera con el resorte suave */
+/*
+ * Presión real: se hunde a 0,97 en 120 ms al tocar y, al soltar, vuelve con un rebote suave de 300 ms
+ * (la curva con sobreimpulso solo aplica a la vuelta, en :not(:active)).
+ */
 @utility press {
   transition:
-    transform 0.3s var(--ease-apple),
-    background-color 0.3s var(--ease-apple),
-    color 0.3s var(--ease-apple),
-    box-shadow 0.3s var(--ease-apple),
-    opacity 0.3s var(--ease-apple);
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background-color 0.2s var(--ease-apple),
+    color 0.2s var(--ease-apple),
+    opacity 0.2s var(--ease-apple);
   &:active:not(:disabled) {
-    transform: scale(0.96);
-    transition-duration: 0.08s;
+    transform: scale(0.97);
+    transition:
+      transform 0.12s var(--ease-apple),
+      background-color 0.2s var(--ease-apple),
+      color 0.2s var(--ease-apple),
+      opacity 0.2s var(--ease-apple);
   }
 }
 
@@ -272,6 +278,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .press,
+  .press:active,
   .lift {
     transition: none;
   }

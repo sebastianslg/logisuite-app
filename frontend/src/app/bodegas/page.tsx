@@ -1,9 +1,8 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { PageHeader, Skeleton } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
+import { BurstLink } from "@/components/ui/burst-link";
 import { TransfersBoard } from "@/components/warehouses/transfers-board";
 import { WarehouseBoard } from "@/components/warehouses/warehouse-board";
 import { WarehouseTabs, type WarehouseTab } from "@/components/warehouses/warehouse-tabs";
@@ -19,9 +18,7 @@ export default function BodegasPage({ searchParams }: PageProps<"/bodegas">) {
         title="Bodegas y centros de distribución"
         description="La red de bodegas por ciudad, cada una con su función: centros nacionales, regionales, última milla, frío, puertos, aduana, peligrosos y devoluciones. Guardan inventario, se trasladan mercancía entre sí y alojan a los vehículos."
         actions={
-          <Button asChild>
-            <Link href="/bodegas/nueva"><Plus /> Nueva bodega</Link>
-          </Button>
+          <BurstLink href="/bodegas/nueva"><Plus /> Nueva bodega</BurstLink>
         }
       />
       <Suspense fallback={<Skeleton className="mt-8 h-[640px]" />}>

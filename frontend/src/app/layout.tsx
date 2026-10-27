@@ -6,6 +6,7 @@ import { CommandPalette } from "@/components/shell/command-palette";
 import { Shortcuts } from "@/components/shell/shortcuts";
 import { Toolbar } from "@/components/shell/toolbar";
 import { MotionProvider } from "@/components/motion-provider";
+import { RippleRoot } from "@/components/ui/ripple";
 import { AppProvider } from "@/components/providers";
 import { Sidebar } from "@/components/shell/sidebar";
 
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <MotionProvider>
               <CommandPalette>
                 <Shortcuts />
+                <RippleRoot />
                 <div className="flex min-h-screen">
                   {/* usePathname() en rutas dinámicas (/envios/[code]) exige un límite de Suspense */}
                   <Suspense fallback={<aside className="hidden w-60 shrink-0 border-r border-border md:block" aria-hidden />}>

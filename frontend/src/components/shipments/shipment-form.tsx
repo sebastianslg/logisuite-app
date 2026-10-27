@@ -3,7 +3,7 @@
 import { cloneElement, useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRightLeft, Clock, CircleDollarSign, Cloud, Fuel, Leaf, LoaderCircle, Route, Save, X } from "lucide-react";
+import { ArrowRightLeft, Check, CircleDollarSign, Clock, Cloud, Fuel, Leaf, LoaderCircle, Route, Save, Sparkles, X } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { ModeChain, ModeIcon } from "@/components/status-badge";
@@ -308,7 +308,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
         {error && <p className="rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" disabled={!!busy}>
+          <Button type="submit" disabled={!!busy} burst={shipment ? Check : Sparkles}>
             {busy === "save" ? <LoaderCircle className="animate-spin" /> : <Save />}
             {shipment ? "Guardar cambios" : "Crear envío"}
           </Button>

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LoaderCircle, Save } from "lucide-react";
+import { Check, LoaderCircle, Save, Sparkles } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { Button } from "@/components/ui/button";
@@ -229,7 +229,7 @@ export function VehicleForm({ vehicle }: { vehicle?: VehicleDetail }) {
 
       <ErrorBanner message={error} />
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" disabled={busy} burst={vehicle ? Check : Sparkles}>
           {busy ? <LoaderCircle className="animate-spin" /> : <Save />}
           {vehicle ? "Guardar cambios" : "Crear vehículo"}
         </Button>

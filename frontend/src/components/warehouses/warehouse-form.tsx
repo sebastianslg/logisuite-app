@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LoaderCircle, Save } from "lucide-react";
+import { Check, LoaderCircle, Save, Sparkles } from "lucide-react";
 
 import { ErrorBanner, Field, inputClass, textareaClass } from "@/components/fleet/form-bits";
 import { useApp } from "@/components/providers";
@@ -149,7 +149,7 @@ export function WarehouseForm({ warehouse }: { warehouse?: WarehouseDetail }) {
 
       <ErrorBanner message={error} />
       <div className="flex items-center gap-2">
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" disabled={busy} burst={warehouse ? Check : Sparkles}>
           {busy ? <LoaderCircle className="animate-spin" /> : <Save />} {warehouse ? "Guardar cambios" : "Crear bodega"}
         </Button>
         <Button asChild variant="ghost">

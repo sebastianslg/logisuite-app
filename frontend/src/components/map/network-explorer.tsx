@@ -37,6 +37,7 @@ import { useMapAnimation } from "./use-map-animation";
 import { useMapData } from "./use-map-data";
 import { ModeChain, ModeIcon } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { BurstLink } from "@/components/ui/burst-link";
 import { Sheet } from "@/components/ui/sheet";
 import { Dial } from "@/components/ui/dial";
 import { Money } from "@/components/money";
@@ -509,13 +510,11 @@ function RouteResultView({
         </Button>
       </div>
 
-      <Button asChild>
-        <Link
+      <BurstLink
           href={`/envios/nuevo?origin=${encodeURIComponent(r.origin)}&destination=${encodeURIComponent(r.destination)}&priority=${r.priority}&weight=${r.weight_t}`}
         >
           <PackagePlus /> Crear envío con esta ruta
-        </Link>
-      </Button>
+      </BurstLink>
 
       <div className="grid grid-cols-2 gap-2">
         <Metric icon={<Clock />} label="Tiempo total" value={r.time_fmt} />

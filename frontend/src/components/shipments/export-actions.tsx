@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Download, FileText, LoaderCircle, Share2 } from "lucide-react";
+import { Check, Copy, Download, FileDown, FileText, LoaderCircle, Share2 } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { Button } from "@/components/ui/button";
@@ -71,15 +71,15 @@ export function ExportActions({ codes, size = "sm" }: { codes: string[]; size?: 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="secondary" size={size} disabled={!!busy || !codes.length} onClick={() => run("view")}>
+        <Button variant="secondary" size={size} disabled={!!busy || !codes.length} onClick={() => run("view")} burst={FileDown}>
           {icon("view", <FileText />)}
           {single ? "Ver PDF" : `Ver PDF (${codes.length})`}
         </Button>
-        <Button variant="secondary" size={size} disabled={!!busy || !codes.length} onClick={() => run("download")}>
+        <Button variant="secondary" size={size} disabled={!!busy || !codes.length} onClick={() => run("download")} burst={FileDown}>
           {icon("download", <Download />)}
           Descargar
         </Button>
-        <Button variant="secondary" size={size} disabled={!!busy || !codes.length} onClick={() => run("share")}>
+        <Button variant="secondary" size={size} disabled={!!busy || !codes.length} onClick={() => run("share")} burst={Share2}>
           {icon("share", <Share2 />)}
           Compartir enlace
         </Button>

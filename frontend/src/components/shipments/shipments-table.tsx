@@ -468,6 +468,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.18 }}
+                  whileTap={{ scale: 0.995 }}
                   onClick={(e) => {
                     if ((e.target as HTMLElement).closest("a,button,input")) return;
                     router.push(`/envios/${row.original.code}`);

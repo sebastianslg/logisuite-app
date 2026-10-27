@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Save, Upload } from "lucide-react";
+import { Check, Download, FileDown, Save, Upload } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { Button } from "@/components/ui/button";
@@ -63,7 +63,7 @@ export function TollsPanel({ tolls }: { tolls: Toll[] }) {
         </div>
         <div className="flex flex-wrap gap-2">
           <a href="/api/tolls/export" download>
-            <Button variant="outline" size="sm" type="button">
+            <Button variant="outline" size="sm" type="button" burst={FileDown}>
               <Download />
               Exportar CSV
             </Button>
@@ -175,7 +175,7 @@ function TollRow({ toll: t, operator, onSaved }: { toll: Toll; operator: string;
         <input value={source} onChange={(e) => setSource(e.target.value)} className={`${input} w-32`} aria-label="Fuente" />
       </td>
       <td className="px-3 py-2">
-        <Button size="sm" variant={changed ? "default" : "ghost"} disabled={!changed || busy} onClick={save} type="button">
+        <Button size="sm" variant={changed ? "default" : "ghost"} disabled={!changed || busy} onClick={save} type="button" burst={Check}>
           <Save />
           Guardar
         </Button>

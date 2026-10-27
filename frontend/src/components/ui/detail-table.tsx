@@ -1,6 +1,6 @@
 "use client";
 
-import { Download } from "lucide-react";
+import { Download, FileDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -46,7 +46,7 @@ export function DetailTable<T>({
     <div>
       {csvName && rows.length > 0 && (
         <div className="mb-2 flex justify-end">
-          <Button variant="secondary" size="sm" onClick={exportCsv}>
+          <Button variant="secondary" size="sm" onClick={exportCsv} burst={FileDown}>
             <Download /> Exportar CSV
           </Button>
         </div>

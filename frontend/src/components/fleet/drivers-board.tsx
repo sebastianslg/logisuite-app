@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LoaderCircle, Pencil, Plus, Trash2, UserRound } from "lucide-react";
+import { Check, LoaderCircle, Pencil, Plus, Trash2, UserRound } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { Badge } from "@/components/ui/badge";
@@ -114,7 +114,7 @@ export function DriversBoard({ drivers }: { drivers: Driver[] }) {
             </select>
           </Field>
           <ErrorBanner message={error} />
-          <div><Button type="submit" disabled={busy === "save"}>{busy === "save" && <LoaderCircle className="animate-spin" />} Guardar</Button></div>
+          <div><Button type="submit" disabled={busy === "save"} burst={Check}>{busy === "save" && <LoaderCircle className="animate-spin" />} Guardar</Button></div>
         </form>
       </Sheet>
     </div>

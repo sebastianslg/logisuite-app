@@ -123,7 +123,7 @@ function FxForm({ initial }: { initial: Settings["fx"] }) {
             placeholder="Ej. Superintendencia Financiera, TRM del día" required />
         </label>
         <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
-          <Button type="submit" disabled={busy}>
+          <Button type="submit" disabled={busy} burst={Check}>
             {busy ? <LoaderCircle className="animate-spin" /> : <Save />}
             Guardar TRM
           </Button>
