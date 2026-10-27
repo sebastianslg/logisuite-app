@@ -284,7 +284,7 @@ function AuditLog({ history }: { history: AuditEntry[] }) {
         </Button>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        Quién cerró una vía, quién modificó un envío. El usuario es el nombre declarado en la barra lateral (sin autenticación).
+        Quién cerró una vía, quién modificó un envío. El usuario es el nombre declarado en el menú «Más», campo Operador (sin autenticación).
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         <label className="relative flex h-8 min-w-48 flex-1 items-center">

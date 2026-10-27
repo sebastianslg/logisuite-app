@@ -27,7 +27,7 @@ const KINDS: Record<string, { label: string; icon: typeof Plane }> = {
 type StateFilter = "todos" | "operativos" | "cerrados";
 
 function dt(iso: string | null) {
-  return iso ? new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "—";
+  return iso ? new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }).replace(/\s/g, " ") : "—";
 }
 
 /** Cierre y reapertura de nodos: aeropuertos, puertos, terminales, CEDIs y ciudades. */

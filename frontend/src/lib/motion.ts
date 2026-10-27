@@ -19,3 +19,6 @@ export const SHADOW_LIFT =
 
 /** Hover de tarjetas y paneles: escala 1,02, sube 2 px y la sombra se ensancha. */
 export const hoverLift = { scale: 1.02, y: -2, boxShadow: SHADOW_LIFT, transition: T_FAST } as const;
+
+/** Resorte estándar: solo para indicadores que se deslizan (layoutId) y para el morph del mapa. */
+export const SPRING = { type: "spring", stiffness: 420, damping: 38, mass: 0.8 } as const;

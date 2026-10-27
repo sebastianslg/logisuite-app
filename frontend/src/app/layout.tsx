@@ -4,11 +4,10 @@ import "@fontsource-variable/inter";
 
 import { CommandPalette } from "@/components/shell/command-palette";
 import { Shortcuts } from "@/components/shell/shortcuts";
-import { Toolbar } from "@/components/shell/toolbar";
 import { MotionProvider } from "@/components/motion-provider";
 import { RippleRoot } from "@/components/ui/ripple";
 import { AppProvider } from "@/components/providers";
-import { Sidebar } from "@/components/shell/sidebar";
+import { Dock } from "@/components/shell/dock";
 
 import { PrefsProvider, THEME_INIT_SCRIPT } from "@/lib/prefs";
 
@@ -28,14 +27,14 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f2f2f7" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+    { media: "(prefers-color-scheme: light)", color: "#f5f5f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#f5f5f7" },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="es" className="h-full antialiased" suppressHydrationWarning>
+    <html lang="es" data-theme="light" className="h-full antialiased" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
@@ -46,16 +45,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <CommandPalette>
                 <Shortcuts />
                 <RippleRoot />
-                <div className="flex min-h-screen">
-                  {/* usePathname() en rutas dinámicas (/envios/[code]) exige un límite de Suspense */}
-                  <Suspense fallback={<aside className="hidden w-60 shrink-0 border-r border-border md:block" aria-hidden />}>
-                    <Sidebar />
-                  </Suspense>
-                  <div className="flex min-w-0 flex-1 flex-col pt-14 md:pt-0">
-                    <Toolbar />
-                    <main className="min-w-0 flex-1">{children}</main>
-                  </div>
-                </div>
+                {/* usePathname() en rutas dinámicas (/envios/[code]) exige un límite de Suspense */}
+                <Suspense fallback={null}>
+                  <Dock />
+                </Suspense>
+                {/* El dock flota arriba en escritorio (5 rem) y abajo en celular (6 rem con el área segura) */}
+                <main className="min-h-screen min-w-0 pt-[env(safe-area-inset-top)] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-20 md:pb-0">
+                  {children}
+                </main>
               </CommandPalette>
             </MotionProvider>
           </AppProvider>

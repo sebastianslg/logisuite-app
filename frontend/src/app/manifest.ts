@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Transportation Management System multimodal para la red logística de Colombia.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f2f2f7",
-    theme_color: "#f2f2f7",
+    background_color: "#f5f5f7",
+    theme_color: "#f5f5f7",
     lang: "es",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

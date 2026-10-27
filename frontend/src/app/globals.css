@@ -13,24 +13,24 @@
  *   tenga qué desenfocar; con "reducir transparencia" se vuelven superficies opacas.
  */
 :root {
-  --background: #f2f2f7;
-  --foreground: #1c1c1e;
+  --background: #f5f5f7;
+  --foreground: #1d1d1f;
   --card: #ffffff;
-  --muted-foreground: #66666b; /* 5,3:1 sobre #fff, 4,7:1 sobre #f2f2f7 */
-  --separator: rgb(60 60 67 / 0.14);
-  --separator-strong: rgb(60 60 67 / 0.26);
+  --raised: #f0f0f3;
+  --muted-foreground: #6e6e73; /* 5,1:1 sobre #f5f5f7, 5,4:1 sobre #fff */
+  --separator: rgb(0 0 0 / 0.08);
+  --separator-strong: rgb(0 0 0 / 0.16);
   --fill: rgb(120 120 128 / 0.1);
-  --sidebar: rgb(246 246 250 / 0.82);
+  --sidebar: rgb(250 250 252 / 0.78);
 
   /* Materiales de vidrio */
-  --glass: rgb(255 255 255 / 0.65);
-  --glass-border: rgb(255 255 255 / 0.3);
-  --glass-shadow: 0 4px 24px rgb(0 0 0 / 0.04), 0 1px 2px rgb(0 0 0 / 0.02), 0 0 0 0.5px rgb(0 0 0 / 0.05);
-  --glass-shadow-lift: 0 16px 48px rgb(0 0 0 / 0.14), 0 2px 8px rgb(0 0 0 / 0.06), 0 0 0 0.5px rgb(0 0 0 / 0.06);
-  --backdrop:
-    radial-gradient(60% 45% at 12% 0%, rgb(0 122 255 / 0.1), transparent 70%),
-    radial-gradient(45% 40% at 92% 8%, rgb(175 82 222 / 0.08), transparent 70%),
-    radial-gradient(50% 40% at 70% 100%, rgb(52 199 89 / 0.07), transparent 70%);
+  --glass: rgb(255 255 255 / 0.72);
+  --glass-border: rgb(0 0 0 / 0.06);
+  --glass-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.04);
+  --glass-shadow-lift: 0 16px 48px rgb(0 0 0 / 0.12), 0 2px 8px rgb(0 0 0 / 0.05), 0 0 0 0.5px rgb(0 0 0 / 0.06);
+  /* Sombra solo para lo que flota (dock, menús, paneles sobre el mapa) */
+  --float-shadow: 0 10px 40px rgb(0 0 0 / 0.1), 0 2px 6px rgb(0 0 0 / 0.04), 0 0 0 0.5px rgb(0 0 0 / 0.08);
+  --backdrop: none;
 
   /* Colores del sistema de Apple, para relleno y gráficos (no para texto pequeño sobre claro) */
   --sys-blue: #007aff;
@@ -39,108 +39,103 @@
   --sys-orange: #ff9500;
 
   --accent: #0066cc; /* texto/íconos interactivos: 5,6:1 sobre blanco */
-  --accent-solid: #0066cc; /* relleno de botones con texto blanco: 5,6:1 */
+  --accent-solid: #0071e3; /* relleno de botones con texto blanco: 4,6:1 */
   --accent-foreground: #ffffff;
   --success: #18703a;
   --warning: #a35200;
   --danger: #c4141f;
   --info: #3c4ccf;
 
-  /* Modos de transporte (≥ 3:1 sobre la tarjeta clara) */
-  --mode-maritimo: #2f62d6;
-  --mode-terrestre: #12805c;
-  --mode-aereo: #a63083;
-  --mode-ferreo: #a86b00;
-  --mode-fluvial: #129dd9;
+  /* Modos de transporte: solo identifican el modo (siempre con ícono y texto) */
+  --mode-maritimo: #5e5ce6;
+  --mode-terrestre: #0f9d7a;
+  --mode-aereo: #d6399b;
+  --mode-ferreo: #c98a00;
+  --mode-fluvial: #0a84ff;
 
-  color-scheme: light dark;
-}
-
-:root[data-theme="light"] {
   color-scheme: light;
 }
 
-/* Oscuro: elegido a mano (data-theme="dark") o heredado del sistema cuando no hay elección */
+/* Tema claro por defecto. Oscuro: elegido a mano (data-theme="dark") o "Sistema" con el sistema en oscuro */
 :root[data-theme="dark"] {
   color-scheme: dark;
     --background: #000000;
     --foreground: #f5f5f7;
     --card: #1c1c1e;
-    --muted-foreground: #9a9aa1; /* 5,9:1 sobre #1c1c1e */
-    --separator: rgb(84 84 88 / 0.5);
-    --separator-strong: rgb(84 84 88 / 0.8);
+    --raised: #2c2c2e;
+    --muted-foreground: #a1a1a6; /* 7:1 sobre #1c1c1e */
+    --separator: rgb(255 255 255 / 0.1);
+    --separator-strong: rgb(255 255 255 / 0.2);
     --fill: rgb(120 120 128 / 0.24);
     --sidebar: rgb(28 28 30 / 0.78);
 
     /* rgba(0,0,0,.4) sobre fondo negro sería invisible: el vidrio oscuro es un gris translúcido */
-    --glass: rgb(44 44 46 / 0.55);
-    --glass-border: rgb(255 255 255 / 0.1);
-    --glass-shadow: 0 4px 24px rgb(0 0 0 / 0.35), 0 1px 2px rgb(0 0 0 / 0.3), 0 0 0 0.5px rgb(255 255 255 / 0.08);
+    --glass: rgb(28 28 30 / 0.82);
+    --glass-border: rgb(255 255 255 / 0.08);
+    --glass-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.06);
     --glass-shadow-lift: 0 16px 48px rgb(0 0 0 / 0.6), 0 2px 8px rgb(0 0 0 / 0.4), 0 0 0 0.5px rgb(255 255 255 / 0.14);
-    --backdrop:
-      radial-gradient(60% 45% at 12% 0%, rgb(10 132 255 / 0.2), transparent 70%),
-      radial-gradient(45% 40% at 92% 8%, rgb(191 90 242 / 0.14), transparent 70%),
-      radial-gradient(50% 40% at 70% 100%, rgb(48 209 88 / 0.1), transparent 70%);
+    --float-shadow: 0 10px 40px rgb(0 0 0 / 0.55), 0 0 0 0.5px rgb(255 255 255 / 0.12);
+    --backdrop: none;
 
     --sys-blue: #0a84ff;
     --sys-green: #30d158;
     --sys-red: #ff453a;
     --sys-orange: #ff9f0a;
 
-    --accent: #4da3ff; /* 6,5:1 sobre #1c1c1e */
-    --accent-solid: #0b63ce; /* texto blanco encima: 5,7:1 */
+    --accent: #8f9cf7; /* texto sobre #1c1c1e: 6,6:1 (el #5266eb puro no llega a 4,5:1 como texto) */
+    --accent-solid: #5266eb; /* relleno de botones con texto blanco: 4,9:1 */
     --accent-foreground: #ffffff;
     --success: #32d74b;
     --warning: #ff9f0a;
     --danger: #ff6961;
     --info: #7d8cff;
 
-    --mode-maritimo: #4a7cf0;
-    --mode-terrestre: #199e70;
-    --mode-aereo: #c6399c;
-    --mode-ferreo: #c98500;
-    --mode-fluvial: #2cc8e0;
+    --mode-maritimo: #5e5ce6;
+    --mode-terrestre: #0f9d7a;
+    --mode-aereo: #d6399b;
+    --mode-ferreo: #c98a00;
+    --mode-fluvial: #0a84ff;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+  :root[data-theme="system"] {
+    color-scheme: dark;
     --background: #000000;
     --foreground: #f5f5f7;
     --card: #1c1c1e;
-    --muted-foreground: #9a9aa1; /* 5,9:1 sobre #1c1c1e */
-    --separator: rgb(84 84 88 / 0.5);
-    --separator-strong: rgb(84 84 88 / 0.8);
+    --raised: #2c2c2e;
+    --muted-foreground: #a1a1a6; /* 7:1 sobre #1c1c1e */
+    --separator: rgb(255 255 255 / 0.1);
+    --separator-strong: rgb(255 255 255 / 0.2);
     --fill: rgb(120 120 128 / 0.24);
     --sidebar: rgb(28 28 30 / 0.78);
 
     /* rgba(0,0,0,.4) sobre fondo negro sería invisible: el vidrio oscuro es un gris translúcido */
-    --glass: rgb(44 44 46 / 0.55);
-    --glass-border: rgb(255 255 255 / 0.1);
-    --glass-shadow: 0 4px 24px rgb(0 0 0 / 0.35), 0 1px 2px rgb(0 0 0 / 0.3), 0 0 0 0.5px rgb(255 255 255 / 0.08);
+    --glass: rgb(28 28 30 / 0.82);
+    --glass-border: rgb(255 255 255 / 0.08);
+    --glass-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.06);
     --glass-shadow-lift: 0 16px 48px rgb(0 0 0 / 0.6), 0 2px 8px rgb(0 0 0 / 0.4), 0 0 0 0.5px rgb(255 255 255 / 0.14);
-    --backdrop:
-      radial-gradient(60% 45% at 12% 0%, rgb(10 132 255 / 0.2), transparent 70%),
-      radial-gradient(45% 40% at 92% 8%, rgb(191 90 242 / 0.14), transparent 70%),
-      radial-gradient(50% 40% at 70% 100%, rgb(48 209 88 / 0.1), transparent 70%);
+    --float-shadow: 0 10px 40px rgb(0 0 0 / 0.55), 0 0 0 0.5px rgb(255 255 255 / 0.12);
+    --backdrop: none;
 
     --sys-blue: #0a84ff;
     --sys-green: #30d158;
     --sys-red: #ff453a;
     --sys-orange: #ff9f0a;
 
-    --accent: #4da3ff; /* 6,5:1 sobre #1c1c1e */
-    --accent-solid: #0b63ce; /* texto blanco encima: 5,7:1 */
+    --accent: #8f9cf7; /* texto sobre #1c1c1e: 6,6:1 (el #5266eb puro no llega a 4,5:1 como texto) */
+    --accent-solid: #5266eb; /* relleno de botones con texto blanco: 4,9:1 */
     --accent-foreground: #ffffff;
     --success: #32d74b;
     --warning: #ff9f0a;
     --danger: #ff6961;
     --info: #7d8cff;
 
-    --mode-maritimo: #4a7cf0;
-    --mode-terrestre: #199e70;
-    --mode-aereo: #c6399c;
-    --mode-ferreo: #c98500;
-    --mode-fluvial: #2cc8e0;
+    --mode-maritimo: #5e5ce6;
+    --mode-terrestre: #0f9d7a;
+    --mode-aereo: #d6399b;
+    --mode-ferreo: #c98a00;
+    --mode-fluvial: #0a84ff;
   }
 }
 
@@ -150,6 +145,7 @@
 
   --color-card: var(--card);
   --color-card-foreground: var(--foreground);
+  --color-raised: var(--raised);
   --color-sidebar: var(--sidebar);
 
   --color-muted: var(--fill);
@@ -174,8 +170,7 @@
   --color-info: var(--info);
 
   /* Tipografía del sistema: SF Pro en Apple, la fuente nativa en el resto */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter Variable", "Inter", system-ui,
-    "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
   --ease-apple: cubic-bezier(0.16, 1, 0.3, 1);
@@ -204,6 +199,7 @@
     letter-spacing: -0.011em;
     background-image: var(--backdrop);
     background-attachment: fixed;
+    font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -221,6 +217,20 @@
   ::selection {
     background: color-mix(in srgb, var(--accent) 30%, transparent);
   }
+}
+
+/* Dock de navegación: vidrio flotante con borde hairline (una de las pocas superficies con sombra) */
+@utility dock {
+  background-color: var(--color-sidebar);
+  box-shadow: var(--float-shadow);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Menús y paneles flotantes: tarjeta opaca con sombra suave */
+@utility floating {
+  background-color: var(--color-card);
+  box-shadow: var(--float-shadow);
 }
 
 @utility tabular {
@@ -276,7 +286,31 @@
   }
 }
 
+/* Ícono del dock: al pasar el puntero gira de −6° a 0° y crece a 1,08 (200 ms) */
+@keyframes dock-icon-nudge {
+  from {
+    transform: rotate(-6deg) scale(1.08);
+  }
+  to {
+    transform: rotate(0deg) scale(1.08);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .group\/item:hover .dock-icon {
+    transform: scale(1.08);
+    animation: dock-icon-nudge 0.2s var(--ease-apple);
+  }
+}
+.dock-icon {
+  transition: transform 0.2s var(--ease-apple);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .dock-icon,
+  .group\/item:hover .dock-icon {
+    animation: none;
+    transform: none;
+  }
   .press,
   .press:active,
   .lift {
@@ -294,7 +328,8 @@
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-  .material {
+  .material,
+  .dock {
     background-color: var(--color-card);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;

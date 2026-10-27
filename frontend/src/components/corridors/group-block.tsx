@@ -24,7 +24,7 @@ export function GroupBlock({
 }) {
   return (
     <li className="list-none">
-      <h3 className="sticky top-14 z-10 md:top-12">
+      <h3 className="sticky top-0 z-10 md:top-20">
         <button
           type="button"
           onClick={onToggle}

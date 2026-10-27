@@ -159,7 +159,7 @@ export function NetworkExplorer() {
 
   return (
     <div
-      className="relative h-[calc(100dvh-3.5rem)] w-full overflow-hidden md:h-[calc(100dvh-3rem)]"
+      className="relative h-[calc(100dvh-6rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] w-full overflow-hidden md:-mt-20 md:h-dvh"
       onKeyDownCapture={markInteraction}
       onChangeCapture={markInteraction}
     >
@@ -185,7 +185,7 @@ export function NetworkExplorer() {
       </div>
 
       {/* Encabezado */}
-      <div onPointerDownCapture={markInteraction} className="pointer-events-none absolute top-0 right-0 left-0 z-20 flex flex-wrap items-start justify-between gap-3 p-3 md:gap-4 md:p-6">
+      <div onPointerDownCapture={markInteraction} className="pointer-events-none absolute top-0 right-0 left-0 z-20 flex flex-wrap items-start justify-between gap-3 p-3 md:gap-4 md:p-6 md:pt-[6.5rem]">
         <h1 className="glass pointer-events-auto rounded-2xl px-4 py-2 text-xl font-bold">Red multimodal</h1>
         <div className="pointer-events-auto flex w-full flex-wrap items-center gap-2 md:w-auto">
           <ViewToggle showMap={showMap} setShowMap={setShowMap} />
@@ -236,8 +236,8 @@ export function NetworkExplorer() {
         className={cn(
           "glass absolute z-10 flex flex-col overflow-hidden rounded-3xl",
           showMap
-            ? "inset-x-3 bottom-3 max-h-[62%] md:inset-x-auto md:top-24 md:bottom-6 md:left-6 md:max-h-none md:w-[400px]"
-            : "inset-x-3 top-36 bottom-3 md:inset-x-auto md:top-24 md:bottom-6 md:left-1/2 md:w-[min(960px,calc(100%-3rem))] md:-translate-x-1/2",
+            ? "inset-x-3 bottom-3 max-h-[62%] md:inset-x-auto md:top-44 md:bottom-6 md:left-6 md:max-h-none md:w-[400px]"
+            : "inset-x-3 top-36 bottom-3 md:inset-x-auto md:top-44 md:bottom-6 md:left-1/2 md:w-[min(960px,calc(100%-3rem))] md:-translate-x-1/2",
           panelFull && "fixed inset-0 z-[65] h-dvh max-h-none w-full translate-x-0 rounded-none pb-[env(safe-area-inset-bottom)] md:w-full",
         )}
         style={panelFull ? { backgroundColor: "var(--card)" } : undefined}
@@ -248,8 +248,8 @@ export function NetworkExplorer() {
               <Route className="size-4 text-primary" aria-hidden /> Simulador de rutas
             </div>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" onClick={() => setDirectoryOpen(true)}>
-                <ListFilter /> Ciudades
+              <Button variant="ghost" size="sm" onClick={() => setDirectoryOpen(true)} aria-label="Ciudades">
+                <ListFilter /> <span className="hidden sm:inline">Ciudades</span>
               </Button>
               <Button
                 variant="ghost"

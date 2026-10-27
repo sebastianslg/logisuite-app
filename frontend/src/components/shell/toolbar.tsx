@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { Banknote, Check, Monitor, Moon, Search, Sun } from "lucide-react";
+import { Banknote, Check, Monitor, Moon, Sun } from "lucide-react";
 
-import { useCommandPalette } from "@/components/shell/command-palette";
 import { useApp } from "@/components/providers";
 import { useBurst } from "@/components/ui/burst";
 import { api } from "@/lib/client";
-import { EASE } from "@/lib/motion";
+import { EASE, SPRING } from "@/lib/motion";
 import { usePrefs, type ThemePref } from "@/lib/prefs";
+import { useHydrated } from "@/lib/use-hydrated";
 import type { Currency } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -22,34 +22,13 @@ const THEMES: { value: ThemePref; label: string; icon: typeof Sun }[] = [
   { value: "dark", label: "Oscuro", icon: Moon },
 ];
 
-/** Barra de herramientas de la ventana: búsqueda / comandos, moneda y apariencia. */
-export function Toolbar() {
-  const { open, shortcut } = useCommandPalette();
-  return (
-    <div className="material sticky top-0 z-30 hidden h-12 shrink-0 items-center gap-2 border-b border-border px-5 md:flex">
-      <button
-        type="button"
-        onClick={open}
-        className="press flex h-8 min-w-0 flex-1 items-center gap-2 rounded-xl bg-fill px-3 text-sm text-muted-foreground outline-none hover:bg-fill/70 focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:h-10 md:max-w-md"
-        aria-label="Buscar o ejecutar un comando"
-      >
-        <Search className="size-4 shrink-0" aria-hidden />
-        <span className="truncate">Buscar envíos, ciudades, comandos…</span>
-        <kbd className="ml-auto hidden shrink-0 rounded-md border border-border-strong px-1.5 text-xs font-medium sm:inline">
-          {shortcut}
-        </kbd>
-      </button>
-      <div className="ml-auto flex shrink-0 items-center gap-2">
-        <CurrencyControl />
-        <ThemeControl />
-      </div>
-    </div>
-  );
-}
-
-/** Selector de apariencia: segmentado en pantallas anchas, un botón que rota en las estrechas. */
-export function ThemeControl({ className }: { className?: string }) {
-  const { theme, setTheme } = usePrefs();
+/**
+ * Selector de apariencia: segmentado en pantallas anchas, un botón que rota en las estrechas
+ * (`segmented` lo deja siempre segmentado, como en la hoja "Más" del celular).
+ */
+export function ThemeControl({ className, segmented = false }: { className?: string; segmented?: boolean }) {
+  const { theme: stored, setTheme } = usePrefs();
+  const theme: ThemePref = useHydrated() ? stored : "light";
   const idx = THEMES.findIndex((t) => t.value === theme);
   const Current = THEMES[idx].icon;
   return (
@@ -57,7 +36,7 @@ export function ThemeControl({ className }: { className?: string }) {
       <div
         role="radiogroup"
         aria-label="Apariencia"
-        className={cn("hidden rounded-xl bg-fill p-0.5 sm:flex", className)}
+        className={cn("rounded-full bg-fill p-1", segmented ? "flex" : "hidden sm:flex", className)}
       >
         {THEMES.map(({ value, label, icon: Icon }) => (
           <button
@@ -69,11 +48,19 @@ export function ThemeControl({ className }: { className?: string }) {
             title={label}
             onClick={() => setTheme(value)}
             className={cn(
-              "press relative flex size-7 items-center justify-center rounded-[10px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:size-9",
-              theme === value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              "press relative flex size-8 items-center justify-center rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:size-10",
+              theme === value ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <Icon className="size-4" aria-hidden />
+            {theme === value && (
+              <motion.span
+                layoutId={segmented ? "theme-pill-sheet" : "theme-pill"}
+                transition={SPRING}
+                className="absolute inset-0 rounded-full bg-card shadow-sm"
+                aria-hidden
+              />
+            )}
+            <Icon className="relative size-4" aria-hidden />
           </button>
         ))}
       </div>
@@ -81,7 +68,10 @@ export function ThemeControl({ className }: { className?: string }) {
         type="button"
         onClick={() => setTheme(THEMES[(idx + 1) % THEMES.length].value)}
         aria-label={`Apariencia: ${THEMES[idx].label}. Cambiar`}
-        className="press flex size-9 items-center justify-center rounded-xl bg-fill text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 sm:hidden"
+        className={cn(
+          "press flex size-10 items-center justify-center rounded-full bg-fill text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 sm:hidden",
+          segmented && "hidden",
+        )}
       >
         <Current className="size-4" aria-hidden />
       </button>
@@ -93,8 +83,10 @@ export function ThemeControl({ className }: { className?: string }) {
  * Moneda de los costos (USD o COP) y TRM editable, en un popover. La TRM se guarda en el servidor
  * (con fecha, fuente y operador, como en Configuración) para que sea la misma en todos los equipos.
  */
-export function CurrencyControl() {
-  const { currency, setCurrency, fx, refreshFx, operator } = useApp();
+export function CurrencyControl({ placement = "down" }: { placement?: "down" | "up" }) {
+  const app = useApp();
+  const { setCurrency, fx, refreshFx, operator } = app;
+  const currency: Currency = useHydrated() ? app.currency : "USD";
   const trm = fx?.rate ?? null;
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
@@ -132,7 +124,7 @@ export function CurrencyControl() {
         body: {
           rate: parsed,
           date: new Date().toISOString().slice(0, 10),
-          source: "Manual (barra superior)",
+          source: "Manual (dock)",
           usuario: operator || null,
         },
       });
@@ -156,7 +148,7 @@ export function CurrencyControl() {
         }}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="press flex h-8 items-center gap-1.5 rounded-xl bg-fill px-2.5 text-sm font-medium outline-none hover:bg-fill/70 focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:h-10"
+        className="press flex h-10 items-center gap-1.5 rounded-full bg-fill px-3 text-sm font-medium outline-none hover:bg-fill/70 focus-visible:ring-[3px] focus-visible:ring-ring/80"
       >
         <Banknote className="size-4" aria-hidden />
         {currency}
@@ -166,12 +158,14 @@ export function CurrencyControl() {
           <motion.div
             role="dialog"
             aria-label="Moneda y TRM"
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.98 }}
-            transition={{ duration: 0.3, ease: EASE }}
-            className="glass absolute top-full right-0 z-40 mt-2 w-72 rounded-2xl p-4"
-            style={{ backgroundColor: "var(--card)" }}
+            initial={{ opacity: 0, y: placement === "up" ? 6 : -6, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1, transition: { duration: 0.2, ease: EASE } }}
+            exit={{ opacity: 0, y: placement === "up" ? 6 : -6, scale: 0.96, transition: { duration: 0.15, ease: EASE } }}
+            style={{ transformOrigin: placement === "up" ? "bottom right" : "top right" }}
+            className={cn(
+              "floating absolute right-0 z-40 w-72 rounded-[20px] p-4",
+              placement === "up" ? "bottom-full mb-2" : "top-full mt-3",
+            )}
           >
             <div className="text-sm font-semibold">Mostrar costos en</div>
             <div role="radiogroup" aria-label="Moneda" className="mt-2 grid grid-cols-2 rounded-xl bg-fill p-0.5">

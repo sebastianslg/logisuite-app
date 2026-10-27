@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useSyncExternalStore }
 
 /**
  * Apariencia de la persona (Sistema / Claro / Oscuro). Se guarda en este navegador (localStorage);
- * si no está disponible, la app sigue el sistema. La moneda y la TRM viven en <AppProvider>.
+ * sin elección guardada, la app usa el tema claro. La moneda y la TRM viven en <AppProvider>.
  */
 export type ThemePref = "system" | "light" | "dark";
 
@@ -46,7 +46,7 @@ const subscribe = (cb: () => void) => {
 };
 const getTheme = (): ThemePref => {
   const t = read(K_THEME);
-  return t === "light" || t === "dark" ? t : "system";
+  return t === "system" || t === "dark" ? t : "light";
 };
 const subscribeScheme = (cb: () => void) => {
   const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -56,14 +56,12 @@ const subscribeScheme = (cb: () => void) => {
 const getSystemDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
 
 export function PrefsProvider({ children }: { children: React.ReactNode }) {
-  const theme = useSyncExternalStore(subscribe, getTheme, () => "system" as ThemePref);
-  const systemDark = useSyncExternalStore(subscribeScheme, getSystemDark, () => true);
+  const theme = useSyncExternalStore(subscribe, getTheme, () => "light" as ThemePref);
+  const systemDark = useSyncExternalStore(subscribeScheme, getSystemDark, () => false);
 
   const setTheme = useCallback((t: ThemePref) => {
     write(K_THEME, t);
-    const root = document.documentElement;
-    if (t === "system") root.removeAttribute("data-theme");
-    else root.setAttribute("data-theme", t);
+    document.documentElement.setAttribute("data-theme", t);
     emit();
   }, []);
 
@@ -79,4 +77,4 @@ export function usePrefs(): Prefs {
 }
 
 /** Script que fija la apariencia elegida antes del primer pintado (evita el destello). */
-export const THEME_INIT_SCRIPT = `try{var t=localStorage.getItem("${K_THEME}");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}`;
+export const THEME_INIT_SCRIPT = `try{var t=localStorage.getItem("${K_THEME}");if(t==="system"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}`;

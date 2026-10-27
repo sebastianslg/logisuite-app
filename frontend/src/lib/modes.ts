@@ -15,13 +15,11 @@ import {
 import type { Mode, Priority, ShipmentStatus } from "./types";
 
 /**
- * Paleta por modo (fuente única para mapa, gráficos y badges).
- * `color` es una variable CSS con variante clara y oscura (globals.css); `rgb`
- * es la variante oscura para deck.gl. La paleta se validó en claro y oscuro para
- * separación CVD (diferencia de color mínima ΔE 18,8 en claro y 19,5 en oscuro, medida con
- * simulación de protano, deutero y tritanopía); el ORDEN es parte de la validación: los gráficos de partes
- * de un todo usan MODE_ORDER, nunca un orden por valor. El modo nunca se
- * comunica solo con color: siempre va con ícono y texto.
+ * Paleta por modo (fuente única para mapa, gráficos y badges): terrestre #0f9d7a, fluvial #0a84ff,
+ * marítimo #5e5ce6, aéreo #d6399b, férreo #c98a00 (decisión de diseño del 27/10/2026). Es la misma en
+ * claro y oscuro; `color` es la variable CSS (globals.css) y `rgb` el mismo color para deck.gl.
+ * Solo identifica el modo: nunca decora, y el modo nunca se comunica solo con color (siempre va con
+ * ícono y texto). Los gráficos de partes de un todo usan MODE_ORDER, nunca un orden por valor.
  */
 export const MODE_ORDER: Mode[] = ["maritimo", "terrestre", "aereo", "ferreo", "fluvial"];
 
@@ -29,11 +27,11 @@ export const MODES: Record<
   Mode,
   { label: string; vehicle: string; color: string; rgb: [number, number, number]; icon: LucideIcon }
 > = {
-  maritimo: { label: "Marítimo", vehicle: "Buque", color: "var(--mode-maritimo)", rgb: [74, 124, 240], icon: Ship },
-  terrestre: { label: "Terrestre", vehicle: "Camión", color: "var(--mode-terrestre)", rgb: [25, 158, 112], icon: Truck },
-  aereo: { label: "Aéreo", vehicle: "Avión", color: "var(--mode-aereo)", rgb: [198, 57, 156], icon: Plane },
-  ferreo: { label: "Férreo", vehicle: "Tren", color: "var(--mode-ferreo)", rgb: [201, 133, 0], icon: TrainFront },
-  fluvial: { label: "Fluvial", vehicle: "Barcaza", color: "var(--mode-fluvial)", rgb: [44, 200, 224], icon: Sailboat },
+  maritimo: { label: "Marítimo", vehicle: "Buque", color: "var(--mode-maritimo)", rgb: [94, 92, 230], icon: Ship },
+  terrestre: { label: "Terrestre", vehicle: "Camión", color: "var(--mode-terrestre)", rgb: [15, 157, 122], icon: Truck },
+  aereo: { label: "Aéreo", vehicle: "Avión", color: "var(--mode-aereo)", rgb: [214, 57, 155], icon: Plane },
+  ferreo: { label: "Férreo", vehicle: "Tren", color: "var(--mode-ferreo)", rgb: [201, 138, 0], icon: TrainFront },
+  fluvial: { label: "Fluvial", vehicle: "Barcaza", color: "var(--mode-fluvial)", rgb: [10, 132, 255], icon: Sailboat },
 };
 
 export type Tone = "neutral" | "accent" | "info" | "success" | "warning" | "danger";

@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 type StateFilter = "todas" | "activas" | "cerradas";
 
 function dt(iso: string | null) {
-  return iso ? new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "—";
+  return iso ? new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }).replace(/\s/g, " ") : "—";
 }
 
 export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; history: AuditEntry[] }) {
@@ -234,7 +234,7 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
           </ul>
         )}
         <p className="mt-4 text-xs text-muted-foreground">
-          El nombre es el que se declara en la barra lateral; no hay autenticación.
+          El nombre es el que se declara en el menú «Más» (campo Operador); no hay autenticación.
         </p>
       </aside>
     </div>

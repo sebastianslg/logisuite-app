@@ -13,7 +13,7 @@ import { api, openBlob, saveBlob } from "@/lib/client";
  *  - Descargar: guarda el archivo.
  *  - Compartir: crea un enlace de solo lectura con token (revocable en
  *    Configuración) y lo copia al portapapeles.
- * El PDF usa la moneda elegida en la barra lateral.
+ * El PDF usa la moneda elegida en el dock (moneda).
  */
 export function ExportActions({ codes, size = "sm" }: { codes: string[]; size?: "sm" | "default" }) {
   const { currency, operator } = useApp();
