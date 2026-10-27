@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -14,6 +14,7 @@ import {
   FileCheck2,
   History,
   LoaderCircle,
+  Maximize2,
   Pencil,
   Route,
   Trash2,
@@ -23,9 +24,11 @@ import {
 import { LayoutGroup, motion, useInView, useReducedMotion } from "framer-motion";
 
 import { Map3DLazy, MapLoading } from "@/components/map/map-3d-lazy";
+import { MapFrame } from "@/components/map/map-frame";
 import { useMapData } from "@/components/map/use-map-data";
 import { useApp } from "@/components/providers";
 import { ExportActions } from "@/components/shipments/export-actions";
+import { SharedCode } from "@/components/shipments/shared-code";
 import { RouteChain } from "@/components/shipments/route-chain";
 import { ModeChain, ModeIcon, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +64,8 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
     return () => window.clearTimeout(id);
   }, []);
   const [deleting, setDeleting] = useState(false);
+  const [mapFull, setMapFull] = useState(false);
+  const exitMapFull = useCallback(() => setMapFull(false), []);
   const [error, setError] = useState<string | null>(null);
   const legs = s.legs ?? [];
   const transfers = s.transfers ?? [];
@@ -101,7 +106,7 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-mono text-2xl font-semibold tracking-tight">{s.code}</h1>
+              <SharedCode code={s.code} className="font-mono text-2xl font-semibold tracking-tight" />
               <StatusBadge status={s.status} />
               {s.route_status === "sin_ruta" && (
                 <Badge tone="danger">
@@ -163,12 +168,26 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="flex flex-col gap-6">
-          <div className="relative h-[380px] overflow-hidden rounded-lg border border-border">
-            {network && departments && mapReady ? (
-              <Map3DLazy network={network} departments={departments} route={route} showFleet={false} paused />
-            ) : (
-              <MapLoading />
-            )}
+          <div className="relative h-[380px]">
+            <MapFrame full={mapFull} onExit={exitMapFull} radius={28} className="relative h-full border border-border">
+              {network && departments && mapReady ? (
+                <Map3DLazy network={network} departments={departments} route={route} showFleet={false} live={mapFull} />
+              ) : (
+                <MapLoading />
+              )}
+              {!mapFull && (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="floating absolute top-3 right-3 z-10"
+                  aria-label="Mapa a pantalla completa"
+                  title="Pantalla completa"
+                  onClick={() => setMapFull(true)}
+                >
+                  <Maximize2 />
+                </Button>
+              )}
+            </MapFrame>
           </div>
 
           <Card title="Tramos y transbordos" icon={<ModeChain modes={s.modes} />} collapsible>

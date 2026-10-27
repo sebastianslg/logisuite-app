@@ -105,8 +105,10 @@ export interface Map3DProps {
   className?: string;
   /** Si se define, solo se dibujan los nodos de estas ciudades (filtro por categoría). */
   visibleCities?: ReadonlySet<string> | null;
-  /** Pausa la animación mientras el usuario interactúa (no cambia la preferencia guardada). */
+  /** Detiene la animación aunque se interactúe con el mapa (por ejemplo, mientras se escribe en un panel). */
   paused?: boolean;
+  /** Pantalla completa: la animación corre sin necesidad de interactuar. */
+  live?: boolean;
   /** Ciudades marcadas con un aro (origen y destino elegidos). */
   selectedCities?: readonly string[];
   /** Ciudad a la que vuela la cámara cuando cambia. */
@@ -121,6 +123,7 @@ export default function Map3D({
   fleet,
   route,
   paused = false,
+  live = false,
   visibleModes,
   showDepartments = true,
   showFleet = true,
@@ -183,11 +186,31 @@ export default function Map3D({
   }, []);
   const routeStartRef = useRef(0);
 
+  // Regla del mapa: en reposo queda quieto. El reloj solo corre mientras se arrastra, se gira o se usa la
+  // rueda (y 0,8 s después, para que el movimiento no se corte en seco) o en pantalla completa (`live`).
+  const [engaged, setEngaged] = useState(false);
+  const engageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onInteractionStateChange = useCallback(
+    (s: { isDragging?: boolean; isPanning?: boolean; isZooming?: boolean; isRotating?: boolean }) => {
+      const active = !!(s.isDragging || s.isPanning || s.isZooming || s.isRotating);
+      if (engageTimer.current) clearTimeout(engageTimer.current);
+      if (active) setEngaged(true);
+      else engageTimer.current = setTimeout(() => setEngaged(false), 800);
+    },
+    [],
+  );
+  useEffect(() => () => {
+    if (engageTimer.current) clearTimeout(engageTimer.current);
+  }, []);
+  const running = animate && !paused && (live || engaged);
+
   // ---- Reloj de animación (requestAnimationFrame) ---------------------
   useEffect(() => {
-    if (!animate || paused) return; // pausado: sin reloj no hay fotogramas nuevos y el navegador queda libre
+    if (!running) return; // en reposo: sin reloj no hay fotogramas nuevos y el navegador queda libre
     let frame = 0;
     let last = 0;
+    // El reloj continúa desde donde quedó: al volver a moverse, nada salta al principio
+    const base = clockRef.current;
     const t0 = performance.now();
     // La flota se mueve despacio: ~30 cuadros por segundo en el mapa completo y ~10 en la vista
     // compacta del dashboard bastan y dejan tiempo al hilo principal (navegación, toques).
@@ -196,7 +219,7 @@ export default function Map3D({
     const tick = (now: number) => {
       if (!document.hidden && animateRef.current && now - last >= minDelta) {
         last = now;
-        const t = (now - t0) / 1000;
+        const t = base + (now - t0) / 1000;
         clockRef.current = t;
         deckRef.current?.deck?.setProps({ layers: buildRef.current?.(t) ?? NO_LAYERS });
       }
@@ -204,7 +227,7 @@ export default function Map3D({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [compact, animate, paused]);
+  }, [compact, running]);
 
   const isVisible = useCallback((m: Mode) => !visibleModes || visibleModes.has(m), [visibleModes]);
 
@@ -709,6 +732,7 @@ export default function Map3D({
         useDevicePixels={maxPixelRatio}
         viewState={viewState}
         onViewStateChange={({ viewState: v }) => setViewState(v as MapViewState)}
+        onInteractionStateChange={onInteractionStateChange}
         controller={{ dragRotate: true, touchRotate: true, scrollZoom: !compact }}
         ref={deckRef}
         layers={NO_LAYERS}
@@ -735,8 +759,8 @@ export default function Map3D({
           type="button"
           onClick={() => setAnimate(!animate)}
           aria-pressed={animate}
-          aria-label={animate ? "Pausar la animación del mapa" : "Reanudar la animación del mapa"}
-          title={animate ? "Pausar la animación" : "Reanudar la animación (puede ralentizar equipos sin tarjeta gráfica)"}
+          aria-label={animate ? "Desactivar la animación del mapa al moverlo" : "Activar la animación del mapa al moverlo"}
+          title={animate ? "Animación al mover el mapa: activada" : "Animar la flota al mover el mapa (puede ralentizar equipos sin tarjeta gráfica)"}
           className="material press absolute top-3 right-3 z-10 flex size-9 items-center justify-center rounded-full border border-border text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80"
         >
           {animate ? <Pause className="size-4" aria-hidden /> : <Play className="size-4" aria-hidden />}

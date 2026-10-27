@@ -40,6 +40,7 @@ import {
 
 import { Money } from "@/components/money";
 import { useApp } from "@/components/providers";
+import { rememberCode, rememberCodeIn } from "@/components/shipments/shared-code";
 import { ExportActions } from "@/components/shipments/export-actions";
 import { ModeChain, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -88,6 +89,8 @@ const columns = helper.columns([
     cell: (info) => (
       <Link
         href={`/envios/${info.getValue()}`}
+        data-code={info.getValue()}
+        onClick={(e) => rememberCode(info.getValue(), e.currentTarget)}
         className="font-mono text-xs text-foreground/80 underline-offset-2 hover:text-primary hover:underline"
       >
         {info.getValue()}
@@ -464,7 +467,8 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
               {table.getRowModel().rows.map((row) => (
                 <motion.tr
                   key={row.id}
-                  layout="position"
+                  // Las filas se reacomodan con desplazamiento al filtrar u ordenar; con más de 40 visibles, sin layout (rendimiento)
+                  layout={table.getRowModel().rows.length <= 40 ? "position" : false}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -472,6 +476,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                   whileTap={{ scale: 0.995 }}
                   onClick={(e) => {
                     if ((e.target as HTMLElement).closest("a,button,input")) return;
+                    rememberCodeIn(e.currentTarget, row.original.code);
                     router.push(`/envios/${row.original.code}`);
                   }}
                   className="cursor-pointer border-b border-border transition-colors duration-300 ease-apple hover:bg-fill/50"
@@ -555,6 +560,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
             <li key={row.id}>
               <Link
                 href={`/envios/${sh.code}`}
+                onClick={(e) => rememberCodeIn(e.currentTarget, sh.code)}
                 className="glass press block rounded-2xl p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -580,7 +586,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                   <span className="tabular text-xs text-muted-foreground">{Math.round(sh.progress_pct)} %</span>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
-                  <span className="font-mono text-xs text-muted-foreground">{sh.code}</span>
+                  <span data-code={sh.code} className="font-mono text-xs text-muted-foreground">{sh.code}</span>
                   <span className="tabular ml-auto text-right">
                     {sh.weight_fmt} · <Money usd={sh.cost} /> · ETA {sh.eta_fmt}
                   </span>

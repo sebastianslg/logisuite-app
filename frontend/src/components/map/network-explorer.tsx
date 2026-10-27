@@ -32,6 +32,7 @@ import {
 import { CityCombobox } from "./city-combobox";
 import { CategoryFilter, CityDirectory, CityInspector } from "./city-explorer";
 import { Map3DLazy, MapLoading } from "./map-3d-lazy";
+import { MapFrame } from "./map-frame";
 import { MapLegend } from "./map-legend";
 import { useMapAnimation } from "./use-map-animation";
 import { useMapData } from "./use-map-data";
@@ -81,6 +82,7 @@ export function NetworkExplorer() {
   // Pantalla completa dentro de la página (funciona también en iPhone)
   const [mapFull, setMapFull] = useState(false);
   const [panelFull, setPanelFull] = useState(false);
+  const exitMapFull = useCallback(() => setMapFull(false), []);
   // Mientras la persona interactúa (toca, arrastra, escribe o usa la rueda) el mapa deja de animarse,
   // así el navegador atiende primero sus clics. Se reanuda 1,5 s después de la última interacción.
   const [interacting, setInteracting] = useState(false);
@@ -163,7 +165,7 @@ export function NetworkExplorer() {
       onKeyDownCapture={markInteraction}
       onChangeCapture={markInteraction}
     >
-      <div className={cn("absolute inset-0", !showMap && "hidden", mapFull && "fixed inset-0 z-[60] h-dvh")}>
+      <MapFrame full={mapFull} onExit={exitMapFull} className={cn("absolute inset-0", !showMap && "hidden")}>
         {network && departments ? (
           <Map3DLazy
             network={network}
@@ -178,11 +180,12 @@ export function NetworkExplorer() {
             focusCity={focusCity}
             onCityClick={pickCity}
             paused={interacting}
+            live={mapFull}
           />
         ) : (
           <MapLoading label={error ?? undefined} />
         )}
-      </div>
+      </MapFrame>
 
       {/* Encabezado */}
       <div onPointerDownCapture={markInteraction} className="pointer-events-none absolute top-0 right-0 left-0 z-20 flex flex-wrap items-start justify-between gap-3 p-3 md:gap-4 md:p-6 md:pt-[6.5rem]">
@@ -393,13 +396,6 @@ export function NetworkExplorer() {
         >
           <Route />
           Mostrar simulador
-        </Button>
-      )}
-
-      {mapFull && (
-        <Button variant="secondary" className="fixed top-3 right-3 z-[70] shadow-xl" onClick={() => setMapFull(false)}>
-          <Minimize2 />
-          Salir
         </Button>
       )}
 
