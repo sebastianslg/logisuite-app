@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, LoaderCircle, Save, Sparkles } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 
 import { ErrorBanner, Field, inputClass, textareaClass } from "@/components/fleet/form-bits";
 import { useApp } from "@/components/providers";
 import { Button } from "@/components/ui/button";
+import { SaveIcon, useSavedFlash } from "@/components/ui/save-icon";
+import { toast } from "@/components/ui/toast";
 import { api } from "@/lib/client";
 import type { Warehouse, WarehouseDetail, WarehouseRole } from "@/lib/types";
 
@@ -54,6 +56,7 @@ export function WarehouseForm({ warehouse }: { warehouse?: WarehouseDetail }) {
   const [statuses, setStatuses] = useState<string[]>(["Operativa", "Mantenimiento", "Cerrada"]);
   const [cities, setCities] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [done, flashDone] = useSavedFlash();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -86,6 +89,8 @@ export function WarehouseForm({ warehouse }: { warehouse?: WarehouseDetail }) {
       const saved = warehouse
         ? await api<WarehouseDetail>(`/api/warehouses/${warehouse.warehouse_id}`, { method: "PUT", body })
         : await api<WarehouseDetail>("/api/warehouses", { method: "POST", body });
+      flashDone();
+      toast({ title: warehouse ? "Bodega guardada" : "Bodega creada", description: saved.name });
       router.push(`/bodegas/${saved.warehouse_id}`);
       router.refresh();
     } catch (err) {
@@ -150,7 +155,7 @@ export function WarehouseForm({ warehouse }: { warehouse?: WarehouseDetail }) {
       <ErrorBanner message={error} />
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={busy} burst={warehouse ? Check : Sparkles}>
-          {busy ? <LoaderCircle className="animate-spin" /> : <Save />} {warehouse ? "Guardar cambios" : "Crear bodega"}
+          <SaveIcon state={done ? "done" : busy ? "busy" : "idle"} /> {warehouse ? "Guardar cambios" : "Crear bodega"}
         </Button>
         <Button asChild variant="ghost">
           <Link href={warehouse ? `/bodegas/${warehouse.warehouse_id}` : "/bodegas"}>Cancelar</Link>

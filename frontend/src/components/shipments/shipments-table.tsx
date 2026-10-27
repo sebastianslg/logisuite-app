@@ -41,6 +41,7 @@ import {
 import { Money } from "@/components/money";
 import { useApp } from "@/components/providers";
 import { rememberCode, rememberCodeIn } from "@/components/shipments/shared-code";
+import { CountUp } from "@/components/ui/count-up";
 import { ExportActions } from "@/components/shipments/export-actions";
 import { ModeChain, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -342,7 +343,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                 >
                   <Icon />
                   {s}
-                  <span className="tabular font-semibold">{statusCounts.get(s) ?? 0}</span>
+                  <CountUp value={statusCounts.get(s) ?? 0} duration={0.6} className="tabular font-semibold" />
                 </Badge>
               </motion.button>
             );

@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, LoaderCircle, Save, Sparkles } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { Button } from "@/components/ui/button";
+import { SaveIcon, useSavedFlash } from "@/components/ui/save-icon";
+import { toast } from "@/components/ui/toast";
 import { api } from "@/lib/client";
 import type { Driver, FleetCatalog, Mode, VehicleDetail, Warehouse } from "@/lib/types";
 
@@ -61,6 +63,7 @@ export function VehicleForm({ vehicle }: { vehicle?: VehicleDetail }) {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [busy, setBusy] = useState(false);
+  const [done, flashDone] = useSavedFlash();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -127,6 +130,8 @@ export function VehicleForm({ vehicle }: { vehicle?: VehicleDetail }) {
       const saved = vehicle
         ? await api<VehicleDetail>(`/api/fleet/vehicles/${vehicle.id}`, { method: "PUT", body })
         : await api<VehicleDetail>("/api/fleet/vehicles", { method: "POST", body });
+      flashDone();
+      toast({ title: vehicle ? "Vehículo guardado" : "Vehículo creado" });
       router.push(`/flota/${saved.id}`);
       router.refresh();
     } catch (err) {
@@ -230,7 +235,7 @@ export function VehicleForm({ vehicle }: { vehicle?: VehicleDetail }) {
       <ErrorBanner message={error} />
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={busy} burst={vehicle ? Check : Sparkles}>
-          {busy ? <LoaderCircle className="animate-spin" /> : <Save />}
+          <SaveIcon state={done ? "done" : busy ? "busy" : "idle"} />
           {vehicle ? "Guardar cambios" : "Crear vehículo"}
         </Button>
         <Button asChild variant="ghost">

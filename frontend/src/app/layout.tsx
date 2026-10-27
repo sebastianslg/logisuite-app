@@ -6,6 +6,7 @@ import { CommandPalette } from "@/components/shell/command-palette";
 import { Shortcuts } from "@/components/shell/shortcuts";
 import { MotionProvider } from "@/components/motion-provider";
 import { RippleRoot } from "@/components/ui/ripple";
+import { Toaster } from "@/components/ui/toast";
 import { AppProvider } from "@/components/providers";
 import { Dock } from "@/components/shell/dock";
 
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <CommandPalette>
                 <Shortcuts />
                 <RippleRoot />
+                <Toaster />
                 {/* usePathname() en rutas dinámicas (/envios/[code]) exige un límite de Suspense */}
                 <Suspense fallback={null}>
                   <Dock />

@@ -7,6 +7,7 @@ import { Banknote, Check, Monitor, Moon, Sun } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { useBurst } from "@/components/ui/burst";
+import { toast } from "@/components/ui/toast";
 import { api } from "@/lib/client";
 import { EASE, SPRING } from "@/lib/motion";
 import { usePrefs, type ThemePref } from "@/lib/prefs";
@@ -130,6 +131,7 @@ export function CurrencyControl({ placement = "down" }: { placement?: "down" | "
       });
       await refreshFx();
       setCurrency("COP");
+      toast({ title: "TRM guardada", description: "Los costos se muestran en pesos." });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo guardar la TRM");
     } finally {

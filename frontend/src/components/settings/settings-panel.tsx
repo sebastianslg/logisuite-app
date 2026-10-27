@@ -4,13 +4,15 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LayoutGroup } from "framer-motion";
-import { Check, Copy, History, Link2, LoaderCircle, RefreshCw, Save, Search, Trash2 } from "lucide-react";
+import { Check, Copy, History, Link2, LoaderCircle, RefreshCw, Search, Trash2 } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { Badge } from "@/components/ui/badge";
 
 import { Button } from "@/components/ui/button";
 import { CollapsiblePanel } from "@/components/ui/collapsible-panel";
+import { SaveIcon, useSavedFlash } from "@/components/ui/save-icon";
+import { toast } from "@/components/ui/toast";
 import { api } from "@/lib/client";
 import type { AuditEntry, Settings, ShareLink } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -86,6 +88,7 @@ function FxForm({ initial }: { initial: Settings["fx"] }) {
   const [source, setSource] = useState(initial.source ?? "");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [done, flashDone] = useSavedFlash();
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -98,6 +101,8 @@ function FxForm({ initial }: { initial: Settings["fx"] }) {
       });
       await refreshFx();
       setMsg({ ok: true, text: "TRM guardada. Toda la aplicación usa la nueva tasa." });
+      flashDone();
+      toast({ title: "TRM guardada", description: "Toda la aplicación usa la nueva tasa." });
       router.refresh();
     } catch (err) {
       setMsg({ ok: false, text: (err as Error).message });
@@ -128,7 +133,7 @@ function FxForm({ initial }: { initial: Settings["fx"] }) {
         </label>
         <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
           <Button type="submit" disabled={busy} burst={Check}>
-            {busy ? <LoaderCircle className="animate-spin" /> : <Save />}
+            <SaveIcon state={done ? "done" : busy ? "busy" : "idle"} />
             Guardar TRM
           </Button>
           {initial.rate ? (

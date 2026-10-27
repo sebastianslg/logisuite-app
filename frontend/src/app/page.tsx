@@ -5,7 +5,6 @@ import {
   ArrowUpRight,
   ArrowRightLeft,
   Gauge,
-  Navigation,
   Network,
   Radio,
   Weight,
@@ -13,12 +12,12 @@ import {
 
 import { Attention } from "@/components/dashboard/attention";
 import { BentoCell, BentoGrid, KpiCard } from "@/components/dashboard/bento";
+import { HeroFigures } from "@/components/dashboard/hero-figures";
 import { CorridorsCell, DispatchCell, ModalSplitCell } from "@/components/dashboard/chart-cells";
 import { LiveFleet } from "@/components/dashboard/live-fleet";
 import { NetworkMapCard } from "@/components/dashboard/network-map-card";
 import { StatusBreakdown } from "@/components/dashboard/status-breakdown";
 import { PageHeader, Skeleton } from "@/components/page-header";
-import { Money } from "@/components/money";
 import { apiGet } from "@/lib/api";
 import type { DashboardSummary, FleetLive, SustainabilitySummary } from "@/lib/types";
 
@@ -48,19 +47,11 @@ async function DashboardContent() {
 
   return (
     <>
+      <HeroFigures inTransit={k.active.value ?? 0} delayed={k.delayed.value ?? 0} cost={k.cost_in_transit.value ?? 0} />
       <Attention alerts={summary.alerts} />
       <BentoGrid>
       <KpiCard
-        className="md:col-span-3 xl:col-span-3"
-        href="/envios?estado=En Ruta,Transferencia Modal,Retrasado"
-        label="Envíos en tránsito"
-        value={k.active.fmt}
-        icon={<Navigation />}
-        accent="var(--color-success)"
-        footnote={`${k.delayed.fmt} retrasados · ${k.scheduled.fmt} programados`}
-      />
-      <KpiCard
-        className="md:col-span-3 xl:col-span-3"
+        className="md:col-span-2 xl:col-span-4"
         href="/envios?estado=Transferencia Modal"
         label="Transferencia modal"
         value={k.in_transfer.fmt}
@@ -69,19 +60,15 @@ async function DashboardContent() {
         footnote="Cargas en transbordo entre modos"
       />
       <KpiCard
-        className="md:col-span-3 xl:col-span-3"
+        className="md:col-span-2 xl:col-span-4"
         href="/envios?estado=En Ruta,Transferencia Modal,Retrasado"
         label="Carga en tránsito"
         value={k.tons_in_transit.fmt}
         icon={<Weight />}
-        footnote={
-          <>
-            Flete comprometido <Money usd={k.cost_in_transit.value ?? 0} compact />
-          </>
-        }
+        footnote={`${k.scheduled.fmt} envíos programados`}
       />
       <KpiCard
-        className="md:col-span-3 xl:col-span-3"
+        className="col-span-2 md:col-span-2 xl:col-span-4"
         href="/envios?estado=Entregado"
         label="OTIF (30 días)"
         value={k.otif.fmt}

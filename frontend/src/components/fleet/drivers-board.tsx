@@ -9,6 +9,7 @@ import { useApp } from "@/components/providers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
+import { toast } from "@/components/ui/toast";
 import { api } from "@/lib/client";
 import type { Driver } from "@/lib/types";
 
@@ -45,6 +46,7 @@ export function DriversBoard({ drivers }: { drivers: Driver[] }) {
       if (editing === "new") await api("/api/fleet/drivers", { method: "POST", body });
       else if (editing) await api(`/api/fleet/drivers/${editing.driver_id}`, { method: "PUT", body });
       setEditing(null);
+      toast({ title: editing === "new" ? "Conductor agregado" : "Conductor guardado", description: name });
       router.refresh();
     } catch (err) {
       setError((err as Error).message);

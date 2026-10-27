@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Download, FileDown, Save, Upload } from "lucide-react";
+import { Check, Download, FileDown, Upload } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { Button } from "@/components/ui/button";
+import { SaveIcon, useSavedFlash } from "@/components/ui/save-icon";
+import { toast } from "@/components/ui/toast";
 import { api } from "@/lib/client";
 import type { Toll } from "@/lib/types";
 
@@ -133,6 +135,7 @@ function TollRow({ toll: t, operator, onSaved }: { toll: Toll; operator: string;
   const [source, setSource] = useState(t.tolls_source ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [done, flashDone] = useSavedFlash();
   const changed =
     Number(value) !== t.tolls_cop || note !== (t.tolls_note ?? "") || source !== (t.tolls_source ?? "");
 
@@ -144,6 +147,8 @@ function TollRow({ toll: t, operator, onSaved }: { toll: Toll; operator: string;
         method: "PUT",
         body: { tolls_cop: Number(value) || 0, note: note || null, source: source || null, usuario: operator },
       });
+      flashDone();
+      toast({ title: "Peaje guardado" });
       onSaved();
     } catch (e) {
       setError((e as Error).message);
@@ -176,7 +181,7 @@ function TollRow({ toll: t, operator, onSaved }: { toll: Toll; operator: string;
       </td>
       <td className="px-3 py-2">
         <Button size="sm" variant={changed ? "default" : "ghost"} disabled={!changed || busy} onClick={save} type="button" burst={Check}>
-          <Save />
+          <SaveIcon state={done ? "done" : busy ? "busy" : "idle"} />
           Guardar
         </Button>
         {error && <p className="mt-1 text-destructive">{error}</p>}

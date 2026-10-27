@@ -5,6 +5,7 @@ import { Check, Copy, Download, FileDown, FileText, LoaderCircle, Share2 } from 
 
 import { useApp } from "@/components/providers";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 import { api, openBlob, saveBlob } from "@/lib/client";
 
 /**
@@ -50,6 +51,7 @@ export function ExportActions({ codes, size = "sm" }: { codes: string[]; size?: 
           await navigator.clipboard.writeText(url);
           setCopied(true);
           setTimeout(() => setCopied(false), 2500);
+          toast({ title: "Enlace copiado", description: "Solo lectura; se revoca en Configuración." });
         } catch {
           /* sin permiso de portapapeles: el enlace queda visible para copiarlo */
         }

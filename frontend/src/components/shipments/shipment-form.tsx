@@ -4,11 +4,13 @@ import { cloneElement, useEffect, useId, useMemo, useRef, useState, type ReactEl
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRightLeft, Check, CircleDollarSign, Clock, Cloud, Fuel, Leaf, LoaderCircle, Route, Save, Sparkles, X } from "lucide-react";
+import { ArrowRightLeft, Check, CircleDollarSign, Clock, Cloud, Fuel, Leaf, LoaderCircle, Route, Sparkles, X } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { ModeChain, ModeIcon } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { SaveIcon, useSavedFlash } from "@/components/ui/save-icon";
+import { toast } from "@/components/ui/toast";
 import { api } from "@/lib/client";
 import { MODE_ORDER, MODES, PRIORITIES } from "@/lib/modes";
 import { EASE } from "@/lib/motion";
@@ -100,6 +102,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
   const [preview, setPreview] = useState<RouteResult | null>(null);
   const [footprint, setFootprint] = useState<Footprint | null>(null);
   const [busy, setBusy] = useState<"preview" | "save" | null>(null);
+  const [saved, flashSaved] = useSavedFlash();
   const [error, setError] = useState<string | null>(null);
   const [corridorQuery, setCorridorQuery] = useState("");
   const [errors, setErrors] = useState<Errors>({});
@@ -167,6 +170,8 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
       const saved = shipment
         ? await api<Shipment>(`/api/shipments/${encodeURIComponent(shipment.code)}`, { method: "PUT", body: body() })
         : await api<Shipment>("/api/shipments", { method: "POST", body: body() });
+      flashSaved();
+      toast({ title: shipment ? `Envío ${saved.code} guardado` : `Envío ${saved.code} creado` });
       router.push(`/envios/${saved.code}`);
       router.refresh();
     } catch (err) {
@@ -319,7 +324,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
 
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" disabled={!!busy} burst={shipment ? Check : Sparkles}>
-            {busy === "save" ? <LoaderCircle className="animate-spin" /> : <Save />}
+            <SaveIcon state={saved ? "done" : busy === "save" ? "busy" : "idle"} />
             {shipment ? "Guardar cambios" : "Crear envío"}
           </Button>
           <Button type="button" variant="secondary" disabled={!!busy} onClick={runPreview}>
