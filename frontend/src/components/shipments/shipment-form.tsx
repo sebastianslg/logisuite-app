@@ -3,6 +3,7 @@
 import { cloneElement, useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRightLeft, Check, CircleDollarSign, Clock, Cloud, Fuel, Leaf, LoaderCircle, Route, Save, Sparkles, X } from "lucide-react";
 
 import { useApp } from "@/components/providers";
@@ -10,6 +11,7 @@ import { ModeChain, ModeIcon } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/client";
 import { MODE_ORDER, MODES, PRIORITIES } from "@/lib/modes";
+import { EASE } from "@/lib/motion";
 import type { CityOption, Corridor, Footprint, Mode, Priority, RouteResult, Shipment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -287,8 +289,15 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
             <div className="relative">
               <input className={input} value={corridorQuery} onChange={(e) => setCorridorQuery(e.target.value)}
                 placeholder="Buscar vía (ej. Río Magdalena, Ruta del Sol)" aria-label="Buscar vía para forzar" />
+              <AnimatePresence>
               {corridorQuery && (
-                <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border-strong bg-card py-1 shadow-xl">
+                <motion.ul
+                  initial={{ opacity: 0, scale: 0.96, y: -6 }}
+                  animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.2, ease: EASE } }}
+                  exit={{ opacity: 0, scale: 0.96, y: -6, transition: { duration: 0.15, ease: EASE } }}
+                  style={{ transformOrigin: "top center" }}
+                  className="floating absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl py-1"
+                >
                   {corridorOptions.length === 0 && <li className="px-3 py-2 text-xs text-muted-foreground">Sin coincidencias entre las vías activas</li>}
                   {corridorOptions.map((c) => (
                     <li key={c.corridor}>
@@ -299,8 +308,9 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
                       </button>
                     </li>
                   ))}
-                </ul>
+                </motion.ul>
               )}
+              </AnimatePresence>
             </div>
           )}
         </div>

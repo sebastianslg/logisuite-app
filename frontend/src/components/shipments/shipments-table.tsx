@@ -47,6 +47,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, openBlob } from "@/lib/client";
 import { MODE_ORDER, MODES, PRIORITIES, STATUSES, STATUS_ORDER } from "@/lib/modes";
+import { EASE } from "@/lib/motion";
 import type { Mode, Shipment, ShipmentStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -334,7 +335,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
               >
                 <Badge
                   tone={active ? STATUSES[s].tone : "neutral"}
-                  className={cn("cursor-pointer transition-colors", !active && "hover:border-border-strong")}
+                  className={cn("cursor-pointer transition-colors duration-200", !active && "hover:border-border-strong")}
                 >
                   <Icon />
                   {s}
@@ -357,7 +358,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                 aria-pressed={active}
                 title={`${label} (${modeCounts.get(m) ?? 0})`}
                 className={cn(
-                  "flex h-8 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors",
+                  "flex h-8 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors duration-200",
                   active ? "text-foreground" : "border-border text-muted-foreground hover:text-foreground",
                 )}
                 style={active ? { borderColor: `${color}66`, backgroundColor: `${color}1a` } : undefined}
@@ -539,7 +540,15 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
       </div>
 
       {/* En pantallas estrechas la tabla se convierte en una lista de tarjetas */}
-      <ul className="flex flex-col gap-3 md:hidden" aria-label="Envíos">
+      {/* Al cambiar un filtro o la página, la lista hace un fundido de 200 ms (la key fuerza el ciclo) */}
+      <motion.ul
+        key={`${statusFilter.join()}|${modeFilter.join()}|${globalFilter}|${pageIndex}|${pageSize}`}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2, ease: EASE }}
+        className="flex flex-col gap-3 md:hidden"
+        aria-label="Envíos"
+      >
         {table.getRowModel().rows.map((row) => {
           const sh = row.original;
           return (
@@ -585,7 +594,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
             Ningún envío coincide con los filtros. Pulsa “Limpiar” para ver todos.
           </li>
         )}
-      </ul>
+      </motion.ul>
 
       {/* Paginación */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">

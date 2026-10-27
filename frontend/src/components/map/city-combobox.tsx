@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Search } from "lucide-react";
 
 import { MODES } from "@/lib/modes";
+import { EASE } from "@/lib/motion";
 import type { CityOption } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -102,10 +104,14 @@ export function CityCombobox({
         </span>
         <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
       </button>
+      <AnimatePresence>
       {open && (
-        <div
-          className="glass absolute top-full right-0 left-0 z-30 mt-1.5 overflow-hidden rounded-2xl"
-          style={{ backgroundColor: "var(--card)" }}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: -6 }}
+          animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.2, ease: EASE } }}
+          exit={{ opacity: 0, scale: 0.96, y: -6, transition: { duration: 0.15, ease: EASE } }}
+          style={{ transformOrigin: "top center" }}
+          className="floating absolute top-full right-0 left-0 z-30 mt-1.5 overflow-hidden rounded-2xl"
         >
           <div className="flex items-center gap-2 border-b border-border px-3">
             <Search className="size-4 text-muted-foreground" aria-hidden />
@@ -141,8 +147,9 @@ export function CityCombobox({
             ))}
             {results.length === 0 && <li className="px-3 py-6 text-center text-sm text-muted-foreground">Sin coincidencias.</li>}
           </ul>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }

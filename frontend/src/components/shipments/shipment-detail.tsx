@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -20,6 +20,8 @@ import {
   Weight,
 } from "lucide-react";
 
+import { LayoutGroup, motion, useInView, useReducedMotion } from "framer-motion";
+
 import { Map3DLazy, MapLoading } from "@/components/map/map-3d-lazy";
 import { useMapData } from "@/components/map/use-map-data";
 import { useApp } from "@/components/providers";
@@ -28,10 +30,13 @@ import { RouteChain } from "@/components/shipments/route-chain";
 import { ModeChain, ModeIcon, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CollapsiblePanel } from "@/components/ui/collapsible-panel";
+import { CountUp } from "@/components/ui/count-up";
 import { Dial } from "@/components/ui/dial";
 import { api } from "@/lib/client";
 import { requiredDocuments } from "@/lib/documents";
 import { MODES, PRIORITIES } from "@/lib/modes";
+import { EASE } from "@/lib/motion";
 import type { AuditEntry, Mode, RouteResult, Shipment } from "@/lib/types";
 
 const SOURCE: Record<Shipment["source"], string> = {
@@ -166,7 +171,7 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
             )}
           </div>
 
-          <Card title="Tramos y transbordos" icon={<ModeChain modes={s.modes} />}>
+          <Card title="Tramos y transbordos" icon={<ModeChain modes={s.modes} />} collapsible>
             <ol className="flex flex-col gap-1.5">
               {legs.map((l, i) => (
                 <li key={i} className="flex flex-col gap-1.5">
@@ -225,19 +230,23 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
           </Card>
         </section>
 
+        <LayoutGroup id="detail-aside">
         <aside className="flex flex-col gap-6">
           <Card title="Exportar">
             <ExportActions codes={[s.code]} />
           </Card>
 
-          <Card title="Costos">
-            <dl className="tabular flex flex-col gap-1.5 text-xs">
-              <Row k="Fletes por tramo" v={money(fletes)} />
-              <Row k="Peajes" v={money(peajes)} />
-              <Row k="Manipulación en transbordos" v={money(manipulacion)} />
-              <Row k="Impuestos (IVA e ICA)" v={money(impuestos)} />
-              <Row k="Total" v={money(legsCost + transfersCost)} strong />
-            </dl>
+          <Card title="Costos" collapsible>
+            <CostBars
+              money={(n) => money(n)}
+              total={legsCost + transfersCost}
+              parts={[
+                { k: "Fletes por tramo", v: fletes },
+                { k: "Peajes", v: peajes },
+                { k: "Manipulación en transbordos", v: manipulacion },
+                { k: "Impuestos (IVA e ICA)", v: impuestos },
+              ]}
+            />
           </Card>
 
           {fp && (
@@ -262,7 +271,7 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
             </Card>
           )}
 
-          <Card title="Datos del envío">
+          <Card title="Datos del envío" collapsible>
             <dl className="flex flex-col gap-1.5 text-xs">
               <Row k="Salida" v={dt(s.departure_at)} />
               <Row k="ETA planeado" v={dt(s.eta_at)} />
@@ -275,7 +284,7 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
             </dl>
           </Card>
 
-          <Card title="Documentos requeridos" icon={<FileCheck2 className="size-3.5 text-muted-foreground" />}>
+          <Card title="Documentos requeridos" icon={<FileCheck2 className="size-3.5 text-muted-foreground" />} collapsible>
             <ul className="flex flex-col gap-1 text-xs">
               {docs.map((d) => (
                 <li key={d.doc} className="flex justify-between gap-3">
@@ -289,7 +298,7 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
             <p className="mt-2 text-xs text-muted-foreground">Referencia según los modos de la ruta. Westvane no los emite.</p>
           </Card>
 
-          <Card title="Historial" icon={<History className="size-3.5 text-muted-foreground" />}>
+          <Card title="Historial" icon={<History className="size-3.5 text-muted-foreground" />} collapsible>
             {history.length === 0 ? (
               <p className="text-xs text-muted-foreground">Sin cambios registrados.</p>
             ) : (
@@ -316,6 +325,7 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
             )}
           </Card>
         </aside>
+        </LayoutGroup>
       </div>
     </div>
   );
@@ -343,15 +353,64 @@ const ACTION_LABEL: Record<string, string> = {
   REVOKE: "Revocado",
 };
 
-function Card({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
+function Card({
+  title,
+  icon,
+  collapsible = false,
+  children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  collapsible?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="glass rounded-3xl p-5">
-      <header className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium">{title}</h2>
-        {icon}
-      </header>
+    <CollapsiblePanel title={title} icon={icon} collapsible={collapsible}>
       {children}
-    </section>
+    </CollapsiblePanel>
+  );
+}
+
+/**
+ * Desglose de costos: una barra por componente, proporcional al total, que crece con `scaleX` al entrar en
+ * pantalla (no al cargar fuera de vista) y una cifra que cuenta a la derecha.
+ */
+function CostBars({ parts, total, money }: { parts: { k: string; v: number }[]; total: number; money: (usd: number) => string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  // Crecen al entrar en pantalla, no al cargar fuera de vista (con "reducir movimiento", ya llenas)
+  const inView = useInView(ref, { once: true, margin: "-40px" });
+  const reduced = useReducedMotion();
+  const grown = inView || !!reduced;
+  return (
+    <div ref={ref} className="flex flex-col gap-3 text-xs">
+      {parts.map(({ k, v }, i) => {
+        const pct = total > 0 ? Math.max(0, Math.min(1, v / total)) : 0;
+        return (
+          <div key={k}>
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-muted-foreground">{k}</span>
+              {grown ? (
+                <CountUp value={v} format={money} delay={i * 0.08} duration={0.6} className="tabular font-medium" />
+              ) : (
+                <span className="tabular font-medium">{money(v)}</span>
+              )}
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-fill" aria-hidden>
+              <motion.div
+                className="h-full w-full origin-left rounded-full bg-primary"
+                initial={false}
+                animate={{ scaleX: grown ? pct : 0 }}
+                transition={{ duration: 0.6, ease: EASE, delay: i * 0.08 }}
+              />
+            </div>
+          </div>
+        );
+      })}
+      <div className="tabular flex items-baseline justify-between gap-4 border-t border-border pt-3 text-sm">
+        <span className="font-medium">Total</span>
+        <span className="font-semibold">{money(total)}</span>
+      </div>
+    </div>
   );
 }
 

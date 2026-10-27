@@ -3,11 +3,14 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { LayoutGroup } from "framer-motion";
 import { Check, Copy, History, Link2, LoaderCircle, RefreshCw, Save, Search, Trash2 } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { Badge } from "@/components/ui/badge";
+
 import { Button } from "@/components/ui/button";
+import { CollapsiblePanel } from "@/components/ui/collapsible-panel";
 import { api } from "@/lib/client";
 import type { AuditEntry, Settings, ShareLink } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -51,11 +54,13 @@ function today() {
 export function SettingsPanel({ settings, links, history }: { settings: Settings; links: ShareLink[]; history: AuditEntry[] }) {
   return (
     <div className="grid gap-6 xl:grid-cols-2">
-      <div className="flex flex-col gap-6">
-        <FxForm initial={settings.fx} />
-        <ReplenishToggle initial={settings.auto_replenish} />
-        <SharedLinks links={links} />
-      </div>
+      <LayoutGroup id="settings">
+        <div className="flex flex-col gap-6">
+          <FxForm initial={settings.fx} />
+          <ReplenishToggle initial={settings.auto_replenish} />
+          <SharedLinks links={links} />
+        </div>
+      </LayoutGroup>
       <AuditLog history={history} />
     </div>
   );
@@ -63,11 +68,10 @@ export function SettingsPanel({ settings, links, history }: { settings: Settings
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
-    <section className="glass rounded-3xl p-5">
-      <h2 className="text-sm font-medium">{title}</h2>
-      {description && <p className="mt-1 text-xs text-muted-foreground">{description}</p>}
+    <CollapsiblePanel title={title}>
+      {description && <p className="text-xs text-muted-foreground">{description}</p>}
       <div className="mt-4">{children}</div>
-    </section>
+    </CollapsiblePanel>
   );
 }
 

@@ -11,18 +11,23 @@ export function CountUp({
   decimals = 0,
   suffix = "",
   duration = 0.9,
+  delay = 0,
+  format,
   className,
 }: {
   value: number;
   decimals?: number;
   suffix?: string;
   duration?: number;
+  delay?: number;
+  /** Formato propio (por ejemplo, moneda); reemplaza a `decimals` y `suffix`. */
+  format?: (n: number) => string;
   className?: string;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const reduce = useReducedMotion();
   const fmt = (n: number) =>
-    n.toLocaleString("es-CO", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + suffix;
+    format ? format(n) : n.toLocaleString("es-CO", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + suffix;
 
   useEffect(() => {
     const el = ref.current;
@@ -33,6 +38,7 @@ export function CountUp({
     }
     const controls = animate(0, value, {
       duration,
+      delay,
       ease: EASE,
       onUpdate: (v) => {
         el.textContent = fmt(v);
@@ -40,7 +46,7 @@ export function CountUp({
     });
     return () => controls.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, decimals, suffix, duration, reduce]);
+  }, [value, decimals, suffix, duration, delay, reduce]);
 
   return (
     <span ref={ref} className={className} aria-label={fmt(value)}>
