@@ -1,10 +1,9 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { PageHeader, Skeleton } from "@/components/page-header";
 import { ShipmentsTable, type ShipmentFilters } from "@/components/shipments/shipments-table";
-import { Button } from "@/components/ui/button";
+import { BurstLink } from "@/components/ui/burst-link";
 import { apiGet } from "@/lib/api";
 import { MODE_ORDER, STATUS_ORDER } from "@/lib/modes";
 import type { Mode, Shipment, ShipmentStatus } from "@/lib/types";
@@ -18,12 +17,10 @@ export default function EnviosPage({ searchParams }: PageProps<"/envios">) {
         title="Envíos multimodales"
         description="Órdenes con su cadena de modos, transbordos, avance en tiempo real y ETA. Crea, edita o borra envíos, selecciona varios para exportarlos a PDF o compartirlos."
         actions={
-          <Button asChild>
-            <Link href="/envios/nuevo">
-              <Plus />
-              Nuevo envío
-            </Link>
-          </Button>
+          <BurstLink href="/envios/nuevo">
+            <Plus />
+            Nuevo envío
+          </BurstLink>
         }
       />
       <div className="mt-8">
