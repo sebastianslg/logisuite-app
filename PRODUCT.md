@@ -20,12 +20,12 @@ Planificación multimodal real sobre la red colombiana (vías nacionales, ríos 
 
 ## Operating Context
 
-Datos simulados: clientes, transportistas y telemetría son ficticios y la flota se mueve por una simulación determinista. La red mezcla datos verificados y aproximados, y la interfaz marca los aproximados. Despliegue en Render (frontend Next.js + API FastAPI/SQLite); la base se pierde en cada redeploy sin disco persistente.
+Datos simulados: clientes, transportistas y telemetría son ficticios y la flota se mueve por una simulación determinista. La red mezcla datos verificados y aproximados, y la interfaz marca los aproximados. Desplegado en un VPS de Contabo con Docker Compose (Caddy + Next.js + API FastAPI/SQLite en un volumen persistente, con respaldo antes de cada actualización). GitHub Actions corre las pruebas en cada push a main y, si pasan, despliega solo. Hoy la usan el autor y, de vez en cuando, su profesor: no hay cuentas ni contraseña, a propósito.
 
 ## Capabilities and Constraints
 
 - Frontend: Next.js 16 (App Router), Tailwind v4, Framer Motion, deck.gl/MapLibre, TanStack Table.
-- Páginas: panel, envíos (lista, detalle, nuevo, editar), red y simulador, vías y nodos cerrados, configuración, combustible, huella de carbono.
+- Páginas: resumen, envíos (lista, detalle, nuevo, editar; exportación a CSV y Excel), red y simulador, flota, bodegas, vías y nodos cerrados, historial de trayectos (por ciudad, departamento y corredor), configuración, combustible, huella de carbono.
 - Debe funcionar bien en Windows y Android; PWA instalable; respeta "reducir movimiento" y "reducir transparencia".
 - Costos calculados en USD; COP vía TRM editable.
 - No inventar vías ni municipios sin trazado real. Los datos aproximados se marcan como tales.
@@ -34,8 +34,11 @@ Datos simulados: clientes, transportistas y telemetría son ficticios y la flota
 ## Brand Commitments
 
 - Nombre: Westvane (elegido por el usuario; verificar registro de marca en la SIC).
-- Estética obligatoria: calcada de Apple/macOS (HIG): vidrio con blur de 30 px, bisel, radios 16/24 px, una sola curva de movimiento `cubic-bezier(0.16, 1, 0.3, 1)`, hover `scale(1.02) translateY(-2px)`, `:active` `scale(0.96)`, colores del sistema (azul, verde, rojo) como acento, tipografía del sistema con Inter empaquetada.
-- El texto sobre fondo claro usa variantes más oscuras para llegar a 4,5:1.
+- Debe parecer software profesional, no un tablero genérico hecho con IA: superficies opacas con líneas finas, cifras grandes donde importan, filas antes que tarjetas, sin íconos en círculos ni vidrio decorativo. Detalle en `DESIGN.md`.
+- Navegación con un dock flotante (arriba en escritorio, abajo en celular), tema claro por defecto y oscuro con acento `#5266eb`.
+- Solo Inter Variable; sin fuentes propietarias ni fotos de terceros.
+- El mapa está quieto en reposo y solo anima al arrastrar, hacer zoom o en pantalla completa.
+- Animaciones solo con `transform` y `opacity`, y siempre respetando "reducir movimiento".
 
 ## Evidence on Hand
 
@@ -51,4 +54,4 @@ Todo el contenido es sintético. No hay testimonios, clientes reales ni métrica
 
 ## Accessibility & Inclusion
 
-Contraste mínimo 4,5:1, objetivos táctiles de 44 px, el modo nunca se comunica solo con color (ícono y texto), reducción de movimiento y de transparencia respetadas, paleta de modos validada para daltonismo en oscuro y pendiente en claro.
+Contraste mínimo 4,5:1, objetivos táctiles de 44 px, el modo nunca se comunica solo con color (ícono y texto), reducción de movimiento y de transparencia respetadas, paleta de modos validada para daltonismo en claro y en oscuro (ver `DESIGN.md`).

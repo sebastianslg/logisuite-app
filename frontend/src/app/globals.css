@@ -1,16 +1,14 @@
 @import "tailwindcss";
 
 /*
- * Sistema de diseño de Westvane: app ejecutiva nativa (macOS Sequoia / iPadOS),
- * basada en las Human Interface Guidelines de Apple.
+ * Sistema de diseño de Westvane (detalle en DESIGN.md): herramienta profesional que se lee como un documento.
  *
- * - Colores semánticos que se adaptan a modo claro y oscuro según el sistema.
+ * - Tema claro por defecto; oscuro elegido a mano o "Sistema" (atributo data-theme en <html>).
  * - Un color significa una sola cosa: azul = interactivo; verde/naranja/rojo = estado;
  *   los colores de modo de transporte solo identifican el modo.
- * - Movimiento "Apple": una sola curva (--ease-apple), 0,3 s en interacciones y 0,5 s en
- *   entradas de vista; presión real en :active y elevación en hover.
- * - Materiales de vidrio (.glass) sobre un fondo con color suave para que el desenfoque
- *   tenga qué desenfocar; con "reducir transparencia" se vuelven superficies opacas.
+ * - Superficies opacas con línea fina (.glass, .rows); sombra solo en lo que flota (.floating, .dock) y
+ *   vidrio real solo sobre el mapa (.glass-float). Con "reducir transparencia" todo es opaco.
+ * - Movimiento: una curva base (--ease-apple), presión con rebote (.press) y solo transform/opacity.
  */
 :root {
   --background: #f5f5f7;

@@ -2,7 +2,7 @@
 
 Registro de todo lo construido, investigado, decidido y pendiente hasta hoy.
 Rama de trabajo: `main` (la rama de sesión `claude/vigilant-johnson-mofqyc` queda igual a `main`).
-Última actualización: 28 de octubre de 2026 (dock de navegación y lotes 1 a 5 del plan de movimiento).
+Última actualización: 28 de octubre de 2026 (rendimiento, pulido profesional, avisos, historial, Excel, pruebas de navegador, CI y despliegue automático; secciones 9 y 11).
 
 ---
 
@@ -10,18 +10,16 @@ Rama de trabajo: `main` (la rama de sesión `claude/vigilant-johnson-mofqyc` que
 
 | Parte | Estado |
 |---|---|
-| Backend (FastAPI + SQLite + NetworkX) | Funcional. 131 pruebas en verde. |
+| Backend (FastAPI + SQLite + NetworkX) | Funcional. 190 pruebas en verde. Caché de lecturas con vuelo único, SQLite en WAL. |
 | Celular | Dock inferior con hoja "Más" desde abajo; simulador como hoja inferior; envíos en tarjetas. Sin desbordamiento horizontal a 390 px. |
 | Diseño y movimiento | Dock flotante, tema claro por defecto, paleta de modos nueva y lotes 1 a 5 del plan de movimiento (sección 9). |
-| Frontend (Next.js 16 + Tailwind v4 + deck.gl) | Funcional. Typecheck, lint y build sin errores; flujo completo probado con Playwright. |
+| Frontend (Next.js 16 + Tailwind v4 + deck.gl) | Funcional. Typecheck, lint y build sin errores; 8 pruebas de navegador (Playwright) en verde. |
+| CI y despliegue | GitHub Actions: pruebas en cada push a `main`; si pasan, despliegue automático a Contabo (falta crear los secretos, sección 10). |
 | Vías, envíos editables, USD/COP, PDF, historial | Implementados (ver sección 2 y `docs/AUDITORIA_BOTONES.md`). |
 | Docker local (`docker-compose.yml`) | Probado: ambos contenedores healthy, persistencia verificada. |
-| Render (plan gratuito) | Desplegado con blueprint. Frontend con error de servidor corregido en el último commit; pendiente de verificar. |
-| VM de Oracle (gratis) | Preparada en el repositorio, **sin crear la cuenta todavía**. |
-| VM de Hetzner (pago) | Solo planeada. Migración futura. |
-| Dominio | No comprado. Opciones: DuckDNS (gratis) o dominio propio. |
-
-**Lentitud reportada en Render:** causada por el plan gratuito (arranque en frío de hasta 50 s, CPU compartida, servidor en Oregón). No se resuelve con código solamente.
+| Producción | VPS de Contabo con Docker Compose (Caddy + web + API, base en volumen persistente). Guía: `docs/DESPLIEGUE_CONTABO.md`. |
+| Dominio | DuckDNS (`westvane.duckdns.org`). |
+| Render, Oracle, Hetzner | Descartados o superados por Contabo; se conservan solo como historia (secciones 2 y 7). |
 
 ---
 
@@ -51,7 +49,13 @@ Rama de trabajo: `main` (la rama de sesión `claude/vigilant-johnson-mofqyc` que
 | `27ee2c2` | Lote 2: paneles plegables sin animar altura, menús, desglose de costos en barras. |
 | `3ab2e36` | Lote 3: mapa quieto en reposo, morph a pantalla completa, código compartido fila → detalle. |
 | `1218cbb` | Lote 4: cifras hero del resumen, CountUp desde el valor anterior, avisos, Guardar → Check. |
-| (lote 5) | Contrastes AA en fondos tintados, capturas en `docs/capturas/`, esta bitácora. |
+| `7f449f8` | Lote 5: contrastes AA en fondos tintados, capturas en `docs/capturas/`, bitácora. |
+| `a95c351` | Guía de despliegue vigente en Contabo. |
+| `cf5d3ac` | Rendimiento y estabilidad: mapa por etapas, caché de la API, sondeos que se pausan, tiempos límite. |
+| `8f2d227` | Pulido visual: de tablero de tarjetas a herramienta profesional. |
+| `0f4048c` | Trabajo en curso guardado antes de una pausa (sin verificar); lo completa `b47702b`. |
+| `b47702b` | Avisos globales, historial de trayectos, exportación a Excel y 404 real. |
+| `7784b59` | Pruebas de navegador, CI, despliegue automático a Contabo y paleta de modos validada. |
 
 ---
 
@@ -164,12 +168,11 @@ Detalles de la red ampliada:
 
 Pendientes que siguen abiertos:
 
-8. **Historial de trayectos** por ciudad y departamento; costos de peaje y combustible por corredor; alertas operativas (vía cerrada, derrumbe, paro).
-9. **Despliegue permanente:** cuenta de Oracle, VM, HTTPS con Caddy, dominio, GitHub Actions, respaldos. Ver `DEPLOY.md`.
-10. **Mejoras de velocidad:** caché de respuestas de la API, menos peticiones al abrir el dashboard, carga diferida del mapa.
-
-11. **Autenticación:** necesaria antes de publicar el enlace. Hoy cualquiera con la URL puede modificar la operación y el historial no identifica a nadie de forma verificable.
-12. **Persistencia en Render:** la base vive en `/tmp`; envíos creados, cierres, TRM y enlaces se pierden cuando el servicio duerme o se reinicia. Requiere disco persistente o la VM.
+8. ~~Historial de trayectos, peajes y combustible por corredor, alertas operativas~~: hecho (`b47702b`). Los peajes salen en cero hasta cargar tarifas en Configuración; derrumbes y paros se registran como cierres de vía.
+9. ~~Despliegue permanente~~: hecho en Contabo; automático desde `7784b59` (faltan los secretos).
+10. ~~Mejoras de velocidad~~: hecho (`cf5d3ac`).
+11. **Autenticación:** aplazada por decisión del usuario (28/10/2026): hoy solo la usan el autor y el profesor. Retomar antes de compartir el enlace con más gente.
+12. ~~Persistencia en Render~~: ya no aplica (Contabo usa un volumen persistente).
 
 ### Decisiones tomadas (9/10/2026)
 
@@ -192,14 +195,14 @@ Pendientes que siguen abiertos:
 
 ### Mejoras propuestas (sin iniciar)
 
-1. Autenticación o modo de solo lectura antes de compartir el enlace público.
-2. Base de datos persistente (en Render la base vive en `/tmp` y se pierde al reiniciar).
-3. Tarjetas en celular para la lista de envíos.
-4. Notificaciones de vías cerradas y envíos sin ruta fuera del dashboard.
-5. Exportar a Excel la tabla filtrada.
-6. Búsqueda global de envíos, vías y ciudades.
+1. Autenticación o modo de solo lectura antes de compartir el enlace público (aplazada).
+2. ~~Base de datos persistente~~ (Contabo).
+3. ~~Tarjetas en celular para la lista de envíos~~.
+4. ~~Avisos de vías cerradas y envíos sin ruta fuera del resumen~~ (campana del dock).
+5. ~~Exportar a Excel la tabla filtrada~~.
+6. ~~Búsqueda global~~ (Ctrl K).
 7. Duplicar un envío.
-8. Pruebas end-to-end automáticas con Playwright.
+8. ~~Pruebas end-to-end automáticas con Playwright~~ (`frontend/e2e/`, también en la CI).
 9. Validar coordenadas aproximadas contra INVÍAS, ANI y Cormagdalena.
 10. Actualizar dependencias con vulnerabilidades reportadas (sección 5).
 
@@ -275,16 +278,70 @@ Pendientes que siguen abiertos:
 
 ### Pendiente
 - Medir el morph y el arrastre del mapa en un equipo real con GPU (aquí solo hay SwiftShader).
-- La paleta de modos nueva no se validó para daltonismo (la anterior sí); el férreo `#c98a00` tiene 2,6:1
-  sobre blanco (por debajo de 3:1 para gráficos), aunque siempre va con ícono y texto.
-- Del plan visual quedan sin hacer: bandas alternas de fondo en el resumen, esqueletos con brillo, estados
-  vacíos tipográficos, línea de tiempo con trazo animado y transiciones entre páginas con View Transitions.
-- La transición compartida del código solo cubre la tabla y las tarjetas de envíos (no la paleta Ctrl K).
+- ~~Validar la paleta de modos~~: hecho en `7784b59` (sección 11).
+- ~~Esqueletos con brillo, estados vacíos tipográficos, trazo animado, código desde Ctrl K~~: hechos en `8f2d227`.
+  Se descartaron las bandas alternas de fondo (competían con las superficies) y las View Transitions entre
+  páginas (se usa un fundido de 220 ms en `template.tsx`).
 
 ## 10. Acceso y credenciales
 
 No se guardan contraseñas, tokens ni claves privadas en este documento.
 
-- GitHub: repositorio `sebastianslg/logisuite-app`, rama `claude/laughing-albattani-875mtq`.
-- Render: blueprint `logisuite`, servicios `logisuite-api` y `logisuite-web`.
-- Secretos para GitHub Actions (`SSH_HOST`, `SSH_USER`, `SSH_KEY`): pendientes de crear cuando exista la VM.
+- GitHub: repositorio `sebastianslg/logisuite-app`, rama `main`.
+- Producción: VPS de Contabo, `/opt/logisuite` (ver `docs/DESPLIEGUE_CONTABO.md`).
+- Secretos para GitHub Actions (Settings > Secrets and variables > Actions): `SSH_HOST` (IP del VPS),
+  `SSH_USER` (`root`) y `SSH_KEY` (contenido de la clave privada `logisuite_contabo`). Variable opcional
+  `DEPLOY_URL` (por defecto `https://westvane.duckdns.org`). Sin ellos el flujo "Desplegar" falla con un
+  mensaje que dice cuál falta, y no toca el servidor.
+- Render: blueprint `logisuite` (ya no se usa).
+
+---
+
+## 11. Rendimiento, pulido profesional y funciones nuevas (28/10/2026)
+
+### Rendimiento y estabilidad (`cf5d3ac`)
+- **Mapa:** se monta cuando su contenedor entra en pantalla y el navegador queda libre (`lib/idle.ts`,
+  `map/map-3d-lazy.tsx`), y las capas llegan en 5 etapas. Al entrar a `/red` el bloqueo máximo bajó de ~5 s a
+  ~1,6 s sin GPU. En celular el mapa del resumen no se crea bajo el pliegue (5 toques del dock: 21,7 s → 4,6 s).
+- **API:** caché de lecturas de 5 s (`WESTVANE_CACHE_TTL`), invalidada por cualquier escritura y por la
+  sincronización, con vuelo único por URL: con 120 peticiones concurrentes la peor respuesta bajó de 8,5 s a 0,5 s.
+  Candado en la sincronización, SQLite en WAL, espera de 10 s ante bloqueos.
+- **Lo que no se ve no trabaja:** `lib/use-live.ts` comparte un sondeo por URL, lo pausa con la pestaña oculta
+  o fuera de pantalla, no solapa peticiones y espera más tras cada fallo.
+- **Tiempos límite:** 12 s en lecturas del servidor, 30 s en el proxy `/api` (504), 60 s en el cliente;
+  "Reintentar" vuelve a pedir los datos.
+
+### Pulido profesional (`8f2d227`)
+Criterio: que se lea como software de trabajo y no como un tablero genérico. Superficies opacas con línea
+fina, filas en lugar de tarjetas, franjas de cifras (`StatStrip`) en lugar de KPI con ícono en círculo, sin
+tarjetas anidadas, hover con borde y un paso de fondo en lugar de escala y sombra. El detalle está en `DESIGN.md`.
+
+### Funciones nuevas (`b47702b`)
+- Campana de avisos en el dock (y en "Más" en celular), con sondeo de 60 s en pausa si la pestaña está oculta.
+- `/historial`: ventana de 7, 30 o 90 días por ciudad, departamento y corredor (flete, peajes, km, combustible, CO₂e), CSV por vista.
+- Exportación a Excel de la lista de envíos filtrada, en la moneda elegida.
+- 404 real para envíos, vehículos y bodegas inexistentes (`proxy.ts`).
+
+### Pruebas, CI y despliegue (`7784b59`)
+- `frontend/e2e/`: 8 pruebas de Playwright (escritorio y Pixel 7) contra la API real con una base temporal:
+  dock, Ctrl K, avisos, 404, filtros y exportación, sin desborde en celular, sin errores de consola. `npm run test:e2e`.
+- `.github/workflows/ci.yml`: pytest; tipos, lint, build y Playwright.
+- `.github/workflows/deploy.yml`: corre solo si la CI de `main` pasó (o a mano). Respalda la base, se niega a
+  seguir si el VPS tiene cambios locales, avanza `main` con `--ff-only`, reconstruye y comprueba `/api/health` y `/envios`.
+- La imagen Docker no se pudo construir en esta sesión (no hay demonio Docker); el primer despliegue automático es la prueba.
+
+### Paleta de modos validada
+Validador de la skill de visualización (OKLab ×100, protanopía y deuteranopía, todas las parejas, contraste ≥ 3:1).
+La paleta acordada fallaba: aéreo y terrestre en deuteranopía (4,4, mínimo 8) y fluvial y marítimo con visión
+normal (10,5, mínimo 15). Se movió cada tono dentro de su familia:
+
+| Modo | Acordado | Claro | Oscuro |
+|---|---|---|---|
+| Marítimo | `#5e5ce6` | `#5044db` | `#684af5` |
+| Terrestre | `#0f9d7a` | `#26a683` | `#26a683` |
+| Aéreo | `#d6399b` | `#d623a7` | `#c82a9c` |
+| Férreo | `#c98a00` | `#bc812f` | `#bc812f` |
+| Fluvial | `#0a84ff` | `#3c88e5` | `#5b91d7` |
+
+Resultado: mínimo 8,1 con daltonismo y 15,9 con visión normal en claro; 9,3 y 16,4 en oscuro. El mapa usa el
+juego oscuro cuando el tema es oscuro (`MODES[m].rgbDark`).
