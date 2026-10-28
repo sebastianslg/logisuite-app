@@ -17,7 +17,7 @@
   --foreground: #1d1d1f;
   --card: #ffffff;
   --raised: #f0f0f3;
-  --muted-foreground: #6e6e73; /* 5,1:1 sobre #f5f5f7, 5,4:1 sobre #fff */
+  --muted-foreground: #5f5f64; /* ≥ 4,7:1 también sobre los fondos tintados de alertas y rellenos */
   --separator: rgb(0 0 0 / 0.08);
   --separator-strong: rgb(0 0 0 / 0.16);
   --fill: rgb(120 120 128 / 0.1);
@@ -38,12 +38,12 @@
   --sys-red: #ff3b30;
   --sys-orange: #ff9500;
 
-  --accent: #0066cc; /* texto/íconos interactivos: 5,6:1 sobre blanco */
+  --accent: #005bb5; /* texto/íconos interactivos: 6,6:1 sobre blanco, 5,3:1 sobre su tinte al 12 % */
   --accent-solid: #0071e3; /* relleno de botones con texto blanco: 4,6:1 */
   --accent-foreground: #ffffff;
   --success: #18703a;
-  --warning: #a35200;
-  --danger: #c4141f;
+  --warning: #984c00; /* 5:1 sobre su tinte */
+  --danger: #ad111b; /* 5:1 sobre las tarjetas tintadas de rojo */
   --info: #3c4ccf;
 
   /* Modos de transporte: solo identifican el modo (siempre con ícono y texto) */

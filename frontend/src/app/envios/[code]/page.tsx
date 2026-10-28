@@ -10,7 +10,8 @@ export const metadata = { title: "Detalle de envío" };
 
 export default function EnvioPage({ params }: PageProps<"/envios/[code]">) {
   return (
-    <div className="px-6 py-8 lg:px-10">
+    // Ancho máximo centrado: el detalle se lee mejor y el mapa no crece sin límite en pantallas anchas
+    <div className="mx-auto w-full max-w-6xl px-6 py-8 lg:px-10">
       <Suspense fallback={<Skeleton className="h-[720px]" />}>
         <Detail params={params} />
       </Suspense>

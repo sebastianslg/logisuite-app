@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 
 import { Capabilities, n0, n1, OccupancyBar, RoleIcon, StockStateBadge, WarehouseStatusBadge } from "./status";
 
-const dt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "—");
+const dt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }).replace(/\s/g, " ") : "—");
 
 function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (

@@ -36,7 +36,7 @@ const TABLES: Record<string, string> = {
 };
 
 function dt(iso: string | null) {
-  return iso ? new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "—";
+  return iso ? new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }).replace(/\s/g, " ") : "—";
 }
 
 /** "3.900,50" o "3900,5" (es-CO), "3.900" (miles) o "3900.50" -> número. */

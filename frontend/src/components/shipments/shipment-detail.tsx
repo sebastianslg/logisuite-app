@@ -50,7 +50,7 @@ const SOURCE: Record<Shipment["source"], string> = {
 
 function dt(iso: string | null) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
+  return new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }).replace(/\s/g, " ");
 }
 
 export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; history: AuditEntry[] }) {

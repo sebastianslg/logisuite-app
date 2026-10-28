@@ -6,7 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { WarehouseTransfer } from "@/lib/types";
 
-const dt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "—");
+const dt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }).replace(/\s/g, " ") : "—");
 
 /** Traslados entre bodegas: lo que está en camino, lo recibido y lo cancelado. */
 export function TransfersBoard({ transfers }: { transfers: WarehouseTransfer[] }) {

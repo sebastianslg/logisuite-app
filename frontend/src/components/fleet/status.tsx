@@ -67,7 +67,7 @@ export function daysText(d: number): string {
 }
 
 export function dt(iso: string | null | undefined): string {
-  return iso ? new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "—";
+  return iso ? new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }).replace(/\s/g, " ") : "—";
 }
 
 export function dateOnly(iso: string | null | undefined): string {
