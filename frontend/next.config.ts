@@ -9,7 +9,8 @@ import type { NextConfig } from "next";
 const MAP_HOSTS = "https://tiles.openfreemap.org";
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  // 'unsafe-eval' solo en desarrollo: React lo usa para reconstruir pilas de llamadas; en producción nunca
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${MAP_HOSTS}`,
   "font-src 'self' data:",
