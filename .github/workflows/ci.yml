@@ -1,0 +1,72 @@
+# Integración continua: cada push a main y cada pull request.
+#   - API: pruebas de pytest.
+#   - Interfaz: tipos, lint, build y pruebas de navegador (Playwright) contra la API real con una base temporal.
+# El despliegue (deploy.yml) solo corre cuando este flujo termina en verde en main.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  web:
+    name: Interfaz (tipos, lint, build y navegador)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: npm ci
+      - run: pip install -r ../backend/requirements.txt
+      - name: Tipos
+        run: npx next typegen && npx tsc --noEmit
+      - name: Lint
+        run: npx eslint src e2e playwright.config.ts
+      - name: Build
+        run: npx next build
+      - name: Navegador de pruebas
+        run: npx playwright install --with-deps chromium
+      - name: Pruebas de navegador
+        run: npm run test:e2e
+      - name: Informe de Playwright (si falla)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          retention-days: 7

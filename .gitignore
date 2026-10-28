@@ -9,3 +9,7 @@ backend/data/
 
 # graphify
 graphify-out/
+
+# Pruebas de navegador (Playwright)
+frontend/test-results/
+frontend/playwright-report/

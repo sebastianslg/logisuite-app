@@ -5,3 +5,7 @@ Dockerfile
 .dockerignore
 npm-debug.log*
 .env*
+e2e
+playwright.config.ts
+test-results
+playwright-report

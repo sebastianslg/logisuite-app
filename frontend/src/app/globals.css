@@ -46,12 +46,12 @@
   --danger: #ad111b; /* 5:1 sobre las tarjetas tintadas de rojo */
   --info: #3c4ccf;
 
-  /* Modos de transporte: solo identifican el modo (siempre con ícono y texto) */
-  --mode-maritimo: #5e5ce6;
-  --mode-terrestre: #0f9d7a;
-  --mode-aereo: #d6399b;
-  --mode-ferreo: #c98a00;
-  --mode-fluvial: #0a84ff;
+  /* Modos de transporte: solo identifican el modo (siempre con ícono y texto). Validados para daltonismo: ver lib/modes.ts */
+  --mode-maritimo: #5044db;
+  --mode-terrestre: #26a683;
+  --mode-aereo: #d623a7;
+  --mode-ferreo: #bc812f;
+  --mode-fluvial: #3c88e5;
 
   color-scheme: light;
 }
@@ -90,11 +90,11 @@
     --danger: #ff6961;
     --info: #7d8cff;
 
-    --mode-maritimo: #5e5ce6;
-    --mode-terrestre: #0f9d7a;
-    --mode-aereo: #d6399b;
-    --mode-ferreo: #c98a00;
-    --mode-fluvial: #0a84ff;
+    --mode-maritimo: #684af5;
+    --mode-terrestre: #26a683;
+    --mode-aereo: #c82a9c;
+    --mode-ferreo: #bc812f;
+    --mode-fluvial: #5b91d7;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -131,11 +131,11 @@
     --danger: #ff6961;
     --info: #7d8cff;
 
-    --mode-maritimo: #5e5ce6;
-    --mode-terrestre: #0f9d7a;
-    --mode-aereo: #d6399b;
-    --mode-ferreo: #c98a00;
-    --mode-fluvial: #0a84ff;
+    --mode-maritimo: #684af5;
+    --mode-terrestre: #26a683;
+    --mode-aereo: #c82a9c;
+    --mode-ferreo: #bc812f;
+    --mode-fluvial: #5b91d7;
   }
 }
 

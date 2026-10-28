@@ -1,13 +1,19 @@
-# Despliegue automático a la VM en cada push a la rama.
-# Secretos requeridos en GitHub (Settings > Secrets and variables > Actions):
-#   SSH_HOST   IP o dominio de la VM
-#   SSH_USER   usuario SSH (ej. ubuntu)
-#   SSH_KEY    clave privada SSH con acceso a la VM
+# Despliegue automático al VPS de Contabo, solo cuando la CI de main termina en verde
+# (o a mano desde Actions > Desplegar > Run workflow).
+#
+# Secretos requeridos (Settings > Secrets and variables > Actions > New repository secret):
+#   SSH_HOST   IP del VPS (209.126.13.65)
+#   SSH_USER   usuario SSH (root)
+#   SSH_KEY    clave privada SSH con acceso al VPS (el contenido de logisuite_contabo)
+# Variable opcional (pestaña Variables):
+#   DEPLOY_URL dirección pública para comprobar el despliegue (por defecto https://westvane.duckdns.org)
 name: Desplegar
 
 on:
-  push:
-    branches: [claude/laughing-albattani-875mtq]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -16,21 +22,66 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    env:
+      DEPLOY_URL: ${{ vars.DEPLOY_URL || 'https://westvane.duckdns.org' }}
     steps:
-      - name: Actualizar la VM y levantar la versión nueva
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Comprobar que existen los secretos
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          missing=""
+          [ -n "$SSH_HOST" ] || missing="$missing SSH_HOST"
+          [ -n "$SSH_USER" ] || missing="$missing SSH_USER"
+          [ -n "$SSH_KEY" ] || missing="$missing SSH_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Faltan secretos del repositorio:$missing (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+
+      - name: Respaldar, actualizar y levantar la versión nueva en el VPS
+        uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
+          command_timeout: 20m
           script_stop: true
           script: |
             set -e
             cd /opt/logisuite
-            git fetch origin claude/laughing-albattani-875mtq
-            git checkout claude/laughing-albattani-875mtq
-            git pull --ff-only origin claude/laughing-albattani-875mtq
+            # Respaldo de la base antes de tocar nada (no detiene el despliegue si falla)
+            ./deploy/backup.sh || echo "Aviso: no se pudo respaldar la base"
+            # Solo avanza si no hay cambios locales en el servidor
+            if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+              echo "Hay cambios locales en /opt/logisuite; no se despliega. Revisa git status en el VPS."
+              exit 1
+            fi
+            git fetch origin main
+            git checkout main
+            git pull --ff-only origin main
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
             docker image prune -f
+            # Espera a que la API quede sana (hasta 2 minutos)
+            for i in $(seq 1 24); do
+              state=$(docker inspect -f '{{.State.Health.Status}}' westvane-api 2>/dev/null || echo desconocido)
+              [ "$state" = "healthy" ] && break
+              sleep 5
+            done
             docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+            [ "$state" = "healthy" ] || { echo "La API no quedó sana ($state)"; docker logs westvane-api --tail 60; exit 1; }
+
+      - name: Comprobar el sitio público
+        run: |
+          for i in $(seq 1 12); do
+            api=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOY_URL/api/health" || true)
+            web=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOY_URL/envios" || true)
+            echo "intento $i: api=$api web=$web"
+            [ "$api" = "200" ] && [ "$web" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "::error::El sitio no respondió 200 en $DEPLOY_URL"
+          exit 1

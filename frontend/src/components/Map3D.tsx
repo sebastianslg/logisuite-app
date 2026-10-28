@@ -57,17 +57,17 @@ export const COLOMBIA_VIEW: MapViewState = {
 };
 
 type RGBA = [number, number, number, number];
-const rgba = (mode: Mode, a = 255): RGBA => [...MODES[mode].rgb, a];
+const rgba = (mode: Mode, a = 255, dark = false): RGBA => [...(dark ? MODES[mode].rgbDark : MODES[mode].rgb), a];
 const CYAN: RGBA = [34, 211, 238, 255];
 const VIOLET: RGBA = [198, 57, 156, 255];
 const AMBER: RGBA = [245, 158, 11, 255];
 const ROSE: RGBA = [251, 113, 133, 255];
 
-const NODE_STYLE: Record<string, { color: [number, number, number]; radius: number }> = {
-  aeropuerto: { color: MODES.aereo.rgb, radius: 6 },
-  puerto_maritimo: { color: MODES.maritimo.rgb, radius: 7 },
-  puerto_fluvial: { color: MODES.fluvial.rgb, radius: 5.5 },
-  terminal_ferrea: { color: [245, 158, 11], radius: 5.5 },
+const NODE_STYLE: Record<string, { color: [number, number, number]; mode?: Mode; radius: number }> = {
+  aeropuerto: { color: MODES.aereo.rgb, mode: "aereo", radius: 6 },
+  puerto_maritimo: { color: MODES.maritimo.rgb, mode: "maritimo", radius: 7 },
+  puerto_fluvial: { color: MODES.fluvial.rgb, mode: "fluvial", radius: 5.5 },
+  terminal_ferrea: { color: MODES.ferreo.rgb, mode: "ferreo", radius: 5.5 },
   cedi: { color: [34, 211, 238], radius: 6 },
   ciudad: { color: [148, 163, 184], radius: 3 },
 };
@@ -379,6 +379,13 @@ export default function Map3D({
     [route],
   );
 
+  // Colores de modo según el tema (la paleta tiene variante clara y oscura)
+  const tone = (m: Mode, a = 255): RGBA => rgba(m, a, dark);
+  const nodeColor = (kind: string, a: number): RGBA => {
+    const st = NODE_STYLE[kind] ?? NODE_STYLE.ciudad;
+    return st.mode ? tone(st.mode, a) : ([...st.color, a] as RGBA);
+  };
+
   // Las capas se construyen a partir de un instante: el bucle de animación las pide con su propio tiempo.
   const buildLayers = (clock: number) => {
   const routeStart = routeStartRef.current;
@@ -444,7 +451,7 @@ export default function Map3D({
       id: "corredores-glow",
       data: groundLinks.filter((f) => f.properties.mode !== "ferreo"),
       getPath: (f) => f.geometry.coordinates as [number, number][],
-      getColor: (f) => rgba(f.properties.mode, Math.round(38 * dim)),
+      getColor: (f) => tone(f.properties.mode, Math.round(38 * dim)),
       getWidth: 7,
       widthUnits: "pixels",
       capRounded: true,
@@ -454,7 +461,7 @@ export default function Map3D({
       id: "corredores",
       data: groundLinks.filter((f) => f.properties.mode !== "ferreo"),
       getPath: (f) => f.geometry.coordinates as [number, number][],
-      getColor: (f) => rgba(f.properties.mode, Math.round(220 * dim)),
+      getColor: (f) => tone(f.properties.mode, Math.round(220 * dim)),
       getWidth: (f) => (f.properties.mode === "terrestre" ? 1.6 : 2.2),
       widthUnits: "pixels",
       capRounded: true,
@@ -520,7 +527,7 @@ export default function Map3D({
         data: fleetSegments.filter((s) => isVisible(s.mode)),
         getPath: (s) => s.path,
         getTimestamps: (s) => s.timestamps,
-        getColor: (s) => rgba(s.mode),
+        getColor: (s) => tone(s.mode),
         currentTime: fleetTime,
         trailLength: 1.6,
         fadeTrail: true,
@@ -535,7 +542,7 @@ export default function Map3D({
         id: "flota-halo",
         data: fleetHeads,
         getPosition: (d) => d.p,
-        getFillColor: (d) => rgba(d.s.mode, route ? 25 : 60),
+        getFillColor: (d) => tone(d.s.mode, route ? 25 : 60),
         getRadius: 11,
         radiusUnits: "pixels",
       }),
@@ -546,7 +553,7 @@ export default function Map3D({
         data: fleetHeads,
         getPosition: (d) => d.p,
         getFillColor: [255, 255, 255, route ? 120 : 255],
-        getLineColor: (d) => rgba(d.s.mode),
+        getLineColor: (d) => tone(d.s.mode),
         stroked: true,
         lineWidthMinPixels: 2,
         getRadius: 3.5,
@@ -573,7 +580,7 @@ export default function Map3D({
       id: "nodos-halo",
       data: nodes.filter((n) => n.properties.kind !== "ciudad"),
       getPosition: (n) => n.geometry.coordinates as [number, number],
-      getFillColor: (n) => [...NODE_STYLE[n.properties.kind].color, 40] as RGBA,
+      getFillColor: (n) => nodeColor(n.properties.kind, 40),
       getRadius: (n) => NODE_STYLE[n.properties.kind].radius * 2.3,
       radiusUnits: "pixels",
     }),
@@ -581,7 +588,7 @@ export default function Map3D({
       id: "nodos",
       data: nodes,
       getPosition: (n) => n.geometry.coordinates as [number, number],
-      getFillColor: (n) => [...NODE_STYLE[n.properties.kind].color, 255] as RGBA,
+      getFillColor: (n) => nodeColor(n.properties.kind, 255),
       getLineColor: [3, 7, 18, 255],
       stroked: true,
       lineWidthMinPixels: 1.5,
@@ -617,7 +624,7 @@ export default function Map3D({
         id: "ruta-glow",
         data: routeGround,
         getPath: (l) => l.path,
-        getColor: (l) => rgba(l.mode, 70),
+        getColor: (l) => tone(l.mode, 70),
         getWidth: 14,
         widthUnits: "pixels",
         capRounded: true,
@@ -629,7 +636,7 @@ export default function Map3D({
         id: "ruta",
         data: routeGround,
         getPath: (l) => l.path,
-        getColor: (l) => rgba(l.mode),
+        getColor: (l) => tone(l.mode),
         getWidth: 4,
         widthUnits: "pixels",
         capRounded: true,
@@ -641,7 +648,7 @@ export default function Map3D({
         id: "ruta-aerea",
         data: routeAir,
         getPath: (d) => d.path,
-        getColor: rgba("aereo"),
+        getColor: tone("aereo"),
         getWidth: 3.5,
         widthUnits: "pixels",
         capRounded: true,
@@ -682,7 +689,7 @@ export default function Map3D({
         data: [routeHead],
         getPosition: (d) => d.p,
         getFillColor: [255, 255, 255, 255],
-        getLineColor: (d) => rgba(d.mode),
+        getLineColor: (d) => tone(d.mode),
         stroked: true,
         lineWidthMinPixels: 3,
         getRadius: 6,
