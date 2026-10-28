@@ -548,14 +548,26 @@ function useSystemStatus() {
   useEffect(() => {
     let alive = true;
     const check = () =>
-      fetch("/api/health", { cache: "no-store" })
+      fetch("/api/health", { cache: "no-store", signal: AbortSignal.timeout(8000) })
         .then((r) => alive && setOnline(r.ok))
         .catch(() => alive && setOnline(false));
+    // Cada 30 s, solo con la pestaña visible; al volver a ella se comprueba enseguida
+    let id = 0;
+    const startTimer = () => {
+      window.clearInterval(id);
+      if (document.visibilityState === "visible") id = window.setInterval(check, 30_000);
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") check();
+      startTimer();
+    };
     check();
-    const id = window.setInterval(check, 30_000);
+    startTimer();
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       alive = false;
       window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
   const color = online === null ? "bg-muted-foreground" : online ? "bg-success" : "bg-destructive";

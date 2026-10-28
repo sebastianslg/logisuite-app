@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRef } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Radio } from "lucide-react";
@@ -9,6 +9,7 @@ import { ModeIcon, StatusBadge } from "@/components/status-badge";
 import { MODE_ORDER, MODES } from "@/lib/modes";
 import { EASE, T_FAST } from "@/lib/motion";
 import type { FleetLive } from "@/lib/types";
+import { useLive } from "@/lib/use-live";
 
 /** Sombra de elevación contenida (el <li> recorta lo que sobresale de su caja). */
 const ROW_LIFT = "0 6px 16px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)";
@@ -18,24 +19,14 @@ const MotionLink = motion.create(Link);
 
 /** Flota en tránsito: conteo por modo y activos con su avance (se refresca solo). */
 export function LiveFleet({ initial }: { initial: FleetLive }) {
-  const [fleet, setFleet] = useState(initial);
-
-  useEffect(() => {
-    const id = setInterval(async () => {
-      try {
-        const res = await fetch("/api/fleet/live", { cache: "no-store" });
-        if (res.ok) setFleet(await res.json());
-      } catch {
-        /* se conserva la última lectura */
-      }
-    }, REFRESH_MS);
-    return () => clearInterval(id);
-  }, []);
+  const ref = useRef<HTMLDivElement>(null);
+  // Sondeo compartido con el mapa del resumen; se pausa con la pestaña oculta o el bloque fuera de pantalla
+  const fleet = useLive<FleetLive>("/api/fleet/live", REFRESH_MS, initial, ref);
 
   const assets = [...fleet.assets].sort((a, b) => b.progress_pct - a.progress_pct).slice(0, 6);
 
   return (
-    <div className="flex flex-1 flex-col gap-4 px-5 pb-5">
+    <div ref={ref} className="flex flex-1 flex-col gap-4 px-5 pb-5">
       <div className="grid grid-cols-5 gap-2">
         {MODE_ORDER.map((m) => {
           const Icon = MODES[m].icon;

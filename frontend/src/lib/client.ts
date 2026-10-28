@@ -13,8 +13,11 @@ export async function api<T>(
       headers: options.body !== undefined ? { "content-type": "application/json" } : undefined,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
       cache: "no-store",
+      // Los PDF pueden tardar; nada debería tardar más de 60 s
+      signal: AbortSignal.timeout(60_000),
     });
-  } catch {
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "TimeoutError") throw new Error("La API tardó demasiado en responder");
     throw new Error("No se pudo contactar la API");
   }
   if (!res.ok) {

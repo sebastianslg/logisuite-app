@@ -38,6 +38,7 @@ import { usePrefs } from "@/lib/prefs";
 import type { DepartmentsGeo, FleetLive, LiveAsset, Mode, NetworkGeo, RouteResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useMapAnimation } from "@/components/map/use-map-animation";
+import { onIdle } from "@/lib/idle";
 
 // Worker publicado por scripts/copy-maplibre-worker.mjs (ver allí el porqué)
 setWorkerUrl("/vendor/maplibre-gl-worker.mjs");
@@ -162,6 +163,23 @@ export default function Map3D({
       root.setAttribute("aria-label", "Mapa de la red multimodal. Arrastra para mover y usa la rueda para acercar.");
     }
   }, []);
+
+  // Capas por etapas: compilar todos los sombreadores de golpe bloqueaba la página varios segundos en
+  // equipos sin compilación en paralelo. Primero corredores y nodos; departamentos; férreo, vuelos y
+  // cierres; etiquetas; y al final flota y ruta, cada etapa en un momento libre del navegador, para que los toques se atiendan entre una y otra.
+  const [stage, setStage] = useState(0);
+  useEffect(() => {
+    if (stage >= 4) return;
+    // Un cuadro para dibujar lo que ya hay y luego, en el siguiente momento libre, la etapa siguiente
+    let cancelIdle = () => {};
+    const frame = requestAnimationFrame(() => {
+      cancelIdle = onIdle(() => setStage((s) => s + 1));
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelIdle();
+    };
+  }, [stage]);
 
   // Solo se anima lo que se ve: con el mapa fuera de pantalla o con "reducir movimiento" el reloj se detiene.
   const animateRef = useRef(true);
@@ -392,6 +410,7 @@ export default function Map3D({
 
   const layers = [
     showDepartments &&
+      stage >= 1 &&
       new PolygonLayer<DeptDatum>({
         id: "departamentos",
         data: deptData,
@@ -409,6 +428,7 @@ export default function Map3D({
       }),
 
     showDepartments &&
+      stage >= 1 &&
       new PathLayer<DeptDatum>({
         id: "departamentos-borde",
         data: deptData,
@@ -444,7 +464,8 @@ export default function Map3D({
       highlightColor: [255, 255, 255, 200],
       updateTriggers: { getColor: dim },
     }),
-    new PathLayer<LinkDatum, PathStyleExtensionProps<LinkDatum>>({
+    stage >= 2 &&
+      new PathLayer<LinkDatum, PathStyleExtensionProps<LinkDatum>>({
       id: "ferreo",
       data: groundLinks.filter((f) => f.properties.mode === "ferreo"),
       getPath: (f) => f.geometry.coordinates as [number, number][],
@@ -458,7 +479,8 @@ export default function Map3D({
       autoHighlight: true,
       updateTriggers: { getColor: dim },
     }),
-    new ArcLayer<LinkDatum>({
+    stage >= 2 &&
+      new ArcLayer<LinkDatum>({
       id: "vuelos",
       data: airLinks,
       getSourcePosition: (f) => f.geometry.coordinates[0] as [number, number],
@@ -474,6 +496,7 @@ export default function Map3D({
       updateTriggers: { getSourceColor: dim, getTargetColor: dim },
     }),
     closedLinks.length > 0 &&
+      stage >= 2 &&
       new PathLayer<LinkDatum, PathStyleExtensionProps<LinkDatum>>({
         id: "cerrados",
         data: closedLinks,
@@ -491,6 +514,7 @@ export default function Map3D({
 
     // Flota en vivo: estelas de luz y cabezas brillantes
     showFleet &&
+      stage >= 4 &&
       new TripsLayer<AssetSegment>({
         id: "flota-estelas",
         data: fleetSegments.filter((s) => isVisible(s.mode)),
@@ -506,6 +530,7 @@ export default function Map3D({
         opacity: route ? 0.35 : 0.95,
       }),
     showFleet &&
+      stage >= 4 &&
       new ScatterplotLayer<{ s: AssetSegment; p: Position3 }>({
         id: "flota-halo",
         data: fleetHeads,
@@ -515,6 +540,7 @@ export default function Map3D({
         radiusUnits: "pixels",
       }),
     showFleet &&
+      stage >= 4 &&
       new ScatterplotLayer<{ s: AssetSegment; p: Position3 }>({
         id: "flota",
         data: fleetHeads,
@@ -566,6 +592,7 @@ export default function Map3D({
       highlightColor: [255, 255, 255, 160],
     }),
     !compact &&
+      stage >= 3 &&
       new TextLayer<NodeDatum>({
         id: "nodos-etiquetas",
         data: cityLabels,
@@ -585,6 +612,7 @@ export default function Map3D({
 
     // Ruta simulada
     route &&
+      stage >= 4 &&
       new PathLayer({
         id: "ruta-glow",
         data: routeGround,
@@ -596,6 +624,7 @@ export default function Map3D({
         jointRounded: true,
       }),
     route &&
+      stage >= 4 &&
       new PathLayer({
         id: "ruta",
         data: routeGround,
@@ -607,6 +636,7 @@ export default function Map3D({
         jointRounded: true,
       }),
     route &&
+      stage >= 4 &&
       new PathLayer({
         id: "ruta-aerea",
         data: routeAir,
@@ -617,6 +647,7 @@ export default function Map3D({
         capRounded: true,
       }),
     route &&
+      stage >= 4 &&
       new TripsLayer<TripSegment>({
         id: "ruta-recorrido",
         data: routeSegments,
@@ -630,6 +661,7 @@ export default function Map3D({
         capRounded: true,
       }),
     route &&
+      stage >= 4 &&
       new ScatterplotLayer({
         id: "ruta-transbordos",
         data: route.transfers,
@@ -644,6 +676,7 @@ export default function Map3D({
       }),
     route &&
       routeHead &&
+      stage >= 4 &&
       new ScatterplotLayer({
         id: "ruta-cabeza",
         data: [routeHead],

@@ -21,10 +21,21 @@ DB_PATH = (os.environ.get("LOGISUITE_DB_PATH")
 
 def get_connection() -> sqlite3.Connection:
     """Crea una conexión con claves foráneas activadas y row_factory tipo dict."""
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    # timeout: espera hasta 10 s a que otro hilo suelte la escritura en vez de fallar con "database is locked"
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=10)
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def enable_wal() -> None:
+    """Modo WAL: las lecturas no esperan a las escrituras (queda guardado en el archivo de la base)."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+    finally:
+        conn.close()
 
 
 @contextmanager

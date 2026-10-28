@@ -124,6 +124,7 @@ Restaurar un respaldo (con cuidado: sobrescribe la base):
 ```bash
 cd /opt/logisuite
 docker compose -f docker-compose.yml -f docker-compose.prod.yml stop backend
+rm -f backend/data/logistics.db-wal backend/data/logistics.db-shm   # la base usa modo WAL: estos archivos son de la base anterior
 gunzip -c backups/NOMBRE.db.gz > backend/data/logistics.db
 docker compose -f docker-compose.yml -f docker-compose.prod.yml start backend
 ```

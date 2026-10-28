@@ -56,7 +56,7 @@ function dt(iso: string | null) {
 export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; history: AuditEntry[] }) {
   const router = useRouter();
   const { money, operator } = useApp();
-  const { network, departments } = useMapData();
+  const { network, departments } = useMapData({ fleet: false });
   // El mapa 3D se monta después de que el detalle ya se pintó: así la página responde y la transición del guardado termina.
   const [mapReady, setMapReady] = useState(false);
   useEffect(() => {

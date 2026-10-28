@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 
@@ -11,11 +12,12 @@ import type { DashboardSummary } from "@/lib/types";
 
 /** Celda del dashboard: mapa 3D compacto con la flota animada y el resumen por modo. */
 export function NetworkMapCard({ network: stats }: { network: DashboardSummary["network"] }) {
-  const { network, departments, fleet, error } = useMapData();
+  const ref = useRef<HTMLDivElement>(null);
+  const { network, departments, fleet, error } = useMapData({ ref });
   const byMode = new Map(stats.modes.map((m) => [m.mode, m]));
 
   return (
-    <div className="relative flex-1">
+    <div ref={ref} className="relative flex-1">
       <div className="absolute inset-0">
         {network && departments ? (
           <Map3DLazy network={network} departments={departments} fleet={fleet} compact />

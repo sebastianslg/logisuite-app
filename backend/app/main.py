@@ -26,16 +26,18 @@ Ejecución local (desde backend/):  uvicorn app.main:app --reload --port 8000
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import secrets
+import threading
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from functools import lru_cache
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, Field
@@ -63,24 +65,112 @@ def _network(reload: bool = False) -> MultimodalNetwork:
     return network()
 
 
+_sync_lock = threading.Lock()
+
+# ---------------------------------------------------------------------------
+# Caché corta de lecturas. Varias pestañas, el resumen y los sondeos de 20 s piden lo mismo; sin caché,
+# cada petición recalcula el resumen, la flota y la huella (pandas) y bajo carga se encolan segundos.
+# Una respuesta GET en JSON se reutiliza hasta CACHE_TTL_S; cualquier escritura (POST/PUT/DELETE) o una
+# sincronización de la operación la invalida, así nunca se ve un dato anterior a un cambio propio.
+CACHE_TTL_S = float(os.environ.get("WESTVANE_CACHE_TTL", "5"))  # 0 la desactiva (pruebas)
+CACHE_MAX = 256
+_cache: dict[str, tuple[int, float, bytes, str]] = {}
+_cache_version = 0
+_cache_lock = threading.Lock()
+_inflight: dict[str, "asyncio.Future"] = {}
+# Lecturas que no se cachean: salud, PDF y archivos generados
+_NO_CACHE = ("/api/health", "/api/exports/", "/api/tolls/export")
+
+
+def _bump_cache() -> None:
+    global _cache_version
+    with _cache_lock:
+        _cache_version += 1
+        _cache.clear()
+
+
 def _sync() -> datetime:
-    """Actualiza estados y repone despachos, con un mínimo de intervalo."""
+    """Actualiza estados y repone despachos, con un mínimo de intervalo.
+
+    Los endpoints corren en varios hilos: solo uno sincroniza a la vez. Si otro ya lo está haciendo, esta
+    petición no espera ni escribe en paralelo (SQLite se bloquearía); sigue con los datos de hace unos segundos.
+    """
     global _last_sync
     now = datetime.now()
-    if time.monotonic() - _last_sync >= SYNC_INTERVAL_S:
-        telemetry.sync(network(), now)
-        _last_sync = time.monotonic()
+    if time.monotonic() - _last_sync >= SYNC_INTERVAL_S and _sync_lock.acquire(blocking=False):
+        try:
+            if time.monotonic() - _last_sync >= SYNC_INTERVAL_S:
+                telemetry.sync(network(), now)
+                _last_sync = time.monotonic()
+                _bump_cache()
+        finally:
+            _sync_lock.release()
     return now
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    from app.database.db import enable_wal
     from app.init_db import init_database
     init_database(reset=False)
+    enable_wal()
     yield
 
 
 app = FastAPI(title="Westvane TMS API", version="2.0.0", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def read_cache(request: Request, call_next):
+    path = request.url.path
+    if request.method != "GET":
+        response = await call_next(request)
+        if request.method in ("POST", "PUT", "DELETE"):
+            _bump_cache()
+        return response
+    if CACHE_TTL_S <= 0 or not path.startswith("/api/") or path.startswith(_NO_CACHE) or path.endswith("/pdf"):
+        return await call_next(request)
+    key = f"{path}?{request.url.query}"
+    hit = _cache.get(key)
+    if hit and hit[0] == _cache_version and time.monotonic() - hit[1] < CACHE_TTL_S:
+        return Response(hit[2], media_type=hit[3], headers={"x-cache": "hit"})
+    # Vuelo único: si la misma lectura ya se está calculando, se espera ese resultado en vez de repetirla
+    pending = _inflight.get(key)
+    if pending is not None:
+        try:
+            body, media = await asyncio.wait_for(asyncio.shield(pending), timeout=30)
+            return Response(body, media_type=media, headers={"x-cache": "shared"})
+        except Exception:
+            pass  # la primera falló o tardó demasiado: esta petición calcula por su cuenta
+    future: asyncio.Future = asyncio.get_running_loop().create_future()
+    _inflight[key] = future
+    version = _cache_version
+    try:
+        response = await call_next(request)
+        if response.status_code != 200 or "application/json" not in response.headers.get("content-type", ""):
+            future.set_exception(RuntimeError("sin caché"))
+            return response
+        body = b"".join([chunk async for chunk in response.body_iterator])
+        media = response.headers["content-type"]
+        future.set_result((body, media))
+        with _cache_lock:
+            if version == _cache_version:
+                if len(_cache) >= CACHE_MAX:
+                    _cache.clear()
+                _cache[key] = (version, time.monotonic(), body, media)
+        return Response(body, status_code=200, media_type=media, headers={"x-cache": "miss"})
+    except BaseException as exc:
+        if not future.done():
+            future.set_exception(RuntimeError(str(exc)))
+        raise
+    finally:
+        if _inflight.get(key) is future:
+            del _inflight[key]
+        # Si nadie esperaba el resultado fallido, se marca como visto para que asyncio no avise en el log
+        if future.done() and not future.cancelled():
+            future.exception()
+
+
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.add_middleware(
     CORSMiddleware,

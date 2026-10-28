@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Fuel, Radio } from "lucide-react";
@@ -11,26 +10,15 @@ import { Dial, EcoBar } from "@/components/ui/dial";
 import { MODES } from "@/lib/modes";
 import { EASE, T_FAST } from "@/lib/motion";
 import type { FuelLive } from "@/lib/types";
+import { useLive } from "@/lib/use-live";
 
 const REFRESH_MS = 20_000;
 const MotionLink = motion.create(Link);
 const ROW_LIFT = "0 6px 16px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)";
 
-/** Hook: la telemetría se refresca sola; si falla, se conserva la última lectura. */
+/** Hook: la telemetría se refresca sola (pausada con la pestaña oculta); si falla, se conserva la última lectura. */
 export function useFuelLive(initial: FuelLive) {
-  const [data, setData] = useState(initial);
-  useEffect(() => {
-    const id = setInterval(async () => {
-      try {
-        const res = await fetch("/api/sustainability/fuel-live", { cache: "no-store" });
-        if (res.ok) setData(await res.json());
-      } catch {
-        /* se conserva la última lectura */
-      }
-    }, REFRESH_MS);
-    return () => clearInterval(id);
-  }, []);
-  return data;
+  return useLive<FuelLive>("/api/sustainability/fuel-live", REFRESH_MS, initial);
 }
 
 /** Dial de combustible consumido sobre el proyectado de los envíos en curso. */
