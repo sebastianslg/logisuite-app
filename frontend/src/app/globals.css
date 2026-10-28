@@ -547,6 +547,11 @@
   }
 }
 
+/* Vista previa de la red (resumen): aparece con un fundido corto al llegar los datos */
+.preview-in {
+  animation: fade-in 0.4s var(--ease-apple) both;
+}
+
 /* Fila recién creada (una nota de la bitácora, un documento adjunto): baja 6 px y aparece en 300 ms */
 .enter {
   transition:
@@ -578,6 +583,7 @@
   }
   .cal-bar,
   .choro,
+  .preview-in,
   .spark-reveal,
   .spark-dot,
   .badge-pop {

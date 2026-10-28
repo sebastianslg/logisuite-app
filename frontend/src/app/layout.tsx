@@ -8,6 +8,7 @@ import { MotionProvider } from "@/components/motion-provider";
 import { RippleRoot } from "@/components/ui/ripple";
 import { Toaster } from "@/components/ui/toast";
 import { AppProvider } from "@/components/providers";
+import { Diagnostics } from "@/components/diagnostics";
 import { Dock } from "@/components/shell/dock";
 
 import { PrefsProvider, THEME_INIT_SCRIPT } from "@/lib/prefs";
@@ -52,6 +53,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <div className="print:hidden">
                   <Toaster />
                 </div>
+                {/* Panel de rendimiento: solo con ?diagnostico (usa usePathname: va en su propio límite) */}
+                <Suspense fallback={null}>
+                  <Diagnostics />
+                </Suspense>
                 {/* usePathname() en rutas dinámicas (/envios/[code]) exige un límite de Suspense */}
                 <div className="print:hidden">
                   <Suspense fallback={null}>

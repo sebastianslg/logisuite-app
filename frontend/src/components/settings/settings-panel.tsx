@@ -6,15 +6,18 @@ import { useRouter } from "next/navigation";
 import { LayoutGroup } from "framer-motion";
 import { Check, CloudDownload, Copy, History, Link2, LoaderCircle, RefreshCw, Search, Trash2 } from "lucide-react";
 
+import { glRenderer, useMapAnimation, useMapQuality, usesSoftwareGL, type MapQuality } from "@/components/map/use-map-animation";
 import { useApp } from "@/components/providers";
 import { Badge } from "@/components/ui/badge";
 
 import { Button } from "@/components/ui/button";
 import { CollapsiblePanel } from "@/components/ui/collapsible-panel";
+import { Segmented } from "@/components/ui/segmented";
 import { SaveIcon, useSavedFlash } from "@/components/ui/save-icon";
 import { toast } from "@/components/ui/toast";
 import { api } from "@/lib/client";
 import type { AuditEntry, Settings, ShareLink } from "@/lib/types";
+import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 
 const ACTIONS: Record<string, string> = {
@@ -66,6 +69,7 @@ export function SettingsPanel({ settings, links, history }: { settings: Settings
         <div className="flex flex-col gap-6">
           <FxForm initial={settings.fx} />
           <ReplenishToggle initial={settings.auto_replenish} />
+          <MapQualitySection />
           <SharedLinks links={links} />
         </div>
       </LayoutGroup>
@@ -227,6 +231,54 @@ function ReplenishToggle({ initial }: { initial: boolean }) {
         {busy && <LoaderCircle className="size-4 animate-spin text-muted-foreground" />}
       </div>
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+    </Section>
+  );
+}
+
+/**
+ * Calidad del mapa en este navegador. Liviana: plano, sin relieve y a resolución 1x; Automática la elige sola
+ * cuando el navegador dibuja sin tarjeta gráfica o el equipo tiene poca memoria.
+ */
+function MapQualitySection() {
+  const { quality, lite, setQuality } = useMapQuality();
+  const { animate, setAnimate } = useMapAnimation();
+  const hydrated = useHydrated();
+  const renderer = useMemo(() => (hydrated ? glRenderer() : ""), [hydrated]);
+  const software = hydrated && usesSoftwareGL();
+  return (
+    <Section
+      title="Mapa en este navegador"
+      description="Si el mapa va lento o la página se traba al moverlo, usa la calidad liviana. Se guarda solo en este navegador."
+    >
+      <div className="flex flex-col gap-4">
+        <Segmented<MapQuality>
+          id="map-quality"
+          label="Calidad del mapa"
+          size="sm"
+          value={quality}
+          onChange={setQuality}
+          options={[
+            { value: "auto", label: "Automática" },
+            { value: "alta", label: "Alta" },
+            { value: "liviana", label: "Liviana" },
+          ]}
+        />
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={animate} onChange={(e) => setAnimate(e.target.checked)} />
+          Animar la flota al mover el mapa
+        </label>
+        {hydrated && (
+          <p className="text-xs text-muted-foreground">
+            En uso: {lite ? "liviana (plano, sin relieve)" : "alta (3D)"}. Dibuja con: {renderer || "no informado por el navegador"}.
+            {software && (
+              <span className="mt-1 block text-warning">
+                Este navegador dibuja sin tarjeta gráfica, por eso el mapa va lento. En Chrome o Edge activa
+                Configuración › Sistema › «Usar aceleración de gráficos» y reinicia el navegador.
+              </span>
+            )}
+          </p>
+        )}
+      </div>
     </Section>
   );
 }

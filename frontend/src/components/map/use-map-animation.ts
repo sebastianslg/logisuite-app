@@ -63,3 +63,58 @@ export function useMapAnimation() {
   const animate = useSyncExternalStore(subscribe, snapshot, () => true);
   return { animate, setAnimate: setMapAnimation };
 }
+
+// ---- Calidad del mapa ------------------------------------------------------
+// Liviana: plano (sin inclinación ni relieve), resolución 1x y sin rotar. Automática elige liviana en equipos que
+// dibujan sin tarjeta gráfica o con poca memoria; Alta fuerza el mapa completo.
+export type MapQuality = "auto" | "alta" | "liviana";
+const QKEY = "westvane:map-quality";
+
+function storedQuality(): MapQuality {
+  try {
+    const v = localStorage.getItem(QKEY);
+    return v === "alta" || v === "liviana" ? v : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+/** Equipo modesto: sin aceleración gráfica o con 4 GB de memoria o menos (cuando el navegador lo informa). */
+export function lowEndDevice(): boolean {
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  return usesSoftwareGL() || (memory !== undefined && memory <= 4);
+}
+
+const liteSnapshot = () => {
+  const q = storedQuality();
+  return q === "liviana" || (q === "auto" && lowEndDevice());
+};
+
+export function setMapQuality(q: MapQuality) {
+  try {
+    if (q === "auto") localStorage.removeItem(QKEY);
+    else localStorage.setItem(QKEY, q);
+  } catch {
+    /* sin almacenamiento: vale hasta recargar */
+  }
+  listeners.forEach((l) => l());
+}
+
+export function useMapQuality() {
+  const quality = useSyncExternalStore(subscribe, storedQuality, () => "auto" as MapQuality);
+  const lite = useSyncExternalStore(subscribe, liteSnapshot, () => false);
+  return { quality, lite, setQuality: setMapQuality };
+}
+
+/** Nombre de la tarjeta gráfica que usa el navegador (para el diagnóstico); vacío si no lo informa. */
+export function glRenderer(): string {
+  try {
+    const gl = document.createElement("canvas").getContext("webgl") as WebGLRenderingContext | null;
+    const ext = gl?.getExtension("WEBGL_debug_renderer_info");
+    const name = gl && ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : "";
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    return name;
+  } catch {
+    return "";
+  }
+}

@@ -38,7 +38,7 @@ import { MODES } from "@/lib/modes";
 import { usePrefs } from "@/lib/prefs";
 import type { DepartmentsGeo, FleetLive, LiveAsset, Mode, NetworkGeo, RouteResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { useMapAnimation } from "@/components/map/use-map-animation";
+import { useMapAnimation, useMapQuality } from "@/components/map/use-map-animation";
 import { onIdle } from "@/lib/idle";
 
 // Worker publicado por scripts/copy-maplibre-worker.mjs (ver allí el porqué)
@@ -195,9 +195,11 @@ export default function Map3D({
   const insetTop = insets?.top ?? 0;
   const insetLeft = insets?.left ?? 0;
   const insetBottom = insets?.bottom ?? 0;
+  // Calidad liviana (equipos sin tarjeta gráfica o elegida en Configuración): plano, sin relieve y a 1x
+  const { lite } = useMapQuality();
   // En la vista compacta el país sube para no quedar bajo los chips de resumen
   const [viewState, setViewState] = useState<MapViewState>(
-    compact ? { ...COLOMBIA_VIEW, latitude: 1.4, zoom: 4.25, pitch: 40 } : COLOMBIA_VIEW,
+    compact ? { ...COLOMBIA_VIEW, latitude: 1.4, zoom: 4.25, pitch: lite ? 0 : 40, bearing: lite ? 0 : COLOMBIA_VIEW.bearing } : lite ? { ...COLOMBIA_VIEW, pitch: 0, bearing: 0 } : COLOMBIA_VIEW,
   );
   const [hover, setHover] = useState<Hover>(null);
   const dark = usePrefs().resolved === "dark";
@@ -210,10 +212,8 @@ export default function Map3D({
   const containerRef = useRef<HTMLDivElement>(null);
   const { animate, setAnimate } = useMapAnimation();
   // Resolución de dibujado: la nativa de la pantalla para que el mapa se vea nítido; la vista compacta
-  // del dashboard usa 1 porque es pequeña y no necesita el detalle.
-  const [maxPixelRatio] = useState(() =>
-    typeof window === "undefined" ? 1 : compact ? 1 : window.devicePixelRatio || 1,
-  );
+  // del dashboard y la calidad liviana usan 1.
+  const maxPixelRatio = typeof window === "undefined" || compact || lite ? 1 : window.devicePixelRatio || 1;
 
   // deck.gl crea una capa de eventos enfocable sin nombre: se la damos para lectores de pantalla.
   useEffect(() => {
@@ -368,14 +368,15 @@ export default function Map3D({
     // cancelaba el primer aviso de vista del mapa y quedaba todo el país. Con el mapa ya abierto, vuelo.
     const instant = !mountedRef.current;
     try {
-      const fit = fitTilted(boundsOf(pts), width, height, padding, 50, -12);
+      const [pitch, bearing] = lite ? [0, 0] : [50, -12];
+      const fit = fitTilted(boundsOf(pts), width, height, padding, pitch, bearing);
       setViewState((v) => ({
         ...v,
         longitude: fit.longitude,
         latitude: fit.latitude,
         zoom: Math.min(fit.zoom, 7.5),
-        pitch: 50,
-        bearing: -12,
+        pitch,
+        bearing,
         ...(instant ? {} : { transitionDuration: 1800, transitionInterpolator: new FlyToInterpolator({ speed: 1.4 }) }),
       }));
     } catch {
@@ -525,7 +526,7 @@ export default function Map3D({
         id: "departamentos",
         data: deptData,
         getPolygon: (d) => d.polygon,
-        extruded: true,
+        extruded: !lite,
         getElevation: (d) => 1500 + d.intensity * 42000,
         getFillColor: (d) => [34, 211, 238, Math.round(10 + d.intensity * 22)],
         material: false,
@@ -873,10 +874,10 @@ export default function Map3D({
     <div ref={containerRef} className={cn("relative h-full min-h-80 w-full overflow-hidden bg-background", className)}>
       <DeckGL
         useDevicePixels={maxPixelRatio}
-        viewState={viewState}
+        viewState={lite && (viewState.pitch || viewState.bearing) ? { ...viewState, pitch: 0, bearing: 0 } : viewState}
         onViewStateChange={({ viewState: v }) => setViewState(v as MapViewState)}
         onInteractionStateChange={onInteractionStateChange}
-        controller={{ dragRotate: true, touchRotate: true, scrollZoom: !compact }}
+        controller={{ dragRotate: !lite, touchRotate: !lite, scrollZoom: !compact }}
         ref={deckRef}
         layers={NO_LAYERS}
         // Un Deck nuevo (primer montaje, o al volver a una ruta que Next dejó oculta) recibe las capas del instante
