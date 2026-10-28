@@ -8,12 +8,12 @@ export const metadata = { title: "Nuevo envío" };
 
 export default function NuevoEnvioPage({ searchParams }: PageProps<"/envios/nuevo">) {
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="page page-narrow">
       <PageHeader
         title="Nuevo envío"
         description="La ruta multimodal se calcula al guardar con la red vigente: las vías cerradas quedan fuera. Puedes forzar modos o vías específicas."
       />
-      <div className="mt-8">
+      <div>
         <Suspense fallback={<Skeleton className="h-[520px]" />}>
           <NewForm searchParams={searchParams} />
         </Suspense>

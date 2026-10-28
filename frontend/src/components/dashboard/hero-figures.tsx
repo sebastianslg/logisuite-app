@@ -1,59 +1,88 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
-import { motion } from "framer-motion";
+import { ChevronRight } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { CountUp } from "@/components/ui/count-up";
-import { EASE, stagger } from "@/lib/motion";
+import { cn } from "@/lib/utils";
+
+export type Secondary = { label: string; value: string; href: string; hint?: string };
 
 /**
- * Cifras hero del resumen: envíos en ruta, retrasos y costo acumulado (flete comprometido de lo que está
- * en tránsito). Tipografía grande con tracking negativo, separadas por hairlines; cada una abre la lista
- * filtrada. Las cifras cuentan al cargar y, cuando cambian, desde el valor anterior.
+ * Estado de la operación: las tres cifras que más importan (envíos en ruta, retrasos y costo acumulado en
+ * tránsito) en grande, y debajo, tras una línea fina, las secundarias en una fila compacta. Todo en una sola
+ * superficie: se lee de un vistazo, como el encabezado de un informe. Cada cifra abre la vista filtrada.
+ * Las cifras cuentan al cargar y, cuando cambian, desde el valor anterior.
  */
 export function HeroFigures({
   inTransit,
   delayed,
   cost,
+  secondary = [],
 }: {
   inTransit: number;
   delayed: number;
   cost: number;
+  secondary?: Secondary[];
 }) {
   const { money } = useApp();
   const items = [
     { label: "Envíos en ruta", value: inTransit, href: "/envios?estado=En Ruta,Transferencia Modal,Retrasado" },
-    { label: "Retrasos", value: delayed, href: "/envios?estado=Retrasado", danger: delayed > 0 },
-    { label: "Costo acumulado en tránsito", value: cost, href: "/envios?estado=En Ruta,Transferencia Modal,Retrasado", money: true },
+    { label: "Con retraso", value: delayed, href: "/envios?estado=Retrasado", danger: delayed > 0 },
+    { label: "Costo comprometido en tránsito", value: cost, href: "/envios?estado=En Ruta,Transferencia Modal,Retrasado", money: true },
   ];
   return (
-    <section aria-label="Cifras principales" className="mb-6 grid rounded-[20px] bg-card md:grid-cols-3">
-      {items.map((it, i) => (
-        <motion.div
-          key={it.label}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: EASE, delay: stagger(i, 0.06, 0.4) }}
-          className="border-border not-first:border-t md:not-first:border-t-0 md:not-first:border-l"
-        >
+    <section aria-label="Estado de la operación" className="glass mb-6 overflow-hidden rounded-3xl">
+      {/* Celular: en ruta y retraso lado a lado, el costo a lo ancho. Escritorio: las tres en fila. */}
+      <div className="-ml-px grid grid-cols-2 md:grid-cols-[1fr_1fr_1.4fr]">
+        {items.map((it, i) => (
           <Link
+            key={it.label}
             href={it.href}
-            className="group press block rounded-[20px] px-6 py-6 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 md:px-7 md:py-8"
+            data-ripple
+            className={cn(
+              "group/hero block min-w-0 border-l border-border px-5 py-5 outline-none transition-colors duration-200 hover:bg-[color-mix(in_srgb,var(--card)_97%,var(--foreground))] focus-visible:ring-[3px] focus-visible:ring-ring/80 focus-visible:ring-inset md:px-7 md:py-7",
+              i === 2 && "col-span-2 border-t md:col-span-1 md:border-t-0",
+            )}
           >
-            <span className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground">
+            <span className="flex items-center gap-1 text-[13px] font-medium text-muted-foreground">
               {it.label}
-              <ArrowUpRight className="size-3.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100 motion-reduce:transition-none" aria-hidden />
+              <ChevronRight
+                className="size-3.5 opacity-0 transition-opacity duration-200 group-hover/hero:opacity-60 motion-reduce:transition-none"
+                aria-hidden
+              />
             </span>
             <CountUp
               value={it.value}
               format={it.money ? (n) => money(n, true) : undefined}
-              className={`tabular mt-2 block text-[2.75rem] leading-none font-semibold tracking-[-0.045em] md:text-[clamp(2rem,4vw,4rem)] ${it.danger ? "text-destructive" : ""}`}
+              className={cn(
+                "tabular mt-3 block text-[2.5rem] leading-[0.95] font-semibold tracking-[-0.045em] md:text-[clamp(2.25rem,3.6vw,3.75rem)]",
+                it.danger && "text-destructive",
+              )}
             />
           </Link>
-        </motion.div>
-      ))}
+        ))}
+      </div>
+      {secondary.length > 0 && (
+        <ul className="-ml-px grid grid-cols-1 border-t border-border sm:grid-cols-3">
+          {secondary.map((s) => (
+            <li key={s.label} className="border-l border-border not-first:border-t sm:not-first:border-t-0">
+              <Link
+                href={s.href}
+                data-ripple
+                className="flex items-baseline justify-between gap-3 px-6 py-3.5 outline-none transition-colors duration-200 hover:bg-[color-mix(in_srgb,var(--card)_97%,var(--foreground))] focus-visible:ring-[3px] focus-visible:ring-ring/80 focus-visible:ring-inset md:px-7"
+              >
+                <span className="min-w-0 truncate text-[13px] text-muted-foreground">
+                  {s.label}
+                  {s.hint && <span className="text-muted-foreground/80"> · {s.hint}</span>}
+                </span>
+                <span className="tabular shrink-0 text-[0.9375rem] font-semibold">{s.value}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

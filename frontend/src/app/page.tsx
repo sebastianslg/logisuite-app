@@ -1,17 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import {
-  Activity,
-  ArrowUpRight,
-  ArrowRightLeft,
-  Gauge,
-  Network,
-  Radio,
-  Weight,
-} from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
 import { Attention } from "@/components/dashboard/attention";
-import { BentoCell, BentoGrid, KpiCard } from "@/components/dashboard/bento";
+import { BentoCell, BentoGrid } from "@/components/dashboard/bento";
 import { HeroFigures } from "@/components/dashboard/hero-figures";
 import { CorridorsCell, DispatchCell, ModalSplitCell } from "@/components/dashboard/chart-cells";
 import { LiveFleet } from "@/components/dashboard/live-fleet";
@@ -23,12 +15,12 @@ import type { DashboardSummary, FleetLive, SustainabilitySummary } from "@/lib/t
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen px-4 py-6 md:px-8 md:py-8 lg:px-10">
+    <div className="page">
       <PageHeader
         title="Torre de control"
         description="Carretera, río, mar, aire y ferrocarril en una sola vista: fletes en tránsito, transbordos y reparto modal de la red logística de Colombia."
       />
-      <div className="mt-8">
+      <div>
         <Suspense fallback={<DashboardSkeleton />}>
           <DashboardContent />
         </Suspense>
@@ -47,40 +39,22 @@ async function DashboardContent() {
 
   return (
     <>
-      <HeroFigures inTransit={k.active.value ?? 0} delayed={k.delayed.value ?? 0} cost={k.cost_in_transit.value ?? 0} />
+      <HeroFigures
+        inTransit={k.active.value ?? 0}
+        delayed={k.delayed.value ?? 0}
+        cost={k.cost_in_transit.value ?? 0}
+        secondary={[
+          { label: "En transbordo", value: k.in_transfer.fmt, href: "/envios?estado=Transferencia Modal" },
+          { label: "Carga en tránsito", value: k.tons_in_transit.fmt, hint: `${k.scheduled.fmt} programados`, href: "/envios?estado=En Ruta,Transferencia Modal,Retrasado" },
+          { label: "OTIF 30 días", value: k.otif.fmt, hint: `${k.delivered.fmt} entregas`, href: "/envios?estado=Entregado" },
+        ]}
+      />
       <Attention alerts={summary.alerts} />
       <BentoGrid>
-      <KpiCard
-        className="md:col-span-2 xl:col-span-4"
-        href="/envios?estado=Transferencia Modal"
-        label="Transferencia modal"
-        value={k.in_transfer.fmt}
-        icon={<ArrowRightLeft />}
-        accent="var(--color-warning)"
-        footnote="Cargas en transbordo entre modos"
-      />
-      <KpiCard
-        className="md:col-span-2 xl:col-span-4"
-        href="/envios?estado=En Ruta,Transferencia Modal,Retrasado"
-        label="Carga en tránsito"
-        value={k.tons_in_transit.fmt}
-        icon={<Weight />}
-        footnote={`${k.scheduled.fmt} envíos programados`}
-      />
-      <KpiCard
-        className="col-span-2 md:col-span-2 xl:col-span-4"
-        href="/envios?estado=Entregado"
-        label="OTIF (30 días)"
-        value={k.otif.fmt}
-        icon={<Gauge />}
-        footnote={`${k.delivered.fmt} entregas cerradas`}
-      />
-
       <BentoCell
         className="min-h-[560px] md:col-span-6 xl:col-span-8 xl:row-span-2"
         title="Red multimodal"
         description={`${summary.network.nodes} nodos · ${summary.network.links} enlaces`}
-        icon={<Network />}
         action={
           <Link
             href="/red"
@@ -97,7 +71,6 @@ async function DashboardContent() {
         className="md:col-span-6 xl:col-span-4 xl:row-span-2"
         title="Flota en vivo"
         description="Activos en tránsito por modo"
-        icon={<Radio />}
       >
         <LiveFleet initial={fleet} />
       </BentoCell>
@@ -109,7 +82,6 @@ async function DashboardContent() {
       <BentoCell
         className="md:col-span-3 xl:col-span-3"
         title="Por estado"
-        icon={<Activity />}
       >
         <StatusBreakdown counts={summary.status_counts} />
       </BentoCell>

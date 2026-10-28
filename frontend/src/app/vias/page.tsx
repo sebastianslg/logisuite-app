@@ -12,12 +12,12 @@ export const metadata = { title: "Vías y nodos" };
 
 export default function ViasPage({ searchParams }: PageProps<"/vias">) {
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="page">
       <PageHeader
         title="Vías y cierres"
         description="Cierra una vía, un aeropuerto o un puerto con su motivo y el motor recalcula todas las rutas: los envíos en curso que pasan por allí se redirigen por la mejor alternativa o quedan marcados sin ruta. Al reabrirlo se restablecen."
       />
-      <Suspense fallback={<Skeleton className="mt-8 h-[640px]" />}>
+      <Suspense fallback={<Skeleton className="h-[640px]" />}>
         <Content searchParams={searchParams} />
       </Suspense>
     </div>
@@ -34,7 +34,7 @@ async function Content({ searchParams }: { searchParams: PageProps<"/vias">["sea
   const current = ver === "nodos" ? "nodos" : "vias";
   return (
     <>
-      <nav aria-label="Qué cerrar" className="mt-6 inline-flex rounded-full bg-fill p-1 text-sm">
+      <nav aria-label="Qué cerrar" className="inline-flex rounded-full bg-fill p-1 text-sm">
         {TABS.map((t) => (
           <Link
             key={t.key}

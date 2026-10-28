@@ -10,12 +10,12 @@ export const metadata = { title: "Configuración" };
 
 export default function ConfiguracionPage() {
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="page">
       <PageHeader
         title="Configuración"
         description="Tasa de cambio, reposición automática de envíos simulados, enlaces compartidos e historial de cambios."
       />
-      <div className="mt-8">
+      <div>
         <Suspense fallback={<Skeleton className="h-[640px]" />}>
           <Panel />
         </Suspense>

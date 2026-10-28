@@ -9,12 +9,12 @@ export const metadata = { title: "Huella de carbono" };
 
 export default function HuellaPage() {
   return (
-    <div className="min-h-screen px-4 py-6 md:px-8 md:py-8 lg:px-10">
+    <div className="page">
       <PageHeader
         title="Huella de carbono"
         description="Emisiones de CO₂e de la operación, su intensidad por modo y cuánto evita la multimodalidad frente a la carretera."
       />
-      <div className="mt-8">
+      <div>
         <Suspense fallback={<Skeleton className="h-[560px]" />}>
           <CarbonData />
         </Suspense>

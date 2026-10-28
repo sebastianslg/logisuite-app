@@ -10,7 +10,7 @@ export const metadata = { title: "Vehículo" };
 
 export default function VehiculoPage({ params }: PageProps<"/flota/[id]">) {
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="page">
       <Suspense fallback={<Skeleton className="h-[720px]" />}>
         <Detail params={params} />
       </Suspense>

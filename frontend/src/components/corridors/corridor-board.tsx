@@ -11,7 +11,7 @@ import { GroupBlock } from "./group-block";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/client";
-import { MODE_ORDER, MODES } from "@/lib/modes";
+import { MODE_ORDER, MODES, tint } from "@/lib/modes";
 import type { AuditEntry, Corridor, CorridorChange, Mode } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -86,14 +86,14 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          <label className="relative flex h-9 w-full max-w-xs items-center">
+          <label className="relative flex h-10 w-full max-w-xs items-center">
             <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar vía o ciudad"
               aria-label="Buscar vías"
-              className="h-9 w-full rounded-md border border-input bg-fill/50 pr-3 pl-9 text-sm outline-none focus:border-primary/40"
+              className="h-10 w-full field pr-3 pl-9 text-sm outline-none"
             />
           </label>
           <div className="flex rounded-md border border-border p-0.5 text-xs" role="radiogroup" aria-label="Estado">
@@ -105,7 +105,7 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
               </button>
             ))}
           </div>
-          <div className="flex gap-1" role="group" aria-label="Filtrar por modo">
+          <div className="chip-scroll flex gap-1" role="group" aria-label="Filtrar por modo">
             {MODE_ORDER.map((m) => {
               const on = mode === m;
               const { icon: Icon, color, label } = MODES[m];
@@ -113,7 +113,7 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
                 <button key={m} type="button" onClick={() => setMode(on ? null : m)} aria-pressed={on} title={label}
                   className={cn("flex size-8 items-center justify-center rounded-md border transition-colors",
                     on ? "" : "border-border opacity-60 hover:opacity-100")}
-                  style={on ? { borderColor: `${color}66`, backgroundColor: `${color}1a` } : undefined}>
+                  style={on ? { borderColor: tint(color, 45), backgroundColor: tint(color, 12) } : undefined}>
                   <Icon className="size-4" style={{ color }} />
                 </button>
               );
@@ -139,7 +139,7 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
               onToggle={() => setOpenGroups((o) => ({ ...o, [g.key]: !(o[g.key] ?? g.defaultOpen) }))}>
             {g.items.map((c) => (
             <li key={c.corridor}
-              className={cn("rounded-lg border bg-card p-4", c.active ? "border-border" : "border-destructive/25 bg-destructive/[0.03]")}>
+              className={cn("px-5 py-4", !c.active && "bg-destructive/[0.04]")}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-1 gap-3">
                   <div className="flex shrink-0 gap-1">{c.modes.map((m) => <ModeIcon key={m} mode={m} />)}</div>
@@ -196,7 +196,7 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
                 >
                   <input autoFocus value={reason} onChange={(e) => setReason(e.target.value)} required maxLength={200}
                     placeholder="Motivo del cierre (derrumbe, paro, mantenimiento...)" aria-label="Motivo del cierre"
-                    className="h-8 min-w-64 flex-1 rounded-md border border-input bg-fill/50 px-2.5 text-xs outline-none focus:border-destructive/40" />
+                    className="h-8 min-w-64 flex-1 field px-2.5 text-xs outline-none focus:border-destructive/40" />
                   <Button type="submit" size="sm" variant="destructive" disabled={busy === c.corridor || !reason.trim()}>
                     {busy === c.corridor ? <LoaderCircle className="animate-spin" /> : <Lock />}
                     Confirmar cierre

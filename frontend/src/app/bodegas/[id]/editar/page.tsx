@@ -10,7 +10,7 @@ export const metadata = { title: "Editar bodega" };
 
 export default function EditarBodegaPage({ params }: PageProps<"/bodegas/[id]/editar">) {
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="page page-narrow">
       <Suspense fallback={<Skeleton className="h-[600px]" />}>
         <EditForm params={params} />
       </Suspense>
@@ -25,7 +25,7 @@ async function EditForm({ params }: { params: Promise<{ id: string }> }) {
   return (
     <>
       <PageHeader title={`Editar ${warehouse.name}`} description="Los cambios quedan en el historial con tu nombre de operador." />
-      <div className="mt-8">
+      <div>
         <WarehouseForm warehouse={warehouse} />
       </div>
     </>

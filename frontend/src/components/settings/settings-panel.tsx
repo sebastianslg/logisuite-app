@@ -78,7 +78,7 @@ function Section({ title, description, children }: { title: string; description?
 }
 
 const input =
-  "h-9 w-full rounded-md border border-input bg-fill/50 px-3 text-sm outline-none focus:border-primary/40";
+  "h-10 w-full field px-3 text-sm outline-none";
 
 function FxForm({ initial }: { initial: Settings["fx"] }) {
   const router = useRouter();
@@ -299,10 +299,10 @@ function AuditLog({ history }: { history: AuditEntry[] }) {
         <label className="relative flex h-8 min-w-48 flex-1 items-center">
           <Search className="pointer-events-none absolute left-2.5 size-3.5 text-muted-foreground" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar usuario, envío, vía…" aria-label="Buscar en el historial"
-            className="h-8 w-full rounded-md border border-input bg-fill/50 pr-2 pl-8 text-xs outline-none focus:border-primary/40" />
+            className="h-8 w-full field pr-2 pl-8 text-xs outline-none" />
         </label>
         <select value={table} onChange={(e) => setTable(e.target.value)} aria-label="Filtrar por tipo"
-          className="h-8 rounded-md border border-input bg-fill/50 px-2 text-xs outline-none [&>option]:bg-card">
+          className="h-8 field px-2 text-xs outline-none [&>option]:bg-card">
           <option value="">Todo</option>
           {Object.entries(TABLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>

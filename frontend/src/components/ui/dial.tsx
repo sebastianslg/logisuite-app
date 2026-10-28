@@ -90,12 +90,12 @@ export function EcoBar({
   const reduce = useReducedMotion();
   const pct = Math.min(Math.max((value / (max || 1)) * 100, 0), 100);
   return (
-    <div className={cn("h-2 w-full overflow-hidden rounded-full bg-fill", className)} aria-hidden>
+    <div className={cn("h-1.5 w-full overflow-hidden rounded-full bg-fill", className)} aria-hidden>
       <motion.div
-        className="h-full rounded-full"
+        className="h-full w-full origin-left rounded-full"
         style={{ backgroundColor: color }}
-        initial={{ width: reduce ? `${pct}%` : 0 }}
-        animate={{ width: `${pct}%` }}
+        initial={{ scaleX: reduce ? pct / 100 : 0 }}
+        animate={{ scaleX: pct / 100 }}
         transition={{ duration: 0.8, ease: EASE, delay }}
       />
     </div>

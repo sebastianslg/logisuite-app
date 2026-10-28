@@ -95,11 +95,11 @@ export function NodeBoard({ nodes }: { nodes: NodeStatus[] }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <label className="relative flex h-9 w-full max-w-xs items-center">
+        <label className="relative flex h-10 w-full max-w-xs items-center">
           <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar nodo, ciudad o código"
             aria-label="Buscar nodos"
-            className="h-9 w-full rounded-md border border-input bg-fill/50 pr-3 pl-9 text-sm outline-none focus:border-primary/40" />
+            className="h-10 w-full field pr-3 pl-9 text-sm outline-none" />
         </label>
         <div className="flex rounded-md border border-border p-0.5 text-xs" role="radiogroup" aria-label="Estado">
           {(["todos", "operativos", "cerrados"] as StateFilter[]).map((s) => (
@@ -110,7 +110,7 @@ export function NodeBoard({ nodes }: { nodes: NodeStatus[] }) {
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrar por tipo">
+        <div className="chip-scroll flex flex-wrap gap-1" role="group" aria-label="Filtrar por tipo">
           {kinds.map((k) => {
             const on = kind === k;
             const { icon: Icon, label } = KINDS[k];
@@ -145,7 +145,7 @@ export function NodeBoard({ nodes }: { nodes: NodeStatus[] }) {
         {g.items.map((n) => {
           const Icon = (KINDS[n.kind] ?? KINDS.ciudad).icon;
           return (
-            <li key={n.code} className={cn("rounded-lg border bg-card p-3 sm:p-4", n.active ? "border-border" : "border-destructive/25 bg-destructive/[0.03]")}>
+            <li key={n.code} className={cn("px-4 py-3 sm:px-5 sm:py-4", !n.active && "bg-destructive/[0.04]")}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-1 gap-3">
                   <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-fill text-muted-foreground">
@@ -191,7 +191,7 @@ export function NodeBoard({ nodes }: { nodes: NodeStatus[] }) {
                   onSubmit={(e) => { e.preventDefault(); void change(n.code, false); }}>
                   <input autoFocus value={reason} onChange={(e) => setReason(e.target.value)} required maxLength={200}
                     placeholder="Motivo del cierre (pista, clima, paro, mantenimiento...)" aria-label="Motivo del cierre"
-                    className="h-8 min-w-64 flex-1 rounded-md border border-input bg-fill/50 px-2.5 text-xs outline-none focus:border-destructive/40" />
+                    className="h-8 min-w-64 flex-1 field px-2.5 text-xs outline-none focus:border-destructive/40" />
                   <Button type="submit" size="sm" variant="destructive" disabled={busy === n.code || !reason.trim()}>
                     {busy === n.code ? <LoaderCircle className="animate-spin" /> : <Lock />}Confirmar cierre
                   </Button>

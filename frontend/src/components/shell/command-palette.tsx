@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 
 import { EASE } from "@/lib/motion";
+import { rememberCode } from "@/components/shipments/shared-code";
 import { OPEN_SHORTCUTS_EVENT } from "@/components/shell/shortcuts";
 import { useApp } from "@/components/providers";
 import { usePrefs } from "@/lib/prefs";
@@ -134,7 +135,12 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
     ];
     const ships = shipments.map<Item>((s) => ({
       id: `s-${s.code}`, group: "Envíos", label: s.code, hint: `${s.origin} → ${s.destination}`,
-      icon: Package, run: go(`/envios/${s.code}`),
+      icon: Package,
+      // El código vuela desde la paleta hasta el encabezado del detalle
+      run: () => {
+        rememberCode(s.code, document.querySelector(`[data-code="${CSS.escape(s.code)}"]`));
+        go(`/envios/${s.code}`)();
+      },
     }));
     const cs = cities.map<Item>((c) => ({
       id: `c-${c.city}`, group: "Ciudades", label: c.city, hint: "Ver en el mapa",
@@ -242,7 +248,9 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
                         )}
                       >
                         <Icon className="size-4 shrink-0" aria-hidden />
-                        <span className="truncate font-medium">{it.label}</span>
+                        <span className="truncate font-medium" data-code={it.group === "Envíos" ? it.label : undefined}>
+                          {it.label}
+                        </span>
                         {it.hint && (
                           <span className={cn("truncate text-xs", i === active ? "opacity-80" : "text-muted-foreground")}>
                             {it.hint}
@@ -255,9 +263,9 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
                 })}
               </ul>
               <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-xs text-muted-foreground">
-                <span>↑↓ navegar</span>
-                <span>↵ abrir</span>
-                <span>Esc cerrar</span>
+                <span className="flex items-center gap-1.5"><Kbd>↑</Kbd><Kbd>↓</Kbd> navegar</span>
+                <span className="flex items-center gap-1.5"><Kbd>Intro</Kbd> abrir</span>
+                <span className="flex items-center gap-1.5"><Kbd>Esc</Kbd> cerrar</span>
               </div>
             </motion.div>
           </div>
@@ -265,4 +273,8 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
       </AnimatePresence>
     </Ctx.Provider>
   );
+}
+
+function Kbd({ children }: { children: React.ReactNode }) {
+  return <kbd className="rounded-md border border-border-strong px-1.5 font-sans text-[11px] font-medium">{children}</kbd>;
 }

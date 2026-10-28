@@ -9,12 +9,12 @@ export const metadata = { title: "Combustible" };
 
 export default function CombustiblePage() {
   return (
-    <div className="min-h-screen px-4 py-6 md:px-8 md:py-8 lg:px-10">
+    <div className="page">
       <PageHeader
         title="Telemetría de combustible"
         description="Consumo estimado por activo, por modo y frente a mover toda la carga por carretera. Se actualiza solo."
       />
-      <div className="mt-8">
+      <div>
         <Suspense fallback={<Skeleton className="h-[560px]" />}>
           <FuelData />
         </Suspense>

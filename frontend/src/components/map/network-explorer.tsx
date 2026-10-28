@@ -4,30 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
-import {
-  ArrowDownUp,
-  ArrowRightLeft,
-  Check,
-  ChevronDown,
-  Clock,
-  Maximize2,
-  Minimize2,
-  Pause,
-  Play,
-  Rows3,
-  CircleDollarSign,
-  Cloud,
-  Fuel,
-  Layers,
-  ListFilter,
-  LoaderCircle,
-  Map as MapIcon,
-  PackagePlus,
-  Radio,
-  Route,
-  Weight,
-  X,
-} from "lucide-react";
+import { ArrowDownUp, ArrowRightLeft, Check, ChevronDown, Clock, Maximize2, Minimize2, Pause, Play, Rows3, CircleDollarSign, Cloud, Fuel, Layers, ListFilter, LoaderCircle, Map as MapIcon, PackagePlus, Radio, Route, Weight, X } from "lucide-react";
 
 import { CityCombobox } from "./city-combobox";
 import { CategoryFilter, CityDirectory, CityInspector } from "./city-explorer";
@@ -43,7 +20,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { Dial } from "@/components/ui/dial";
 import { Money } from "@/components/money";
 import { MODE_ORDER, MODES, PRIORITIES, tint } from "@/lib/modes";
-import { T_FAST, T_VIEW, hoverLift } from "@/lib/motion";
+import { T_FAST, T_VIEW } from "@/lib/motion";
 import type { CityCategory, CityOption, Footprint, Mode, Priority, SimulateResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -189,7 +166,7 @@ export function NetworkExplorer() {
 
       {/* Encabezado */}
       <div onPointerDownCapture={markInteraction} className="pointer-events-none absolute top-0 right-0 left-0 z-20 flex flex-wrap items-start justify-between gap-3 p-3 md:gap-4 md:p-6 md:pt-[6.5rem]">
-        <h1 className="glass pointer-events-auto rounded-2xl px-4 py-2 text-xl font-bold">Red multimodal</h1>
+        <h1 className="glass-float pointer-events-auto rounded-2xl px-4 py-2 text-xl font-bold">Red multimodal</h1>
         <div className="pointer-events-auto flex w-full flex-wrap items-center gap-2 md:w-auto">
           <ViewToggle showMap={showMap} setShowMap={setShowMap} />
           {showMap && (
@@ -237,7 +214,7 @@ export function NetworkExplorer() {
         animate={{ opacity: 1 }}
         transition={T_VIEW}
         className={cn(
-          "glass absolute z-10 flex flex-col overflow-hidden rounded-3xl",
+          "glass-float absolute z-10 flex flex-col overflow-hidden rounded-3xl",
           showMap
             ? "inset-x-3 bottom-3 max-h-[62%] md:inset-x-auto md:top-44 md:bottom-6 md:left-6 md:max-h-none md:w-[400px]"
             : "inset-x-3 top-36 bottom-3 md:inset-x-auto md:top-44 md:bottom-6 md:left-1/2 md:w-[min(960px,calc(100%-3rem))] md:-translate-x-1/2",
@@ -400,7 +377,7 @@ export function NetworkExplorer() {
       )}
 
       {showMap && (
-        <div className="glass pointer-events-none absolute right-6 bottom-6 hidden rounded-2xl px-4 py-3 md:block">
+        <div className="glass-float pointer-events-none absolute right-6 bottom-6 hidden rounded-2xl px-4 py-3 md:block">
           <MapLegend />
         </div>
       )}
@@ -443,7 +420,7 @@ export function NetworkExplorer() {
 
 function ViewToggle({ showMap, setShowMap }: { showMap: boolean; setShowMap: (v: boolean) => void }) {
   return (
-    <div className="glass flex items-center gap-0.5 rounded-2xl p-1" role="group" aria-label="Vista">
+    <div className="glass-float flex items-center gap-0.5 rounded-2xl p-1" role="group" aria-label="Vista">
       {[
         { key: true, label: "Mapa", icon: <MapIcon className="size-3.5" /> },
         { key: false, label: "Datos", icon: <Rows3 className="size-3.5" /> },
@@ -644,13 +621,13 @@ function FootprintSummary({ fp }: { fp: Footprint }) {
 
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return (
-    <motion.div whileHover={hoverLift} className="glass rounded-2xl p-3">
+    <div className="rounded-2xl bg-fill/60 p-3">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground [&_svg]:size-3">
         {icon}
         {label}
       </div>
       <div className="tabular mt-1 text-base font-semibold tracking-tight">{value}</div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -673,7 +650,7 @@ function LayerPanel({
 }) {
   const { animate, setAnimate } = useMapAnimation();
   return (
-    <div className="glass pointer-events-auto flex flex-wrap items-center gap-1 rounded-2xl p-1">
+    <div className="glass-float pointer-events-auto flex flex-wrap items-center gap-1 rounded-2xl p-1">
       {MODE_ORDER.map((m) => {
         const { icon: Icon, color, label } = MODES[m];
         const on = modes.has(m);

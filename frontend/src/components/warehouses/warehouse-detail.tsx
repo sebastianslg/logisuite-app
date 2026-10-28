@@ -18,6 +18,7 @@ import {
 import { ErrorBanner, Field, inputClass, textareaClass } from "@/components/fleet/form-bits";
 import { VehicleStatusBadge } from "@/components/fleet/status";
 import { Money } from "@/components/money";
+import { StatStrip } from "@/components/ui/stat-strip";
 import { useApp } from "@/components/providers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,16 +40,6 @@ function Section({ title, action, children }: { title: string; action?: React.Re
       </div>
       {children}
     </section>
-  );
-}
-
-function Kpi({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
-  return (
-    <div className="glass rounded-2xl p-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="tabular mt-1 text-xl font-semibold">{value}</p>
-      {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
-    </div>
   );
 }
 
@@ -142,18 +133,29 @@ export function WarehouseDetailView({ warehouse: w }: { warehouse: WarehouseDeta
       {notice && <p role="status" className="rounded-2xl border border-success/30 bg-success/10 p-3 text-sm">{notice}</p>}
 
       {w.alerts.length > 0 && (
-        <div className="rounded-2xl bg-warning/12 p-4">
+        <div className="rounded-2xl border border-warning/30 bg-warning/[0.06] p-4">
           <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">{w.alerts.map((a) => <li key={a}>{a}</li>)}</ul>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label="Ocupación" value={<>{n1(w.occupancy_pct)} %</>} hint={`${n0(w.used_m3)} de ${n0(w.capacity_m3)} m³`} />
-        <Kpi label="Productos" value={w.stock_lines} hint={lowCount ? `${lowCount} bajo el mínimo` : "Todos en nivel normal"} />
-        <Kpi label="Valor del inventario" value={<Money usd={w.value_usd} />} />
-        <Kpi label="Vehículos / en tránsito" value={`${w.vehicles} / ${w.in_transit}`} hint={`${w.docks} muelles`} />
-      </div>
-      <OccupancyBar pct={w.occupancy_pct} label={false} />
+      <StatStrip
+        items={[
+          {
+            label: "Ocupación",
+            value: <>{n1(w.occupancy_pct)} %</>,
+            hint: (
+              <>
+                <OccupancyBar pct={w.occupancy_pct} label={false} className="mb-1.5" />
+                {n0(w.used_m3)} de {n0(w.capacity_m3)} m³
+              </>
+            ),
+            tone: w.occupancy_pct >= 90 ? "danger" : w.occupancy_pct >= 75 ? "warning" : undefined,
+          },
+          { label: "Productos", value: w.stock_lines, hint: lowCount ? `${lowCount} bajo el mínimo` : "Todos en nivel normal", tone: lowCount ? "danger" : undefined },
+          { label: "Valor del inventario", value: <Money usd={w.value_usd} /> },
+          { label: "Vehículos / en tránsito", value: `${w.vehicles} / ${w.in_transit}`, hint: `${w.docks} muelles` },
+        ]}
+      />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="flex flex-col gap-6">

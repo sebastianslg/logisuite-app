@@ -175,9 +175,12 @@
 
   --ease-apple: cubic-bezier(0.16, 1, 0.3, 1);
 
-  --radius-lg: 0.875rem;
+  --radius-lg: 0.75rem;
   --radius-md: 0.625rem;
-  --radius-sm: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.25rem;
 }
 
 @layer base {
@@ -233,6 +236,95 @@
   box-shadow: var(--float-shadow);
 }
 
+/* Campo de formulario: línea fina, fondo de tarjeta, radio de 12 px. El foco lo dibuja la regla global (anillo de acento). */
+@utility field {
+  border: 1px solid var(--separator-strong);
+  background-color: var(--card);
+  border-radius: 0.75rem;
+  transition: border-color 0.2s var(--ease-apple);
+  &::placeholder {
+    color: var(--muted-foreground);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    &:hover:not(:focus-visible):not(:disabled) {
+      border-color: color-mix(in srgb, var(--foreground) 28%, transparent);
+    }
+  }
+}
+
+/* Grupo de chips de filtro: en celular, una sola fila que se desplaza en horizontal en lugar de varias filas. */
+@utility chip-scroll {
+  @media (max-width: 767px) {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+    scroll-padding-inline: 1rem;
+    & > * {
+      flex-shrink: 0;
+    }
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+}
+
+/* Contenedor de página: márgenes comunes y ancho máximo para que en pantallas anchas no se estire sin fin. */
+@utility page {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding: 1.5rem 1rem 2.5rem;
+  @media (min-width: 768px) {
+    padding: 2.5rem 2rem 4rem;
+  }
+  @media (min-width: 1024px) {
+    padding-inline: 2.5rem;
+  }
+}
+/* Detalle y formularios: una columna de lectura más estrecha */
+@utility page-narrow {
+  max-width: 1152px;
+}
+
+/* Esqueleto de carga: un brillo que recorre el bloque (transform, en su propia capa). Quieto con "reducir movimiento". */
+@utility skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--fill);
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--card) 55%, transparent), transparent);
+    animation: skeleton-shimmer 1.4s var(--ease-apple) infinite;
+  }
+}
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(0.7);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes skeleton-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+    display: none;
+  }
+}
+
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
@@ -244,13 +336,57 @@
   backdrop-filter: saturate(180%) blur(24px);
 }
 
-/* Vidrio de contenido: tarjetas y paneles. 16 px en tarjetas interiores, 24 px en paneles. */
+/*
+ * Superficie de contenido: tarjeta opaca con una línea fina, sin sombra ni desenfoque. Separa por valor
+ * (un paso de luz sobre el fondo) y no por elevación: la página se lee como un documento, no como un
+ * tablero de tarjetas flotantes. (Antes era vidrio con desenfoque de 30 px en cada tarjeta.)
+ */
 @utility glass {
+  background-color: var(--card);
+  border: 1px solid var(--separator);
+}
+
+/* Vidrio de verdad: solo para lo que flota sobre el mapa, donde hay algo detrás que desenfocar. */
+@utility glass-float {
   background-color: var(--glass);
   border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: blur(30px) saturate(150%);
-  backdrop-filter: blur(30px) saturate(150%);
+  box-shadow: var(--float-shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+}
+
+/* Filas separadas por líneas finas (sin fondo propio: viven dentro de una superficie). */
+@utility rule-list {
+  & > :where(* + *) {
+    border-top: 1px solid var(--separator);
+  }
+}
+
+/* Fila que lleva a algo: ocupa todo el ancho, se marca con un paso de fondo al pasar el puntero. */
+@utility row-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  outline: none;
+  transition: background-color 0.2s var(--ease-apple);
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background-color: color-mix(in srgb, var(--card) 96%, var(--foreground));
+    }
+  }
+  &:focus-visible {
+    box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+}
+
+/* Lista en filas dentro de una sola superficie, separadas por líneas finas. */
+@utility rows {
+  background-color: var(--card);
+  border: 1px solid var(--separator);
+  & > :where(* + *) {
+    border-top: 1px solid var(--separator);
+  }
 }
 
 /*
@@ -273,15 +409,18 @@
   }
 }
 
-/* Elevación al pasar el cursor (para elementos que no animan transform con framer-motion) */
+/*
+ * Superficie clicable: al pasar el puntero, el borde se marca y el fondo se aclara/oscurece un paso. Sin
+ * escala ni sombra: en una herramienta de trabajo lo que se mueve al pasar el cursor distrae.
+ */
 @utility lift {
   transition:
-    transform 0.3s var(--ease-apple),
-    box-shadow 0.3s var(--ease-apple);
+    border-color 0.2s var(--ease-apple),
+    background-color 0.2s var(--ease-apple);
   @media (hover: hover) and (pointer: fine) {
     &:hover {
-      transform: scale(1.02) translateY(-2px);
-      box-shadow: var(--glass-shadow-lift);
+      border-color: var(--separator-strong);
+      background-color: color-mix(in srgb, var(--card) 96%, var(--foreground));
     }
   }
 }
@@ -316,14 +455,13 @@
   .lift {
     transition: none;
   }
-  .press:active:not(:disabled),
-  .lift:hover {
+  .press:active:not(:disabled) {
     transform: none;
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .glass {
+  .glass-float {
     background-color: var(--color-card);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -377,7 +515,7 @@ textarea:focus-visible {
     --glass-border: color-mix(in srgb, var(--foreground) 55%, transparent);
     --sidebar: var(--card);
   }
-  .glass,
+  .glass-float,
   .material {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -386,8 +524,46 @@ textarea:focus-visible {
 
 /* Rendimiento en celular: el desenfoque de 30 px es caro en GPUs móviles; a 20 px se ve igual y cuesta menos. */
 @media (max-width: 767px) {
-  .glass {
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    backdrop-filter: blur(20px) saturate(150%);
+  .glass-float {
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    backdrop-filter: blur(16px) saturate(150%);
   }
+}
+
+/*
+ * Superficies del navegador con la paleta de la app: casillas y radios, cursor de texto, enlaces subrayados
+ * y la marca del campo de fecha. Nada se queda con el azul por defecto del sistema.
+ */
+:root {
+  accent-color: var(--accent-solid);
+  caret-color: var(--accent);
+}
+a {
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+}
+:root[data-theme="dark"] input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+select {
+  cursor: pointer;
+}
+/* Cifras de tablas y métricas alineadas en columna en toda la app */
+table,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+/* Títulos: interlineado firme y cortes equilibrados */
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+p {
+  text-wrap: pretty;
 }

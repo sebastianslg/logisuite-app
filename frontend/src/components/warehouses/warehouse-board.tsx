@@ -5,21 +5,13 @@ import Link from "next/link";
 import { ChevronRight, MapPin, Search, Truck } from "lucide-react";
 
 import { GroupBlock } from "@/components/corridors/group-block";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatStrip } from "@/components/ui/stat-strip";
 import type { Warehouse, WarehouseRole, WarehouseSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { WarehouseNetworkMap } from "./network-map";
 import { Capabilities, n0, OccupancyBar, RoleIcon, WarehouseStatusBadge } from "./status";
-
-function Tile({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "danger" | "warning" }) {
-  return (
-    <div className="glass flex min-w-0 flex-col rounded-2xl p-4">
-      <span className="truncate text-xs font-medium text-muted-foreground">{label}</span>
-      <span className={cn("tabular mt-1.5 text-2xl font-bold tracking-tight", tone === "danger" && "text-destructive", tone === "warning" && "text-warning")}>{value}</span>
-      {hint && <span className="mt-0.5 truncate text-xs text-muted-foreground">{hint}</span>}
-    </div>
-  );
-}
 
 /** Red de bodegas: indicadores, filtros por rol, esquema hub-and-spoke y la lista agrupada por ciudad. */
 export function WarehouseBoard({ warehouses, summary, roles }: { warehouses: Warehouse[]; summary: WarehouseSummary; roles: WarehouseRole[] }) {
@@ -59,22 +51,23 @@ export function WarehouseBoard({ warehouses, summary, roles }: { warehouses: War
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        <Tile label="Bodegas" value={String(summary.warehouses)} hint={`en ${summary.cities} ciudades · ${summary.operating} operativas`} />
-        <Tile label="Ocupación" value={`${summary.occupancy_pct.toLocaleString("es-CO")} %`} hint={`${n0(summary.used_m3)} de ${n0(summary.capacity_m3)} m³`}
-          tone={summary.occupancy_pct >= 90 ? "danger" : summary.occupancy_pct >= 75 ? "warning" : undefined} />
-        <Tile label="Bajo el mínimo" value={String(summary.low_stock_lines)} hint="productos por reponer" tone={summary.low_stock_lines ? "danger" : undefined} />
-        <Tile label="En exceso" value={String(summary.over_stock_lines)} hint={`${summary.full_warehouses.length} ${summary.full_warehouses.length === 1 ? "bodega casi llena" : "bodegas casi llenas"}`} tone={summary.over_stock_lines ? "warning" : undefined} />
-        <Tile label="Traslados en tránsito" value={String(summary.in_transit)} hint="entre bodegas" />
-      </div>
+      <StatStrip
+        items={[
+          { label: "Bodegas", value: summary.warehouses, hint: `en ${summary.cities} ciudades · ${summary.operating} operativas` },
+          { label: "Ocupación", value: `${summary.occupancy_pct.toLocaleString("es-CO")} %`, hint: `${n0(summary.used_m3)} de ${n0(summary.capacity_m3)} m³`, tone: summary.occupancy_pct >= 90 ? "danger" : summary.occupancy_pct >= 75 ? "warning" : undefined },
+          { label: "Bajo el mínimo", value: summary.low_stock_lines, hint: "productos por reponer", tone: summary.low_stock_lines ? "danger" : undefined, active: alertsOnly, onClick: () => setAlertsOnly(!alertsOnly) },
+          { label: "En exceso", value: summary.over_stock_lines, hint: `${summary.full_warehouses.length} ${summary.full_warehouses.length === 1 ? "bodega casi llena" : "bodegas casi llenas"}`, tone: summary.over_stock_lines ? "warning" : undefined },
+          { label: "Traslados en tránsito", value: summary.in_transit, hint: "entre bodegas", href: "/bodegas?ver=traslados" },
+        ]}
+      />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
         <div className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
-            <label className="relative flex h-9 w-full max-w-xs items-center">
+            <label className="relative flex h-10 w-full max-w-xs items-center">
               <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" aria-hidden />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar bodega, ciudad o responsable" aria-label="Buscar bodegas"
-                className="h-9 w-full rounded-md border border-input bg-fill/50 pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground/70" />
+                className="h-10 w-full field pr-3 pl-9 text-sm outline-none" />
             </label>
             <button type="button" aria-pressed={alertsOnly} onClick={() => setAlertsOnly(!alertsOnly)}
               className={cn("press flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors", alertsOnly ? "border-warning/50 bg-warning/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}>
@@ -86,7 +79,7 @@ export function WarehouseBoard({ warehouses, summary, roles }: { warehouses: War
               </button>
             )}
           </div>
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por rol">
+          <div className="chip-scroll flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por rol">
             {roles.map((r) => {
               const on = role === r.key;
               return (
@@ -99,19 +92,19 @@ export function WarehouseBoard({ warehouses, summary, roles }: { warehouses: War
               );
             })}
           </div>
-          {role && <p className="rounded-xl bg-fill p-3 text-xs"><strong>{roles.find((r) => r.key === role)?.label}:</strong> {roles.find((r) => r.key === role)?.description} Almacena: {roles.find((r) => r.key === role)?.stores.toLowerCase()}.</p>}
+          {role && <p className="rounded-2xl border border-border bg-card px-4 py-3 text-[13px]"><strong>{roles.find((r) => r.key === role)?.label}:</strong> {roles.find((r) => r.key === role)?.description} Almacena: {roles.find((r) => r.key === role)?.stores.toLowerCase()}.</p>}
 
           <p className="tabular text-xs text-muted-foreground" aria-live="polite">{list.length} de {warehouses.length} bodegas en {groups.length} ciudades</p>
           <ul className="flex flex-col gap-1">
-            {groups.length === 0 && <li className="glass rounded-3xl p-8 text-center text-sm text-muted-foreground">Ninguna bodega coincide con la búsqueda y los filtros.</li>}
+            {groups.length === 0 && <li className="glass rounded-3xl"><EmptyState title="Ninguna bodega coincide" description="Prueba con otra ciudad o quita los filtros." action={{ label: "Quitar filtros", onClick: () => { setQuery(""); setRole(null); setAlertsOnly(false); } }} /></li>}
             {groups.map((g, i) => (
               <GroupBlock key={g.city} title={g.city} count={g.items.length} icon={<MapPin className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
                 open={open[g.city] ?? (filtering || i < 4)} onToggle={() => setOpen((o) => ({ ...o, [g.city]: !(o[g.city] ?? (filtering || i < 4)) }))}>
                 {g.items.map((w) => (
                   <li key={w.warehouse_id}>
-                    <Link href={`/bodegas/${w.warehouse_id}`} className="press glass block rounded-2xl p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80">
+                    <Link href={`/bodegas/${w.warehouse_id}`} data-ripple className="row-link block px-5 py-4">
                       <div className="flex items-start gap-3">
-                        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-fill text-muted-foreground"><RoleIcon role={w.role} /></span>
+                        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-fill text-muted-foreground"><RoleIcon role={w.role} /></span>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                             <span className="text-sm font-semibold">{w.name}</span>
@@ -125,13 +118,13 @@ export function WarehouseBoard({ warehouses, summary, roles }: { warehouses: War
                         </div>
                         <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden />
                       </div>
-                      <OccupancyBar pct={w.occupancy_pct} className="mt-3" label={false} />
-                      <div className="tabular mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <OccupancyBar pct={w.occupancy_pct} className="mt-3 ml-11" label={false} />
+                      <div className="tabular mt-1.5 ml-11 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                         <span>{w.occupancy_pct.toLocaleString("es-CO")} % de {n0(w.capacity_m3)} m³</span>
                         <span>{w.stock_lines} productos</span>
                         {w.vehicles > 0 && <span className="inline-flex items-center gap-1"><Truck className="size-3" aria-hidden />{w.vehicles}</span>}
                       </div>
-                      {w.alerts.length > 0 && <p className="mt-1.5 text-xs text-warning">{w.alerts.join(" · ")}</p>}
+                      {w.alerts.length > 0 && <p className="mt-1.5 ml-11 text-xs text-warning">{w.alerts.join(" · ")}</p>}
                     </Link>
                   </li>
                 ))}
@@ -140,7 +133,7 @@ export function WarehouseBoard({ warehouses, summary, roles }: { warehouses: War
           </ul>
         </div>
 
-        <aside className="min-w-0 xl:sticky xl:top-16 xl:h-fit">
+        <aside className="min-w-0 xl:sticky xl:top-24 xl:h-fit">
           <div className="glass rounded-3xl p-4">
             <h2 className="px-1 text-sm font-semibold">Cómo fluye la carga</h2>
             <p className="mt-1 px-1 text-xs text-muted-foreground">

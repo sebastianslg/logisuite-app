@@ -1,11 +1,10 @@
 "use client";
 
-import { Activity, Fuel, Gauge, Route, Scale } from "lucide-react";
-
 import { useState } from "react";
 import Link from "next/link";
 
-import { BentoCell, BentoGrid, KpiCard } from "@/components/dashboard/bento";
+import { BentoCell, BentoGrid } from "@/components/dashboard/bento";
+import { StatStrip } from "@/components/ui/stat-strip";
 import { ModeFootprintTable } from "@/components/green/mode-footprint-table";
 import { DetailTable } from "@/components/ui/detail-table";
 import { Sheet } from "@/components/ui/sheet";
@@ -26,43 +25,21 @@ export function FuelView({ summary, initial }: { summary: SustainabilitySummary;
 
   return (
     <BentoGrid>
-      <KpiCard
-        className="md:col-span-3 xl:col-span-3"
-        href="/huella"
-        label={`Combustible (${summary.window_days} días)`}
-        value={<CountUp value={t.fuel_l} suffix=" L" />}
-        icon={<Fuel />}
-        footnote={`${summary.shipments} envíos · ${t.tkm_fmt}`}
-      />
-      <KpiCard
-        className="md:col-span-3 xl:col-span-3"
-        label="Consumido en ruta ahora"
-        value={<CountUp value={live.burned_l} suffix=" L" />}
-        icon={<Activity />}
-        accent="var(--color-warning)"
-        footnote={`${live.count} activos en tránsito`}
-      />
-      <KpiCard
-        className="md:col-span-3 xl:col-span-3"
-        label="Proyectado al llegar"
-        value={<CountUp value={live.total_l} suffix=" L" />}
-        icon={<Route />}
-        footnote="Suma de los envíos en curso"
-      />
-      <KpiCard
-        className="md:col-span-3 xl:col-span-3"
-        label="Frente a todo por carretera"
-        value={<CountUp value={t.fuel_vs_road_pct} decimals={1} suffix=" %" />}
-        icon={<Scale />}
-        accent={overRoad ? "var(--color-warning)" : "var(--color-success)"}
-        footnote={`Referencia: ${t.baseline_fuel_fmt}`}
-      />
+      <div className="col-span-2 md:col-span-6 xl:col-span-12">
+        <StatStrip
+          items={[
+          { label: `Combustible (${summary.window_days} días)`, value: <CountUp value={t.fuel_l} suffix=" L" />, hint: `${summary.shipments} envíos · ${t.tkm_fmt}`, href: "/huella" },
+          { label: "Consumido en ruta ahora", value: <CountUp value={live.burned_l} suffix=" L" />, hint: `${live.count} activos en tránsito` },
+          { label: "Proyectado al llegar", value: <CountUp value={live.total_l} suffix=" L" />, hint: "Suma de los envíos en curso" },
+          { label: "Frente a todo por carretera", value: <CountUp value={t.fuel_vs_road_pct} decimals={1} suffix=" %" />, hint: `Referencia: ${t.baseline_fuel_fmt}`, tone: overRoad ? "warning" : "success" },
+          ]}
+        />
+      </div>
 
       <BentoCell
         className="md:col-span-6 xl:col-span-5"
         title="Consumo en curso"
         description="Combustible quemado sobre el proyectado"
-        icon={<Gauge />}
         onOpen={() => setSheet("assets")}
       >
         <FuelDial live={live} />
@@ -72,7 +49,6 @@ export function FuelView({ summary, initial }: { summary: SustainabilitySummary;
         className="md:col-span-3 xl:col-span-4"
         title="Combustible por modo"
         description={`Últimos ${summary.window_days} días`}
-        icon={<Fuel />}
         onOpen={() => setSheet("modes")}
       >
         <ul className="flex flex-col gap-4 px-5 pb-5">
@@ -97,7 +73,6 @@ export function FuelView({ summary, initial }: { summary: SustainabilitySummary;
         className="md:col-span-3 xl:col-span-3"
         title="Frente a carretera"
         description="100 % = todo por camión"
-        icon={<Scale />}
         onOpen={() => setSheet("road")}
       >
         <div className="flex flex-1 items-center justify-center px-5 pb-6">
@@ -115,7 +90,6 @@ export function FuelView({ summary, initial }: { summary: SustainabilitySummary;
         className="md:col-span-6 xl:col-span-12"
         title="Activos en tránsito"
         description="Telemetría de combustible estimada"
-        icon={<Activity />}
       >
         {live.assets.length ? <FuelAssets live={live} /> : <FuelEmpty />}
       </BentoCell>

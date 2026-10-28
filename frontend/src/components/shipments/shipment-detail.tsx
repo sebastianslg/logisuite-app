@@ -3,23 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  ArrowRightLeft,
-  CircleOff,
-  CopyPlus,
-  Leaf,
-  Clock,
-  CircleDollarSign,
-  FileCheck2,
-  History,
-  LoaderCircle,
-  Maximize2,
-  Pencil,
-  Route,
-  Trash2,
-  Weight,
-} from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, CircleOff, CopyPlus, Leaf, FileCheck2, History, LoaderCircle, Maximize2, Pencil, Trash2 } from "lucide-react";
 
 import { LayoutGroup, motion, useInView, useReducedMotion } from "framer-motion";
 
@@ -33,6 +17,7 @@ import { RouteChain } from "@/components/shipments/route-chain";
 import { ModeChain, ModeIcon, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatStrip } from "@/components/ui/stat-strip";
 import { CollapsiblePanel } from "@/components/ui/collapsible-panel";
 import { CountUp } from "@/components/ui/count-up";
 import { Dial } from "@/components/ui/dial";
@@ -106,7 +91,7 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <SharedCode code={s.code} className="font-mono text-2xl font-semibold tracking-tight" />
+              <SharedCode code={s.code} className="font-mono text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] md:text-[2.25rem]" />
               <StatusBadge status={s.status} />
               {s.route_status === "sin_ruta" && (
                 <Badge tone="danger">
@@ -116,8 +101,11 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
               )}
               <Badge tone="neutral">{SOURCE[s.source]}</Badge>
             </div>
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              {s.origin} → {s.destination} · {s.cargo} · {s.client}
+            <p className="mt-2 text-[1.0625rem] font-medium tracking-[-0.01em]">
+              {s.origin} <span className="text-muted-foreground">→</span> {s.destination}
+            </p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {s.cargo} · {s.client}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -155,12 +143,14 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi icon={<Clock />} label="Tiempo de ruta" value={s.time_fmt} hint={`ETA ${s.eta_fmt}${s.delay_fmt ? ` · +${s.delay_fmt}` : ""}`} />
-        <Kpi icon={<CircleDollarSign />} label="Costo total" value={money(s.cost)} hint={`${money(s.cost / s.weight_t)} por t`} />
-        <Kpi icon={<Route />} label="Distancia" value={s.distance_fmt} hint={`${Math.round(s.progress_pct)} % recorrido`} />
-        <Kpi icon={<Weight />} label="Carga" value={s.weight_fmt} hint={`Prioridad: ${PRIORITIES[s.priority].toLowerCase()}`} />
-      </div>
+      <StatStrip
+        items={[
+          { label: "Tiempo de ruta", value: s.time_fmt, hint: `ETA ${s.eta_fmt}${s.delay_fmt ? ` · +${s.delay_fmt}` : ""}`, tone: s.delay_fmt ? "danger" : undefined },
+          { label: "Costo total", value: money(s.cost), hint: `${money(s.cost / s.weight_t)} por t` },
+          { label: "Distancia", value: s.distance_fmt, hint: `${Math.round(s.progress_pct)} % recorrido` },
+          { label: "Carga", value: s.weight_fmt, hint: `Prioridad: ${PRIORITIES[s.priority].toLowerCase()}` },
+        ]}
+      />
 
       <section aria-label="Ruta del envío" className="glass rounded-3xl p-5">
         <RouteChain legs={legs} transfers={transfers} progressPct={s.progress_pct} />
@@ -168,7 +158,7 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="flex flex-col gap-6">
-          <div className="relative h-[380px]">
+          <div className="relative h-[400px]">
             <MapFrame full={mapFull} onExit={exitMapFull} radius={28} className="relative h-full border border-border">
               {network && departments && mapReady ? (
                 <Map3DLazy network={network} departments={departments} route={route} showFleet={false} live={mapFull} />
@@ -191,10 +181,10 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
           </div>
 
           <Card title="Tramos y transbordos" icon={<ModeChain modes={s.modes} />} collapsible>
-            <ol className="flex flex-col gap-1.5">
+            <ol className="rule-list -mx-5 -mb-5 border-t border-border">
               {legs.map((l, i) => (
-                <li key={i} className="flex flex-col gap-1.5">
-                  <div className="flex gap-3 rounded-md border border-border bg-fill/50 p-3">
+                <li key={i} className="flex flex-col gap-1.5 px-5 py-4">
+                  <div className="flex gap-3">
                     <ModeIcon mode={l.mode} />
                     <div className="min-w-0 flex-1 text-xs">
                       <div className="flex flex-wrap items-center gap-2 font-medium">
@@ -325,7 +315,15 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
                 {history.map((h, i) => (
                   <li key={h.audit_id} className="relative pb-4 pl-5 last:pb-0">
                     {i < history.length - 1 && (
-                      <span aria-hidden className="absolute top-3 bottom-0 left-[5px] w-px bg-border-strong" />
+                      // Trazo de la línea de tiempo: se dibuja de arriba hacia abajo al entrar en pantalla (scaleY)
+                      <motion.span
+                        aria-hidden
+                        className="absolute top-3 bottom-0 left-[5px] w-px origin-top bg-border-strong"
+                        initial={{ scaleY: 0 }}
+                        whileInView={{ scaleY: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.5, ease: EASE, delay: Math.min(i * 0.08, 0.4) }}
+                      />
                     )}
                     <span
                       aria-hidden
@@ -429,19 +427,6 @@ function CostBars({ parts, total, money }: { parts: { k: string; v: number }[]; 
         <span className="font-medium">Total</span>
         <span className="font-semibold">{money(total)}</span>
       </div>
-    </div>
-  );
-}
-
-function Kpi({ icon, label, value, hint }: { icon: React.ReactNode; label: string; value: string; hint?: string }) {
-  return (
-    <div className="glass rounded-3xl p-4">
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground [&_svg]:size-3.5">
-        {icon}
-        {label}
-      </div>
-      <div className="tabular mt-2 text-xl font-semibold tracking-tight">{value}</div>
-      {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
     </div>
   );
 }

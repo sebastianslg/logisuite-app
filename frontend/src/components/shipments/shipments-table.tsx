@@ -42,13 +42,14 @@ import { Money } from "@/components/money";
 import { useApp } from "@/components/providers";
 import { rememberCode, rememberCodeIn } from "@/components/shipments/shared-code";
 import { CountUp } from "@/components/ui/count-up";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ExportActions } from "@/components/shipments/export-actions";
 import { ModeChain, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, openBlob } from "@/lib/client";
-import { MODE_ORDER, MODES, PRIORITIES, STATUSES, STATUS_ORDER } from "@/lib/modes";
+import { MODE_ORDER, MODES, PRIORITIES, STATUSES, STATUS_ORDER, tint } from "@/lib/modes";
 import { EASE } from "@/lib/motion";
 import type { Mode, Shipment, ShipmentStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -205,6 +206,10 @@ const columns = helper.columns([
 
 const PAGE_SIZES = [10, 20, 50];
 
+/** Columnas de cifras: alineadas a la derecha para comparar de un vistazo. */
+const NUMERIC = new Set(["weight_t", "cost"]);
+const colClass = (id: string) => cn(id === "client" && "hidden 2xl:table-cell", NUMERIC.has(id) && "text-right");
+
 /** Filtros iniciales (vienen de la URL: ?estado=, ?modo=, ?q=). */
 export interface ShipmentFilters {
   status?: ShipmentStatus[];
@@ -314,17 +319,17 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
     <div className="flex flex-col gap-4">
       {/* Filtros en una sola fila sobre la tabla */}
       <div className="flex flex-wrap items-center gap-3">
-        <label className="relative flex h-9 w-full max-w-xs items-center">
+        <label className="relative flex h-10 w-full max-w-xs items-center">
           <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" />
           <input
             value={globalFilter}
             onChange={(e) => table.setGlobalFilter(e.target.value)}
             placeholder="Buscar envío, ciudad, carga, cliente"
             aria-label="Buscar envíos"
-            className="h-9 w-full rounded-md border border-input bg-fill/50 pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground/70 focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+            className="h-10 w-full field pr-3 pl-9 text-sm outline-none"
           />
         </label>
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrar por estado">
+        <div className="chip-scroll flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrar por estado">
           {STATUS_ORDER.map((s) => {
             const active = statusFilter.includes(s);
             const Icon = STATUSES[s].icon;
@@ -349,7 +354,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
             );
           })}
         </div>
-        <div className="flex items-center gap-1" role="group" aria-label="Filtrar por modo">
+        <div className="chip-scroll flex items-center gap-1" role="group" aria-label="Filtrar por modo">
           {MODE_ORDER.map((m) => {
             const active = modeFilter.includes(m);
             const { icon: Icon, color, label } = MODES[m];
@@ -365,7 +370,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                   "flex h-8 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors duration-200",
                   active ? "text-foreground" : "border-border text-muted-foreground hover:text-foreground",
                 )}
-                style={active ? { borderColor: `${color}66`, backgroundColor: `${color}1a` } : undefined}
+                style={active ? { borderColor: tint(color, 45), backgroundColor: tint(color, 12) } : undefined}
               >
                 <Icon className="size-3.5" style={{ color }} />
                 <span className="hidden sm:inline">{label}</span>
@@ -437,12 +442,12 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                   const sorted = header.column.getIsSorted();
                   const canSort = header.column.getCanSort();
                   return (
-                    <TableHead key={header.id} className={header.column.id === "client" ? "hidden 2xl:table-cell" : undefined}>
+                    <TableHead key={header.id} className={colClass(header.column.id)}>
                       {header.isPlaceholder ? null : canSort ? (
                         <button
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
-                          className="inline-flex items-center gap-1 hover:text-foreground"
+                          className={cn("inline-flex items-center gap-1 hover:text-foreground", NUMERIC.has(header.column.id) && "flex-row-reverse")}
                         >
                           <table.FlexRender header={header} />
                           {sorted === "asc" ? (
@@ -480,7 +485,8 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                     rememberCodeIn(e.currentTarget, row.original.code);
                     router.push(`/envios/${row.original.code}`);
                   }}
-                  className="cursor-pointer border-b border-border transition-colors duration-300 ease-apple hover:bg-fill/50"
+                  data-state={selected.has(row.original.code) ? "selected" : undefined}
+                  className="cursor-pointer border-b border-border transition-colors duration-200 ease-apple hover:bg-[color-mix(in_srgb,var(--card)_96%,var(--foreground))] data-[state=selected]:bg-primary/[0.05] data-[state=selected]:shadow-[inset_2px_0_0_var(--accent)]"
                 >
                   <TableCell>
                     <input
@@ -492,7 +498,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                     />
                   </TableCell>
                   {row.getAllCells().map((cell) => (
-                    <TableCell key={cell.id} className={cell.column.id === "client" ? "hidden 2xl:table-cell" : undefined}>
+                    <TableCell key={cell.id} className={colClass(cell.column.id)}>
                       <table.FlexRender cell={cell} />
                     </TableCell>
                   ))}
@@ -536,8 +542,13 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
             </AnimatePresence>
             {filteredCount === 0 && (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={columns.length + 2} className="h-32 text-center text-muted-foreground">
-                  Ningún envío coincide con los filtros.
+                <TableCell colSpan={columns.length + 2} className="p-0">
+                  <EmptyState
+                    figure="0"
+                    title="Ningún envío coincide"
+                    description="Cambia la búsqueda o quita los filtros para ver todos los envíos."
+                    action={{ label: "Quitar filtros", onClick: () => { table.resetColumnFilters(); table.setGlobalFilter(""); } }}
+                  />
                 </TableCell>
               </TableRow>
             )}
@@ -597,8 +608,13 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
           );
         })}
         {filteredCount === 0 && (
-          <li className="px-4 py-10 text-center text-sm text-muted-foreground">
-            Ningún envío coincide con los filtros. Pulsa “Limpiar” para ver todos.
+          <li className="glass rounded-3xl">
+            <EmptyState
+              figure="0"
+              title="Ningún envío coincide"
+              description="Cambia la búsqueda o quita los filtros para ver todos los envíos."
+              action={{ label: "Quitar filtros", onClick: () => { table.resetColumnFilters(); table.setGlobalFilter(""); } }}
+            />
           </li>
         )}
       </motion.ul>

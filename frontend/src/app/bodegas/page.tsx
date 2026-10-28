@@ -13,7 +13,7 @@ export const metadata = { title: "Bodegas" };
 
 export default function BodegasPage({ searchParams }: PageProps<"/bodegas">) {
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="page">
       <PageHeader
         title="Bodegas y centros de distribución"
         description="La red de bodegas por ciudad, cada una con su función: centros nacionales, regionales, última milla, frío, puertos, aduana, peligrosos y devoluciones. Guardan inventario, se trasladan mercancía entre sí y alojan a los vehículos."
@@ -21,7 +21,7 @@ export default function BodegasPage({ searchParams }: PageProps<"/bodegas">) {
           <BurstLink href="/bodegas/nueva"><Plus /> Nueva bodega</BurstLink>
         }
       />
-      <Suspense fallback={<Skeleton className="mt-8 h-[640px]" />}>
+      <Suspense fallback={<Skeleton className="h-[640px]" />}>
         <Content searchParams={searchParams} />
       </Suspense>
     </div>
@@ -34,7 +34,7 @@ async function Content({ searchParams }: { searchParams: PageProps<"/bodegas">["
   const summary = await apiGet<WarehouseSummary>("/api/warehouses/summary");
   return (
     <>
-      <div className="mt-6"><WarehouseTabs current={tab} transit={summary.in_transit} /></div>
+      <div><WarehouseTabs current={tab} transit={summary.in_transit} /></div>
       <div className="mt-6">{tab === "red" ? <Network summary={summary} /> : <Transfers />}</div>
     </>
   );

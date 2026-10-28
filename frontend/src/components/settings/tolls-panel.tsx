@@ -12,7 +12,7 @@ import { api } from "@/lib/client";
 import type { Toll } from "@/lib/types";
 
 const input =
-  "h-8 rounded-md border border-border bg-fill/50 px-2 text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80";
+  "h-8 field px-2 text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80";
 
 export function TollsPanel({ tolls }: { tolls: Toll[] }) {
   const router = useRouter();

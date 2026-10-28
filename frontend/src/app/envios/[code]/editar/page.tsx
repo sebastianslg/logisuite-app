@@ -10,7 +10,7 @@ export const metadata = { title: "Editar envío" };
 
 export default function EditarEnvioPage({ params }: PageProps<"/envios/[code]/editar">) {
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="page page-narrow">
       <Suspense fallback={<Skeleton className="h-[600px]" />}>
         <EditForm params={params} />
       </Suspense>
@@ -28,7 +28,7 @@ async function EditForm({ params }: { params: Promise<{ code: string }> }) {
         title="Editar envío"
         description="Al guardar se recalcula la ruta y el cambio queda en el historial con tu nombre de operador."
       />
-      <div className="mt-8">
+      <div>
         <ShipmentForm shipment={shipment} />
       </div>
     </>

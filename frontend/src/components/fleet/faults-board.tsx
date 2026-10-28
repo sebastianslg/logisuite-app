@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronRight, TriangleAlert } from "lucide-react";
 
 import { Money } from "@/components/money";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ModeIcon } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import type { Fault } from "@/lib/types";
@@ -29,12 +30,12 @@ export function FaultsBoard({ faults }: { faults: Fault[] }) {
           </button>
         ))}
       </div>
-      <ul className="flex flex-col gap-2">
-        {list.length === 0 && <li className="glass rounded-3xl p-8 text-center text-sm text-muted-foreground">No hay fallas abiertas. Cuando alguien reporte una desde la ficha de un vehículo, aparecerá aquí.</li>}
+      <ul className="glass rule-list overflow-hidden rounded-3xl">
+        {list.length === 0 && <li><EmptyState figure="0" title="Sin fallas abiertas" description="Cuando alguien reporte una desde la ficha de un vehículo, aparecerá aquí." /></li>}
         {list.map((f) => (
           <li key={f.fault_id}>
             <Link href={`/flota/${f.vehicle_id}`}
-              className={cn("press glass flex items-start gap-3 rounded-2xl p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80", f.status === "Resuelta" && "opacity-75")}>
+              data-ripple className={cn("row-link items-start px-5 py-4", f.status === "Resuelta" && "opacity-75")}>
               {f.mode && <ModeIcon mode={f.mode} className="mt-0.5 size-8" />}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">

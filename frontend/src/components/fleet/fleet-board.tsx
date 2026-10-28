@@ -5,48 +5,13 @@ import Link from "next/link";
 import { ChevronRight, Search, TriangleAlert, UserRound, Warehouse as WarehouseIcon } from "lucide-react";
 
 import { ModeIcon } from "@/components/status-badge";
-import { MODE_ORDER, MODES } from "@/lib/modes";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatStrip } from "@/components/ui/stat-strip";
+import { MODE_ORDER, MODES, tint } from "@/lib/modes";
 import type { FleetSummary, Mode, Vehicle, VehicleStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { km, ServiceMeter, STATUS_ORDER, VEHICLE_STATUS, VehicleStatusBadge } from "./status";
-
-/** Un indicador que además filtra: pulsarlo deja solo los vehículos de ese estado. */
-function Tile({
-  label,
-  value,
-  hint,
-  tone,
-  active,
-  onClick,
-}: {
-  label: string;
-  value: string | number;
-  hint?: string;
-  tone?: "success" | "accent" | "warning" | "danger";
-  active?: boolean;
-  onClick?: () => void;
-}) {
-  const color = tone ? `var(--color-${tone === "accent" ? "primary" : tone === "danger" ? "destructive" : tone})` : undefined;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={onClick ? active : undefined}
-      className={cn(
-        "press glass flex min-w-0 flex-col rounded-2xl p-4 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80",
-        active && "ring-2 ring-primary/50",
-        !onClick && "cursor-default",
-      )}
-    >
-      <span className="truncate text-xs font-medium text-muted-foreground">{label}</span>
-      <span className="tabular mt-1.5 text-2xl font-bold tracking-tight" style={color ? { color } : undefined}>
-        {value}
-      </span>
-      {hint && <span className="mt-0.5 truncate text-xs text-muted-foreground">{hint}</span>}
-    </button>
-  );
-}
 
 /** Lista de vehículos: indicadores que filtran, búsqueda, filtros por modo y estado, y una fila por vehículo. */
 export function FleetBoard({ vehicles, summary }: { vehicles: Vehicle[]; summary: FleetSummary }) {
@@ -81,45 +46,43 @@ export function FleetBoard({ vehicles, summary }: { vehicles: Vehicle[]; summary
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Tile label="Disponibilidad" value={`${summary.availability_pct.toLocaleString("es-CO")} %`} hint={`${summary.total} vehículos en flota`} />
-        <Tile label="Disponibles" value={bs["Disponible"] + bs["Reservado"]} hint="Listos o reservados" tone="success"
-          active={only(["Disponible", "Reservado"])} onClick={() => set(["Disponible", "Reservado"])} />
-        <Tile label="En ruta" value={bs["En ruta"]} hint="Llevando un envío" tone="accent" active={only(["En ruta"])} onClick={() => set(["En ruta"])} />
-        <Tile label="En mantenimiento" value={bs["En mantenimiento"]} hint="En el taller" tone="warning"
-          active={only(["En mantenimiento"])} onClick={() => set(["En mantenimiento"])} />
-        <Tile label="Sin poder operar" value={blocked} hint="Falla o servicio vencido" tone={blocked ? "danger" : undefined}
-          active={only(["Inhabilitado", "Mantenimiento vencido"])} onClick={() => set(["Inhabilitado", "Mantenimiento vencido"])} />
-        <Tile label="Mantenimiento próximo" value={summary.maintenance_due.filter((m) => m.state === "Próximo").length}
-          hint="Vencen pronto" tone="warning" />
-      </div>
+      <StatStrip
+        items={[
+          { label: "Disponibilidad", value: `${summary.availability_pct.toLocaleString("es-CO")} %`, hint: `${summary.total} vehículos en flota` },
+          { label: "Disponibles", value: bs["Disponible"] + bs["Reservado"], hint: "Listos o reservados", active: only(["Disponible", "Reservado"]), onClick: () => set(["Disponible", "Reservado"]) },
+          { label: "En ruta", value: bs["En ruta"], hint: "Llevando un envío", active: only(["En ruta"]), onClick: () => set(["En ruta"]) },
+          { label: "En mantenimiento", value: bs["En mantenimiento"], hint: "En el taller", tone: bs["En mantenimiento"] ? "warning" : undefined, active: only(["En mantenimiento"]), onClick: () => set(["En mantenimiento"]) },
+          { label: "Sin poder operar", value: blocked, hint: "Falla o servicio vencido", tone: blocked ? "danger" : undefined, active: only(["Inhabilitado", "Mantenimiento vencido"]), onClick: () => set(["Inhabilitado", "Mantenimiento vencido"]) },
+          { label: "Mantenimiento próximo", value: summary.maintenance_due.filter((m) => m.state === "Próximo").length, hint: "Vencen pronto" },
+        ]}
+      />
 
       <div className="flex flex-wrap items-center gap-3">
-        <label className="relative flex h-9 w-full max-w-xs items-center">
+        <label className="relative flex h-10 w-full max-w-xs items-center">
           <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" aria-hidden />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar placa, tipo, bodega o conductor"
             aria-label="Buscar vehículos"
-            className="h-9 w-full rounded-md border border-input bg-fill/50 pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground/70"
+            className="h-10 w-full field pr-3 pl-9 text-sm outline-none"
           />
         </label>
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrar por modo">
+        <div className="chip-scroll flex flex-wrap gap-1" role="group" aria-label="Filtrar por modo">
           {MODE_ORDER.map((m) => {
             const on = modes.includes(m);
             const { icon: Icon, color, label } = MODES[m];
             return (
               <button key={m} type="button" onClick={() => setModes(toggle(modes, m))} aria-pressed={on} title={label}
                 className={cn("press flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors", on ? "text-foreground" : "border-border text-muted-foreground")}
-                style={on ? { borderColor: `${color}66`, backgroundColor: `${color}1a` } : undefined}>
+                style={on ? { borderColor: tint(color, 45), backgroundColor: tint(color, 12) } : undefined}>
                 <Icon className="size-3.5" style={{ color }} aria-hidden />
                 {label}
               </button>
             );
           })}
         </div>
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrar por estado">
+        <div className="chip-scroll flex flex-wrap gap-1" role="group" aria-label="Filtrar por estado">
           {STATUS_ORDER.map((s) => {
             const on = statuses.includes(s);
             const { icon: Icon } = VEHICLE_STATUS[s];
@@ -151,16 +114,23 @@ export function FleetBoard({ vehicles, summary }: { vehicles: Vehicle[]; summary
         {list.length} de {vehicles.length} vehículos
       </p>
 
-      <ul className="flex flex-col gap-2">
+      <ul className="glass rule-list overflow-hidden rounded-3xl">
         {list.length === 0 && (
-          <li className="glass rounded-3xl p-8 text-center text-sm text-muted-foreground">Ningún vehículo coincide con la búsqueda y los filtros.</li>
+          <li>
+            <EmptyState
+              title="Ningún vehículo coincide"
+              description="Prueba con otra placa, otro modo o quita los filtros."
+              action={hasFilters ? { label: "Quitar filtros", onClick: () => { setQuery(""); setModes([]); setStatuses([]); setOnlyAlerts(false); } } : undefined}
+            />
+          </li>
         )}
         {list.map((v) => (
           <li key={v.id}>
             <Link
               href={`/flota/${v.id}`}
+              data-ripple
               className={cn(
-                "press glass grid items-center gap-3 rounded-2xl p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80",
+                "row-link grid gap-3 px-5 py-3.5",
                 "md:grid-cols-[minmax(0,1.5fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto]",
                 v.retired && "opacity-70",
               )}

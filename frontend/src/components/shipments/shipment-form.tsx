@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { SaveIcon, useSavedFlash } from "@/components/ui/save-icon";
 import { toast } from "@/components/ui/toast";
 import { api } from "@/lib/client";
-import { MODE_ORDER, MODES, PRIORITIES } from "@/lib/modes";
+import { MODE_ORDER, MODES, PRIORITIES, tint } from "@/lib/modes";
 import { EASE } from "@/lib/motion";
 import type { CityOption, Corridor, Footprint, Mode, Priority, RouteResult, Shipment } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -199,7 +199,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
   }, [corridors, corridorQuery, draft.forced_corridors]);
 
   const input =
-    "h-9 w-full rounded-md border border-input bg-fill/50 px-3 text-sm outline-none focus:border-primary/40 [&>option]:bg-card";
+    "h-10 w-full field px-3 text-sm outline-none [&>option]:bg-card";
 
   return (
     <form ref={formRef} onSubmit={save} noValidate className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
@@ -269,7 +269,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
                 <button key={m} type="button" onClick={() => toggleMode(m)} aria-pressed={on}
                   className={cn("flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors",
                     on ? "text-foreground" : "border-border text-muted-foreground hover:text-foreground")}
-                  style={on ? { borderColor: `${color}66`, backgroundColor: `${color}1a` } : undefined}>
+                  style={on ? { borderColor: tint(color, 45), backgroundColor: tint(color, 12) } : undefined}>
                   <Icon className="size-3.5" style={{ color }} />
                   {label}
                 </button>
@@ -371,7 +371,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
             </div>
             <ol className="flex flex-col gap-1.5">
               {preview.legs.map((l, i) => (
-                <li key={i} className="flex gap-2 rounded-md border border-border bg-fill/50 p-2.5 text-xs">
+                <li key={i} className="flex gap-2 rounded-xl bg-fill/60 p-2.5 text-xs">
                   <ModeIcon mode={l.mode} />
                   <div className="min-w-0">
                     <div className="truncate font-medium">{l.from.name} → {l.to.name}</div>
@@ -420,7 +420,7 @@ function Field({
 
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-md border border-border bg-fill/50 p-2.5">
+    <div className="rounded-xl bg-fill/60 p-2.5">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground [&_svg]:size-3">
         {icon}
         {label}

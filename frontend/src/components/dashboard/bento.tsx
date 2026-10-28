@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Maximize2 } from "lucide-react";
 import { motion, type HTMLMotionProps } from "framer-motion";
 import { EASE as ease, hoverLift } from "@/lib/motion";
@@ -12,7 +11,7 @@ export function BentoGrid({ className, children }: { className?: string; childre
     <motion.div
       initial="hidden"
       animate="show"
-      variants={{ show: { transition: { staggerChildren: 0.05 } } }}
+      variants={{ show: { transition: { staggerChildren: 0.03 } } }}
       className={cn("grid grid-cols-2 gap-3 md:grid-cols-6 md:gap-4 xl:grid-cols-12", className)}
     >
       {children}
@@ -20,9 +19,10 @@ export function BentoGrid({ className, children }: { className?: string; childre
   );
 }
 
+// Entrada breve: la página carga para trabajar, no para ver una coreografía
 const cellVariants = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease } },
+  hidden: { opacity: 0, y: 6 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease } },
 };
 
 /** Panel principal del dashboard: vidrio de 24 px de radio. */
@@ -31,7 +31,6 @@ export function BentoCell({
   children,
   title,
   description,
-  icon,
   action,
   onOpen,
   ...props
@@ -40,8 +39,6 @@ export function BentoCell({
   onOpen?: () => void;
   title?: string;
   description?: string;
-  /** Elemento ya renderizado (ej. <Radio />): los Server Components no pueden pasar componentes. */
-  icon?: React.ReactNode;
   action?: React.ReactNode;
 }) {
   return (
@@ -64,23 +61,17 @@ export function BentoCell({
         : {})}
       className={cn(
         "glass relative col-span-2 flex flex-col overflow-hidden rounded-3xl outline-none md:col-span-1",
-        onOpen && "cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/80",
+        onOpen && "lift cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/80",
         className,
       )}
       {...props}
     >
       {(title || action) && (
         <header className="flex items-start justify-between gap-3 px-5 pt-5 pb-4">
-          <div className="flex min-w-0 items-center gap-2.5">
-            {icon && (
-              <span className="flex size-7 items-center justify-center rounded-md bg-fill text-muted-foreground [&_svg]:size-4">
-                {icon}
-              </span>
-            )}
-            <div className="min-w-0">
-              <h2 className="truncate text-[0.9375rem] font-semibold tracking-tight">{title}</h2>
-              {description && <p className="truncate text-xs text-muted-foreground">{description}</p>}
-            </div>
+          {/* El título habla solo: sin ícono en recuadro (el ícono decorativo convierte cada panel en una plantilla) */}
+          <div className="min-w-0">
+            <h2 className="truncate text-[0.9375rem] font-semibold tracking-[-0.01em]">{title}</h2>
+            {description && <p className="mt-0.5 truncate text-[13px] text-muted-foreground">{description}</p>}
           </div>
           {action}
           {onOpen && !action && (
@@ -95,55 +86,3 @@ export function BentoCell({
   );
 }
 
-const MotionLink = motion.create(Link);
-
-/**
- * Tarjeta KPI. El color del ícono solo aparece cuando el KPI corresponde a un
- * estado (verde = en ruta, naranja = transbordo); el resto va en gris neutro.
- */
-export function KpiCard({
-  label,
-  value,
-  icon,
-  accent,
-  footnote,
-  className,
-  href,
-}: {
-  /** Destino al pulsar la tarjeta (lista filtrada, detalle…). */
-  href?: string;
-  label: string;
-  value: React.ReactNode;
-  /** Elemento ya renderizado (ej. <Gauge />). */
-  icon: React.ReactNode;
-  /** Color de estado opcional (variable CSS). */
-  accent?: string;
-  footnote?: React.ReactNode;
-  className?: string;
-}) {
-  const Comp = href ? MotionLink : motion.div;
-  return (
-    <Comp
-      {...(href ? { href } : {})}
-      variants={cellVariants}
-      whileHover={hoverLift}
-      className={cn(
-        "glass relative col-span-1 block rounded-2xl p-4 outline-none md:p-5",
-        href && "cursor-pointer focus-visible:ring-[3px] focus-visible:ring-ring/80",
-        className,
-      )}
-    >
-      <div className="flex items-start justify-between">
-        <span className="text-xs font-medium text-muted-foreground md:text-sm">{label}</span>
-        <span
-          className="hidden size-8 shrink-0 items-center justify-center rounded-full bg-fill text-muted-foreground sm:flex [&_svg]:size-4"
-          style={accent ? { color: accent, backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)` } : undefined}
-        >
-          {icon}
-        </span>
-      </div>
-      <div className="tabular mt-2 text-2xl font-bold tracking-tight md:mt-3 md:text-3xl">{value}</div>
-      {footnote && <div className="mt-1 text-xs text-muted-foreground md:mt-1.5 md:text-sm">{footnote}</div>}
-    </Comp>
-  );
-}

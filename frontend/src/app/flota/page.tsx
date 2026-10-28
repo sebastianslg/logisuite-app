@@ -15,7 +15,7 @@ export const metadata = { title: "Flota" };
 
 export default function FlotaPage({ searchParams }: PageProps<"/flota">) {
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="page">
       <PageHeader
         title="Flota de vehículos"
         description="Camiones, aviones de carga, convoyes, buques y trenes de la operación: su estado, cuánto falta para su mantenimiento, sus fallas y los envíos que llevan. Un vehículo con una falla que impide operar se inhabilita solo y sus envíos pasan a otro."
@@ -23,7 +23,7 @@ export default function FlotaPage({ searchParams }: PageProps<"/flota">) {
           <BurstLink href="/flota/nuevo"><Plus /> Nuevo vehículo</BurstLink>
         }
       />
-      <Suspense fallback={<Skeleton className="mt-8 h-[640px]" />}>
+      <Suspense fallback={<Skeleton className="h-[640px]" />}>
         <Content searchParams={searchParams} />
       </Suspense>
     </div>
@@ -40,7 +40,7 @@ async function Content({ searchParams }: { searchParams: PageProps<"/flota">["se
   };
   return (
     <>
-      <div className="mt-6"><FleetTabs current={tab} badges={badges} /></div>
+      <div><FleetTabs current={tab} badges={badges} /></div>
       <div className="mt-6">
         {tab === "vehiculos" && <Vehicles summary={summary} />}
         {tab === "mantenimiento" && <Maintenances summary={summary} />}

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
+import { EmptyState } from "@/components/ui/empty-state";
+
 import { Badge } from "@/components/ui/badge";
 import type { WarehouseTransfer } from "@/lib/types";
 
@@ -12,14 +14,19 @@ const dt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("es-CO", 
 export function TransfersBoard({ transfers }: { transfers: WarehouseTransfer[] }) {
   const tone = { "En tránsito": "warning", Recibido: "success", Cancelado: "neutral" } as const;
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="glass rule-list overflow-hidden rounded-3xl">
       {transfers.length === 0 && (
-        <li className="glass rounded-3xl p-8 text-center text-sm text-muted-foreground">
-          Todavía no hay traslados. Abre una bodega, elige un producto y pulsa “Trasladar”: si la otra bodega está en otra ciudad, se crea un envío por la red.
+        <li>
+          <EmptyState
+            figure="0"
+            title="Todavía no hay traslados"
+            description="Abre una bodega, elige un producto y pulsa “Trasladar”: si la otra bodega está en otra ciudad, se crea un envío por la red."
+            action={{ label: "Ver bodegas", href: "/bodegas" }}
+          />
         </li>
       )}
       {transfers.map((t) => (
-        <li key={t.transfer_id} className="glass rounded-2xl p-4">
+        <li key={t.transfer_id} className="px-5 py-4">
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <Link href={`/bodegas/${t.from_wh}`} className="font-medium hover:text-primary">{t.from_name}</Link>
             <ArrowRight className="size-4 text-muted-foreground" aria-hidden />

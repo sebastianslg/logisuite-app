@@ -24,7 +24,7 @@ function dayLabel(iso: string): string {
 function Row({ m }: { m: Maintenance & { code?: string; vehicle_type?: string } }) {
   return (
     <li>
-      <Link href={`/flota/${m.vehicle_id}`} className="press glass flex items-center gap-3 rounded-2xl p-3 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80">
+      <Link href={`/flota/${m.vehicle_id}`} data-ripple className="row-link">
         {m.mode && <ModeIcon mode={m.mode} className="size-8" />}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -61,17 +61,17 @@ export function MaintenanceBoard({ items, due }: { items: Maintenance[]; due: Fl
       <div className="flex flex-col gap-6">
         <section aria-labelledby="m-curso">
           <h2 id="m-curso" className="mb-2 flex items-center gap-2 px-1 text-sm font-semibold"><Wrench className="size-4 text-warning" aria-hidden /> En el taller ahora ({ongoing.length})</h2>
-          {ongoing.length === 0 ? <p className="glass rounded-2xl p-4 text-sm text-muted-foreground">Ningún vehículo está en el taller en este momento.</p>
-            : <ul className="flex flex-col gap-2">{ongoing.map((m) => <Row key={m.maint_id} m={m} />)}</ul>}
+          {ongoing.length === 0 ? <p className="glass rounded-3xl px-5 py-4 text-sm text-muted-foreground">Ningún vehículo está en el taller en este momento.</p>
+            : <ul className="glass rule-list overflow-hidden rounded-3xl">{ongoing.map((m) => <Row key={m.maint_id} m={m} />)}</ul>}
         </section>
         <section aria-labelledby="m-prog">
           <h2 id="m-prog" className="mb-2 flex items-center gap-2 px-1 text-sm font-semibold"><CalendarClock className="size-4 text-primary" aria-hidden /> Programados ({planned.length})</h2>
-          {planned.length === 0 ? <p className="glass rounded-2xl p-4 text-sm text-muted-foreground">No hay mantenimientos programados. Abre un vehículo y pulsa “Programar mantenimiento”.</p> : (
+          {planned.length === 0 ? <p className="glass rounded-3xl px-5 py-4 text-sm text-muted-foreground">No hay mantenimientos programados. Abre un vehículo y pulsa “Programar mantenimiento”.</p> : (
             <div className="flex flex-col gap-4">
               {Object.entries(byDay).map(([day, list]) => (
                 <div key={day}>
                   <h3 className="mb-1.5 px-1 text-xs font-semibold text-muted-foreground capitalize">{dayLabel(day)}</h3>
-                  <ul className="flex flex-col gap-2">{list.map((m) => <Row key={m.maint_id} m={m} />)}</ul>
+                  <ul className="glass rule-list overflow-hidden rounded-3xl">{list.map((m) => <Row key={m.maint_id} m={m} />)}</ul>
                 </div>
               ))}
             </div>
@@ -80,7 +80,7 @@ export function MaintenanceBoard({ items, due }: { items: Maintenance[]; due: Fl
         {done.length > 0 && (
           <section aria-labelledby="m-hist">
             <h2 id="m-hist" className="mb-2 px-1 text-sm font-semibold">Terminados recientemente</h2>
-            <ul className="flex flex-col gap-2">{done.map((m) => <Row key={m.maint_id} m={m} />)}</ul>
+            <ul className="glass rule-list overflow-hidden rounded-3xl">{done.map((m) => <Row key={m.maint_id} m={m} />)}</ul>
           </section>
         )}
       </div>

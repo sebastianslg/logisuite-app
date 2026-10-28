@@ -256,9 +256,9 @@ export function VehicleDetailView({ vehicle: v }: { vehicle: VehicleDetail }) {
             {v.faults.length === 0 ? (
               <p className="text-sm text-muted-foreground">Sin fallas registradas. Si algo falla, repórtalo aquí: si impide operar, el vehículo se inhabilita y sus envíos pasan a otro.</p>
             ) : (
-              <ul className="flex flex-col gap-2">
+              <ul className="rule-list -mx-5 -mb-5 border-t border-border">
                 {[...openFaults, ...closedFaults].map((f) => (
-                  <li key={f.fault_id} className={cn("rounded-2xl border p-3", f.status === "Resuelta" ? "border-border opacity-80" : f.blocks_operation ? "border-destructive/30 bg-destructive/[0.04]" : "border-warning/30")}>
+                  <li key={f.fault_id} className={cn("px-5 py-3.5", f.status === "Resuelta" ? "opacity-80" : f.blocks_operation && "bg-destructive/[0.04]")}>
                     <div className="flex flex-wrap items-center gap-2">
                       <SeverityBadge severity={f.severity} />
                       <span className="text-sm font-medium">{f.category}</span>
@@ -300,9 +300,9 @@ export function VehicleDetailView({ vehicle: v }: { vehicle: VehicleDetail }) {
             {v.maintenance.length === 0 ? (
               <p className="text-sm text-muted-foreground">Sin mantenimientos registrados.</p>
             ) : (
-              <ul className="flex flex-col gap-2">
+              <ul className="rule-list -mx-5 -mb-5 border-t border-border">
                 {[...activeMaint, ...doneMaint].map((m) => (
-                  <li key={m.maint_id} className="rounded-2xl border border-border p-3">
+                  <li key={m.maint_id} className="px-5 py-3.5">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={m.kind === "Correctivo" ? "warning" : "info"}><Wrench aria-hidden />{m.kind}</Badge>
                       <Badge tone={m.status === "En curso" ? "warning" : m.status === "Programado" ? "accent" : m.status === "Completado" ? "success" : "neutral"}>{m.status}</Badge>

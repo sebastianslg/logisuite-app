@@ -30,7 +30,7 @@ export function GroupBlock({
           onClick={onToggle}
           aria-expanded={open}
           className={cn(
-            "press flex w-full items-center gap-2 rounded-xl bg-background/85 px-3 py-2 text-left text-sm font-semibold backdrop-blur-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80",
+            "flex w-full items-center gap-2 rounded-xl bg-background/90 px-3 py-2.5 text-left text-sm font-semibold backdrop-blur-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80",
             danger ? "text-destructive" : "text-foreground",
           )}
         >
@@ -43,7 +43,7 @@ export function GroupBlock({
           <span className="tabular ml-auto text-xs font-medium text-muted-foreground">{count}</span>
         </button>
       </h3>
-      {open && <ul className="mt-1 mb-3 flex flex-col gap-2">{children}</ul>}
+      {open && <ul className="glass rule-list mt-1 mb-4 overflow-hidden rounded-3xl">{children}</ul>}
     </li>
   );
 }

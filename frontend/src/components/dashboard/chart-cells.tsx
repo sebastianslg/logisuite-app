@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BarChart3, PieChart, Route } from "lucide-react";
 
 import { BentoCell } from "@/components/dashboard/bento";
 import { DispatchTrend, ModalSplit, TopCorridors } from "@/components/dashboard/charts";
@@ -35,7 +34,6 @@ export function ModalSplitCell({
         className={className}
         title="Reparto modal"
         description="Toneladas-kilómetro movidas por modo"
-        icon={<PieChart />}
         onOpen={() => setOpen(true)}
       >
         <ModalSplit data={data} />
@@ -110,7 +108,7 @@ export function DispatchCell({ data, className }: { data: DashboardSummary["disp
   const max = Math.max(1, ...data.map((d) => d.count));
   return (
     <>
-      <BentoCell className={className} title="Despachos" icon={<BarChart3 />} onOpen={() => setOpen(true)}>
+      <BentoCell className={className} title="Despachos" onOpen={() => setOpen(true)}>
         <DispatchTrend data={data} />
       </BentoCell>
       <Sheet open={open} onClose={() => setOpen(false)} title="Despachos" description="Últimos 14 días">
@@ -165,7 +163,6 @@ export function CorridorsCell({
         className={className}
         title="Corredores más cargados"
         description="Toneladas en los últimos despachos"
-        icon={<Route />}
         onOpen={() => setOpen(true)}
       >
         <TopCorridors data={top} />

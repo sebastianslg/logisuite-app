@@ -23,26 +23,30 @@ export function ModalSplit({ data }: { data: DashboardSummary["modal_split"] }) 
   return (
     <div className="flex flex-col gap-5 px-5 pb-5">
       <div className="relative" onMouseLeave={() => setHover(null)}>
-        <div className="flex h-3 w-full gap-0.5 overflow-hidden rounded">
+        {/* La barra entera crece desde la izquierda (transform); los segmentos tienen su ancho fijo */}
+        <motion.div
+          className="flex h-2.5 w-full origin-left gap-0.5 overflow-hidden rounded-full"
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: 0.8, delay: 0.1, ease }}
+        >
           {rows.map((r, i) => (
-            <motion.div
+            <div
               key={r.mode}
-              initial={{ width: 0 }}
-              animate={{ width: `${r.share_pct}%` }}
-              transition={{ duration: 0.8, delay: 0.1 + i * 0.05, ease }}
               onMouseEnter={(e) => {
                 const box = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
                 const seg = e.currentTarget.getBoundingClientRect();
                 setHover({ i, x: seg.left - box.left + seg.width / 2 });
               }}
-              className="h-full min-w-[3px] first:rounded-l last:rounded-r transition-opacity"
+              className="h-full min-w-[3px] transition-opacity duration-200"
               style={{
+                width: `${r.share_pct}%`,
                 backgroundColor: MODES[r.mode].color,
                 opacity: hover && hover.i !== i ? 0.45 : 1,
               }}
             />
           ))}
-        </div>
+        </motion.div>
         <ChartTooltip open={!!hover} x={hover?.x ?? 0} y={0}>
           {hover && (
             <>
@@ -94,11 +98,12 @@ export function DispatchTrend({ data }: { data: DashboardSummary["dispatches_14d
             onMouseEnter={() => setHover(i)}
           >
             <motion.div
-              initial={{ height: 0 }}
-              animate={{ height: `${Math.max(4, (d.count / max) * 100)}%` }}
+              initial={{ scaleY: 0 }}
+              animate={{ scaleY: 1 }}
               transition={{ duration: 0.6, delay: i * 0.025, ease }}
-              className="w-full rounded-t-[3px] transition-[opacity,background-color] duration-300 ease-apple"
+              className="w-full origin-bottom rounded-t-[3px] transition-[opacity,background-color] duration-300 ease-apple"
               style={{
+                height: `${Math.max(4, (d.count / max) * 100)}%`,
                 backgroundColor: d.count ? "var(--sys-blue)" : "var(--color-fill)",
                 opacity: hover === null || hover === i ? 1 : 0.4,
               }}
@@ -132,12 +137,12 @@ export function TopCorridors({ data }: { data: DashboardSummary["top_corridors"]
             <span className="truncate text-foreground/80">{d.corridor}</span>
             <span className="tabular shrink-0 text-xs font-medium">{d.tons_fmt}</span>
           </div>
-          <div className="h-1.5 w-full rounded-full bg-fill">
+          <div className="h-1 w-full overflow-hidden rounded-full bg-fill">
             <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${(d.tons / max) * 100}%` }}
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: d.tons / max }}
               transition={{ duration: 0.7, delay: 0.1 + i * 0.05, ease }}
-              className="h-full rounded-full bg-sys-blue"
+              className="h-full w-full origin-left rounded-full bg-sys-blue"
             />
           </div>
         </li>

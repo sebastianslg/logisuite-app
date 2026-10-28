@@ -12,7 +12,7 @@ export const metadata = { title: "Envíos" };
 
 export default function EnviosPage({ searchParams }: PageProps<"/envios">) {
   return (
-    <div className="px-6 py-8 lg:px-10">
+    <div className="page">
       <PageHeader
         title="Envíos multimodales"
         description="Órdenes con su cadena de modos, transbordos, avance en tiempo real y ETA. Crea, edita o borra envíos, selecciona varios para exportarlos a PDF o compartirlos."
@@ -23,7 +23,7 @@ export default function EnviosPage({ searchParams }: PageProps<"/envios">) {
           </BurstLink>
         }
       />
-      <div className="mt-8">
+      <div>
         <Suspense fallback={<Skeleton className="h-[640px]" />}>
           <ShipmentsData searchParams={searchParams} />
         </Suspense>

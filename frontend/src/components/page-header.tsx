@@ -11,17 +11,21 @@ export function PageHeader({
 }) {
   return (
     <Reveal>
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold md:text-[2.125rem] md:leading-tight">{title}</h1>
-          {description && <p className="mt-1.5 line-clamp-2 max-w-2xl text-muted-foreground md:line-clamp-none">{description}</p>}
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 md:mb-10">
+        <div className="min-w-0">
+          <h1 className="text-[2rem] leading-[1.05] font-semibold tracking-[-0.03em] md:text-[2.5rem]">{title}</h1>
+          {description && (
+            <p className="mt-3 line-clamp-2 max-w-[62ch] text-[0.9375rem] leading-relaxed text-muted-foreground md:line-clamp-none">
+              {description}
+            </p>
+          )}
         </div>
-        {actions}
+        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </header>
     </Reveal>
   );
 }
 
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded-3xl bg-fill ${className}`} aria-hidden />;
+  return <div className={`skeleton rounded-3xl ${className}`} aria-hidden />;
 }

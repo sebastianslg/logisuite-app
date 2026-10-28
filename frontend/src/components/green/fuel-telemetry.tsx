@@ -13,8 +13,6 @@ import type { FuelLive } from "@/lib/types";
 import { useLive } from "@/lib/use-live";
 
 const REFRESH_MS = 20_000;
-const MotionLink = motion.create(Link);
-const ROW_LIFT = "0 6px 16px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)";
 
 /** Hook: la telemetría se refresca sola (pausada con la pestaña oculta); si falla, se conserva la última lectura. */
 export function useFuelLive(initial: FuelLive) {
@@ -55,24 +53,23 @@ export function FuelDial({ live }: { live: FuelLive }) {
 export function FuelAssets({ live }: { live: FuelLive }) {
   const assets = live.assets.slice(0, 8);
   return (
-    <div className="flex flex-col gap-3 px-5 pb-5">
-      <ul className="-mx-2.5 flex flex-col">
+    <div className="flex flex-col">
+      <ul className="rule-list border-t border-border">
         <AnimatePresence initial={false}>
           {assets.map((a) => (
             <motion.li
               key={a.shipment_code}
               layout="position"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.5, ease: EASE, layout: T_FAST }}
-              className="overflow-hidden px-2.5"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3, ease: EASE, layout: T_FAST }}
             >
-              <MotionLink
+              <Link
                 href={`/envios/${a.shipment_code}`}
                 aria-label={`${a.id}, ${a.origin} a ${a.destination}. Ver envío ${a.shipment_code}`}
-                whileHover={{ scale: 1.02, y: -2, boxShadow: ROW_LIFT, transition: T_FAST }}
-                className="my-1 flex cursor-pointer items-center gap-3 rounded-2xl bg-fill px-3 py-2.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80"
+                data-ripple
+                className="row-link"
               >
                 <ModeIcon mode={a.mode} />
                 <div className="min-w-0 flex-1">
@@ -87,16 +84,16 @@ export function FuelAssets({ live }: { live: FuelLive }) {
                       {a.burned_l.toLocaleString("es-CO")} / {a.total_l.toLocaleString("es-CO")} L
                     </span>
                   </div>
-                  <EcoBar value={a.burned_pct} max={100} color={MODES[a.mode].color} className="mt-1.5 h-1.5" />
-                  <div className="mt-1 text-xs text-muted-foreground">{a.fuel_type}</div>
+                  <EcoBar value={a.burned_pct} max={100} color={MODES[a.mode].color} className="mt-2 h-[3px]" />
+                  <div className="mt-1.5 text-xs text-muted-foreground">{a.fuel_type}</div>
                 </div>
-              </MotionLink>
+              </Link>
             </motion.li>
           ))}
         </AnimatePresence>
       </ul>
-      <p className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Radio className="size-3" aria-hidden />
+      <p className="flex items-center gap-2 border-t border-border px-5 py-3 text-[13px] text-muted-foreground">
+        <Radio className="size-3.5" aria-hidden />
         {live.count} activos · consumo estimado según tramo recorrido y factor del modo · actualiza cada 20 s
       </p>
     </div>

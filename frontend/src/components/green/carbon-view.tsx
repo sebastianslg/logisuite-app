@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { BarChart3, Cloud, Factory, Info, Leaf, Scale, Wind } from "lucide-react";
 
-import { BentoCell, BentoGrid, KpiCard } from "@/components/dashboard/bento";
+import { BentoCell, BentoGrid } from "@/components/dashboard/bento";
+import { StatStrip } from "@/components/ui/stat-strip";
 import { ChartTooltip } from "@/components/dashboard/chart-tooltip";
 import { ModeFootprintTable } from "@/components/green/mode-footprint-table";
 import { DetailTable } from "@/components/ui/detail-table";
@@ -14,11 +14,8 @@ import { ModeChain } from "@/components/status-badge";
 import { CountUp } from "@/components/ui/count-up";
 import { Dial, EcoBar } from "@/components/ui/dial";
 import { MODES } from "@/lib/modes";
-import { EASE, T_FAST } from "@/lib/motion";
+import { EASE } from "@/lib/motion";
 import type { SustainabilitySummary } from "@/lib/types";
-
-const MotionLink = motion.create(Link);
-const ROW_LIFT = "0 6px 16px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)";
 
 /** Huella de carbono (CO₂e): total, eco-eficiencia frente a carretera, intensidad por modo y mayores emisores. */
 export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
@@ -30,43 +27,21 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
 
   return (
     <BentoGrid>
-      <KpiCard
-        className="md:col-span-3 xl:col-span-3"
-        label={`Huella (${summary.window_days} días)`}
-        value={<CountUp value={t.co2e_kg / 1000} decimals={1} suffix=" t CO₂e" />}
-        icon={<Cloud />}
-        footnote={`${summary.shipments} envíos · ${t.tkm_fmt}`}
-      />
-      <KpiCard
-        className="md:col-span-3 xl:col-span-3"
-        label="Intensidad de carbono"
-        value={<CountUp value={t.intensity_g_tkm} decimals={1} suffix=" g/t-km" />}
-        icon={<Factory />}
-        footnote="CO₂e por tonelada-kilómetro movida"
-      />
-      <KpiCard
-        className="md:col-span-3 xl:col-span-3"
-        href="/envios"
-        label="Frente a todo por carretera"
-        value={<CountUp value={saved} decimals={1} suffix=" %" />}
-        icon={<Scale />}
-        accent={saved >= 0 ? "var(--color-success)" : "var(--color-destructive)"}
-        footnote={saved >= 0 ? `Evita ${t.baseline_co2e_fmt} → emite ${t.co2e_fmt}` : "Emite más que la referencia"}
-      />
-      <KpiCard
-        className="md:col-span-3 xl:col-span-3"
-        href="/combustible"
-        label="Combustible asociado"
-        value={<CountUp value={t.fuel_l} suffix=" L" />}
-        icon={<Wind />}
-        footnote="Derivado de las mismas emisiones"
-      />
+      <div className="col-span-2 md:col-span-6 xl:col-span-12">
+        <StatStrip
+          items={[
+          { label: `Huella (${summary.window_days} días)`, value: <CountUp value={t.co2e_kg / 1000} decimals={1} suffix=" t CO₂e" />, hint: `${summary.shipments} envíos · ${t.tkm_fmt}` },
+          { label: "Intensidad de carbono", value: <CountUp value={t.intensity_g_tkm} decimals={1} suffix=" g/t-km" />, hint: "CO₂e por tonelada-kilómetro movida" },
+          { label: "Frente a todo por carretera", value: <CountUp value={saved} decimals={1} suffix=" %" />, hint: saved >= 0 ? `Evita ${t.baseline_co2e_fmt} → emite ${t.co2e_fmt}` : "Emite más que la referencia", href: "/envios", tone: saved >= 0 ? "success" : "danger" },
+          { label: "Combustible asociado", value: <CountUp value={t.fuel_l} suffix=" L" />, hint: "Derivado de las mismas emisiones", href: "/combustible" },
+          ]}
+        />
+      </div>
 
       <BentoCell
         className="md:col-span-6 xl:col-span-4"
         title="Eco-eficiencia"
         description="Menos CO₂e que mover todo por camión"
-        icon={<Leaf />}
         onOpen={() => setSheet("eco")}
       >
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-5 pb-6">
@@ -90,7 +65,6 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
         className="md:col-span-3 xl:col-span-4"
         title="Intensidad por modo"
         description="g de CO₂e por tonelada-kilómetro"
-        icon={<BarChart3 />}
         onOpen={() => setSheet("modes")}
       >
         <ul className="flex flex-col gap-4 px-5 pb-5">
@@ -116,7 +90,6 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
         className="md:col-span-3 xl:col-span-4"
         title="Emisiones por modo"
         description="Participación en el total"
-        icon={<Cloud />}
         onOpen={() => setSheet("modes")}
       >
         <ul className="flex flex-col gap-4 px-5 pb-5">
@@ -143,7 +116,6 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
         className="md:col-span-6 xl:col-span-7"
         title="Emisiones por día"
         description="kg de CO₂e por fecha de despacho, 14 días"
-        icon={<BarChart3 />}
         onOpen={() => setSheet("days")}
       >
         <Co2Trend data={summary.co2e_14d} />
@@ -153,16 +125,15 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
         className="md:col-span-6 xl:col-span-5"
         title="Mayores emisores"
         description="Envíos con más CO₂e"
-        icon={<Factory />}
       >
-        <ul className="-mx-2.5 flex flex-col px-5 pb-4">
+        <ul className="rule-list border-t border-border">
           {summary.top_emitters.map((e) => (
-            <li key={e.code} className="px-0">
-              <MotionLink
+            <li key={e.code}>
+              <Link
                 href={`/envios/${e.code}`}
                 aria-label={`${e.route}, ${e.co2e_fmt} de CO₂e. Ver envío ${e.code}`}
-                whileHover={{ scale: 1.02, y: -2, boxShadow: ROW_LIFT, transition: T_FAST }}
-                className="my-1 flex cursor-pointer items-center gap-3 rounded-2xl bg-fill px-3 py-2.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80"
+                data-ripple
+                className="row-link"
               >
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{e.route}</div>
@@ -175,7 +146,7 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
                   <div className="text-sm font-semibold">{e.co2e_fmt} CO₂e</div>
                   <div className="text-xs text-muted-foreground">{e.fuel_fmt}</div>
                 </div>
-              </MotionLink>
+              </Link>
             </li>
           ))}
         </ul>
@@ -185,7 +156,6 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
         className="md:col-span-6 xl:col-span-12"
         title="Cómo se calcula"
         description="Transparencia del método"
-        icon={<Info />}
       >
         <div className="px-5 pb-5 text-sm text-muted-foreground">
           <p>{summary.method.note}</p>
@@ -250,11 +220,12 @@ function Co2Trend({ data }: { data: SustainabilitySummary["co2e_14d"] }) {
         {data.map((d, i) => (
           <div key={d.date} className="relative flex h-full flex-1 items-end" onMouseEnter={() => setHover(i)}>
             <motion.div
-              initial={{ height: 0 }}
-              animate={{ height: `${Math.max(3, (d.co2e_kg / max) * 100)}%` }}
+              initial={{ scaleY: 0 }}
+              animate={{ scaleY: 1 }}
               transition={{ duration: 0.8, delay: i * 0.03, ease: EASE }}
-              className="w-full rounded-t-[4px] transition-[opacity] duration-300 ease-apple"
+              className="w-full origin-bottom rounded-t-[4px] transition-[opacity] duration-300 ease-apple"
               style={{
+                height: `${Math.max(3, (d.co2e_kg / max) * 100)}%`,
                 backgroundColor: d.co2e_kg ? "var(--sys-blue)" : "var(--fill)",
                 opacity: hover === null || hover === i ? 1 : 0.4,
               }}

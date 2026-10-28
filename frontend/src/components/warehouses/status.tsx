@@ -85,9 +85,9 @@ export function OccupancyBar({ pct, className, label = true }: { pct: number; cl
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(pct)}
-        className="h-2 overflow-hidden rounded-full bg-fill"
+        className="h-1 overflow-hidden rounded-full bg-fill"
       >
-        <div className="h-full rounded-full transition-[width] duration-500 ease-apple" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
+        <div className="h-full w-full origin-left rounded-full transition-transform duration-500 ease-apple" style={{ transform: `scaleX(${Math.min(pct, 100) / 100})`, backgroundColor: color }} />
       </div>
       {label && <div className="tabular mt-1 text-xs text-muted-foreground">{pct.toLocaleString("es-CO")} % ocupada</div>}
     </div>

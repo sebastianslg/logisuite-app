@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, LoaderCircle, Save } from "lucide-react";
+import { Check, Save } from "lucide-react";
 
 import { EASE } from "@/lib/motion";
 
 export type SaveState = "idle" | "busy" | "done";
 
 /**
- * Ícono del botón Guardar: disquete en reposo, giro mientras guarda y, al guardar con éxito, cambia a
+ * Ícono del botón Guardar: disquete en reposo, un punto que respira mientras guarda y, al guardar con éxito, cambia a
  * Check con escala y fundido (250 ms). Con "Reducir movimiento" el cambio es un fundido simple.
  */
 export function SaveIcon({ state }: { state: SaveState }) {
@@ -24,7 +24,14 @@ export function SaveIcon({ state }: { state: SaveState }) {
           exit={{ opacity: 0, scale: 0.5 }}
           transition={{ duration: 0.25, ease: EASE }}
         >
-          {state === "busy" ? <LoaderCircle className="animate-spin" /> : state === "done" ? <Check /> : <Save />}
+          {state === "busy" ? (
+            // Guardando: un punto que respira, más calmado que un giro
+            <span className="size-2 rounded-full bg-current [animation:breathe_1.2s_var(--ease-apple)_infinite] motion-reduce:animate-none" />
+          ) : state === "done" ? (
+            <Check />
+          ) : (
+            <Save />
+          )}
         </motion.span>
       </AnimatePresence>
     </span>

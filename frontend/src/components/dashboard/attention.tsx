@@ -4,7 +4,7 @@ import { ChevronRight, CircleCheck, CircleOff, Clock, PackageX, Route, TrafficCo
 import type { DashboardSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type Item = {
+export type AlertItem = {
   key: string;
   href: string;
   icon: React.ReactNode;
@@ -27,10 +27,10 @@ const codes = (list: string[], max = 4) => (
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-/** Lo que requiere una decisión ahora: cierres, envíos sin ruta, redirigidos y retrasados, cada uno con su destino. */
-export function Attention({ alerts }: { alerts: DashboardSummary["alerts"] }) {
+/** Lo que requiere una decisión ahora, en orden: primero lo que impide operar (rojo), luego los avisos. */
+export function buildAlertItems(alerts: DashboardSummary["alerts"]): AlertItem[] {
   const { closed_corridors: corridors, closed_nodes: nodes, no_route: noRoute, rerouted, delayed } = alerts;
-  const items: Item[] = [];
+  const items: AlertItem[] = [];
   const fleet = alerts.fleet;
   const wh = alerts.warehouses;
   if (fleet && fleet.disabled + fleet.in_shop > 0)
@@ -82,41 +82,67 @@ export function Attention({ alerts }: { alerts: DashboardSummary["alerts"] }) {
       detail: delayed.slice(0, 2).map((d) => `${d.origin} → ${d.destination} (+${d.delay_fmt})`).join(" · "),
     });
 
+  return [...items.filter((i) => i.tone === "danger"), ...items.filter((i) => i.tone === "warning")];
+}
+
+/** Filas de alertas (resumen y panel de avisos del dock): ícono del color del estado, título, detalle y destino. */
+export function AlertRows({ items, columns = false, onNavigate }: { items: AlertItem[]; columns?: boolean; onNavigate?: () => void }) {
+  return (
+    <ul className={cn("-mt-px -ml-px grid grid-cols-[minmax(0,1fr)]", columns && "md:grid-cols-2 xl:grid-cols-3")}>
+      {items.map((it) => (
+        <li key={it.key} className="min-w-0 border-t border-l border-border">
+          <Link
+            href={it.href}
+            onClick={onNavigate}
+            data-ripple
+            className="group/alert flex min-h-16 items-center gap-3.5 px-5 py-3.5 outline-none transition-colors duration-200 hover:bg-[color-mix(in_srgb,var(--card)_96%,var(--foreground))] focus-visible:ring-[3px] focus-visible:ring-ring/80 focus-visible:ring-inset"
+          >
+            <span
+              className={cn(
+                "flex size-8 shrink-0 items-center justify-center rounded-full [&_svg]:size-4",
+                it.tone === "danger" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning",
+              )}
+              aria-hidden
+            >
+              {it.icon}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">{it.title}</span>
+              <span className="block truncate text-[13px] text-muted-foreground">{it.detail}</span>
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover/alert:translate-x-0.5 motion-reduce:transition-none" aria-hidden />
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Bloque del resumen: lo que requiere una decisión ahora, cada cosa con su destino. */
+export function Attention({ alerts }: { alerts: DashboardSummary["alerts"] }) {
+  const items = buildAlertItems(alerts);
   if (items.length === 0)
     return (
-      <p role="status" className="mb-4 flex items-center gap-2 rounded-2xl bg-fill px-4 py-3 text-sm text-muted-foreground">
+      <p role="status" className="glass mb-6 flex items-center gap-2.5 rounded-3xl px-5 py-4 text-sm text-muted-foreground">
         <CircleCheck className="size-4 shrink-0 text-success" aria-hidden />
         Todo en orden: sin cierres, envíos sin ruta ni retrasos.
       </p>
     );
-
+  const urgent = items.filter((i) => i.tone === "danger").length;
   return (
-    <section aria-labelledby="atencion" className="mb-4">
-      <h2 id="atencion" className="mb-2 px-1 text-sm font-semibold text-muted-foreground">
-        Requiere atención
-      </h2>
-      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2 md:grid-cols-2 xl:grid-cols-3">
-        {items.map((it) => (
-          <li key={it.key} className="min-w-0">
-            <Link
-              href={it.href}
-              className={cn(
-                "press flex min-h-14 items-center gap-3 rounded-2xl px-4 py-3 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80",
-                it.tone === "danger" ? "bg-destructive/12 hover:bg-destructive/16" : "bg-warning/12 hover:bg-warning/16",
-              )}
-            >
-              <span className={cn("shrink-0 [&_svg]:size-5", it.tone === "danger" ? "text-destructive" : "text-warning")} aria-hidden>
-                {it.icon}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold">{it.title}</span>
-                <span className="block truncate text-xs text-muted-foreground">{it.detail}</span>
-              </span>
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-            </Link>
-          </li>
-        ))}
-      </ul>
+    <section aria-labelledby="atencion" className="mb-6">
+      <div className="mb-3 flex items-baseline gap-2 px-1">
+        <h2 id="atencion" className="text-[0.9375rem] font-semibold">
+          Requiere atención
+        </h2>
+        <span className="tabular text-[13px] text-muted-foreground">
+          {urgent > 0 ? `${urgent} ${urgent === 1 ? "urgente" : "urgentes"} · ` : ""}
+          {items.length} en total
+        </span>
+      </div>
+      <div className="glass overflow-hidden rounded-3xl">
+        <AlertRows items={items} columns />
+      </div>
     </section>
   );
 }

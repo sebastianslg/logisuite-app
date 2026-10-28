@@ -76,9 +76,9 @@ export function DriversBoard({ drivers }: { drivers: Driver[] }) {
         <Button size="sm" onClick={() => open("new")}><Plus /> Nuevo conductor</Button>
       </div>
       {error && !editing && <ErrorBanner message={error} />}
-      <ul className="grid gap-2 md:grid-cols-2">
+      <ul className="glass -ml-px grid overflow-hidden rounded-3xl md:grid-cols-2">
         {drivers.map((d) => (
-          <li key={d.driver_id} className="glass flex items-center gap-3 rounded-2xl p-4">
+          <li key={d.driver_id} className="-mt-px flex items-center gap-3 border-t border-l border-border px-5 py-4">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-fill text-muted-foreground"><UserRound className="size-4" aria-hidden /></span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
