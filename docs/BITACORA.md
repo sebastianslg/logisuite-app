@@ -2,7 +2,7 @@
 
 Registro de todo lo construido, investigado, decidido y pendiente hasta hoy.
 Rama de trabajo: `main` (la rama de sesión `claude/vigilant-johnson-mofqyc` queda igual a `main`).
-Última actualización: 28 de octubre de 2026 (rendimiento, pulido profesional, avisos, historial, Excel, pruebas de navegador, CI y despliegue automático; secciones 9 y 11).
+Última actualización: 28 de octubre de 2026 (secciones 9 a 13: diseño, rendimiento, funciones nuevas, espacio, y el lote de incorporaciones de la sección 13).
 
 ---
 
@@ -10,10 +10,10 @@ Rama de trabajo: `main` (la rama de sesión `claude/vigilant-johnson-mofqyc` que
 
 | Parte | Estado |
 |---|---|
-| Backend (FastAPI + SQLite + NetworkX) | Funcional. 190 pruebas en verde. Caché de lecturas con vuelo único, SQLite en WAL. |
+| Backend (FastAPI + SQLite + NetworkX) | Funcional. 196 pruebas en verde. Esquema v7 (bitácora y adjuntos). Caché de lecturas con vuelo único, SQLite en WAL. |
 | Celular | Dock inferior con hoja "Más" desde abajo; simulador como hoja inferior; envíos en tarjetas. Sin desbordamiento horizontal a 390 px. |
 | Diseño y movimiento | Dock flotante, tema claro por defecto, paleta de modos nueva y lotes 1 a 5 del plan de movimiento (sección 9). |
-| Frontend (Next.js 16 + Tailwind v4 + deck.gl) | Funcional. Typecheck, lint y build sin errores; 8 pruebas de navegador (Playwright) en verde. |
+| Frontend (Next.js 16 + Tailwind v4 + deck.gl) | Funcional. Typecheck, lint y build sin errores; 11 pruebas de navegador (Playwright) en verde. |
 | CI y despliegue | GitHub Actions: pruebas en cada push a `main`; si pasan, despliegue automático a Contabo (falta crear los secretos, sección 10). |
 | Vías, envíos editables, USD/COP, PDF, historial | Implementados (ver sección 2 y `docs/AUDITORIA_BOTONES.md`). |
 | Docker local (`docker-compose.yml`) | Probado: ambos contenedores healthy, persistencia verificada. |
@@ -57,6 +57,10 @@ Rama de trabajo: `main` (la rama de sesión `claude/vigilant-johnson-mofqyc` que
 | `b47702b` | Avisos globales, historial de trayectos, exportación a Excel y 404 real. |
 | `7784b59` | Pruebas de navegador, CI, despliegue automático a Contabo y paleta de modos validada. |
 | `2ebaaeb` | Espacio bien usado: sin desplazamiento lateral, mapas encuadrados, simulador a dos columnas. |
+| `475002a` | API: bitácora y adjuntos, carga masiva, tendencias, reporte operativo, clientes, TRM oficial (schema v7). |
+| `9964e32` | Interfaz: bitácora, adjuntos, impresión, tendencias, importación, vistas guardadas, presentación, metodología. |
+| `c5dc8f7` | Calendario, clientes, comparador, cotizador, mapa por departamento, Ctrl K ampliado. |
+| `7f6fb9d` | Respaldo diario con adjuntos, vigilancia del sitio y monitor externo. |
 
 ---
 
@@ -370,3 +374,43 @@ Reporte del usuario: zonas en blanco y tablas que obligaban a desplazarse hacia 
   último solo lo usa `texture-compressor`, herramienta de línea de comandos opcional de loaders.gl que no
   entra al paquete ni se ejecuta. La "solución" de `npm audit` era bajar deck.gl a 9.0/9.1: descartada.
 - **CI** usa `npm run build` (copia el worker de MapLibre, como Docker).
+
+---
+
+## 13. Incorporaciones: lotes A, B, C y D (28/10/2026)
+
+Pedido del usuario: «todo lo añadible». Se dejó fuera, a propósito: usuarios y permisos (aplazado por el
+usuario) y el envío del reporte por correo (requiere servidor de correo; el reporte queda descargable).
+
+**C · API** (`475002a`, schema v7 aditivo): bitácora del envío (notas e incidencias en ruta; una incidencia
+puede sumar retraso y lo aplica con la edición normal), adjuntos (10 MB, junto a la base), carga masiva desde
+Excel/CSV con vista previa, tendencias de 14 días reconstruidas con `status_at`, historial con período
+anterior, reporte operativo en PDF, resumen por cliente y TRM oficial desde datos.gov.co bajo demanda.
+
+**A · Interfaz** (`9964e32`): bitácora con línea de tiempo y marca de «ahora» (se coloca después de hidratar),
+adjuntos con arrastrar y soltar, vista de impresión (papel blanco, sin dock ni mapa), tendencias y cambio
+semanal en las cifras del resumen, modo presentación a pantalla completa, importación de envíos, vistas
+guardadas, densidad de la tabla y encabezado fijo, avisos con «visto», página Metodología con diagrama,
+portada Open Graph e ícono para iOS.
+
+**B · Funciones** (`c5dc8f7`): calendario (barras por estado con el retraso rayado; agenda en celular),
+clientes, comparador de hasta tres escenarios (calculado en el servidor), cotizador imprimible, mapa por
+departamento en SVG (un tono, cinco pasos por cuantiles) y Ctrl K con vehículos, bodegas y vías.
+
+**D · Servidor** (`7f6fb9d`): respaldo diario con revisión de integridad y adjuntos, vigilancia cada 5 minutos
+con reinicio y avisos ntfy opcionales, monitor externo en GitHub Actions y script para bajar respaldos al PC.
+
+### Problemas encontrados en el camino
+- Importar una constante desde un módulo `"use client"` en un componente de servidor la entrega como
+  referencia, no como dato (error #441 en `/comparar`): los escenarios por defecto viven en `lib/compare.ts`.
+- Los servidores de las pruebas corrían en UTC y el navegador en Bogotá: con fechas sin zona horaria la
+  bitácora daba error de hidratación. Las pruebas usan `TZ=America/Bogota` como producción, y lo que depende
+  del reloj se marca tras hidratar.
+- Las precargas del historial de Configuración pedían fichas de envíos borrados (404): ya no se enlazan.
+
+### Verificación
+- 196 pruebas de la API y 11 de navegador en verde (dos corridas seguidas).
+- Sin desbordes horizontales en 22 pantallas, de 390 a 1920 px.
+- axe-core sin violaciones en claro y oscuro, escritorio y celular, en las pantallas existentes; las nuevas
+  usan los mismos componentes y tokens.
+- Scripts del servidor probados en una carpeta de prueba (rotación, restauración, caída y recuperación).

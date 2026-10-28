@@ -136,7 +136,13 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 - **Estado vacío (`EmptyState`), aviso (`toast`), guardado (`SaveIcon`):** vacío con una cifra grande y una acción; avisos de 4 s, máximo tres; el botón de guardar respira mientras guarda y confirma con un check.
 - **Hoja (`Sheet`):** inspector a la derecha en escritorio; hoja inferior que se cierra deslizando en celular.
 - **Campo (`field`):** línea fina, foco con anillo de acento de 3 px; error en rojo con mensaje en español, `aria-invalid` y foco al primer error.
-- **Atajos:** `Ctrl K` o `/` buscar, `n` nuevo envío, `g` y una letra para navegar, `?` ayuda.
+- **Tendencia (`Sparkline`, `Delta`):** línea de 1,5 px de una sola serie, escala desde cero, valor del día al pasar el puntero; el cambio contra el período anterior va con flecha dibujada y texto («Sube 12 %»), en verde o rojo solo si esa dirección es buena o mala (los retrasos).
+- **Línea de tiempo (`ShipmentJournal`):** hora a la izquierda, punto con ícono y texto a la derecha; lo previsto atenuado y una marca de «Ahora» en el color de acento.
+- **Calendario:** barras del color del estado; el retraso es un tramo rayado, no otro color.
+- **Mapa por departamento:** un solo tono del acento en cinco pasos por cuantiles, gris para «sin movimiento», leyenda con rangos.
+- **Impresión:** papel blanco y tinta oscura aunque la app esté en oscuro; sin dock, controles ni mapa; las tarjetas no se cortan entre páginas.
+- **Modo presentación:** cifras a 7 vw para proyectar, actualizadas cada 30 s mientras está abierto.
+- **Atajos:** `Ctrl K` o `/` buscar (envíos, ciudades, vehículos, bodegas, vías y páginas), `n` nuevo envío, `g` y una letra para navegar, `?` ayuda.
 
 ## Motion
 
