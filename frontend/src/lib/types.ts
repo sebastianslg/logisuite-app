@@ -31,6 +31,7 @@ export interface DashboardSummary {
   top_corridors: { corridor: string; tons: number; tons_fmt: string }[];
   all_corridors: { corridor: string; tons: number; tons_fmt: string }[];
   dispatches_14d: { date: string; count: number }[];
+  trends: Trends;
   alerts: {
     fleet?: { disabled: number; in_shop: number; overdue: number; open_faults: number };
     warehouses?: { low_stock: number; full: string[] };
@@ -832,6 +833,14 @@ export interface History {
   by_city: HistoryCity[];
   by_department: HistoryDepartment[];
   by_corridor: HistoryCorridor[];
+  previous: {
+    since: string;
+    shipments: number;
+    tons: number;
+    tons_fmt: string;
+    cost: number;
+    change_pct: { shipments: number | null; tons: number | null; cost: number | null };
+  };
 }
 
 /** Alertas globales (GET /api/alerts). */
@@ -840,4 +849,72 @@ export interface AlertsResponse {
   urgent: number;
   total: number;
   alerts: DashboardSummary["alerts"];
+}
+
+/** Tendencias del resumen: cierre de cada uno de los últimos 14 días y cambio semana contra semana. */
+export interface Trends {
+  series: { date: string; in_transit: number; delayed: number; cost_in_transit: number; dispatched: number; tons: number }[];
+  week_vs_prev: Record<"in_transit" | "delayed" | "cost_in_transit" | "dispatched" | "tons", number | null>;
+  note: string;
+}
+
+export type EventKind = "nota" | "retraso" | "derrumbe" | "paro" | "clima" | "mecanica" | "otro";
+
+/** Bitácora del envío: notas e incidencias en ruta. */
+export interface ShipmentEvent {
+  event_id: number;
+  shipment_code: string;
+  kind: EventKind;
+  kind_label: string;
+  incident: boolean;
+  body: string;
+  delay_h: number;
+  created_at: string;
+  created_by: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  origin_city?: string | null;
+  dest_city?: string | null;
+}
+
+export interface Attachment {
+  attachment_id: number;
+  shipment_code: string;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  created_at: string;
+  created_by: string;
+}
+
+/** Carga masiva de envíos (POST /api/shipments/import). */
+export interface ImportResult {
+  rows: number;
+  valid: number;
+  errors: number;
+  created: string[];
+  committed: boolean;
+  results: (
+    | { row: number; ok: true; origin: string; destination: string; cargo: string; client: string; weight_t: number; departure_at: string; modes: Mode[]; time_fmt: string; cost: number; code?: string }
+    | { row: number; ok: false; error: string }
+  )[];
+}
+
+/** Resumen por cliente (GET /api/clients). */
+export interface ClientSummary {
+  client: string;
+  shipments: number;
+  active: number;
+  delayed: number;
+  scheduled: number;
+  delivered: number;
+  on_time_pct: number | null;
+  tons: number;
+  tons_fmt: string;
+  cost: number;
+  avg_cost_per_t: number;
+  modes: { mode: Mode; label: string; count: number }[];
+  top_routes: { route: string; count: number }[];
+  last_departure: string | null;
+  recent: string[];
 }

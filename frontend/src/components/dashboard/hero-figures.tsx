@@ -5,6 +5,8 @@ import { ChevronRight } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { CountUp } from "@/components/ui/count-up";
+import { Delta, Sparkline } from "@/components/ui/sparkline";
+import type { Trends } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export type Secondary = { label: string; value: string; href: string; hint?: string };
@@ -14,24 +16,38 @@ export type Secondary = { label: string; value: string; href: string; hint?: str
  * tránsito) en grande, y debajo, tras una línea fina, las secundarias en una fila compacta. Todo en una sola
  * superficie: se lee de un vistazo, como el encabezado de un informe. La fila secundaria usa
  * las mismas columnas que las cifras, para que las líneas verticales coincidan. Cada cifra abre la vista filtrada.
- * Las cifras cuentan al cargar y, cuando cambian, desde el valor anterior.
+ * Las cifras cuentan al cargar y, cuando cambian, desde el valor anterior. Debajo de cada una, la tendencia de
+ * 14 días (cierre de cada día) y el cambio frente a la semana anterior.
  */
 export function HeroFigures({
   inTransit,
   delayed,
   cost,
   secondary = [],
+  trends,
 }: {
   inTransit: number;
   delayed: number;
   cost: number;
   secondary?: Secondary[];
+  trends?: Trends;
 }) {
   const { money } = useApp();
+  const series = trends?.series ?? [];
+  const dates = series.map((d) => d.date);
   const items = [
-    { label: "Envíos en ruta", value: inTransit, href: "/envios?estado=En Ruta,Transferencia Modal,Retrasado" },
-    { label: "Con retraso", value: delayed, href: "/envios?estado=Retrasado", danger: delayed > 0 },
-    { label: "Costo comprometido en tránsito", value: cost, href: "/envios?estado=En Ruta,Transferencia Modal,Retrasado", money: true },
+    {
+      label: "Envíos en ruta", value: inTransit, href: "/envios?estado=En Ruta,Transferencia Modal,Retrasado",
+      trend: series.map((d) => d.in_transit), change: trends?.week_vs_prev.in_transit ?? null, good: "none" as const,
+    },
+    {
+      label: "Con retraso", value: delayed, href: "/envios?estado=Retrasado", danger: delayed > 0,
+      trend: series.map((d) => d.delayed), change: trends?.week_vs_prev.delayed ?? null, good: "down" as const,
+    },
+    {
+      label: "Costo comprometido en tránsito", value: cost, href: "/envios?estado=En Ruta,Transferencia Modal,Retrasado", money: true,
+      trend: series.map((d) => d.cost_in_transit), change: trends?.week_vs_prev.cost_in_transit ?? null, good: "none" as const,
+    },
   ];
   return (
     <section aria-label="Estado de la operación" className="glass mb-6 overflow-hidden rounded-3xl">
@@ -62,6 +78,19 @@ export function HeroFigures({
                 it.danger && "text-destructive",
               )}
             />
+            {it.trend.length > 1 && (
+              <div className="mt-4 flex flex-col gap-1.5">
+                <Sparkline
+                  values={it.trend}
+                  dates={dates}
+                  format={it.money ? (n) => money(n, true) : undefined}
+                  color={it.danger ? "var(--danger)" : "var(--accent)"}
+                  label={`${it.label}, últimos 14 días: de ${it.money ? money(it.trend[0], true) : it.trend[0]} a ${it.money ? money(it.trend.at(-1) ?? 0, true) : it.trend.at(-1)}`}
+                  className="max-w-[16rem]"
+                />
+                <Delta pct={it.change} good={it.good} />
+              </div>
+            )}
           </Link>
         ))}
       </div>

@@ -11,6 +11,8 @@ export type AlertItem = {
   title: string;
   detail: React.ReactNode;
   tone: "danger" | "warning";
+  /** Nuevo desde la última vez que se abrieron los avisos (solo en el panel del dock). */
+  fresh?: boolean;
 };
 
 const codes = (list: string[], max = 4) => (
@@ -125,6 +127,9 @@ export function AlertRows({ items, columns = false, onNavigate }: { items: Alert
               <span className="block text-sm font-medium">{it.title}</span>
               <span className="block truncate text-[13px] text-muted-foreground">{it.detail}</span>
             </span>
+            {it.fresh && (
+              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Nuevo</span>
+            )}
             <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover/alert:translate-x-0.5 motion-reduce:transition-none" aria-hidden />
           </Link>
         </li>

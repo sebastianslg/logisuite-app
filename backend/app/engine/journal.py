@@ -180,7 +180,7 @@ def add_attachment(code: str, filename: str, content_b64: str, user: str | None)
     att_id = run_write(
         "INSERT INTO mm_attachments (shipment_code, filename, content_type, size_bytes, stored_name, created_at, created_by) "
         "VALUES (?,?,?,?,?,?,?)", (code, name, ALLOWED[ext], len(data), stored, _now_iso(), _user(user)))
-    audit(user, "INSERT", "mm_attachments", code, f"Adjunto agregado: {name} ({len(data) // 1024} KB)")
+    audit(user, "INSERT", "mm_attachments", code, f"Adjunto agregado: {name} ({max(1, round(len(data) / 1024))} KB)")
     return records(run_query(
         "SELECT attachment_id, shipment_code, filename, content_type, size_bytes, created_at, created_by "
         "FROM mm_attachments WHERE attachment_id = ?", (att_id,)))[0]

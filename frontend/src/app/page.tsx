@@ -1,10 +1,12 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, FileText } from "lucide-react";
 
 import { Attention } from "@/components/dashboard/attention";
 import { BentoCell, BentoGrid } from "@/components/dashboard/bento";
 import { HeroFigures } from "@/components/dashboard/hero-figures";
+import { PresentButton } from "@/components/dashboard/presentation";
+import { Button } from "@/components/ui/button";
 import { CorridorsCell, DispatchCell, ModalSplitCell } from "@/components/dashboard/chart-cells";
 import { LiveFleet } from "@/components/dashboard/live-fleet";
 import { NetworkMapCard } from "@/components/dashboard/network-map-card";
@@ -19,6 +21,17 @@ export default function DashboardPage() {
       <PageHeader
         title="Torre de control"
         description="Carretera, río, mar, aire y ferrocarril en una sola vista: fletes en tránsito, transbordos y reparto modal de la red logística de Colombia."
+        actions={
+          <>
+            <Button variant="secondary" asChild className="print:hidden">
+              <a href="/api/reports/operations?days=7" target="_blank" rel="noopener">
+                <FileText />
+                Reporte semanal
+              </a>
+            </Button>
+            <PresentButton />
+          </>
+        }
       />
       <div>
         <Suspense fallback={<DashboardSkeleton />}>
@@ -43,6 +56,7 @@ async function DashboardContent() {
         inTransit={k.active.value ?? 0}
         delayed={k.delayed.value ?? 0}
         cost={k.cost_in_transit.value ?? 0}
+        trends={summary.trends}
         secondary={[
           { label: "En transbordo", value: k.in_transfer.fmt, href: "/envios?estado=Transferencia Modal" },
           { label: "Carga en tránsito", value: k.tons_in_transit.fmt, hint: `${k.scheduled.fmt} programados`, href: "/envios?estado=En Ruta,Transferencia Modal,Retrasado" },

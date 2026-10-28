@@ -20,6 +20,11 @@ import {
   ChevronsRight,
   Search,
   X,
+  Bookmark,
+  BookmarkPlus,
+  FileUp,
+  Rows3,
+  Rows4,
 } from "lucide-react";
 import {
   columnFilteringFeature,
@@ -46,6 +51,9 @@ import { CountUp } from "@/components/ui/count-up";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/components/ui/toast";
 import { ExportActions } from "@/components/shipments/export-actions";
+import { ImportShipments } from "@/components/shipments/import-shipments";
+import { Sheet } from "@/components/ui/sheet";
+import { useLocal } from "@/lib/local";
 import { ModeChain, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -224,6 +232,15 @@ const COL_VISIBILITY: Record<string, string> = {
 };
 const colClass = (id: string) => cn(COL_VISIBILITY[id], NUMERIC.has(id) && "text-right");
 
+/** Vista guardada: una combinación de filtros con nombre (vive en este navegador). */
+interface SavedView {
+  name: string;
+  status: ShipmentStatus[];
+  modes: Mode[];
+  q: string;
+}
+const NO_VIEWS: SavedView[] = [];
+
 /** Filtros iniciales (vienen de la URL: ?estado=, ?modo=, ?q=). */
 export interface ShipmentFilters {
   status?: ShipmentStatus[];
@@ -238,6 +255,9 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [views, setViews] = useLocal<SavedView[]>("westvane.shipment-views", NO_VIEWS);
+  const [density, setDensity] = useLocal<"comoda" | "compacta">("westvane.table-density", "comoda");
   const table = useTable({
     features,
     columns,
@@ -345,6 +365,20 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
   const { pageIndex, pageSize } = table.state.pagination;
   const hasFilters = statusFilter.length > 0 || modeFilter.length > 0 || globalFilter.length > 0;
 
+  const same = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
+  const activeView = views.find((v) => same(v.status, statusFilter) && same(v.modes, modeFilter) && v.q === globalFilter);
+  function applyView(v: SavedView) {
+    table.getColumn("status")?.setFilterValue(v.status);
+    table.getColumn("modes")?.setFilterValue(v.modes);
+    table.setGlobalFilter(v.q);
+  }
+  function saveView() {
+    const name = window.prompt("Nombre de la vista (por ejemplo, «Retrasados fluviales»)")?.trim();
+    if (!name) return;
+    setViews((list) => [...list.filter((v) => v.name !== name), { name, status: statusFilter, modes: modeFilter, q: globalFilter }].slice(-8));
+    toast({ title: "Vista guardada", description: `«${name}» queda en este navegador.` });
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {/* Filtros en una sola fila sobre la tabla */}
@@ -421,10 +455,25 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
             Limpiar
           </Button>
         )}
+        <div className="ml-auto flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hidden size-8 lg:inline-flex"
+          onClick={() => setDensity(density === "compacta" ? "comoda" : "compacta")}
+          aria-label={density === "compacta" ? "Filas cómodas" : "Filas compactas"}
+          title={density === "compacta" ? "Filas cómodas" : "Filas compactas"}
+          aria-pressed={density === "compacta"}
+        >
+          {density === "compacta" ? <Rows3 /> : <Rows4 />}
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => setImporting(true)} title="Crear envíos desde un Excel o CSV">
+          <FileUp />
+          Importar
+        </Button>
         <Button
           variant="secondary"
           size="sm"
-          className="ml-auto"
           burst={FileSpreadsheet}
           disabled={busy === "xlsx" || filteredCount === 0}
           onClick={exportExcel}
@@ -434,7 +483,46 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
           Excel
           <span className="tabular text-muted-foreground">{filteredCount}</span>
         </Button>
+        </div>
       </div>
+
+      {(views.length > 0 || hasFilters) && (
+        <div className="chip-scroll -mt-1 flex flex-wrap items-center gap-1.5" role="group" aria-label="Vistas guardadas">
+          <Bookmark className="mr-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          {views.map((v) => (
+            <span key={v.name} className="group/view inline-flex items-center">
+              <button
+                type="button"
+                onClick={() => applyView(v)}
+                aria-pressed={activeView?.name === v.name}
+                className={cn(
+                  "press h-7 rounded-full border px-3 text-xs transition-colors duration-200",
+                  activeView?.name === v.name ? "border-primary/40 bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {v.name}
+              </button>
+              <button
+                type="button"
+                onClick={() => setViews((list) => list.filter((x) => x.name !== v.name))}
+                aria-label={`Quitar la vista ${v.name}`}
+                className="ml-0.5 flex size-6 items-center justify-center rounded-full text-muted-foreground opacity-0 group-hover/view:opacity-100 hover:text-destructive focus-visible:opacity-100 pointer-coarse:opacity-100"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+          {hasFilters && !activeView && (
+            <button type="button" onClick={saveView} className="press inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-xs font-medium text-primary hover:bg-primary/[0.06]">
+              <BookmarkPlus className="size-3.5" aria-hidden /> Guardar vista
+            </button>
+          )}
+        </div>
+      )}
+
+      <Sheet open={importing} onClose={() => setImporting(false)} title="Importar envíos" description="Desde un Excel o CSV: primero una vista previa, luego se crean">
+        <ImportShipments onDone={() => setImporting(false)} />
+      </Sheet>
 
       <AnimatePresence initial={false}>
         {selectedCodes.length > 0 && (
@@ -467,9 +555,13 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
       </AnimatePresence>
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 
-      <div className="glass hidden overflow-x-auto rounded-3xl lg:block">
+      {/* overflow-clip (no auto): la tabla no se desplaza de lado desde 1024 px y así el encabezado puede quedar fijo */}
+      <div
+        data-density={density}
+        className="glass hidden overflow-clip rounded-3xl lg:block data-[density=compacta]:[&_td]:py-2"
+      >
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-[5.25rem] z-10 bg-card shadow-[0_1px_0_var(--separator)]">
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id} className="hover:bg-transparent">
                 <TableHead className="w-10">

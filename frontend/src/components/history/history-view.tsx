@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { FileText } from "lucide-react";
 import { useState } from "react";
 import { LayoutGroup, motion } from "framer-motion";
 
@@ -9,7 +10,9 @@ import { useApp } from "@/components/providers";
 import { ModeIcon } from "@/components/status-badge";
 import { DetailTable, type Column } from "@/components/ui/detail-table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Delta } from "@/components/ui/sparkline";
 import { StatStrip } from "@/components/ui/stat-strip";
+import { Button } from "@/components/ui/button";
 import { MODES } from "@/lib/modes";
 import { SPRING } from "@/lib/motion";
 import type { History, HistoryCity, HistoryCorridor, HistoryDepartment } from "@/lib/types";
@@ -44,7 +47,7 @@ function Share({ value, max, color = "var(--sys-blue)" }: { value: number; max: 
  */
 export function HistoryView({ data }: { data: History }) {
   const [view, setView] = useState<View>("ciudades");
-  const { money } = useApp();
+  const { money, currency } = useApp();
   const t = data.totals;
 
   const maxCity = Math.max(1, ...data.by_city.map((c) => c.tons_out + c.tons_in));
@@ -144,6 +147,10 @@ export function HistoryView({ data }: { data: History }) {
   ];
 
   const tolls = data.by_corridor.reduce((a, c) => a + c.tolls, 0);
+  const prev = data.previous;
+  const vs = (pct: number | null) => (
+    <Delta pct={pct} good="none" suffix="" />
+  );
   const fuel = data.by_corridor.reduce((a, c) => a + c.fuel_l, 0);
 
   return (
@@ -156,6 +163,12 @@ export function HistoryView({ data }: { data: History }) {
           options={VIEWS.map((v) => ({ value: v.key, label: v.label }))}
           onChange={(v) => setView(v as View)}
         />
+        <div className="flex flex-wrap items-center gap-2">
+        <Button variant="secondary" size="sm" asChild>
+          <a href={`/api/reports/operations?days=${Math.min(data.window_days, 90)}&moneda=${currency}`} target="_blank" rel="noopener">
+            <FileText /> Reporte PDF
+          </a>
+        </Button>
         <nav aria-label="Ventana de tiempo" className="inline-flex rounded-full bg-fill p-1 text-sm">
           {WINDOWS.map((d) => (
             <Link
@@ -172,13 +185,14 @@ export function HistoryView({ data }: { data: History }) {
             </Link>
           ))}
         </nav>
+        </div>
       </div>
 
       <StatStrip
         items={[
-          { label: "Envíos", value: n(t.shipments), hint: `salieron en los últimos ${data.window_days} días` },
-          { label: "Toneladas movidas", value: t.tons_fmt, hint: `${t.cities} ciudades · ${t.departments} departamentos` },
-          { label: "Flete", value: money(t.cost, true), hint: `${t.corridors} corredores usados` },
+          { label: "Envíos", value: n(t.shipments), hint: <>{vs(prev?.change_pct.shipments ?? null)} <span className="text-muted-foreground">· antes {n(prev?.shipments ?? 0)}</span></> },
+          { label: "Toneladas movidas", value: t.tons_fmt, hint: <>{vs(prev?.change_pct.tons ?? null)} <span className="text-muted-foreground">· antes {prev?.tons_fmt ?? "—"}</span></> },
+          { label: "Flete", value: money(t.cost, true), hint: <>{vs(prev?.change_pct.cost ?? null)} <span className="text-muted-foreground">· antes {money(prev?.cost ?? 0, true)}</span></> },
           {
             label: "Peajes",
             value: tolls ? money(tolls, true) : "Sin tarifa",

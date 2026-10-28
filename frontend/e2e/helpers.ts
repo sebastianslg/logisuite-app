@@ -42,4 +42,5 @@ export const PAGES = [
   "/huella",
   "/historial",
   "/configuracion",
+  "/metodologia",
 ];

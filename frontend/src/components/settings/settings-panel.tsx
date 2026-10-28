@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LayoutGroup } from "framer-motion";
-import { Check, Copy, History, Link2, LoaderCircle, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Check, CloudDownload, Copy, History, Link2, LoaderCircle, RefreshCw, Search, Trash2 } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { Badge } from "@/components/ui/badge";
@@ -26,13 +26,19 @@ const ACTIONS: Record<string, string> = {
   EXPORT: "Enlace creado",
   REVOKE: "Enlace revocado",
   LOGIN: "Inicio de sesión",
+  IMPORT: "Carga masiva",
 };
+
+/** Registros cuyo `record_id` es el código de un envío. */
+const SHIPMENT_TABLES = new Set(["mm_shipments", "mm_shipment_events", "mm_attachments"]);
 
 const TABLES: Record<string, string> = {
   mm_shipments: "Envíos",
   mm_corridor_status: "Vías",
   system_params: "Parámetros",
   mm_share_links: "Enlaces",
+  mm_shipment_events: "Bitácora",
+  mm_attachments: "Adjuntos",
 };
 
 function dt(iso: string | null) {
@@ -89,6 +95,33 @@ function FxForm({ initial }: { initial: Settings["fx"] }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [done, flashDone] = useSavedFlash();
+  const [fetching, setFetching] = useState(false);
+
+  /** TRM oficial del día (datos.gov.co). Si el servidor no tiene salida a internet, se avisa y nada cambia. */
+  async function official() {
+    setFetching(true);
+    setMsg(null);
+    try {
+      const r = await api<{ fx: Settings["fx"]; changed: boolean }>(
+        `/api/settings/fx/official?usuario=${encodeURIComponent(operator)}`,
+        { method: "POST" },
+      );
+      setRate(String(r.fx.rate ?? ""));
+      setDate(r.fx.date ?? today());
+      setSource(r.fx.source ?? "");
+      await refreshFx();
+      const text = r.changed
+        ? `TRM oficial del ${r.fx.date}: ${r.fx.rate?.toLocaleString("es-CO")} COP/USD. Toda la aplicación usa la nueva tasa.`
+        : "Ya tienes la TRM oficial más reciente.";
+      setMsg({ ok: true, text });
+      toast({ title: r.changed ? "TRM oficial actualizada" : "TRM al día", description: text });
+      router.refresh();
+    } catch (err) {
+      setMsg({ ok: false, text: (err as Error).message });
+    } finally {
+      setFetching(false);
+    }
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -114,7 +147,7 @@ function FxForm({ initial }: { initial: Settings["fx"] }) {
   return (
     <Section
       title="Tasa de cambio (TRM)"
-      description="Pesos colombianos por dólar. Los costos se calculan en USD y se convierten con esta tasa en pantalla y en los PDF. No se consulta automáticamente: ingrésala con su fecha y fuente."
+      description="Pesos colombianos por dólar. Los costos se calculan en USD y se convierten con esta tasa en pantalla y en los PDF. Trae la TRM oficial del día o ingrésala a mano con su fecha y fuente."
     >
       <form onSubmit={save} className="grid gap-3 sm:grid-cols-[1fr_1fr]">
         <label className="block">
@@ -135,6 +168,10 @@ function FxForm({ initial }: { initial: Settings["fx"] }) {
           <Button type="submit" disabled={busy} burst={Check}>
             <SaveIcon state={done ? "done" : busy ? "busy" : "idle"} />
             Guardar TRM
+          </Button>
+          <Button type="button" variant="secondary" onClick={official} disabled={fetching}>
+            {fetching ? <LoaderCircle className="animate-spin" /> : <CloudDownload />}
+            Traer TRM oficial
           </Button>
           {initial.rate ? (
             <span className="text-xs text-muted-foreground">
@@ -280,6 +317,11 @@ function AuditLog({ history }: { history: AuditEntry[] }) {
         (!q || [h.username, h.record_id, h.detail].some((v) => v?.toLowerCase().includes(q))),
     );
   }, [history, query, table]);
+  // Envíos borrados: se muestran sin enlace (su ficha ya no existe)
+  const deleted = useMemo(
+    () => new Set(history.filter((h) => h.action === "DELETE" && h.table_name === "mm_shipments" && h.record_id).map((h) => h.record_id as string)),
+    [history],
+  );
 
   return (
     <section className="h-fit glass rounded-3xl p-5">
@@ -314,8 +356,10 @@ function AuditLog({ history }: { history: AuditEntry[] }) {
             <div className="flex flex-wrap items-center gap-x-2 text-muted-foreground">
               <span>{dt(h.timestamp)}</span>·<span className="text-foreground">{h.username}</span>·
               <span>{ACTIONS[h.action] ?? h.action}</span>
-              {h.record_id && h.table_name === "mm_shipments" ? (
-                <Link href={`/envios/${h.record_id}`} className="font-mono text-foreground/80 hover:text-primary">{h.record_id}</Link>
+              {h.record_id && SHIPMENT_TABLES.has(h.table_name) && !deleted.has(h.record_id) ? (
+                <Link href={`/envios/${h.record_id}`} prefetch={false} className="font-mono text-foreground/80 hover:text-primary">{h.record_id}</Link>
+              ) : h.record_id && deleted.has(h.record_id) ? (
+                <span className="font-mono text-foreground/60" title="Envío borrado">{h.record_id} (borrado)</span>
               ) : (
                 h.record_id && <span className="text-foreground/80">{h.record_id}</span>
               )}

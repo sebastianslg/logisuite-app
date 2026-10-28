@@ -15,6 +15,9 @@ import { PrefsProvider, THEME_INIT_SCRIPT } from "@/lib/prefs";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  // Las imágenes para compartir (Open Graph) necesitan URL absoluta
+  metadataBase: new URL(process.env.SITE_URL ?? "https://westvane.duckdns.org"),
+  openGraph: { type: "website", locale: "es_CO", siteName: "Westvane TMS" },
   title: {
     default: "Westvane TMS",
     template: "%s · Westvane TMS",
@@ -46,13 +49,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <CommandPalette>
                 <Shortcuts />
                 <RippleRoot />
-                <Toaster />
+                <div className="print:hidden">
+                  <Toaster />
+                </div>
                 {/* usePathname() en rutas dinámicas (/envios/[code]) exige un límite de Suspense */}
-                <Suspense fallback={null}>
-                  <Dock />
-                </Suspense>
+                <div className="print:hidden">
+                  <Suspense fallback={null}>
+                    <Dock />
+                  </Suspense>
+                </div>
                 {/* El dock flota arriba en escritorio (5 rem) y abajo en celular (6 rem con el área segura) */}
-                <main className="min-h-screen min-w-0 pt-[env(safe-area-inset-top)] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-20 md:pb-0">
+                <main className="min-h-screen min-w-0 pt-[env(safe-area-inset-top)] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-20 md:pb-0 print:min-h-0 print:p-0">
                   {children}
                 </main>
               </CommandPalette>

@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  BookOpen,
   Banknote,
   CornerDownLeft,
   Fuel,
@@ -125,6 +126,7 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
       { id: "p-fleet", group: "Ir a", label: "Flota de vehículos", icon: Truck, run: go("/flota") },
       { id: "p-wh", group: "Ir a", label: "Bodegas", icon: Warehouse, run: go("/bodegas") },
       { id: "p-hist", group: "Ir a", label: "Historial de trayectos", hint: "Por ciudad, departamento y corredor", icon: History, run: go("/historial") },
+      { id: "p-metodo", group: "Ir a", label: "Metodología", hint: "Cómo se calculan rutas, costos y huella", icon: BookOpen, run: go("/metodologia") },
       { id: "p-cfg", group: "Ir a", label: "Configuración", icon: Settings, run: go("/configuracion") },
       { id: "a-veh", group: "Acciones", label: "Agregar un vehículo", hint: "Flota", icon: Truck, run: go("/flota/nuevo") },
       { id: "a-wh", group: "Acciones", label: "Crear una bodega", hint: "Bodegas", icon: Warehouse, run: go("/bodegas/nueva") },

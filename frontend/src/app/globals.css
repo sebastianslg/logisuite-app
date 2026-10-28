@@ -565,3 +565,69 @@ h3 {
 p {
   text-wrap: pretty;
 }
+
+/*
+ * Impresión (fichas de envío, historial, resumen, cotización): papel blanco y tinta oscura aunque la app esté en
+ * oscuro, sin dock ni controles (clase print:hidden), sin sombras ni fondos de color que gasten tinta, y sin
+ * cortar una tarjeta entre dos páginas. El mapa no se imprime: un lienzo WebGL sale en blanco.
+ */
+@media print {
+  @page {
+    margin: 14mm 12mm;
+  }
+  :root,
+  :root[data-theme="dark"],
+  :root[data-theme="system"] {
+    color-scheme: light;
+    --background: #ffffff;
+    --foreground: #111114;
+    --card: #ffffff;
+    --raised: #ffffff;
+    --muted-foreground: #4a4a50;
+    --separator: rgb(0 0 0 / 0.14);
+    --separator-strong: rgb(0 0 0 / 0.24);
+    --fill: rgb(0 0 0 / 0.05);
+    --accent: #004a94;
+    --success: #18703a;
+    --warning: #8a4500;
+    --danger: #a30f18;
+  }
+  html,
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page {
+    max-width: none;
+    padding: 0;
+  }
+  canvas,
+  .maplibregl-map,
+  [data-print="hide"] {
+    display: none !important;
+  }
+  .glass,
+  .rows,
+  .floating,
+  .glass-float {
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    break-inside: avoid;
+  }
+  a {
+    text-decoration: none;
+  }
+  /* Las animaciones de entrada quedan en su estado final; lo que aparece al entrar en pantalla y nunca se vio
+     tendría opacidad 0 en el papel */
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+  [style*="opacity"] {
+    opacity: 1 !important;
+  }
+  [style*="transform"]:not([style*="scale"]) {
+    transform: none !important;
+  }
+}

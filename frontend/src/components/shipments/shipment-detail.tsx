@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRightLeft, CircleOff, CopyPlus, Leaf, FileCheck2, History, LoaderCircle, Maximize2, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, CircleOff, CopyPlus, Leaf, FileCheck2, History, ListTree, LoaderCircle, Maximize2, Paperclip, Pencil, Printer, Trash2 } from "lucide-react";
 
 import { LayoutGroup, motion, useInView, useReducedMotion } from "framer-motion";
 
@@ -13,6 +13,8 @@ import { useMapData } from "@/components/map/use-map-data";
 import { useApp } from "@/components/providers";
 import { ExportActions } from "@/components/shipments/export-actions";
 import { SharedCode } from "@/components/shipments/shared-code";
+import { ShipmentAttachments } from "@/components/shipments/shipment-attachments";
+import { ShipmentJournal } from "@/components/shipments/shipment-journal";
 import { RouteChain } from "@/components/shipments/route-chain";
 import { ModeChain, ModeIcon, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +27,7 @@ import { api } from "@/lib/client";
 import { requiredDocuments } from "@/lib/documents";
 import { MODES, PRIORITIES } from "@/lib/modes";
 import { EASE } from "@/lib/motion";
-import type { AuditEntry, Mode, RouteResult, Shipment } from "@/lib/types";
+import type { Attachment, AuditEntry, Mode, RouteResult, Shipment, ShipmentEvent } from "@/lib/types";
 
 const SOURCE: Record<Shipment["source"], string> = {
   seed: "Carga inicial",
@@ -38,7 +40,17 @@ function dt(iso: string | null) {
   return new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }).replace(/\s/g, " ");
 }
 
-export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; history: AuditEntry[] }) {
+export function ShipmentDetail({
+  shipment: s,
+  history,
+  events,
+  attachments,
+}: {
+  shipment: Shipment;
+  history: AuditEntry[];
+  events: ShipmentEvent[];
+  attachments: Attachment[];
+}) {
   const router = useRouter();
   const { money, operator } = useApp();
   const { network, departments } = useMapData({ fleet: false });
@@ -108,7 +120,11 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
               {s.cargo} · {s.client}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 print:hidden">
+            <Button variant="secondary" size="sm" onClick={() => window.print()}>
+              <Printer />
+              Imprimir
+            </Button>
             <Button variant="secondary" size="sm" asChild>
               <Link
                 href={`/envios/nuevo?origin=${encodeURIComponent(s.origin)}&destination=${encodeURIComponent(s.destination)}&priority=${s.priority}&weight=${s.weight_t}`}
@@ -158,7 +174,7 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="flex flex-col gap-6">
-          <div className="relative h-[400px]">
+          <div className="relative h-[400px]" data-print="hide">
             <MapFrame full={mapFull} onExit={exitMapFull} radius={28} className="relative h-full border border-border">
               {network && departments && mapReady ? (
                 <Map3DLazy network={network} departments={departments} route={route} showFleet={false} live={mapFull} />
@@ -237,12 +253,22 @@ export function ShipmentDetail({ shipment: s, history }: { shipment: Shipment; h
               ))}
             </ol>
           </Card>
+
+          <Card title="Bitácora" icon={<ListTree className="size-3.5 text-muted-foreground" aria-hidden />}>
+            <ShipmentJournal shipment={s} initial={events} />
+          </Card>
         </section>
 
         <LayoutGroup id="detail-aside">
         <aside className="flex flex-col gap-6">
-          <Card title="Exportar">
-            <ExportActions codes={[s.code]} />
+          <div className="print:hidden">
+            <Card title="Exportar">
+              <ExportActions codes={[s.code]} />
+            </Card>
+          </div>
+
+          <Card title="Documentos adjuntos" icon={<Paperclip className="size-3.5 text-muted-foreground" aria-hidden />}>
+            <ShipmentAttachments code={s.code} initial={attachments} />
           </Card>
 
           <Card title="Costos" collapsible>
@@ -357,6 +383,7 @@ const ACTION_DOT: Record<string, string> = {
   REOPEN: "bg-success",
   EXPORT: "bg-muted-foreground",
   REVOKE: "bg-destructive",
+  IMPORT: "bg-primary",
 };
 
 const ACTION_LABEL: Record<string, string> = {
@@ -368,6 +395,7 @@ const ACTION_LABEL: Record<string, string> = {
   REOPEN: "Abierto",
   EXPORT: "Exportado",
   REVOKE: "Revocado",
+  IMPORT: "Importado",
 };
 
 function Card({

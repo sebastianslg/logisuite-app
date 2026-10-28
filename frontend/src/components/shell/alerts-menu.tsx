@@ -1,26 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bell, CircleCheck } from "lucide-react";
 
 import { AlertRows, buildAlertItems } from "@/components/dashboard/attention";
 import { EASE } from "@/lib/motion";
 import type { AlertsResponse } from "@/lib/types";
+import { useLocal } from "@/lib/local";
 import { useLive } from "@/lib/use-live";
 import { cn } from "@/lib/utils";
 
-/** Avisos operativos: un sondeo compartido cada 60 s, en pausa con la pestaña oculta. */
+const NONE_SEEN: string[] = [];
+/** Firma de un aviso: si cambia su texto (por ejemplo, de 2 a 3 vías cerradas), vuelve a ser nuevo. */
+const sig = (i: { key: string; title: string }) => `${i.key}|${i.title}`;
+
+/**
+ * Avisos operativos: un sondeo compartido cada 60 s, en pausa con la pestaña oculta. Recuerda en este navegador
+ * cuáles ya se vieron: `unseen` cuenta solo lo nuevo desde la última vez que se abrió el panel.
+ */
 export function useAlerts() {
   const data = useLive<AlertsResponse | null>("/api/alerts", 60_000, null);
-  const items = data ? buildAlertItems(data.alerts) : [];
+  const [seen, setSeen] = useLocal<string[]>("westvane.alerts-seen", NONE_SEEN);
+  const items = (data ? buildAlertItems(data.alerts) : []).map((i) => ({ ...i, fresh: !seen.includes(sig(i)) }));
   const urgent = items.filter((i) => i.tone === "danger").length;
-  return { items, urgent, ready: !!data };
+  const unseen = items.filter((i) => i.fresh).length;
+  const key = items.map(sig).join("~");
+  const markSeen = useCallback(() => {
+    if (key) setSeen(key.split("~"));
+    // la clave resume los avisos actuales
+  }, [key, setSeen]);
+  return { items, urgent, unseen, markSeen, ready: !!data };
 }
 
-/** Cifra sobre la campana: roja si hay algo que impide operar, naranja si solo hay avisos. */
+/**
+ * Cifra sobre la campana: cuántos avisos son nuevos. Roja si hay algo que impide operar, naranja si solo hay
+ * avisos. Si todo ya se vio pero sigue habiendo algo urgente, queda un punto rojo sin número.
+ */
 export function AlertCount({ count, urgent, className }: { count: number; urgent: number; className?: string }) {
+  if (!count && urgent)
+    return (
+      <span
+        className={cn("absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-destructive ring-2 ring-[var(--card)]", className && "-top-1 -right-1")}
+        aria-hidden
+      />
+    );
   if (!count) return null;
   return (
     <span
@@ -62,8 +87,14 @@ export function AlertsList({ onNavigate, limit }: { onNavigate?: () => void; lim
 
 /** Campana del dock de escritorio: abre un panel con lo que requiere atención, desde cualquier página. */
 export function AlertsMenu() {
-  const { items, urgent } = useAlerts();
+  const { items, urgent, unseen, markSeen } = useAlerts();
   const [open, setOpen] = useState(false);
+  // Al cerrar el panel, lo que se mostró queda como visto
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (wasOpen.current && !open) markSeen();
+    wasOpen.current = open;
+  }, [open, markSeen]);
   const id = useId();
   const ref = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -88,7 +119,7 @@ export function AlertsMenu() {
   }, [open]);
 
   const label = items.length
-    ? `Avisos: ${items.length}${urgent ? `, ${urgent} ${urgent === 1 ? "urgente" : "urgentes"}` : ""}`
+    ? `Avisos: ${items.length}${urgent ? `, ${urgent} ${urgent === 1 ? "urgente" : "urgentes"}` : ""}${unseen ? `, ${unseen} ${unseen === 1 ? "nuevo" : "nuevos"}` : ", todos vistos"}`
     : "Avisos: todo en orden";
 
   return (
@@ -105,7 +136,7 @@ export function AlertsMenu() {
         className="press relative flex size-10 items-center justify-center rounded-full bg-fill text-foreground outline-none hover:bg-fill/70 focus-visible:ring-[3px] focus-visible:ring-ring/80"
       >
         <Bell className="size-4" aria-hidden />
-        <AlertCount count={items.length} urgent={urgent} />
+        <AlertCount count={unseen} urgent={urgent} />
       </button>
       <AnimatePresence>
         {open && (

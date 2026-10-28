@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import {
+  BookOpen,
   Ellipsis,
   Fuel,
   History,
@@ -49,6 +50,7 @@ const MORE: NavItem[] = [
   { href: "/huella", label: "Huella de carbono", short: "Huella", icon: Leaf },
   { href: "/historial", label: "Historial de trayectos", short: "Historial", icon: History },
   { href: "/configuracion", label: "Configuración", icon: Settings },
+  { href: "/metodologia", label: "Metodología", icon: BookOpen },
 ];
 
 const ring = "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80";
@@ -381,6 +383,14 @@ function MobileDock() {
     setOpen(false);
   }
 
+  // Al cerrar la hoja, los avisos que mostró quedan como vistos
+  const { markSeen } = alerts;
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (wasOpen.current && !open) markSeen();
+    wasOpen.current = open;
+  }, [open, markSeen]);
+
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -436,7 +446,7 @@ function MobileDock() {
             {moreActive && <MobilePill />}
             <span className="relative">
               <DockIcon icon={Ellipsis} active={moreActive} />
-              <AlertCount count={alerts.items.length} urgent={alerts.urgent} className="-top-2 -right-3" />
+              <AlertCount count={alerts.unseen} urgent={alerts.urgent} className="-top-2 -right-3" />
             </span>
             <span className="relative">Más</span>
           </button>
