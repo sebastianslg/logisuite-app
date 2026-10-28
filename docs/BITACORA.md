@@ -576,3 +576,14 @@ el mapa 3D (contexto WebGL, sombreadores, teselas). Medido con el sitio real y c
 - Accesos directos en la app instalable (nuevo envío, envíos, red). El manifiesto ya existía.
 - axe sin violaciones en 21 páginas, claro y oscuro. No se unificó el sondeo en vivo: ya se comparte por URL y se
   pausa con la pestaña oculta, así que no aportaba.
+
+## 20. Seguimiento público para el cliente (28/10/2026)
+
+- **Enlace de seguimiento** por envío (tabla `mm_tracking_links`, token de 24 caracteres al azar, hasta 5 activos
+  por envío, revocable): `/seguimiento/<token>` muestra estado, avance, llegada estimada, retraso y recorrido por
+  tramos. **No** muestra costos, cliente, peso, quién lo registró, notas, incidencias ni documentos (una prueba lo
+  verifica). Se actualiza solo cada 60 s con la pestaña a la vista y lleva `noindex`.
+- Esa página no muestra menú, avisos ni la bienvenida de aceptación (`ShellOnly`): el cliente no es un usuario de
+  la app. Se crean, copian y revocan desde la ficha (Seguimiento para el cliente); queda en el historial.
+- Si se activa Cloudflare Access, `/seguimiento/*` y `/api/tracking/*` deben quedar como rutas públicas.
+- Pruebas: 221 de la API y 15 de navegador.

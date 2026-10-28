@@ -12,6 +12,7 @@ import { MapFrame } from "@/components/map/map-frame";
 import { useMapData } from "@/components/map/use-map-data";
 import { useApp } from "@/components/providers";
 import { ActualCost } from "@/components/shipments/actual-cost";
+import { TrackingLinks } from "@/components/shipments/tracking-links";
 import { ExportActions } from "@/components/shipments/export-actions";
 import { SharedCode } from "@/components/shipments/shared-code";
 import { ShipmentAttachments } from "@/components/shipments/shipment-attachments";
@@ -289,6 +290,10 @@ export function ShipmentDetail({
                 { k: "Impuestos (IVA e ICA)", v: impuestos },
               ]}
             />
+          </Card>
+
+          <Card title="Seguimiento para el cliente" collapsible>
+            <TrackingLinks code={s.code} />
           </Card>
 
           <Card title="Costo real">

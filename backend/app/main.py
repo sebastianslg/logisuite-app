@@ -54,7 +54,7 @@ from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
 from app.engine import (clients, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
-                        shipments_io, sustainability as SU, telemetry, tolls, trends, warehouses, xlsx)
+                        shipments_io, sustainability as SU, telemetry, tolls, tracking, trends, warehouses, xlsx)
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
 
@@ -839,6 +839,42 @@ def shipment_actual_cost(code: str, body: ActualCostIn) -> dict:
         _not_found(code)
     except ops.OperationError as exc:
         _op_error(exc)
+
+
+@app.post("/api/shipments/{code}/tracking", status_code=201)
+def tracking_create(code: str, usuario: str | None = None) -> dict:
+    """Crea un enlace público de seguimiento (solo lectura) para compartir con el cliente."""
+    try:
+        return tracking.create(code, usuario)
+    except LookupError:
+        _not_found(code)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
+@app.get("/api/shipments/{code}/tracking")
+def tracking_list(code: str) -> dict:
+    _shipment_row(code)
+    items = tracking.links(code)
+    return {"count": len(items), "items": [{**i, "path": f"/seguimiento/{i['token']}"} for i in items]}
+
+
+@app.delete("/api/shipments/{code}/tracking/{token}")
+def tracking_revoke(code: str, token: str, usuario: str | None = None) -> dict:
+    try:
+        tracking.revoke(code, token, usuario)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Enlace inexistente o ya revocado")
+    return {"revoked": token}
+
+
+@app.get("/api/tracking/{token}")
+def tracking_public(token: str) -> dict:
+    """Vista pública del seguimiento: sin costos, cliente ni datos internos."""
+    try:
+        return tracking.public_view(token, _sync())
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Enlace inexistente o revocado")
 
 
 @app.get("/api/shipments/{code}/remesa")

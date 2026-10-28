@@ -945,3 +945,22 @@ export interface LegalInfo {
   required: string[];
   responsible: LegalResponsible;
 }
+
+/** Vista pública de seguimiento (GET /api/tracking/{token}): sin costos, cliente ni datos internos. */
+export interface TrackingView {
+  code: string;
+  origin: string;
+  destination: string;
+  cargo: string;
+  status: ShipmentStatus;
+  progress_pct: number;
+  departure_at: string;
+  eta_at: string;
+  eta_fmt: string;
+  delay_h: number;
+  delay_fmt: string | null;
+  route_h: number;
+  legs: { mode: Mode; mode_label: string; from: string; to: string; start_h: number; end_h: number }[];
+  modes: string[];
+  updated_at: string;
+}
