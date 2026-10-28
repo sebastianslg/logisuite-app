@@ -62,7 +62,7 @@ Desde la sesión SSH (bash, dentro del servidor):
 ```bash
 cd /opt/logisuite
 git pull
-docker run --rm -v ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro -e DOMAIN=revisar.local caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+docker run --rm -v "$PWD/deploy/Caddyfile":/etc/caddy/Caddyfile:ro -e DOMAIN=revisar.local caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
