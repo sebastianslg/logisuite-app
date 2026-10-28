@@ -56,6 +56,7 @@ Rama de trabajo: `main` (la rama de sesión `claude/vigilant-johnson-mofqyc` que
 | `0f4048c` | Trabajo en curso guardado antes de una pausa (sin verificar); lo completa `b47702b`. |
 | `b47702b` | Avisos globales, historial de trayectos, exportación a Excel y 404 real. |
 | `7784b59` | Pruebas de navegador, CI, despliegue automático a Contabo y paleta de modos validada. |
+| `2ebaaeb` | Espacio bien usado: sin desplazamiento lateral, mapas encuadrados, simulador a dos columnas. |
 
 ---
 
@@ -201,10 +202,10 @@ Pendientes que siguen abiertos:
 4. ~~Avisos de vías cerradas y envíos sin ruta fuera del resumen~~ (campana del dock).
 5. ~~Exportar a Excel la tabla filtrada~~.
 6. ~~Búsqueda global~~ (Ctrl K).
-7. Duplicar un envío.
+7. ~~Duplicar un envío~~ (ya existía: botón «Duplicar» en la ficha).
 8. ~~Pruebas end-to-end automáticas con Playwright~~ (`frontend/e2e/`, también en la CI).
 9. Validar coordenadas aproximadas contra INVÍAS, ANI y Cormagdalena.
-10. Actualizar dependencias con vulnerabilidades reportadas (sección 5).
+10. ~~Actualizar dependencias con vulnerabilidades~~: `npm audit` y `pip-audit` en 0 (sección 12).
 
 ## 8. Cosas a verificar antes de confiar en ellas
 
@@ -345,3 +346,27 @@ normal (10,5, mínimo 15). Se movió cada tono dentro de su familia:
 
 Resultado: mínimo 8,1 con daltonismo y 15,9 con visión normal en claro; 9,3 y 16,4 en oscuro. El mapa usa el
 juego oscuro cuando el tema es oscuro (`MODES[m].rgbDark`).
+
+---
+
+## 12. Espacio, encuadre de mapas y dependencias (28/10/2026)
+
+Reporte del usuario: zonas en blanco y tablas que obligaban a desplazarse hacia el lado.
+
+- **Medición:** script que recorre las 14 pantallas en 10 anchos (390 a 2560 px) contra los datos de
+  producción (solo lectura) y busca desbordes horizontales. Antes: tabla de envíos (1432 px en una caja de
+  1358), historial y peajes en celular. Después: ninguno.
+- **Ancho de página** 1440 → 1760 px. **Tabla de envíos:** columnas que ceden por ancho (ETA y cliente desde
+  1280, prioridad desde 1600), tarjetas bajo 1024. **Tablas de detalle e historial:** filas apiladas bajo 1024.
+- **Simulador a pantalla completa:** dos columnas; antes heredaba las clases del panel flotante.
+- **Mapas:** encuadre de Colombia con la cámara inclinada real (`fitTilted` en `Map3D.tsx`) en el espacio que
+  dejan libres los controles (`insets`). La ficha del envío abre encuadrada en su ruta: la transición de
+  vuelo se cancelaba al crear el mapa (el mapa avisaba su vista original), por eso ahora se encuadra en un
+  efecto de diseño, y la clave es el trazado (antes se re-encuadraba en cada refresco).
+- **Fotogramas en /red** (SwiftShader, 2 pasadas, misma máquina): arrastre 6,4–7,1 → 6,7–6,9 fps (bloqueo
+  máximo 833–850 → 550 ms); rueda 4,1 → 6,3–6,6 fps. La carga inicial por etapas bloquea igual que antes
+  (~10 s sin GPU en los primeros 10 s, luego nada).
+- **Dependencias:** `overrides` en `package.json` para `fflate` 0.7.5, `zod` 4.6.7 e `image-size` 2.0.4. Este
+  último solo lo usa `texture-compressor`, herramienta de línea de comandos opcional de loaders.gl que no
+  entra al paquete ni se ejecuta. La "solución" de `npm audit` era bajar deck.gl a 9.0/9.1: descartada.
+- **CI** usa `npm run build` (copia el worker de MapLibre, como Docker).
