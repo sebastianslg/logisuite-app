@@ -684,6 +684,48 @@ def geo_departments() -> dict:
     return {"type": "FeatureCollection", "metadata": base.get("metadata", {}), "features": features}
 
 
+def _alerts(rows: list, fs: dict, ws: dict) -> dict:
+    """Lo que requiere una decisión ahora: flota, bodegas, cierres, envíos sin ruta, redirigidos y retrasados."""
+    return {
+        "fleet": {
+            "disabled": fs["by_status"].get("Inhabilitado", 0),
+            "in_shop": fs["by_status"].get("En mantenimiento", 0),
+            "overdue": fs["by_status"].get("Mantenimiento vencido", 0),
+            "open_faults": len(fs["open_faults"]),
+        },
+        "warehouses": {
+            "low_stock": ws["low_stock_lines"],
+            "full": list(ws["full_warehouses"]),
+        },
+        "closed_corridors": sorted(network().closed_corridors),
+        "closed_nodes": [{"code": c, "name": network().nodes[c]["name"], "reason": r}
+                         for c, r in sorted(network().closed_nodes.items())],
+        "no_route": sorted(r["shipment_code"] for r in rows
+                           if r.get("route_status") == "sin_ruta" and r["status"] != "Entregado"),
+        "rerouted": sorted(r["shipment_code"] for r in rows
+                           if str(r.get("route_note") or "").startswith("Redirigida")
+                           and r["status"] != "Entregado"),
+        "delayed": [{"code": r["shipment_code"], "origin": r["origin_city"],
+                     "destination": r["dest_city"], "delay_fmt": F.duration_fmt(r["delay_h"])}
+                    for r in sorted((r for r in rows if r["status"] == "Retrasado"),
+                                    key=lambda r: -float(r["delay_h"] or 0))[:6]],
+    }
+
+
+@app.get("/api/alerts")
+def alerts() -> dict:
+    """Solo las alertas (para el aviso global del dock): más liviano que el resumen completo."""
+    now = _sync()
+    rows = run_query(
+        "SELECT shipment_code, status, route_status, route_note, origin_city, dest_city, delay_h FROM mm_shipments"
+    ).to_dict(orient="records")
+    data = _alerts(rows, fleet.summary(now), warehouses.summary())
+    fl, wh = data["fleet"], data["warehouses"]
+    urgent = (fl["disabled"] + fl["in_shop"] > 0) + bool(data["no_route"]) + bool(data["closed_corridors"]) + bool(data["closed_nodes"])
+    warn = (fl["overdue"] > 0) + bool(wh["low_stock"] or wh["full"]) + bool(data["rerouted"]) + bool(data["delayed"])
+    return {"generated_at": now.isoformat(timespec="seconds"), "urgent": urgent, "total": urgent + warn, "alerts": data}
+
+
 @app.get("/api/dashboard/summary")
 def dashboard_summary() -> dict:
     now = _sync()
@@ -748,30 +790,7 @@ def dashboard_summary() -> dict:
         "top_corridors": top_corridors,
         "all_corridors": all_corridors,
         "dispatches_14d": [{"date": d.isoformat(), "count": per_day[d]} for d in days],
-        "alerts": {
-            "fleet": {
-                "disabled": fs["by_status"].get("Inhabilitado", 0),
-                "in_shop": fs["by_status"].get("En mantenimiento", 0),
-                "overdue": fs["by_status"].get("Mantenimiento vencido", 0),
-                "open_faults": len(fs["open_faults"]),
-            },
-            "warehouses": {
-                "low_stock": ws["low_stock_lines"],
-                "full": list(ws["full_warehouses"]),
-            },
-            "closed_corridors": sorted(network().closed_corridors),
-            "closed_nodes": [{"code": c, "name": network().nodes[c]["name"], "reason": r}
-                             for c, r in sorted(network().closed_nodes.items())],
-            "no_route": sorted(r["shipment_code"] for r in rows
-                               if r.get("route_status") == "sin_ruta" and r["status"] != "Entregado"),
-            "rerouted": sorted(r["shipment_code"] for r in rows
-                               if str(r.get("route_note") or "").startswith("Redirigida")
-                               and r["status"] != "Entregado"),
-            "delayed": [{"code": r["shipment_code"], "origin": r["origin_city"],
-                         "destination": r["dest_city"], "delay_fmt": F.duration_fmt(r["delay_h"])}
-                        for r in sorted((r for r in rows if r["status"] == "Retrasado"),
-                                        key=lambda r: -float(r["delay_h"] or 0))[:6]],
-        },
+        "alerts": _alerts(rows, fs, ws),
         "network": {"nodes": len(network().nodes), "links": len(network().links),
                     "modes": S.network_geojson(network())["stats"]},
     }
