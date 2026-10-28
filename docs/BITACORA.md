@@ -540,3 +540,16 @@ el mapa 3D (contexto WebGL, sombreadores, teselas). Medido con el sitio real y c
     `autorizado`), y la declaración queda en el registro.
 - **Pruebas:** 6 de la API (208 en total) y una de navegador del flujo completo (14 en total). Las demás
   pruebas de navegador usan un navegador que ya aceptó.
+
+## 17. Operación: avisos, remesa, API versionada y errores del navegador (28/10/2026)
+
+- **Avisos al celular (ntfy)** cuando se registra una incidencia en ruta (prioridad alta, abre la ficha) o se
+  cierra o reabre una vía o un nodo (con cuántos envíos se redirigieron o quedaron sin ruta). Usa el mismo
+  `NTFY_TOPIC` del monitor; sin él no hace nada. Se envía en segundo plano y en JSON (tildes en el título).
+- **Remesa de carga en PDF** desde la ficha: remitente, destinatario, mercancía, tramos con vehículo,
+  observaciones y firmas. Es un formato de referencia; no reemplaza la remesa electrónica del RNDC.
+- **`/api/v1/...`:** la misma API con versión explícita para integraciones (`X-API-Version: 1`).
+- **Errores del navegador:** los fallos de JavaScript se envían solos al servidor (máximo 5 por carga, sin
+  parámetros de la URL) y se ven en Configuración › Errores recientes. Se guardan los últimos 500.
+- **Carga del mapa:** mientras llega el mapa 3D se ve la red en plano (silueta del país con sus rutas).
+- **Pruebas:** 214 de la API y 14 de navegador.

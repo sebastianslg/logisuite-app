@@ -22,6 +22,7 @@ from datetime import datetime
 
 import app.database.db as db
 from app.database.db import run_query, run_write
+from app.engine import notify
 from app.engine.common import OperationError, _now_iso, _user, audit, records
 
 KINDS = {
@@ -91,7 +92,8 @@ def attachments_dir() -> str:
 
 
 def _exists(code: str) -> dict:
-    rows = run_query("SELECT shipment_code, delay_h, status FROM mm_shipments WHERE shipment_code = ?", (code,))
+    rows = run_query("SELECT shipment_code, delay_h, status, origin_city, dest_city FROM mm_shipments WHERE shipment_code = ?",
+                     (code,))
     if rows.empty:
         raise LookupError(code)
     return rows.to_dict(orient="records")[0]
@@ -150,6 +152,10 @@ def add_event(net, code: str, kind: str, body: str, delay_h: float, user: str | 
         (code, kind, body, delay_h, _now_iso(), _user(user)))
     audit(user, "INSERT", "mm_shipment_events", code,
           f"{KINDS[kind]}: {body[:120]}" + (f" (+{delay_h:g} h de retraso)" if delay_h else ""))
+    if kind != "nota":
+        notify.send(f"Incidencia en {code}: {KINDS[kind]}",
+                    f"{s['origin_city']} -> {s['dest_city']}. {body[:200]}" + (f" (+{delay_h:g} h)" if delay_h else ""),
+                    tags="rotating_light", priority="high", path=f"/envios/{code}")
     row = records(run_query("SELECT * FROM mm_shipment_events WHERE event_id = ?", (event_id,)))[0]
     return _event_out(row)
 

@@ -35,6 +35,7 @@ import re
 from datetime import datetime, timedelta
 
 from app.database.db import run_query, run_write
+from app.engine import notify
 from app.engine.common import ANON, OperationError, _now_iso, _user, audit  # noqa: F401 (reexportados)
 from app.engine import fleet
 from app.engine.dispatch import _asset_for, status_at
@@ -197,6 +198,7 @@ def set_corridor_status(net_factory, corridor: str, active: bool, reason: str | 
     net = net_factory(reload=True)
     summary = reconcile(net, now, user,
                         cause=(f"reapertura de {corridor}" if active else f"cierre de {corridor}"))
+    _notify_closure(corridor, active, reason, summary, "/vias")
     return {"corridor": corridor, "active": active, **summary}
 
 
@@ -256,7 +258,21 @@ def set_node_status(net_factory, code: str, active: bool, reason: str | None,
     net = net_factory(reload=True)
     summary = reconcile(net, now, user,
                         cause=(f"reapertura de {name}" if active else f"cierre de {name}"))
+    _notify_closure(name, active, reason, summary, "/vias?ver=nodos")
     return {"code": code, "name": name, "active": active, **summary}
+
+
+def _notify_closure(name: str, active: bool, reason: str, summary: dict, path: str) -> None:
+    """Aviso al celular (ntfy) de un cierre o reapertura, con los envíos que movió."""
+    moved = len(summary["rerouted"]) + len(summary["replanned"])
+    parts = [f"{moved} redirigidos" if moved else "", f"{len(summary['no_route'])} sin ruta" if summary["no_route"] else "",
+             f"{len(summary['restored'])} restablecidos" if summary["restored"] else ""]
+    effect = ", ".join(p for p in parts if p) or "sin envíos afectados"
+    if active:
+        notify.send(f"Reabierto: {name}", f"Envíos: {effect}.", tags="white_check_mark", path=path)
+    else:
+        notify.send(f"Cerrado: {name}", f"{reason}. Envíos: {effect}.", tags="construction",
+                    priority="high" if summary["no_route"] else "default", path=path)
 
 
 # ---------------------------------------------------------------------------

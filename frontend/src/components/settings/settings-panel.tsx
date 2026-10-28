@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LayoutGroup } from "framer-motion";
@@ -73,6 +73,7 @@ export function SettingsPanel({ settings, links, history }: { settings: Settings
           <ReplenishToggle initial={settings.auto_replenish} />
           <MapQualitySection />
           <PrivacySection />
+          <ClientErrors />
           <SharedLinks links={links} />
         </div>
       </LayoutGroup>
@@ -354,6 +355,39 @@ function PrivacySection() {
         Detalles en la <Link href="/privacidad" className="underline">Política de tratamiento de datos</Link> y en{" "}
         <Link href="/cookies" className="underline">Cookies y almacenamiento</Link>.
       </p>
+    </Section>
+  );
+}
+
+type ClientError = { error_id: number; created_at: string; path: string; message: string; stack: string | null; user_agent: string | null };
+
+/** Errores de JavaScript que reportaron los navegadores (ErrorReporter): para enterarse de un fallo sin que nadie avise. */
+function ClientErrors() {
+  const [items, setItems] = useState<ClientError[] | null>(null);
+  useEffect(() => {
+    api<{ items: ClientError[] }>("/api/client-errors?limit=20")
+      .then((r) => setItems(r.items))
+      .catch(() => setItems([]));
+  }, []);
+  return (
+    <Section title="Errores recientes del navegador" description="Fallos de la app que ocurrieron en algún navegador, con la página donde pasaron. Vacío es buena señal.">
+      {items === null ? (
+        <p className="text-sm text-muted-foreground">Cargando…</p>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Sin errores registrados.</p>
+      ) : (
+        <ul className="rule-list text-sm">
+          {items.map((e) => (
+            <li key={e.error_id} className="py-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                <span className="font-mono text-xs">{e.path}</span>
+                <span className="tabular text-xs text-muted-foreground">{dt(e.created_at)}</span>
+              </div>
+              <p className="mt-0.5 [overflow-wrap:anywhere] text-destructive">{e.message}</p>
+            </li>
+          ))}
+        </ul>
+      )}
     </Section>
   );
 }

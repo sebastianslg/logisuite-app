@@ -7,7 +7,10 @@ Registro de aceptaciones (prueba de la autorización, Ley 1581 de 2012 y Decreto
   navegador al azar), cuándo y desde dónde (la IP no se guarda: solo un resumen irreversible con sal secreta).
   Las filas no se editan ni se borran: una revocación es otra fila con accepted = 0.
 
-Es aditivo: solo crea la tabla e índices si faltan.
+- mm_client_errors: errores de JavaScript que ocurren en los navegadores (mensaje, pila, página sin parámetros,
+  navegador), para enterarse de un fallo sin que nadie lo reporte. Se conservan los últimos 500.
+
+Es aditivo: solo crea tablas e índices si faltan.
 """
 
 SCHEMA_V8_SQL = """
@@ -26,6 +29,16 @@ CREATE TABLE IF NOT EXISTS mm_consents (
 );
 CREATE INDEX IF NOT EXISTS ix_consents_browser ON mm_consents (browser_id, document, created_at);
 CREATE INDEX IF NOT EXISTS ix_consents_created ON mm_consents (created_at);
+
+CREATE TABLE IF NOT EXISTS mm_client_errors (
+    error_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    path       TEXT NOT NULL,
+    message    TEXT NOT NULL,
+    stack      TEXT,
+    user_agent TEXT,
+    release    TEXT
+);
 """
 
 

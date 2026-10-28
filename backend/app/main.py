@@ -87,7 +87,7 @@ _cache_version = 0
 _cache_lock = threading.Lock()
 _inflight: dict[str, "asyncio.Future"] = {}
 # Lecturas que no se cachean: salud, PDF y archivos generados
-_NO_CACHE = ("/api/health", "/api/exports/", "/api/tolls/export", "/api/reports/", "/api/shipments/import/")
+_NO_CACHE = ("/api/health", "/api/client-errors", "/api/exports/", "/api/tolls/export", "/api/reports/", "/api/shipments/import/")
 
 
 def _bump_cache() -> None:
@@ -211,6 +211,19 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def api_v1_alias(request: Request, call_next):
+    """/api/v1/... es la misma API que /api/...: la versión explícita para integraciones de terceros.
+    Si algún día cambia un contrato, /api/v2 convivirá con la anterior. Se registra al final: corre primero."""
+    path = request.scope["path"]
+    if path.startswith("/api/v1/"):
+        request.scope["path"] = "/api/" + path[len("/api/v1/"):]
+        request.scope["raw_path"] = request.scope["path"].encode()
+    response = await call_next(request)
+    response.headers["X-API-Version"] = "1"
+    return response
 
 
 # Flota de vehículos y red de bodegas (endpoints en api/fleet_wh.py)
@@ -790,6 +803,17 @@ def shipment_pdf(code: str, moneda: Currency = "USD", descargar: bool = False) -
     return _pdf_response([code], moneda, f"{code}.pdf", descargar)
 
 
+@app.get("/api/shipments/{code}/remesa")
+def shipment_remesa(code: str, descargar: bool = False) -> Response:
+    """Remesa de carga para imprimir y firmar (formato de referencia; no reemplaza la del RNDC)."""
+    now = _sync()
+    row = _shipment_row(code)
+    data = pdf.remesa(row, now, legal.responsible()["name"])
+    disposition = "attachment" if descargar else "inline"
+    return Response(data, media_type="application/pdf",
+                    headers={"Content-Disposition": f'{disposition}; filename="remesa-{code}.pdf"'})
+
+
 class ExportIn(BaseModel):
     codes: list[str] = Field(..., min_length=1, max_length=300)
     moneda: Currency = "USD"
@@ -1190,3 +1214,31 @@ def consents_export() -> Response:
     """Registro completo en CSV (para atender una consulta o un reclamo del titular)."""
     return Response(legal.export_csv(), media_type="text/csv; charset=utf-8", headers={
         "Content-Disposition": f"attachment; filename=registro-aceptaciones-{datetime.now():%Y%m%d}.csv"})
+
+
+# ---------------------------------------------------------------------------
+# Errores del navegador (para enterarse de un fallo sin que nadie lo reporte)
+# ---------------------------------------------------------------------------
+class ClientErrorIn(BaseModel):
+    path: str = Field(..., max_length=300)
+    message: str = Field(..., min_length=1, max_length=1000)
+    stack: str | None = Field(None, max_length=4000)
+    release: str | None = Field(None, max_length=40)
+
+
+@app.post("/api/client-errors", status_code=204)
+def client_error(body: ClientErrorIn, request: Request) -> Response:
+    path = body.path.split("?")[0].split("#")[0][:300]  # sin parámetros: pueden llevar datos
+    run_write("INSERT INTO mm_client_errors (created_at, path, message, stack, user_agent, release) VALUES (?,?,?,?,?,?)",
+              (datetime.now().isoformat(timespec="seconds"), path, body.message, body.stack,
+               (request.headers.get("user-agent") or "")[:200], body.release))
+    run_write("DELETE FROM mm_client_errors WHERE error_id <= (SELECT MAX(error_id) - 500 FROM mm_client_errors)")
+    return Response(status_code=204)
+
+
+@app.get("/api/client-errors")
+def client_errors(limit: int = 50) -> dict:
+    rows = run_query("SELECT error_id, created_at, path, message, stack, user_agent, release FROM mm_client_errors "
+                     "ORDER BY error_id DESC LIMIT ?", (max(1, min(limit, 200)),))
+    items = rows.astype(object).where(rows.notna(), None).to_dict(orient="records")
+    return {"count": len(items), "items": items}

@@ -227,3 +227,67 @@ def render(shipments: list, currency: str, fx: dict, now: datetime) -> bytes:
         story += shipment_story(s, money, now, st)
     doc.build(story, onFirstPage=_footer(f"{now:%d/%m/%Y %H:%M}"), onLaterPages=_footer(f"{now:%d/%m/%Y %H:%M}"))
     return buf.getvalue()
+
+
+def _obs_box(text: str, st) -> Table:
+    """Recuadro de observaciones con espacio para escribir a mano."""
+    t = Table([[Paragraph(text, st["cell"])]], colWidths=[180 * mm], rowHeights=[24 * mm])
+    t.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.4, LINE), ("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    return t
+
+
+def remesa(s: dict, now: datetime, company: str | None = None) -> bytes:
+    """Remesa de carga de un envío: quién envía, qué, por dónde y en qué vehículos, con espacios para firmas.
+
+    Es un formato de referencia para imprimir y firmar en el cargue; no reemplaza la remesa ni el manifiesto
+    electrónicos que exige el RNDC del Ministerio de Transporte para el transporte terrestre real."""
+    st = _styles()
+    route = json.loads(s["route_json"])
+    legs = route["legs"]
+    buf = io.BytesIO()
+    number = f"REM-{s['shipment_code']}"
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15 * mm, rightMargin=15 * mm,
+                            topMargin=15 * mm, bottomMargin=18 * mm, title=f"Remesa {number}", author="Westvane TMS")
+    blank = "_" * 34
+    story: list = [
+        Paragraph("Remesa de carga", st["title"]),
+        Paragraph(f"N.º <b>{number}</b> · expedida el {now:%d/%m/%Y %H:%M} · "
+                  f"Empresa: {company or 'Westvane (operación simulada)'}", st["body"]),
+        Spacer(1, 6),
+    ]
+    parties = Table([[
+        _kv([("Remitente", s["client"]), ("Origen", s["origin_city"]), ("Fecha de cargue", _dt(s["departure_at"])),
+             ("Identificación", blank[:20])], st),
+        _kv([("Destinatario", blank[:20]), ("Destino", s["dest_city"]),
+             ("Entrega estimada", _dt(s["eta_at"])), ("Identificación", blank[:20])], st),
+    ]], colWidths=[90 * mm, 90 * mm])
+    parties.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
+    story += [parties, Paragraph("Mercancía", st["h2"]),
+              _table([["Descripción", "Peso", "Naturaleza", "Empaque", "Unidades"],
+                      [s["cargo"], F.tons_fmt(s["weight_t"]), "Carga general", "", ""]],
+                     [70 * mm, 24 * mm, 32 * mm, 30 * mm, 24 * mm], st),
+              Paragraph("Trayecto y vehículos", st["h2"])]
+    rows = [["#", "Modo", "Desde", "Hasta", "Vehículo", "Conductor o capitán"]]
+    for i, l in enumerate(legs, 1):
+        a = l.get("asset") or {}
+        rows.append([i, F.MODE_LABELS[l["mode"]], l["from"]["name"], l["to"]["name"],
+                     f"{a.get('type', '')} {a.get('id', '')}".strip() or "-", ""])
+    story.append(_table(rows, [7 * mm, 22 * mm, 40 * mm, 40 * mm, 33 * mm, 38 * mm], st))
+    story += [
+        Paragraph("Observaciones", st["h2"]),
+        _obs_box(s.get("route_note") or "", st),
+        Spacer(1, 22),
+    ]
+    sign = Table([["", "", ""], ["Firma y sello del remitente", "Firma del transportador", "Recibí a satisfacción (destinatario)"],
+                  ["Nombre y documento:", "Nombre y documento:", "Nombre, documento y fecha:"]],
+                 colWidths=[60 * mm, 60 * mm, 60 * mm], rowHeights=[18 * mm, None, 12 * mm])
+    sign.setStyle(TableStyle([("LINEABOVE", (0, 1), (-1, 1), 0.6, INK), ("FONTSIZE", (0, 1), (-1, -1), 7.5),
+                              ("TEXTCOLOR", (0, 2), (-1, 2), MUTED), ("VALIGN", (0, 2), (-1, 2), "TOP"),
+                              ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 10)]))
+    story += [sign, Spacer(1, 10), Paragraph(
+        "Formato de referencia generado por Westvane para imprimir y firmar en el cargue. No reemplaza la remesa ni el "
+        "manifiesto electrónicos de carga del RNDC (Ministerio de Transporte), obligatorios en el transporte terrestre "
+        "por carretera. Los datos personales que se escriban a mano en este documento quedan a cargo de quien lo "
+        "diligencia.", st["muted"])]
+    doc.build(story, onFirstPage=_footer(f"{now:%d/%m/%Y %H:%M}"), onLaterPages=_footer(f"{now:%d/%m/%Y %H:%M}"))
+    return buf.getvalue()

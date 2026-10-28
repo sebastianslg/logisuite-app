@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRightLeft, CircleOff, CopyPlus, Leaf, FileCheck2, History, ListTree, LoaderCircle, Maximize2, Paperclip, Pencil, Printer, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, CircleOff, CopyPlus, Leaf, FileCheck2, FileSignature, History, ListTree, LoaderCircle, Maximize2, Paperclip, Pencil, Printer, Trash2 } from "lucide-react";
 
 import { LayoutGroup, motion, useInView, useReducedMotion } from "framer-motion";
 
@@ -124,6 +124,12 @@ export function ShipmentDetail({
             <Button variant="secondary" size="sm" onClick={() => window.print()}>
               <Printer />
               Imprimir
+            </Button>
+            <Button variant="secondary" size="sm" asChild>
+              <a href={`/api/shipments/${encodeURIComponent(s.code)}/remesa`} target="_blank" rel="noopener" title="Remesa de carga para imprimir y firmar en el cargue">
+                <FileSignature />
+                Remesa
+              </a>
             </Button>
             <Button variant="secondary" size="sm" asChild>
               <Link
