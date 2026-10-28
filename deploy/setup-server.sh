@@ -33,11 +33,8 @@ else
 fi
 mkdir -p "${APP_DIR}/backend/data" "${APP_DIR}/backups"
 
-echo "[5/5] Respaldo diario de la base (03:30) con rotación de 14 días"
-cat > /etc/cron.d/logisuite-backup <<CRON
-30 3 * * * root ${APP_DIR}/deploy/backup.sh >> /var/log/logisuite-backup.log 2>&1
-CRON
-chmod +x "${APP_DIR}/deploy/backup.sh"
+echo "[5/5] Respaldo diario (base y adjuntos) y vigilancia del sitio cada 5 minutos"
+APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/install-cron.sh"
 
 cat <<MSG
 

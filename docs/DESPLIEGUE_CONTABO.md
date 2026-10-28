@@ -112,12 +112,37 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml restart backend
 
 Los contenedores tienen `restart: unless-stopped`: si el VPS se reinicia, la app vuelve sola.
 
-## 6. Respaldos de la base
+## 6. Respaldos y vigilancia
+
+Ambas tareas las instala `deploy/install-cron.sh` (el despliegue automático lo corre en cada
+actualización; a mano: `sudo bash /opt/logisuite/deploy/install-cron.sh`). Quedan en `/etc/cron.d/westvane`.
+
+| Tarea | Cuándo | Qué hace | Registro |
+|---|---|---|---|
+| `deploy/backup.sh` | 03:17 a diario | Copia en caliente de la base (con revisión de integridad) y de `backend/data/adjuntos`; conserva 14 de cada uno en `/opt/logisuite/backups` | `/var/log/westvane-backup.log` |
+| `deploy/healthcheck.sh` | cada 5 min | Pide `/api/health` y la portada por HTTPS; con dos fallas seguidas reinicia los contenedores (una vez por caída) | `/var/log/westvane-health.log` |
 
 ```bash
-sudo /opt/logisuite/deploy/backup.sh                 # respaldo manual
-ls /opt/logisuite/backups                            # se conservan los últimos 14
+sudo /opt/logisuite/deploy/backup.sh          # respaldo manual
+ls -lh /opt/logisuite/backups                   # logistics-*.db.gz y adjuntos-*.tar.gz
+tail -20 /var/log/westvane-health.log           # caídas y recuperaciones (vacío = todo bien)
 ```
+
+**Avisos al celular (opcional):** instala la app **ntfy** (Android o iPhone), suscríbete a un nombre
+difícil de adivinar y agrega `NTFY_TOPIC=ese-nombre` al `.env` de `/opt/logisuite`. Llega un aviso cuando
+el sitio cae y otro cuando vuelve.
+
+**Vigilancia externa:** el flujo «Monitor» de GitHub Actions revisa el sitio cada 30 minutos desde fuera
+del VPS; si el servidor entero se cae, GitHub avisa por correo de la ejecución fallida. GitHub pausa las
+tareas programadas tras 60 días sin actividad en el repositorio (se reactivan desde la pestaña Actions).
+
+**Copia fuera del servidor:** desde Windows, en la carpeta del repositorio:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\descargar-respaldos.ps1
+```
+
+Descarga a `Documentos\Westvane\respaldos` solo los respaldos que aún no tienes.
 
 Restaurar un respaldo (con cuidado: sobrescribe la base):
 
@@ -126,10 +151,9 @@ cd /opt/logisuite
 docker compose -f docker-compose.yml -f docker-compose.prod.yml stop backend
 rm -f backend/data/logistics.db-wal backend/data/logistics.db-shm   # la base usa modo WAL: estos archivos son de la base anterior
 gunzip -c backups/NOMBRE.db.gz > backend/data/logistics.db
+tar -xzf backups/adjuntos-FECHA.tar.gz -C backend/data               # si también hay que recuperar adjuntos
 docker compose -f docker-compose.yml -f docker-compose.prod.yml start backend
 ```
-
-Para tener copias fuera del servidor, descarga `backups/` periódicamente (por ejemplo con `scp`).
 
 ## 7. Variables de entorno
 

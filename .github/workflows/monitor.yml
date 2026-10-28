@@ -1,0 +1,31 @@
+# Vigilancia externa: revisa el sitio cada 30 minutos desde los servidores de GitHub. Si el VPS entero se cae,
+# la revisión del propio servidor (deploy/healthcheck.sh) no puede avisar; esta sí: una ejecución fallida le
+# llega por correo al dueño del repositorio (Settings > Notifications > Actions).
+# Nota: GitHub pausa las tareas programadas tras 60 días sin actividad en el repositorio.
+name: Monitor
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      DEPLOY_URL: ${{ vars.DEPLOY_URL || 'https://westvane.duckdns.org' }}
+    steps:
+      - name: El sitio responde
+        run: |
+          for i in 1 2 3; do
+            api=$(curl -s -o /dev/null -m 20 -w "%{http_code}" "$DEPLOY_URL/api/health" || true)
+            web=$(curl -s -o /dev/null -m 30 -w "%{http_code}" "$DEPLOY_URL/" || true)
+            echo "intento $i: api=$api web=$web"
+            [ "$api" = "200" ] && [ "$web" = "200" ] && exit 0
+            sleep 30
+          done
+          echo "::error::$DEPLOY_URL no responde (api=$api web=$web)"
+          exit 1

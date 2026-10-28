@@ -65,6 +65,8 @@ jobs:
             git pull --ff-only origin main
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
             docker image prune -f
+            # Respaldo diario y vigilancia del sitio (idempotente: instala o actualiza /etc/cron.d/westvane)
+            bash deploy/install-cron.sh
             # Espera a que la API quede sana (hasta 2 minutos)
             for i in $(seq 1 24); do
               state=$(docker inspect -f '{{.State.Health.Status}}' westvane-api 2>/dev/null || echo desconocido)
