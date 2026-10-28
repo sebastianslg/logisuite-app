@@ -20,6 +20,7 @@ from app.database.schema_v2 import SCHEMA_V2_SQL
 from app.database.schema_v3 import SCHEMA_V3_SQL
 from app.database.schema_v4 import SCHEMA_V4_SQL, apply_v4_migration
 from app.database.schema_v6 import apply_v6_migration
+from app.database.schema_v7 import apply_v7_migration
 from app.database.schema_v5 import SCHEMA_V5_SQL
 from app.database.db import DB_PATH
 
@@ -42,6 +43,7 @@ def init_database(reset: bool = False):
     apply_v4_migration(conn)
     conn.executescript(SCHEMA_V5_SQL)
     apply_v6_migration(conn)
+    apply_v7_migration(conn)
     conn.commit()
     conn.close()
 

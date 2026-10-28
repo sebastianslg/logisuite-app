@@ -34,11 +34,14 @@ def _city_departments() -> dict[str, str]:
 
 def history(now: datetime, days: int = 30) -> dict:
     since = now - timedelta(days=days)
-    rows = run_query(
+    before = since - timedelta(days=days)
+    all_rows = run_query(
         "SELECT shipment_code, origin_city, dest_city, weight_t, total_cost, status, departure_at, route_json "
         "FROM mm_shipments WHERE status != 'Programado'"
     ).to_dict(orient="records")
-    rows = [r for r in rows if since <= datetime.fromisoformat(r["departure_at"]) <= now]
+    rows = [r for r in all_rows if since <= datetime.fromisoformat(r["departure_at"]) <= now]
+    # Ventana anterior del mismo largo, para comparar (solo totales)
+    prev = [r for r in all_rows if before <= datetime.fromisoformat(r["departure_at"]) < since]
 
     dept_of = _city_departments()
     dept_name = _department_names()
@@ -122,13 +125,26 @@ def history(now: datetime, days: int = 30) -> dict:
         }
 
     tons = sum(float(r["weight_t"]) for r in rows)
+    cost = sum(float(r["total_cost"] or 0) for r in rows)
+    p_tons = sum(float(r["weight_t"]) for r in prev)
+    p_cost = sum(float(r["total_cost"] or 0) for r in prev)
+
+    def change(cur: float, old: float):
+        return F.pct(100 * (cur - old) / old) if old else None
+
     return {
         "window_days": days,
         "since": since.isoformat(timespec="seconds"),
         "totals": {
             "shipments": len(rows), "tons": F.tons(tons), "tons_fmt": F.tons_fmt(tons),
-            "cost": F.money(sum(float(r["total_cost"] or 0) for r in rows)),
+            "cost": F.money(cost),
             "cities": len(cities), "departments": len(depts), "corridors": len(corridors),
+        },
+        "previous": {
+            "since": before.isoformat(timespec="seconds"),
+            "shipments": len(prev), "tons": F.tons(p_tons), "tons_fmt": F.tons_fmt(p_tons), "cost": F.money(p_cost),
+            "change_pct": {"shipments": change(len(rows), len(prev)), "tons": change(tons, p_tons),
+                           "cost": change(cost, p_cost)},
         },
         "by_city": sorted((city_out(c) for c in cities.values()), key=lambda c: -(c["out"] + c["in"])),
         "by_department": sorted((dept_out(d) for d in depts.values()), key=lambda d: -(d["out"] + d["in"])),

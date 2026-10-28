@@ -21,6 +21,12 @@ Operación (sin autenticación; el campo `usuario` es un nombre declarado):
   GET                 /api/audit                              Historial
   GET                 /api/shipments/{code}/pdf               PDF individual
   GET/POST/DELETE     /api/exports[/{token}]                  Enlaces para compartir
+  GET/POST            /api/shipments/{code}/events            Bitácora: notas e incidencias en ruta
+  GET/POST/DELETE     /api/shipments/{code}/attachments       Documentos adjuntos del envío
+  POST                /api/shipments/import                   Carga masiva desde Excel o CSV (vista previa y confirmar)
+  GET                 /api/reports/operations                 Reporte operativo del período en PDF
+  GET                 /api/clients                            Resumen por cliente
+  POST                /api/settings/fx/official               TRM oficial desde datos.gov.co
 
 Ejecución local (desde backend/):  uvicorn app.main:app --reload --port 8000
 """
@@ -46,7 +52,8 @@ from app.api import format as F
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
-from app.engine import fleet, geo, history, operations as ops, pdf, sustainability as SU, telemetry, tolls, warehouses, xlsx
+from app.engine import (clients, fleet, fx, geo, history, journal, operations as ops, pdf, report,
+                        shipments_io, sustainability as SU, telemetry, tolls, trends, warehouses, xlsx)
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
 
@@ -79,7 +86,7 @@ _cache_version = 0
 _cache_lock = threading.Lock()
 _inflight: dict[str, "asyncio.Future"] = {}
 # Lecturas que no se cachean: salud, PDF y archivos generados
-_NO_CACHE = ("/api/health", "/api/exports/", "/api/tolls/export")
+_NO_CACHE = ("/api/health", "/api/exports/", "/api/tolls/export", "/api/reports/", "/api/shipments/import/")
 
 
 def _bump_cache() -> None:
@@ -415,7 +422,149 @@ def shipment_delete(code: str, usuario: str | None = None) -> dict:
         ops.delete_shipment(code, usuario)
     except LookupError:
         raise HTTPException(status_code=404, detail=f"Envío {code} no encontrado")
+    journal.purge(code)
     return {"deleted": code}
+
+
+# ---------------------------------------------------------------------------
+# Carga masiva, bitácora y adjuntos de envíos
+# ---------------------------------------------------------------------------
+class ImportIn(BaseModel):
+    filename: str = Field(..., min_length=1, max_length=200)
+    content_b64: str = Field(..., min_length=1)
+    commit: bool = False
+    usuario: str | None = None
+
+
+@app.post("/api/shipments/import")
+def shipments_import(body: ImportIn) -> dict:
+    """Sin `commit`: valida cada fila y muestra la ruta que tendría. Con `commit`: crea las filas válidas."""
+    try:
+        return shipments_io.import_shipments(network(), body.filename, body.content_b64, body.usuario,
+                                              datetime.now(), body.commit)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
+@app.get("/api/shipments/import/template")
+def shipments_import_template() -> Response:
+    return Response(shipments_io.template(),
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": 'attachment; filename="plantilla-envios-westvane.xlsx"'})
+
+
+EventKind = Literal["nota", "retraso", "derrumbe", "paro", "clima", "mecanica", "otro"]
+
+
+class EventIn(BaseModel):
+    kind: EventKind = "nota"
+    body: str = Field(..., min_length=1, max_length=2000)
+    delay_h: float = Field(0, ge=0, le=journal.MAX_DELAY_H)
+    usuario: str | None = None
+
+
+def _not_found(code: str):
+    raise HTTPException(status_code=404, detail=f"Envío {code} no encontrado")
+
+
+@app.get("/api/shipments/{code}/events")
+def shipment_events(code: str) -> dict:
+    try:
+        items = journal.events(code)
+    except LookupError:
+        _not_found(code)
+    return {"count": len(items), "items": items}
+
+
+@app.post("/api/shipments/{code}/events", status_code=201)
+def shipment_event_add(code: str, body: EventIn) -> dict:
+    global _last_sync
+    try:
+        event = journal.add_event(network(), code, body.kind, body.body, body.delay_h, body.usuario, datetime.now())
+    except LookupError:
+        _not_found(code)
+    except ops.OperationError as exc:
+        _op_error(exc)
+    if body.delay_h:
+        _last_sync = 0.0  # el estado del envío cambia (puede pasar a Retrasado)
+    return event
+
+
+@app.post("/api/shipments/{code}/events/{event_id}/resolve")
+def shipment_event_resolve(code: str, event_id: int, usuario: str | None = None) -> dict:
+    try:
+        return journal.resolve_event(code, event_id, usuario)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Registro no encontrado")
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
+@app.delete("/api/shipments/{code}/events/{event_id}")
+def shipment_event_delete(code: str, event_id: int, usuario: str | None = None) -> dict:
+    try:
+        journal.delete_event(code, event_id, usuario)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Registro no encontrado")
+    except ops.OperationError as exc:
+        _op_error(exc)
+    return {"deleted": event_id}
+
+
+@app.get("/api/incidents")
+def incidents(days: int = 7) -> dict:
+    """Incidencias de todos los envíos en los últimos `days` días (para el reporte y el resumen)."""
+    items = journal.recent_incidents(max(1, min(days, 365)))
+    return {"count": len(items), "open": sum(1 for e in items if not e["resolved_at"]), "items": items}
+
+
+class AttachmentIn(BaseModel):
+    filename: str = Field(..., min_length=1, max_length=200)
+    content_b64: str = Field(..., min_length=1)
+    usuario: str | None = None
+
+
+@app.get("/api/shipments/{code}/attachments")
+def shipment_attachments(code: str) -> dict:
+    try:
+        items = journal.attachments(code)
+    except LookupError:
+        _not_found(code)
+    return {"count": len(items), "items": items}
+
+
+@app.post("/api/shipments/{code}/attachments", status_code=201)
+def shipment_attachment_add(code: str, body: AttachmentIn) -> dict:
+    try:
+        return journal.add_attachment(code, body.filename, body.content_b64, body.usuario)
+    except LookupError:
+        _not_found(code)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
+@app.get("/api/shipments/{code}/attachments/{attachment_id}")
+def shipment_attachment_file(code: str, attachment_id: int, descargar: bool = False) -> Response:
+    try:
+        data, media, name = journal.attachment_file(code, attachment_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Adjunto no encontrado")
+    disposition = "attachment" if descargar else "inline"
+    # El nombre original va codificado (RFC 5987) para tildes y eñes
+    from urllib.parse import quote
+    return Response(data, media_type=media, headers={
+        "Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(name)}",
+        "X-Content-Type-Options": "nosniff",
+    })
+
+
+@app.delete("/api/shipments/{code}/attachments/{attachment_id}")
+def shipment_attachment_delete(code: str, attachment_id: int, usuario: str | None = None) -> dict:
+    try:
+        journal.delete_attachment(code, attachment_id, usuario)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Adjunto no encontrado")
+    return {"deleted": attachment_id}
 
 
 # ---------------------------------------------------------------------------
@@ -497,6 +646,15 @@ def settings_fx(body: FxIn) -> dict:
         return {"fx": ops.set_fx(body.rate, body.date, body.source, body.usuario)}
     except ops.OperationError as exc:
         _op_error(exc)
+
+
+@app.post("/api/settings/fx/official")
+def settings_fx_official(usuario: str | None = None) -> dict:
+    """Trae la TRM oficial del día (datos.gov.co). Si no hay conexión, responde 502 y no cambia nada."""
+    try:
+        return fx.update_from_official(usuario)
+    except ops.OperationError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
 
 
 class ReplenishIn(BaseModel):
@@ -626,6 +784,30 @@ def history_view(days: int = 30) -> dict:
     if not 1 <= days <= 365:
         raise HTTPException(status_code=422, detail="La ventana debe estar entre 1 y 365 días.")
     return history.history(_sync(), days)
+
+
+@app.get("/api/reports/operations")
+def report_operations(days: int = 7, moneda: Currency = "USD", descargar: bool = False) -> Response:
+    """Reporte operativo del período en PDF (por defecto, la última semana)."""
+    if not 1 <= days <= 90:
+        raise HTTPException(status_code=422, detail="El período debe estar entre 1 y 90 días.")
+    now = _sync()
+    try:
+        data = report.render(network(), days, moneda, ops.get_fx(), now)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    name = f"reporte-operativo-{now:%Y%m%d}.pdf"
+    return Response(data, media_type="application/pdf",
+                    headers={"Content-Disposition": f'{"attachment" if descargar else "inline"}; filename="{name}"'})
+
+
+@app.get("/api/clients")
+def clients_summary() -> dict:
+    now = _sync()
+    rows = run_query("SELECT shipment_code, client, origin_city, dest_city, weight_t, total_cost, modes, status, "
+                     "departure_at, total_time_h, delay_h, route_json FROM mm_shipments").to_dict(orient="records")
+    items = clients.summary(rows, now)
+    return {"count": len(items), "items": items}
 
 
 @app.post("/api/exports/pdf")
@@ -817,6 +999,7 @@ def dashboard_summary() -> dict:
         "top_corridors": top_corridors,
         "all_corridors": all_corridors,
         "dispatches_14d": [{"date": d.isoformat(), "count": per_day[d]} for d in days],
+        "trends": trends.trends(rows, now),
         "alerts": _alerts(rows, fs, ws),
         "network": {"nodes": len(network().nodes), "links": len(network().links),
                     "modes": S.network_geojson(network())["stats"]},
