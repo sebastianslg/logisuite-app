@@ -39,6 +39,7 @@ function toBase64(file: File): Promise<string> {
 export function ShipmentAttachments({ code, initial }: { code: string; initial: Attachment[] }) {
   const { operator } = useApp();
   const [items, setItems] = useState(initial);
+  const [loaded] = useState(() => new Set(initial.map((a) => a.attachment_id)));
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -112,7 +113,7 @@ export function ShipmentAttachments({ code, initial }: { code: string; initial: 
       {items.length > 0 ? (
         <ul className="rule-list -mx-5 mt-4 -mb-5 border-t border-border">
           {items.map((a) => (
-            <li key={a.attachment_id} className="group/att flex items-center gap-3 px-5 py-3">
+            <li key={a.attachment_id} className={cn("group/att flex items-center gap-3 px-5 py-3", !loaded.has(a.attachment_id) && "enter")}>
               <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-fill text-muted-foreground [&_svg]:size-4" aria-hidden>
                 {icon(a.content_type)}
               </span>

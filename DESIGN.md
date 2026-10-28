@@ -138,10 +138,12 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 - **Campo (`field`):** línea fina, foco con anillo de acento de 3 px; error en rojo con mensaje en español, `aria-invalid` y foco al primer error.
 - **Tendencia (`Sparkline`, `Delta`):** línea de 1,5 px de una sola serie, escala desde cero, valor del día al pasar el puntero; el cambio contra el período anterior va con flecha dibujada y texto («Sube 12 %»), en verde o rojo solo si esa dirección es buena o mala (los retrasos).
 - **Línea de tiempo (`ShipmentJournal`):** hora a la izquierda, punto con ícono y texto a la derecha; lo previsto atenuado y una marca de «Ahora» en el color de acento.
-- **Calendario:** barras del color del estado; el retraso es un tramo rayado, no otro color.
+- **Calendario:** barras del color del estado; el retraso es un tramo rayado, no otro color. Ficha propia al pasar el puntero o con el foco (no el tooltip del navegador).
 - **Mapa por departamento:** un solo tono del acento en cinco pasos por cuantiles, gris para «sin movimiento», leyenda con rangos.
 - **Impresión:** papel blanco y tinta oscura aunque la app esté en oscuro; sin dock, controles ni mapa; las tarjetas no se cortan entre páginas.
 - **Modo presentación:** cifras a 7 vw para proyectar, actualizadas cada 30 s mientras está abierto.
+- **Control segmentado (`Segmented`):** fondo `fill`, píldora de tarjeta que se desliza; `md` en cabeceras, `sm` en paneles; grupo de radio con flechas del teclado. Es el único segmentado de la app.
+- **Casilla de verificación:** 16 px, radio de 5 px, línea `separator-strong`; marcada, acento sólido con palomita; estado parcial con guion.
 - **Atajos:** `Ctrl K` o `/` buscar (envíos, ciudades, vehículos, bodegas, vías y páginas), `n` nuevo envío, `g` y una letra para navegar, `?` ayuda.
 
 ## Motion
@@ -150,6 +152,8 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 - **Presión (`press`):** baja a 0,97 en 120 ms; al soltar vuelve con un rebote de 300 ms. Sin escala al pasar el puntero (`lift` solo cambia borde y fondo).
 - **Solo `transform` y `opacity`.** Barras y líneas de tiempo crecen con `scaleX`/`scaleY`; nada anima `width`, `height`, `top` ni `box-shadow` en listas, tablas o mapa.
 - **El mapa está quieto en reposo.** Su reloj solo corre mientras se arrastra, se hace zoom o está en pantalla completa con animación activa; se monta cuando entra en pantalla y en tiempo ocioso, por capas.
+- **Medidores (`meter-fill`):** relleno a todo el ancho escalado con `--v`; crece al aparecer y se desliza al cambiar. **Sparklines** se dibujan con una máscara que crece; **calendario** crece por filas (20 ms); **mapa por departamento** se llena por intensidad; lo **recién creado** entra con `.enter`.
+- **Apariencia:** cambiar de tema funde la página en 250 ms (View Transitions); lo usado a diario (Ctrl K, atajos) no anima.
 - Todo componente respeta "reducir movimiento" (`MotionConfig reducedMotion="user"` y `motion-reduce:` en CSS).
 
 ## Do's and Don'ts

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 
 /**
  * Apariencia de la persona (Sistema / Claro / Oscuro). Se guarda en este navegador (localStorage);
@@ -59,10 +60,16 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
   const theme = useSyncExternalStore(subscribe, getTheme, () => "light" as ThemePref);
   const systemDark = useSyncExternalStore(subscribeScheme, getSystemDark, () => false);
 
+  // Cambiar de apariencia funde la página vieja con la nueva en 250 ms (View Transitions: solo opacidad). Es un
+  // gesto raro y deliberado; con "reducir movimiento" o sin soporte del navegador el cambio es inmediato.
   const setTheme = useCallback((t: ThemePref) => {
-    write(K_THEME, t);
-    document.documentElement.setAttribute("data-theme", t);
-    emit();
+    const apply = () => {
+      write(K_THEME, t);
+      document.documentElement.setAttribute("data-theme", t);
+      flushSync(emit);
+    };
+    if (!document.startViewTransition || window.matchMedia("(prefers-reduced-motion: reduce)").matches) apply();
+    else document.startViewTransition(apply);
   }, []);
 
   const resolved = theme === "system" ? (systemDark ? "dark" : "light") : theme;

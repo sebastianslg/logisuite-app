@@ -47,10 +47,12 @@ export function AlertCount({ count, urgent, className }: { count: number; urgent
       />
     );
   if (!count) return null;
+  // key: cuando llega un aviso nuevo la cifra se vuelve a montar y entra con un pequeño salto (badge-pop)
   return (
     <span
+      key={count}
       className={cn(
-        "tabular absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] leading-none font-semibold text-white ring-2 ring-[var(--card)]",
+        "badge-pop tabular absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] leading-none font-semibold text-white ring-2 ring-[var(--card)]",
         urgent ? "bg-destructive" : "bg-warning",
         className,
       )}

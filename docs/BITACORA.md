@@ -414,3 +414,53 @@ con reinicio y avisos ntfy opcionales, monitor externo en GitHub Actions y scrip
 - axe-core sin violaciones en claro y oscuro, escritorio y celular, en las pantallas existentes; las nuevas
   usan los mismos componentes y tokens.
 - Scripts del servidor probados en una carpeta de prueba (rotación, restauración, caída y recuperación).
+
+## 14. Movimiento, pulido y el congelamiento del Resumen (28/10/2026)
+
+Revisión con las guías de interfaz de Apple (HIG) y los criterios de Emil Kowalski: cada animación tiene un
+propósito (explicar un cambio, confirmar un toque, evitar un salto), dura menos de 300 ms en lo que se usa a
+diario, usa solo `transform` y `opacity`, y se queda quieta con «reducir movimiento». Lo que se usa cien
+veces al día (Ctrl K, atajos) sigue sin animación.
+
+### Movimiento
+- **Medidores en CSS:** el avance de cada envío (tabla, tarjetas, cadena de modos) ya no anima `width`: el
+  relleno ocupa todo el ancho y se escala con `scaleX`; crece desde cero al aparecer (`@starting-style`) y se
+  desliza si el avance cambia con los datos en vivo. Fuera del hilo principal.
+- **Sparklines que se dibujan:** una máscara crece de izquierda a derecha (700 ms) y el punto del último valor
+  llega al final con un pequeño rebote.
+- **Calendario:** las barras crecen desde su salida en cascada de 20 ms por fila y vuelven a crecer al cambiar
+  la ventana (explica el cambio de escala). Ficha propia al pasar el puntero o con el foco (código, ruta,
+  salida, llegada y retraso) en lugar del tooltip del navegador. «Ahora» ya no tapa la fecha del día.
+- **Mapa por departamento:** los departamentos se llenan del tono más claro al más oscuro.
+- **Bitácora y adjuntos:** lo recién registrado entra con un fundido corto; lo que ya estaba aparece quieto.
+- **Avisos:** la cifra de la campana entra con un salto corto cuando llega algo nuevo.
+- **Apariencia:** cambiar entre claro y oscuro funde la página en 250 ms (View Transitions, solo opacidad).
+
+### Pulido
+- **Control segmentado único** (`ui/segmented.tsx`): píldora que se desliza con el resorte estándar y flechas
+  del teclado. Reemplaza los de calendario, historial, vías, nodos y fallas; en esos tres últimos la opción
+  elegida era invisible en el tema claro (un blanco al 8 % sobre blanco).
+- **Casilla de verificación** con la forma de la app (16 px, radio de 5 px, palomita que entra con rebote,
+  se hunde al presionarla) y estado parcial en «seleccionar todo».
+- Tarjetas de envíos en celular: la lista se salía 15 px a la derecha en 390 px (columna `grid-cols-1`).
+- Cifras del resumen: «Sube 300 %» con un 0 al lado confundía; ahora dice «esta semana» y explica al pasar
+  el puntero que compara promedios diarios de 7 días.
+- Contraste: fechas de fin de semana en el calendario, hitos previstos de la bitácora, números de la
+  metodología, el «Ahora» del calendario en oscuro y los envíos borrados en Configuración ya pasan 4,5:1.
+
+### El congelamiento (la pestaña dejaba de responder)
+Al volver al Resumen después de visitar otra página, con el mapa ya cargado, la pestaña se congelaba sin
+error. Next conserva oculta la ruta que se deja (React Activity); al mostrarla otra vez el mapa se montaba
+en el mismo contenedor y `reuseMaps` de react-map-gl intentaba mudar sus nodos «del contenedor viejo al
+nuevo» mientras el viejo tuviera hijos: siendo el mismo, el ciclo no terminaba. Se quitó `reuseMaps` (el
+mapa oculto ahora se libera y se crea de nuevo al volver, lo que además gasta menos en segundo plano).
+De la misma causa venía el fallo de CI del commit anterior (deck.gl redibujaba un Deck ya finalizado):
+un Deck finalizado ya no dibuja y uno nuevo recibe sus capas al cargar. Hay una prueba que repite el
+recorrido y falla si la página deja de pintar.
+
+### Verificación
+- Tipos, lint y build limpios; 12 pruebas de navegador en verde (la nueva falla con el error y pasa sin él).
+- La prueba de celular revisa también 375 px y compara contra el ancho de la pantalla del dispositivo (antes
+  el navegador emulado se ensanchaba con el desborde y no lo veía); encontró el segmentado del historial.
+- axe-core sin violaciones en claro y oscuro en las pantallas tocadas.
+- `/red`: 60 cuadros por segundo en reposo, sin trabajo nuevo por cuadro.

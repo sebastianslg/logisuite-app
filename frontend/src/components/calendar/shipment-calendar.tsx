@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { ModeChain, StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Segmented } from "@/components/ui/segmented";
 import type { Shipment, ShipmentStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -76,23 +77,13 @@ export function ShipmentCalendar({ shipments }: { shipments: Shipment[] }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-full bg-fill p-1 text-sm" role="radiogroup" aria-label="Ventana">
-          {WINDOWS.map((w) => (
-            <button
-              key={w}
-              type="button"
-              role="radio"
-              aria-checked={days === w}
-              onClick={() => setDays(w)}
-              className={cn(
-                "press rounded-full px-3.5 py-1.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80",
-                days === w ? "bg-card font-medium shadow-sm" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {w} días
-            </button>
-          ))}
-        </div>
+        <Segmented
+          id="calendar-window"
+          label="Ventana"
+          value={String(days)}
+          options={WINDOWS.map((w) => ({ value: String(w), label: `${w} días` }))}
+          onChange={(v) => setDays(Number(v) as (typeof WINDOWS)[number])}
+        />
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
           {(Object.keys(BAR) as ShipmentStatus[]).map((st) => (
             <span key={st} className="inline-flex items-center gap-1.5">
@@ -105,7 +96,7 @@ export function ShipmentCalendar({ shipments }: { shipments: Shipment[] }) {
             Retraso
           </span>
           <label className="inline-flex items-center gap-1.5 text-foreground">
-            <input type="checkbox" checked={delivered} onChange={(e) => setDelivered(e.target.checked)} className="size-3.5 accent-primary" />
+            <input type="checkbox" checked={delivered} onChange={(e) => setDelivered(e.target.checked)} />
             Mostrar entregados
           </label>
         </div>
@@ -123,12 +114,12 @@ export function ShipmentCalendar({ shipments }: { shipments: Shipment[] }) {
               <div className="px-5 py-2.5 text-xs font-medium text-muted-foreground">
                 {rows.length} {rows.length === 1 ? "envío" : "envíos"}
               </div>
-              <div className="relative h-9">
+              <div className="relative h-11">
                 {ticks.map((t, i) =>
                   i % step === 0 ? (
                     <span
                       key={i}
-                      className={cn("absolute top-2.5 text-[11px] whitespace-nowrap text-muted-foreground", [0, 6].includes(t.getDay()) && "text-muted-foreground/70")}
+                      className="absolute bottom-2 text-[11px] whitespace-nowrap text-muted-foreground"
                       style={{ left: `calc(${pct(t.getTime())}% + 4px)` }}
                     >
                       {dayLabel(t)}
@@ -136,12 +127,13 @@ export function ShipmentCalendar({ shipments }: { shipments: Shipment[] }) {
                   ) : null,
                 )}
                 <span className="absolute -top-0 bottom-0 w-px bg-primary" style={{ left: `${nowPct}%` }} aria-hidden />
-                <span className="absolute top-0.5 -translate-x-1/2 rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground" style={{ left: `${nowPct}%` }}>
+                <span className="absolute top-1 -translate-x-1/2 rounded-full bg-solid px-1.5 text-[10px] leading-4 font-semibold text-primary-foreground" style={{ left: `${nowPct}%` }}>
                   Ahora
                 </span>
               </div>
             </div>
-            <ol className="relative">
+            {/* key: al cambiar la ventana las barras vuelven a crecer desde su salida (explica el cambio de escala) */}
+            <ol key={`${days}-${delivered}`} className="relative">
               {/* Rejilla de días (fines de semana en un tono) y línea de ahora, detrás de las filas */}
               <div className="pointer-events-none absolute inset-y-0 right-0 left-[17rem]" aria-hidden>
                 {ticks.map((t, i) => (
@@ -153,7 +145,7 @@ export function ShipmentCalendar({ shipments }: { shipments: Shipment[] }) {
                 ))}
                 <span className="absolute inset-y-0 w-px bg-primary/60" style={{ left: `${nowPct}%` }} />
               </div>
-              {rows.map(({ s, dep, eta, arr }) => {
+              {rows.map(({ s, dep, eta, arr }, i) => {
                 const left = pct(dep);
                 const planned = Math.max(pct(eta) - left, 0.4);
                 const delay = Math.max(pct(arr) - pct(eta), 0);
@@ -172,11 +164,13 @@ export function ShipmentCalendar({ shipments }: { shipments: Shipment[] }) {
                     <button
                       type="button"
                       onClick={() => router.push(`/envios/${s.code}`)}
-                      title={label}
                       aria-label={label}
-                      className="relative h-full min-h-14 cursor-pointer outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 focus-visible:ring-inset"
+                      className="cal-hit relative h-full min-h-14 cursor-pointer outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 focus-visible:ring-inset"
                     >
-                      <span className="absolute top-1/2 flex h-2.5 -translate-y-1/2" style={{ left: `${left}%`, width: `${planned + delay}%` }}>
+                      <span
+                        className="cal-bar absolute top-1/2 flex h-2.5 -translate-y-1/2"
+                        style={{ left: `${left}%`, width: `${planned + delay}%`, "--i": Math.min(i, 15) } as React.CSSProperties}
+                      >
                         <span className={cn("h-full rounded-l-full", BAR[s.status], !delay && "rounded-r-full")} style={{ width: `${(planned / (planned + delay)) * 100}%` }} />
                         {delay > 0 && (
                           <span
@@ -184,6 +178,25 @@ export function ShipmentCalendar({ shipments }: { shipments: Shipment[] }) {
                             style={{ width: `${(delay / (planned + delay)) * 100}%` }}
                           />
                         )}
+                      </span>
+                      {/* Ficha al pasar el puntero o con el foco: sube 4 px y aparece (ya leída por aria-label) */}
+                      <span
+                        aria-hidden
+                        className="cal-tip floating pointer-events-none absolute bottom-[calc(50%+0.75rem)] z-20 flex w-max max-w-72 flex-col gap-0.5 rounded-xl px-3 py-2 text-left text-xs"
+                        style={{ left: `${Math.min(left, 74)}%` }}
+                      >
+                        <span className="flex items-center justify-between gap-4">
+                          <span className="font-mono text-muted-foreground">{s.code}</span>
+                          <span className="font-medium">{s.status}</span>
+                        </span>
+                        <span className="truncate text-sm font-semibold">
+                          {s.origin} → {s.destination}
+                        </span>
+                        <span className="tabular text-muted-foreground">Sale {when(new Date(dep))}</span>
+                        <span className="tabular text-muted-foreground">
+                          Llega {when(new Date(arr))}
+                          {s.delay_fmt && <span className="text-destructive"> · +{s.delay_fmt}</span>}
+                        </span>
                       </span>
                     </button>
                   </li>

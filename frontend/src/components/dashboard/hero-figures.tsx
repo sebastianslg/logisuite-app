@@ -88,7 +88,7 @@ export function HeroFigures({
                   label={`${it.label}, últimos 14 días: de ${it.money ? money(it.trend[0], true) : it.trend[0]} a ${it.money ? money(it.trend.at(-1) ?? 0, true) : it.trend.at(-1)}`}
                   className="max-w-[16rem]"
                 />
-                <Delta pct={it.change} good={it.good} />
+                <Delta pct={it.change} good={it.good} suffix="esta semana" title="Promedio diario de los últimos 7 días frente a los 7 anteriores" />
               </div>
             )}
           </Link>

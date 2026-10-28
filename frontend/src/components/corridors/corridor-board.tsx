@@ -9,6 +9,7 @@ import { useApp } from "@/components/providers";
 import { ModeIcon } from "@/components/status-badge";
 import { GroupBlock } from "./group-block";
 import { Badge } from "@/components/ui/badge";
+import { Segmented } from "@/components/ui/segmented";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/client";
 import { MODE_ORDER, MODES, tint } from "@/lib/modes";
@@ -96,15 +97,22 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
               className="h-10 w-full field pr-3 pl-9 text-sm outline-none"
             />
           </label>
-          <div className="flex rounded-md border border-border p-0.5 text-xs" role="radiogroup" aria-label="Estado">
-            {(["todas", "activas", "cerradas"] as StateFilter[]).map((s) => (
-              <button key={s} type="button" role="radio" aria-checked={state === s} onClick={() => setState(s)}
-                className={cn("h-7 rounded px-3 capitalize", state === s ? "bg-white/[0.08] text-foreground" : "text-muted-foreground hover:text-foreground")}>
-                {s}
-                {s === "cerradas" && closedCount > 0 && <span className="ml-1 text-destructive">{closedCount}</span>}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            id="corridor-board-state"
+            label="Estado"
+            size="sm"
+            value={state}
+            onChange={setState}
+            options={(["todas", "activas", "cerradas"] as StateFilter[]).map((s) => ({
+              value: s,
+              label: (
+                <>
+                  <span className="capitalize">{s}</span>
+                  {s === "cerradas" && closedCount > 0 && <span className="ml-1 text-destructive">{closedCount}</span>}
+                </>
+              ),
+            }))}
+          />
           <div className="chip-scroll flex gap-1" role="group" aria-label="Filtrar por modo">
             {MODE_ORDER.map((m) => {
               const on = mode === m;

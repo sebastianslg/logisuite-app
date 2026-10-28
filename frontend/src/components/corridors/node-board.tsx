@@ -7,6 +7,7 @@ import { Anchor, Building2, CircleCheck, LoaderCircle, Lock, LockOpen, Plane, Se
 
 import { useApp } from "@/components/providers";
 import { Badge } from "@/components/ui/badge";
+import { Segmented } from "@/components/ui/segmented";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/client";
 import type { NodeChange, NodeStatus } from "@/lib/types";
@@ -101,15 +102,22 @@ export function NodeBoard({ nodes }: { nodes: NodeStatus[] }) {
             aria-label="Buscar nodos"
             className="h-10 w-full field pr-3 pl-9 text-sm outline-none" />
         </label>
-        <div className="flex rounded-md border border-border p-0.5 text-xs" role="radiogroup" aria-label="Estado">
-          {(["todos", "operativos", "cerrados"] as StateFilter[]).map((s) => (
-            <button key={s} type="button" role="radio" aria-checked={state === s} onClick={() => setState(s)}
-              className={cn("press h-7 rounded px-3 capitalize", state === s ? "bg-white/[0.08] text-foreground" : "text-muted-foreground hover:text-foreground")}>
-              {s}
-              {s === "cerrados" && closedCount > 0 && <span className="ml-1 text-destructive">{closedCount}</span>}
-            </button>
-          ))}
-        </div>
+        <Segmented
+            id="node-board-state"
+            label="Estado"
+            size="sm"
+            value={state}
+            onChange={setState}
+            options={(["todos", "operativos", "cerrados"] as StateFilter[]).map((s) => ({
+              value: s,
+              label: (
+                <>
+                  <span className="capitalize">{s}</span>
+                  {s === "cerrados" && closedCount > 0 && <span className="ml-1 text-destructive">{closedCount}</span>}
+                </>
+              ),
+            }))}
+          />
         <div className="chip-scroll flex flex-wrap gap-1" role="group" aria-label="Filtrar por tipo">
           {kinds.map((k) => {
             const on = kind === k;

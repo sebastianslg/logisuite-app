@@ -45,7 +45,7 @@ export function RouteChain({
                   className={cn("h-1.5 flex-1 overflow-hidden rounded-full bg-fill", l.interrupted || l.detour ? "opacity-70" : "")}
                   aria-hidden
                 >
-                  <span className="block h-full rounded-full" style={{ width: `${fill * 100}%`, backgroundColor: color }} />
+                  <span className="meter-fill block h-full rounded-full" style={{ "--v": fill, backgroundColor: color } as React.CSSProperties} />
                 </span>
                 {i === legs.length - 1 && (
                   <span className="relative z-10 size-3 shrink-0 rounded-full border-2 border-foreground bg-background" aria-hidden />

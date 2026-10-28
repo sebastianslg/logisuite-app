@@ -84,7 +84,8 @@ export function DepartmentMap({ departments }: { departments: HistoryDepartment[
                   strokeLinejoin="round"
                   onPointerEnter={() => setHover(s.code)}
                   onPointerLeave={() => setHover((h) => (h === s.code ? null : h))}
-                  className="cursor-default transition-[stroke] duration-150"
+                  className="choro cursor-default transition-[stroke] duration-150"
+                  style={{ "--q": step(v) + 1 } as React.CSSProperties}
                 >
                   <title>{`${s.name}: ${v.toLocaleString("es-CO", { maximumFractionDigits: 0 })} t`}</title>
                 </path>

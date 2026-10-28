@@ -359,7 +359,7 @@ function AuditLog({ history }: { history: AuditEntry[] }) {
               {h.record_id && SHIPMENT_TABLES.has(h.table_name) && !deleted.has(h.record_id) ? (
                 <Link href={`/envios/${h.record_id}`} prefetch={false} className="font-mono text-foreground/80 hover:text-primary">{h.record_id}</Link>
               ) : h.record_id && deleted.has(h.record_id) ? (
-                <span className="font-mono text-foreground/60" title="Envío borrado">{h.record_id} (borrado)</span>
+                <span className="font-mono text-muted-foreground" title="Envío borrado">{h.record_id} (borrado)</span>
               ) : (
                 h.record_id && <span className="text-foreground/80">{h.record_id}</span>
               )}

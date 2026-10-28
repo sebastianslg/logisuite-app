@@ -8,6 +8,7 @@ import { Money } from "@/components/money";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ModeIcon } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
+import { Segmented } from "@/components/ui/segmented";
 import type { Fault } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -22,14 +23,17 @@ export function FaultsBoard({ faults }: { faults: Fault[] }) {
   const list = view === "abiertas" ? open : [...open, ...closed];
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex rounded-md border border-border p-0.5 text-xs w-fit" role="radiogroup" aria-label="Qué fallas ver">
-        {(["abiertas", "todas"] as const).map((v) => (
-          <button key={v} type="button" role="radio" aria-checked={view === v} onClick={() => setView(v)}
-            className={cn("press h-7 rounded px-3 capitalize", view === v ? "bg-white/[0.08] text-foreground" : "text-muted-foreground hover:text-foreground")}>
-            {v}{v === "abiertas" && open.length > 0 && <span className="ml-1 text-destructive">{open.length}</span>}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        id="faults-view"
+        label="Qué fallas ver"
+        size="sm"
+        value={view}
+        onChange={setView}
+        options={[
+          { value: "abiertas", label: <>Abiertas{open.length > 0 && <span className="ml-1 text-destructive">{open.length}</span>}</> },
+          { value: "todas", label: "Todas" },
+        ]}
+      />
       <ul className="glass rule-list overflow-hidden rounded-3xl">
         {list.length === 0 && <li><EmptyState figure="0" title="Sin fallas abiertas" description="Cuando alguien reporte una desde la ficha de un vehículo, aparecerá aquí." /></li>}
         {list.map((f) => (

@@ -167,8 +167,8 @@ const columns = helper.columns([
         <div className="flex w-20 items-center gap-2 min-[1600px]:w-28">
           <div className="h-1 flex-1 rounded-full bg-fill">
             <div
-              className="h-full rounded-full"
-              style={{ width: `${info.getValue()}%`, backgroundColor: color }}
+              className="meter-fill h-full rounded-full"
+              style={{ "--v": info.getValue() / 100, backgroundColor: color } as React.CSSProperties}
             />
           </div>
           <span className="tabular w-9 text-right text-xs text-muted-foreground">
@@ -300,6 +300,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
   const selectedCodes = rows.map((r) => r.code).filter((c) => selected.has(c));
   const pageCodes = table.getRowModel().rows.map((r) => r.original.code);
   const allPageSelected = pageCodes.length > 0 && pageCodes.every((c) => selected.has(c));
+  const somePageSelected = !allPageSelected && pageCodes.some((c) => selected.has(c));
 
   const toggleRow = (code: string) =>
     setSelected((prev) => {
@@ -568,9 +569,11 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                   <input
                     type="checkbox"
                     checked={allPageSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = somePageSelected;
+                    }}
                     onChange={togglePage}
                     aria-label="Seleccionar los envíos de esta página"
-                    className="size-3.5 accent-primary"
                   />
                 </TableHead>
                 {group.headers.map((header) => {
@@ -629,7 +632,6 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                       checked={selected.has(row.original.code)}
                       onChange={() => toggleRow(row.original.code)}
                       aria-label={`Seleccionar ${row.original.code}`}
-                      className="size-3.5 accent-primary"
                     />
                   </TableCell>
                   {row.getAllCells().map((cell) => (
@@ -698,7 +700,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2, ease: EASE }}
-        className="grid gap-3 md:grid-cols-2 lg:hidden"
+        className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:hidden"
         aria-label="Envíos"
       >
         {table.getRowModel().rows.map((row) => {
@@ -723,11 +725,11 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                   <ModeChain modes={sh.modes} />
                   <div className="h-1.5 flex-1 rounded-full bg-fill">
                     <div
-                      className="h-full rounded-full"
+                      className="meter-fill h-full rounded-full"
                       style={{
-                        width: `${sh.progress_pct}%`,
+                        "--v": sh.progress_pct / 100,
                         backgroundColor: sh.current_mode ? MODES[sh.current_mode].color : "var(--muted-foreground)",
-                      }}
+                      } as React.CSSProperties}
                     />
                   </div>
                   <span className="tabular text-xs text-muted-foreground">{Math.round(sh.progress_pct)} %</span>

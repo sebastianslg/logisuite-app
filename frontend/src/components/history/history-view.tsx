@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { FileText } from "lucide-react";
 import { useState } from "react";
-import { LayoutGroup, motion } from "framer-motion";
 
 import { Money } from "@/components/money";
 import { useApp } from "@/components/providers";
@@ -11,11 +10,11 @@ import { ModeIcon } from "@/components/status-badge";
 import { DepartmentMap } from "@/components/history/department-map";
 import { DetailTable, type Column } from "@/components/ui/detail-table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Segmented } from "@/components/ui/segmented";
 import { Delta } from "@/components/ui/sparkline";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { Button } from "@/components/ui/button";
 import { MODES } from "@/lib/modes";
-import { SPRING } from "@/lib/motion";
 import type { History, HistoryCity, HistoryCorridor, HistoryDepartment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -163,7 +162,7 @@ export function HistoryView({ data }: { data: History }) {
           label="Vista"
           value={view}
           options={VIEWS.map((v) => ({ value: v.key, label: v.label }))}
-          onChange={(v) => setView(v as View)}
+          onChange={setView}
         />
         <div className="flex flex-wrap items-center gap-2">
         <Button variant="secondary" size="sm" asChild>
@@ -229,46 +228,5 @@ export function HistoryView({ data }: { data: History }) {
         inventario certificado). Datos simulados.
       </p>
     </div>
-  );
-}
-
-/** Control segmentado con píldora que se desliza (layoutId, resorte estándar). */
-function Segmented({
-  id,
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  options: { value: string; label: string }[];
-  onChange: (v: string) => void;
-}) {
-  return (
-    <LayoutGroup id={id}>
-      <div role="radiogroup" aria-label={label} className="inline-flex rounded-full bg-fill p-1 text-sm">
-        {options.map((o) => {
-          const on = o.value === value;
-          return (
-            <button
-              key={o.value}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              onClick={() => onChange(o.value)}
-              className={cn(
-                "press relative rounded-full px-3.5 py-1.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80",
-                on ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {on && <motion.span layoutId="pill" transition={SPRING} className="absolute inset-0 rounded-full bg-card shadow-sm" aria-hidden />}
-              <span className="relative">{o.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </LayoutGroup>
   );
 }

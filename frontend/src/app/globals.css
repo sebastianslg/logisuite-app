@@ -458,6 +458,216 @@
   }
 }
 
+/*
+ * Movimiento del contenido: todo con transform y opacity, una vez al aparecer, y quieto con "reducir movimiento".
+ */
+
+/* Medidor (avance de un envío, tramo de una ruta): el relleno ocupa todo el ancho y se escala a --v (0–1). Crece
+   desde cero al montarse (@starting-style) y, si el avance cambia con los datos en vivo, se desliza al nuevo valor. */
+.meter-fill {
+  transform-origin: left center;
+  transform: scaleX(var(--v, 0));
+  transition: transform 0.6s var(--ease-apple);
+}
+@starting-style {
+  .meter-fill {
+    transform: scaleX(0);
+  }
+}
+
+/* Barras del calendario: cada una crece desde su salida, en cascada de 20 ms por fila (tope 300 ms) */
+.cal-bar {
+  transform-origin: left center;
+  animation: grow-x 0.5s var(--ease-apple) both;
+  animation-delay: calc(var(--i, 0) * 20ms);
+}
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+}
+
+/* Ficha de una barra del calendario: aparece al pasar el puntero (80 ms de espera para no parpadear al recorrer
+   la lista) o con el foco del teclado; se va sin espera */
+.cal-tip {
+  opacity: 0;
+  transform: translateY(4px) scale(0.97);
+  transform-origin: bottom left;
+  transition:
+    opacity 0.15s var(--ease-apple),
+    transform 0.15s var(--ease-apple);
+}
+.cal-hit:focus-visible .cal-tip {
+  opacity: 1;
+  transform: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cal-hit:hover .cal-tip {
+    opacity: 1;
+    transform: none;
+    transition-delay: 80ms;
+  }
+}
+
+/* Sparkline: la máscara crece de izquierda a derecha y "dibuja" la línea; el punto del último valor llega al final */
+.spark-reveal {
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: spark-draw 0.7s var(--ease-apple) both;
+}
+@keyframes spark-draw {
+  from {
+    transform: scaleX(0);
+  }
+}
+.spark-dot {
+  animation: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.55s both;
+}
+/* Cifra de avisos: entra con un salto corto cuando cambia */
+.badge-pop {
+  animation: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes pop-in {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+}
+
+/* Mapa por departamento: los departamentos se llenan por intensidad, del tono más claro al más oscuro (70 ms por
+   paso): la lectura de "dónde se concentra la carga" aparece en el orden en que se lee */
+.choro {
+  animation: fade-in 0.4s var(--ease-apple) both;
+  animation-delay: calc(var(--q, 0) * 70ms);
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Fila recién creada (una nota de la bitácora, un documento adjunto): baja 6 px y aparece en 300 ms */
+.enter {
+  transition:
+    opacity 0.3s var(--ease-apple),
+    transform 0.3s var(--ease-apple);
+}
+@starting-style {
+  .enter {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* Cambio de apariencia (claro/oscuro): fundido de 250 ms entre la página vieja y la nueva (ver lib/prefs.tsx) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.25s;
+  animation-timing-function: var(--ease-apple);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meter-fill,
+  .enter {
+    transition: none;
+  }
+  .cal-tip {
+    transform: none;
+    transition-property: opacity;
+  }
+  .cal-bar,
+  .choro,
+  .spark-reveal,
+  .spark-dot,
+  .badge-pop {
+    animation: none;
+  }
+}
+
+/*
+ * Casilla de verificación con la forma de la app: 16 px, radio de 5 px, línea fina y, marcada, el color de acento
+ * con una palomita que entra con un pequeño rebote. Al presionarla se hunde a 0,9. En @layer base para que una
+ * utilidad (mt-1, size-4) la pueda ajustar.
+ */
+@layer base {
+  input[type="checkbox"]:not([role="switch"]) {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-grid;
+    place-content: center;
+    flex-shrink: 0;
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    vertical-align: -0.15em;
+    border: 1.5px solid var(--separator-strong);
+    border-radius: 0.3125rem;
+    background-color: var(--card);
+    cursor: pointer;
+    transition:
+      background-color 0.15s var(--ease-apple),
+      border-color 0.15s var(--ease-apple),
+      transform 0.12s var(--ease-apple);
+  }
+  input[type="checkbox"]:not([role="switch"])::before {
+    content: "";
+    width: 0.625rem;
+    height: 0.625rem;
+    background-color: var(--accent-foreground);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.4 5 8.8l4.6-5.3' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.4 5 8.8l4.6-5.3' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    transform: scale(0.4);
+    opacity: 0;
+    transition:
+      transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 0.12s var(--ease-apple);
+  }
+  input[type="checkbox"]:not([role="switch"]):indeterminate::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6h6' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6h6' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  }
+  input[type="checkbox"]:not([role="switch"]):is(:checked, :indeterminate) {
+    border-color: var(--accent-solid);
+    background-color: var(--accent-solid);
+  }
+  input[type="checkbox"]:not([role="switch"]):is(:checked, :indeterminate)::before {
+    transform: scale(1);
+    opacity: 1;
+  }
+  input[type="checkbox"]:not([role="switch"]):active:not(:disabled) {
+    transform: scale(0.9);
+  }
+  input[type="checkbox"]:not([role="switch"]):disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  input[type="checkbox"]:not([role="switch"]):focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    input[type="checkbox"]:not([role="switch"]):not(:checked):not(:indeterminate):not(:disabled):hover {
+      border-color: color-mix(in srgb, var(--foreground) 40%, transparent);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    input[type="checkbox"]:not([role="switch"]),
+    input[type="checkbox"]:not([role="switch"])::before {
+      transition: none;
+    }
+  }
+  /* "Aumentar contraste" y modo de colores forzados: la casilla conserva un borde visible */
+  @media (forced-colors: active) {
+    input[type="checkbox"]:not([role="switch"]) {
+      appearance: auto;
+    }
+    input[type="checkbox"]:not([role="switch"])::before {
+      display: none;
+    }
+  }
+}
+
 @media (prefers-reduced-transparency: reduce) {
   .glass-float {
     background-color: var(--color-card);

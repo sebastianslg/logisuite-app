@@ -21,7 +21,9 @@ export function watchErrors(page: Page) {
 }
 
 export async function noHorizontalOverflow(page: Page) {
-  const { sw, w } = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, w: window.innerWidth }));
+  // En celular el navegador ensancha la ventana de diseño hasta el contenido que desborda (innerWidth crece con él):
+  // se compara contra el ancho de la pantalla del dispositivo.
+  const { sw, w } = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, w: Math.min(window.innerWidth, screen.width) }));
   expect(sw, `desborde horizontal en ${page.url()}`).toBeLessThanOrEqual(w);
 }
 

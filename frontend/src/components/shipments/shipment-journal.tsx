@@ -44,6 +44,8 @@ export function ShipmentJournal({ shipment: s, initial }: { shipment: Shipment; 
   const router = useRouter();
   const { operator } = useApp();
   const [events, setEvents] = useState(initial);
+  // Lo que ya venía con la página aparece quieto; lo que se registra ahora entra con un fundido corto (.enter)
+  const [loaded] = useState(() => new Set(initial.map((e) => `ev-${e.event_id}`)));
   // «Ahora» se recalcula con cada registro nuevo (si no, lo recién anotado quedaría «en el futuro»)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const now = useMemo(() => new Date(), [events]);
@@ -137,9 +139,9 @@ export function ShipmentJournal({ shipment: s, initial }: { shipment: Shipment; 
         {items.map((it, i) => {
           const future = hydrated && it.at > now;
           return (
-            <li key={it.key}>
+            <li key={it.key} className={cn(it.type === "event" && !loaded.has(it.key) && "enter")}>
               {i === nowIndex && <NowMarker />}
-              <div className={cn("grid grid-cols-[5.5rem_1.25rem_minmax(0,1fr)] gap-x-3 pb-4", future && it.type === "plan" && "opacity-60")}>
+              <div className="grid grid-cols-[5.5rem_1.25rem_minmax(0,1fr)] gap-x-3 pb-4">
                 <time dateTime={hydrated ? it.at.toISOString() : undefined} className="tabular pt-0.5 text-right text-[12px] text-muted-foreground">
                   {when(it.at)}
                 </time>
@@ -149,7 +151,8 @@ export function ShipmentJournal({ shipment: s, initial }: { shipment: Shipment; 
                 </div>
                 {it.type === "plan" ? (
                   <div className="min-w-0">
-                    <div className="text-sm font-medium">
+                    {/* Lo previsto va en el gris de texto secundario (no con transparencia: perdería contraste) */}
+                    <div className={cn("text-sm font-medium", future && "text-muted-foreground")}>
                       {it.title}
                       {future && <span className="ml-2 text-xs font-normal text-muted-foreground">previsto</span>}
                     </div>

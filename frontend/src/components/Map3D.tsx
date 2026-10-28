@@ -19,6 +19,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import DeckGL, { type DeckGLRef } from "@deck.gl/react";
 import { Pause, Play } from "lucide-react";
 import {
+  Deck,
   FlyToInterpolator,
   WebMercatorViewport,
   type MapViewState,
@@ -42,6 +43,16 @@ import { onIdle } from "@/lib/idle";
 
 // Worker publicado por scripts/copy-maplibre-worker.mjs (ver allí el porqué)
 setWorkerUrl("/vendor/maplibre-gl-worker.mjs");
+
+// Next conserva oculta la ruta que se deja (Activity): al ocultarla, <DeckGL> finaliza su Deck; al volver, su efecto
+// de diseño corre antes de crear el nuevo y redibuja el finalizado con un cuadro pendiente ("reading 'context' of
+// null" en _drawLayers, visto en CI con Resumen → Envíos → Flota → Resumen). Un Deck ya finalizado no dibuja.
+type Drawable = { layerManager: unknown; _drawLayers: (...args: unknown[]) => void };
+const deckProto = Deck.prototype as unknown as Drawable;
+const drawLayers = deckProto._drawLayers;
+deckProto._drawLayers = function (this: Drawable, ...args: unknown[]) {
+  if (this.layerManager) drawLayers.apply(this, args);
+};
 
 // NEXT_PUBLIC_MAP_STYLE fija un estilo único; sin él, el mapa sigue la apariencia elegida (Sistema/Claro/Oscuro).
 const MAP_STYLE_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
@@ -868,6 +879,8 @@ export default function Map3D({
         controller={{ dragRotate: true, touchRotate: true, scrollZoom: !compact }}
         ref={deckRef}
         layers={NO_LAYERS}
+        // Un Deck nuevo (primer montaje, o al volver a una ruta que Next dejó oculta) recibe las capas del instante
+        onLoad={() => deckRef.current?.deck?.setProps({ layers: buildRef.current?.(clockRef.current) ?? NO_LAYERS })}
         onHover={onHover}
         onClick={(info) => {
           const o = info.object as NodeDatum | undefined;
@@ -875,7 +888,10 @@ export default function Map3D({
         }}
         getCursor={({ isHovering, isDragging }) => (isDragging ? "grabbing" : isHovering ? "pointer" : "grab")}
       >
-        <BaseMap mapStyle={process.env.NEXT_PUBLIC_MAP_STYLE || (dark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT)} reuseMaps attributionControl={{ compact: true }} />
+        {/* Sin reuseMaps: al volver a una ruta que Next dejó oculta, el mapa se "reusaba" en su mismo contenedor y
+            el traslado de nodos de react-map-gl (mientras el contenedor viejo tenga hijos, moverlos al nuevo) no
+            terminaba nunca: la pestaña se congelaba en Resumen → otra página → Resumen. */}
+        <BaseMap mapStyle={process.env.NEXT_PUBLIC_MAP_STYLE || (dark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT)} attributionControl={{ compact: true }} />
       </DeckGL>
       {hover && (
         <div

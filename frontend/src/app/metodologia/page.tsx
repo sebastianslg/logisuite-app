@@ -42,7 +42,7 @@ export default function MetodologiaPage() {
             {SECTIONS.map((s, i) => (
               <li key={s.id}>
                 <a href={`#${s.id}`} className="-ml-px flex gap-2 border-l border-transparent py-1 pl-4 text-muted-foreground hover:border-foreground hover:text-foreground">
-                  <span className="tabular w-4 text-right text-xs leading-5 text-muted-foreground/80">{i + 1}</span>
+                  <span className="tabular w-4 text-right text-xs leading-5 text-muted-foreground">{i + 1}</span>
                   {s.label}
                 </a>
               </li>

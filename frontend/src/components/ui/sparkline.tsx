@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
  * Línea fina de tendencia (una sola serie, sin ejes): 1,5 px, extremos redondeados y un punto en el último
  * valor. Al pasar el puntero muestra el día y el valor; sin puntero, el resumen va en `label` para lectores.
  * Escala de 0 al máximo (no del mínimo), para no exagerar cambios pequeños.
+ * Al aparecer, la línea se dibuja de izquierda a derecha (una máscara que crece con scaleX, 700 ms) y el punto
+ * del último valor llega al final; con "reducir movimiento" aparece entera.
  */
 export function Sparkline({
   values,
@@ -57,14 +59,19 @@ export function Sparkline({
             <stop offset="0%" stopColor={color} stopOpacity="0.14" />
             <stop offset="100%" stopColor={color} stopOpacity="0" />
           </linearGradient>
+          <mask id={`${gid}m`} maskUnits="userSpaceOnUse" x="-2" y="-2" width={w + 4} height={height + 4}>
+            <rect className="spark-reveal" x="-2" y="-2" width={w + 4} height={height + 4} fill="white" />
+          </mask>
         </defs>
-        <path d={`${d} L${w},${height} L0,${height} Z`} fill={`url(#${gid})`} />
-        <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <g mask={`url(#${gid}m)`}>
+          <path d={`${d} L${w},${height} L0,${height} Z`} fill={`url(#${gid})`} />
+          <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        </g>
       </svg>
       {/* El punto va fuera del SVG estirado para que siga siendo un círculo */}
       <span
         aria-hidden
-        className="pointer-events-none absolute size-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-[var(--card)]"
+        className="spark-dot pointer-events-none absolute size-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-[var(--card)]"
         style={{ left: `${x(active)}%`, top: `${(y(values[active] ?? 0) / height) * 100}%`, backgroundColor: color }}
       />
       {hover !== null && (
@@ -85,11 +92,13 @@ export function Delta({
   pct,
   good = "none",
   suffix = "vs. semana anterior",
+  title,
   className,
 }: {
   pct: number | null;
   good?: "up" | "down" | "none";
   suffix?: string;
+  title?: string;
   className?: string;
 }) {
   if (pct === null || !Number.isFinite(pct))
@@ -99,10 +108,13 @@ export function Delta({
   const tone = flat || good === "none" ? "text-muted-foreground" : (up === (good === "up")) ? "text-success" : "text-destructive";
   const Arrow = flat ? ArrowRight : up ? ArrowUpRight : ArrowDownRight;
   return (
-    <span className={cn("tabular inline-flex items-center gap-1 text-[12px]", tone, className)}>
-      <Arrow className="size-3.5 shrink-0" aria-hidden />
-      {flat ? "Igual" : `${up ? "Sube" : "Baja"} ${Math.abs(pct).toLocaleString("es-CO", { maximumFractionDigits: 1 })} %`}
-      {suffix && <span className="text-muted-foreground">{suffix}</span>}
+    <span title={title} className={cn("tabular inline-flex items-start gap-1 text-[12px] leading-4", tone, className)}>
+      <Arrow className="size-3.5 shrink-0 translate-y-px" aria-hidden />
+      {/* Un solo bloque de texto: en una columna angosta se parte como una frase, no en dos columnas */}
+      <span>
+        {flat ? "Igual" : `${up ? "Sube" : "Baja"} ${Math.abs(pct).toLocaleString("es-CO", { maximumFractionDigits: 1 })} %`}
+        {suffix && <span className="text-muted-foreground"> {suffix}</span>}
+      </span>
     </span>
   );
 }

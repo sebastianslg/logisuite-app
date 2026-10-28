@@ -29,6 +29,26 @@ test("el dock navega, el menú Más se cierra con Escape y Ctrl K abre la búsqu
   w.expectClean();
 });
 
+test("volver al resumen con el mapa ya montado no congela la página", async ({ page }) => {
+  // Next deja oculta la ruta que se abandona; al volver, el mapa se monta otra vez en el mismo contenedor.
+  // Con reuseMaps de react-map-gl eso era un ciclo infinito y la pestaña dejaba de responder.
+  const w = watchErrors(page);
+  await page.goto("/");
+  await page.locator(".maplibregl-canvas").first().waitFor({ state: "attached", timeout: 30_000 });
+  const nav = page.getByRole("navigation", { name: "Navegación principal" });
+  await nav.getByRole("link", { name: "Envíos", exact: true }).click();
+  await expect(page).toHaveURL(/\/envios$/);
+  await nav.getByRole("link", { name: "Resumen", exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+  const alive = await Promise.race([
+    page.evaluate(() => new Promise<string>((r) => requestAnimationFrame(() => r("ok")))),
+    new Promise<string>((r) => setTimeout(() => r("congelada"), 8_000)),
+  ]);
+  expect(alive).toBe("ok");
+  await expect(page.locator(".maplibregl-canvas").first()).toBeVisible();
+  w.expectClean();
+});
+
 test("un envío que no existe responde 404", async ({ page }) => {
   const r = await page.goto("/envios/LS-0000-0000");
   expect(r?.status()).toBe(404);
