@@ -165,6 +165,9 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml start backend
   para pedir el certificado HTTPS. Si falta, `docker compose` se detiene con un error que lo indica.
 - Opcionales: `NTFY_TOPIC` (avisos al celular si el sitio cae), `HC_PING_URL` (aviso si el respaldo diario
   falla, con Healthchecks.io), `ALLOW_INDEXING=1` (dejar que los buscadores indexen, al lanzarla al público).
+- Datos del responsable para los documentos legales: `LEGAL_NAME`, `LEGAL_ID`, `LEGAL_CITY`, `LEGAL_EMAIL`
+  (y opcionales `LEGAL_ADDRESS`, `LEGAL_PHONE`, `SERVER_LOCATION`). Tras editarlos basta
+  `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d backend` (no hace falta reconstruir).
 - Plantilla: `.env.example` en la raíz del repositorio.
 
 ## 8. Seguridad del servidor

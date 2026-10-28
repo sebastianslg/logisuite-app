@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-/** Pie de página: aviso de datos simulados y enlaces a Metodología y a Créditos y licencias (no en el mapa a pantalla completa). */
+/** Pie de página: aviso de datos simulados y enlaces a Metodología, Créditos y los documentos legales (no en el mapa a pantalla completa). */
 export function SiteFooter() {
   const pathname = usePathname();
   if (pathname === "/red") return null;
@@ -15,6 +15,15 @@ export function SiteFooter() {
       </Link>
       <Link href="/creditos" className="hover:text-foreground hover:underline">
         Créditos y licencias
+      </Link>
+      <Link href="/terminos" className="hover:text-foreground hover:underline">
+        Términos
+      </Link>
+      <Link href="/privacidad" className="hover:text-foreground hover:underline">
+        Privacidad
+      </Link>
+      <Link href="/cookies" className="hover:text-foreground hover:underline">
+        Cookies
       </Link>
     </footer>
   );

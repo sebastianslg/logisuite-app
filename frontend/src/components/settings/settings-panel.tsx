@@ -15,7 +15,8 @@ import { CollapsiblePanel } from "@/components/ui/collapsible-panel";
 import { Segmented } from "@/components/ui/segmented";
 import { SaveIcon, useSavedFlash } from "@/components/ui/save-icon";
 import { toast } from "@/components/ui/toast";
-import { api } from "@/lib/client";
+import { api, saveBlob } from "@/lib/client";
+import { recordConsent, useConsent, type ConsentDoc } from "@/lib/consent";
 import type { AuditEntry, Settings, ShareLink } from "@/lib/types";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ const TABLES: Record<string, string> = {
   mm_share_links: "Enlaces",
   mm_shipment_events: "Bitácora",
   mm_attachments: "Adjuntos",
+  mm_consents: "Aceptaciones",
 };
 
 function dt(iso: string | null) {
@@ -70,6 +72,7 @@ export function SettingsPanel({ settings, links, history }: { settings: Settings
           <FxForm initial={settings.fx} />
           <ReplenishToggle initial={settings.auto_replenish} />
           <MapQualitySection />
+          <PrivacySection />
           <SharedLinks links={links} />
         </div>
       </LayoutGroup>
@@ -279,6 +282,78 @@ function MapQualitySection() {
           </p>
         )}
       </div>
+    </Section>
+  );
+}
+
+const DOC_LABEL: Record<ConsentDoc, string> = {
+  terminos: "Términos y condiciones",
+  privacidad: "Tratamiento de datos",
+  autorizacion_terceros: "Declaración sobre datos de terceros",
+};
+
+/**
+ * Privacidad: lo que este navegador aceptó (versión y fecha), revocar la autorización de datos (la app vuelve a
+ * pedirla) y descargar el registro completo de aceptaciones para atender una consulta o un reclamo.
+ */
+function PrivacySection() {
+  const { status } = useConsent();
+  const { operator } = useApp();
+  const [busy, setBusy] = useState(false);
+
+  async function revoke() {
+    if (!window.confirm("¿Revocar tu autorización de tratamiento de datos? La app volverá a pedirla para seguir.")) return;
+    setBusy(true);
+    try {
+      await recordConsent([{ document: "privacidad", accepted: false, text: "Revoco mi autorización de tratamiento de datos personales." }], "configuracion", operator);
+      toast({ title: "Autorización revocada" });
+    } catch (e) {
+      toast({ title: "No se pudo revocar", description: (e as Error).message, tone: "error" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function exportLog() {
+    try {
+      saveBlob(await api<Blob>("/api/consents/export"), `registro-aceptaciones-${today()}.csv`);
+    } catch (e) {
+      toast({ title: "No se pudo descargar", description: (e as Error).message, tone: "error" });
+    }
+  }
+
+  const docs = status ? (Object.entries(status.documents) as [ConsentDoc, NonNullable<(typeof status.documents)[ConsentDoc]>][]) : [];
+  return (
+    <Section
+      title="Privacidad y aceptaciones"
+      description="Lo que aceptaste en este navegador. Puedes revocar tu autorización de datos o descargar el registro completo para atender una solicitud."
+    >
+      {docs.length > 0 ? (
+        <ul className="rule-list text-sm">
+          {docs.map(([d, r]) => (
+            <li key={d} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-2">
+              <span>{DOC_LABEL[d] ?? d}</span>
+              <span className={cn("tabular text-xs", r.accepted ? "text-muted-foreground" : "text-destructive")}>
+                {r.accepted ? "Aceptado" : "Revocado"} · versión {r.version} · {dt(r.created_at)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-foreground">Cargando…</p>
+      )}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button variant="secondary" size="sm" onClick={exportLog}>
+          <CloudDownload /> Descargar registro (CSV)
+        </Button>
+        <Button variant="ghost" size="sm" onClick={revoke} disabled={busy} className="text-destructive">
+          Revocar autorización de datos
+        </Button>
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Detalles en la <Link href="/privacidad" className="underline">Política de tratamiento de datos</Link> y en{" "}
+        <Link href="/cookies" className="underline">Cookies y almacenamiento</Link>.
+      </p>
     </Section>
   );
 }

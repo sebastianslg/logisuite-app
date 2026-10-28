@@ -71,20 +71,20 @@ def test_adjuntos(client):
     code = _new(client)["code"]
     pdf = b"%PDF-1.4 prueba"
     r = client.post(f"/api/shipments/{code}/attachments",
-                    json={"filename": "Remesa ñandú.pdf", "content_b64": base64.b64encode(pdf).decode()})
+                    json={"filename": "Remesa ñandú.pdf", "content_b64": base64.b64encode(pdf).decode(), "autorizado": True})
     assert r.status_code == 201, r.text
     att = r.json()
     f = client.get(f"/api/shipments/{code}/attachments/{att['attachment_id']}")
     assert f.status_code == 200 and f.content == pdf and f.headers["content-type"] == "application/pdf"
     assert "UTF-8''" in f.headers["content-disposition"]
     # Tipo no permitido y base64 dañado
-    bad = client.post(f"/api/shipments/{code}/attachments", json={"filename": "virus.exe", "content_b64": "AAAA"})
+    bad = client.post(f"/api/shipments/{code}/attachments", json={"filename": "virus.exe", "content_b64": "AAAA", "autorizado": True})
     assert bad.status_code == 422
     assert client.post(f"/api/shipments/{code}/attachments",
-                       json={"filename": "a.pdf", "content_b64": "no es base64!"}).status_code == 422
+                       json={"filename": "a.pdf", "content_b64": "no es base64!", "autorizado": True}).status_code == 422
     # Un nombre con ruta no escapa de la carpeta
     r2 = client.post(f"/api/shipments/{code}/attachments",
-                     json={"filename": "../../etc/x.txt", "content_b64": base64.b64encode(b"hola").decode()})
+                     json={"filename": "../../etc/x.txt", "content_b64": base64.b64encode(b"hola").decode(), "autorizado": True})
     assert r2.status_code == 201 and r2.json()["filename"] == "x.txt"
     assert client.get(f"/api/shipments/{code}/attachments").json()["count"] == 2
     # Borrar el envío borra sus archivos
@@ -120,7 +120,7 @@ def test_carga_masiva_vista_previa_y_confirmar(client):
     assert preview["results"][0]["modes"] and preview["results"][1]["row"] == 3
     assert len(client.get("/api/shipments?limit=1000").json()["items"]) == before  # nada guardado
     done = client.post("/api/shipments/import",
-                       json={"filename": "envios.xlsx", "content_b64": content, "commit": True, "usuario": "Tester"}).json()
+                       json={"filename": "envios.xlsx", "content_b64": content, "commit": True, "usuario": "Tester", "autorizado": True}).json()
     assert len(done["created"]) == 1
     assert len(client.get("/api/shipments?limit=1000").json()["items"]) == before + 1
     # CSV con separador ; y fecha DD/MM/AAAA

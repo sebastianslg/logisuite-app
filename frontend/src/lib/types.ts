@@ -920,3 +920,22 @@ export interface ClientSummary {
   last_departure: string | null;
   recent: string[];
 }
+
+// ---------------------------------------------------------------------------
+// Documentos legales (backend/app/engine/legal.py)
+// ---------------------------------------------------------------------------
+export interface LegalResponsible {
+  name: string | null;
+  id_number: string | null;
+  city: string | null;
+  address: string | null;
+  email: string | null;
+  phone: string | null;
+  server_location: string | null;
+  complete: boolean;
+}
+export interface LegalInfo {
+  versions: Record<"terminos" | "privacidad" | "autorizacion_terceros", string>;
+  required: string[];
+  responsible: LegalResponsible;
+}

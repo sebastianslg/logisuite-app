@@ -53,7 +53,7 @@ from app.api import guard
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
-from app.engine import (clients, fleet, fx, geo, history, journal, operations as ops, pdf, report,
+from app.engine import (clients, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
                         shipments_io, sustainability as SU, telemetry, tolls, trends, warehouses, xlsx)
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
@@ -460,11 +460,18 @@ class ImportIn(BaseModel):
     content_b64: str = Field(..., min_length=1)
     commit: bool = False
     usuario: str | None = None
+    # Al guardar: quien importa declara que tiene autorización para los datos personales del archivo
+    autorizado: bool = False
+
+
+_NEEDS_AUTH = "Confirma que tienes autorización para compartir los datos personales que contiene el archivo."
 
 
 @app.post("/api/shipments/import")
 def shipments_import(body: ImportIn) -> dict:
     """Sin `commit`: valida cada fila y muestra la ruta que tendría. Con `commit`: crea las filas válidas."""
+    if body.commit and not body.autorizado:
+        raise HTTPException(status_code=422, detail=_NEEDS_AUTH)
     try:
         return shipments_io.import_shipments(network(), body.filename, body.content_b64, body.usuario,
                                               datetime.now(), body.commit)
@@ -548,6 +555,8 @@ class AttachmentIn(BaseModel):
     filename: str = Field(..., min_length=1, max_length=200)
     content_b64: str = Field(..., min_length=1)
     usuario: str | None = None
+    # Quien sube el documento declara que tiene autorización para los datos personales que contenga
+    autorizado: bool = False
 
 
 @app.get("/api/shipments/{code}/attachments")
@@ -561,6 +570,8 @@ def shipment_attachments(code: str) -> dict:
 
 @app.post("/api/shipments/{code}/attachments", status_code=201)
 def shipment_attachment_add(code: str, body: AttachmentIn) -> dict:
+    if not body.autorizado:
+        raise HTTPException(status_code=422, detail=_NEEDS_AUTH)
     try:
         return journal.add_attachment(code, body.filename, body.content_b64, body.usuario)
     except LookupError:
@@ -1131,3 +1142,51 @@ def sustainability_fuel_live() -> dict:
             "total_l": total, "total_fmt": F.number(total) + " L",
             "burned_pct": F.pct(100 * burned / total) if total else 0.0,
             "assets": assets}
+
+
+# ---------------------------------------------------------------------------
+# Documentos legales y registro de aceptaciones (app/engine/legal.py)
+# ---------------------------------------------------------------------------
+class ConsentItemIn(BaseModel):
+    document: str = Field(..., max_length=40)
+    version: str | None = Field(None, max_length=20)
+    accepted: bool = True
+    text: str = Field(..., min_length=1, max_length=500)
+
+
+class ConsentIn(BaseModel):
+    browser_id: str = Field(..., min_length=16, max_length=64)
+    subject: str | None = Field(None, max_length=60)
+    context: str = Field(..., max_length=20)
+    items: list[ConsentItemIn] = Field(..., min_length=1, max_length=10)
+
+
+@app.get("/api/legal")
+def legal_info() -> dict:
+    """Versiones vigentes de los documentos y datos del responsable (de LEGAL_* en el entorno)."""
+    return legal.info()
+
+
+@app.get("/api/consents")
+def consents_status(browser_id: str) -> dict:
+    try:
+        return legal.status(browser_id)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
+@app.post("/api/consents", status_code=201)
+def consents_record(body: ConsentIn, request: Request) -> dict:
+    ip = guard.client_key(request.headers.get("x-forwarded-for"), request.client.host if request.client else None)
+    try:
+        return legal.record(body.browser_id, body.subject, body.context,
+                            [i.model_dump() for i in body.items], ip, request.headers.get("user-agent"))
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
+@app.get("/api/consents/export")
+def consents_export() -> Response:
+    """Registro completo en CSV (para atender una consulta o un reclamo del titular)."""
+    return Response(legal.export_csv(), media_type="text/csv; charset=utf-8", headers={
+        "Content-Disposition": f"attachment; filename=registro-aceptaciones-{datetime.now():%Y%m%d}.csv"})

@@ -1,6 +1,4 @@
-import { expect, test } from "@playwright/test";
-
-import { watchErrors } from "./helpers";
+import { expect, test, watchErrors } from "./helpers";
 
 test("bitácora: nota e incidencia con retraso en la ficha del envío", async ({ page, request }) => {
   const w = watchErrors(page);
@@ -39,7 +37,11 @@ test("importar envíos: vista previa sin guardar", async ({ page }) => {
   });
   await expect(page.getByText(/1 de 2 filas se pueden crear/)).toBeVisible();
   await expect(page.getByText(/Atlántida/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Crear 1 envío" })).toBeEnabled();
+  // Guardar exige declarar la autorización sobre los datos personales del archivo
+  const create = page.getByRole("button", { name: "Crear 1 envío" });
+  await expect(create).toBeDisabled();
+  await page.getByRole("checkbox", { name: /Declaro que tengo autorización/ }).check();
+  await expect(create).toBeEnabled();
 });
 
 test("modo presentación y metodología", async ({ page }) => {

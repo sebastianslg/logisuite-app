@@ -1,6 +1,4 @@
-import { expect, test } from "@playwright/test";
-
-import { watchErrors } from "./helpers";
+import { expect, test, watchErrors } from "./helpers";
 
 test("crear, editar y borrar un envío", async ({ page }) => {
   const w = watchErrors(page);

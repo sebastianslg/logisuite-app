@@ -1,6 +1,4 @@
-import { expect, test } from "@playwright/test";
-
-import { PAGES, watchErrors } from "./helpers";
+import { expect, PAGES, test, watchErrors } from "./helpers";
 
 test("todas las páginas cargan sin errores", async ({ page }) => {
   const w = watchErrors(page);

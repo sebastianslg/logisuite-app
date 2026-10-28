@@ -7,6 +7,7 @@ import { useApp } from "@/components/providers";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { api } from "@/lib/client";
+import { CHECK_THIRD_PARTY, recordConsent } from "@/lib/consent";
 import type { Attachment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,8 @@ export function ShipmentAttachments({ code, initial }: { code: string; initial: 
   const { operator } = useApp();
   const [items, setItems] = useState(initial);
   const [loaded] = useState(() => new Set(initial.map((a) => a.attachment_id)));
+  const [authorized, setAuthorized] = useState(false);
+  const declared = useRef(false);
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -48,7 +51,22 @@ export function ShipmentAttachments({ code, initial }: { code: string; initial: 
   async function upload(files: FileList | File[]) {
     const list = Array.from(files);
     if (!list.length) return;
+    if (!authorized) {
+      toast({ title: "Falta la declaración", description: "Marca la casilla de autorización antes de subir documentos.", tone: "error" });
+      return;
+    }
     setBusy(true);
+    try {
+      // Una vez por visita: la declaración queda en el registro de aceptaciones
+      if (!declared.current) {
+        await recordConsent([{ document: "autorizacion_terceros", text: CHECK_THIRD_PARTY }], "adjunto", operator);
+        declared.current = true;
+      }
+    } catch (e) {
+      toast({ title: "No se pudo registrar la declaración", description: (e as Error).message, tone: "error" });
+      setBusy(false);
+      return;
+    }
     let ok = 0;
     for (const f of list) {
       if (f.size > MAX) {
@@ -58,7 +76,7 @@ export function ShipmentAttachments({ code, initial }: { code: string; initial: 
       try {
         const created = await api<Attachment>(base, {
           method: "POST",
-          body: { filename: f.name, content_b64: await toBase64(f), usuario: operator },
+          body: { filename: f.name, content_b64: await toBase64(f), usuario: operator, autorizado: true },
         });
         setItems((x) => [created, ...x]);
         ok++;
@@ -83,6 +101,10 @@ export function ShipmentAttachments({ code, initial }: { code: string; initial: 
 
   return (
     <div>
+      <label className="mb-3 flex items-start gap-3 text-xs text-muted-foreground print:hidden">
+        <input type="checkbox" checked={authorized} onChange={(e) => setAuthorized(e.target.checked)} className="mt-px" />
+        <span>{CHECK_THIRD_PARTY}</span>
+      </label>
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -106,9 +128,7 @@ export function ShipmentAttachments({ code, initial }: { code: string; initial: 
             elige archivos
           </button>
         </span>
-        <span className="text-[11px]">
-          PDF, imagen, Excel, Word, CSV o texto · hasta 10 MB. Sube solo documentos que estés autorizado a compartir.
-        </span>
+        <span className="text-[11px]">PDF, imagen, Excel, Word, CSV o texto · hasta 10 MB</span>
         <input ref={input} type="file" multiple accept={ACCEPT} className="sr-only" onChange={(e) => e.target.files && upload(e.target.files)} aria-label="Adjuntar documentos" />
       </div>
 

@@ -1,4 +1,25 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, test as base, type Page } from "@playwright/test";
+
+export { expect };
+
+/** Navegador de prueba que ya aceptó términos y privacidad (el flujo de aceptación tiene su propia prueba). */
+export const E2E_BROWSER = "nav-e2e-00000000000000000001";
+
+export const test = base.extend({
+  page: async ({ page, baseURL }, provide) => {
+    const legal = await (await page.request.get(`${baseURL}/api/legal`)).json();
+    await page.request.post(`${baseURL}/api/consents`, {
+      data: {
+        browser_id: E2E_BROWSER,
+        subject: "Pruebas",
+        context: "primer_uso",
+        items: ["terminos", "privacidad"].map((d) => ({ document: d, version: legal.versions[d], text: `Prueba automática: acepta ${d}` })),
+      },
+    });
+    await page.addInitScript((id) => localStorage.setItem("westvane.browser-id", id), E2E_BROWSER);
+    await provide(page);
+  },
+});
 
 /** Registra errores de página y de consola (salvo los conocidos del entorno sin GPU) para fallar al final. */
 export function watchErrors(page: Page) {
@@ -46,6 +67,9 @@ export const PAGES = [
   "/configuracion",
   "/metodologia",
   "/creditos",
+  "/terminos",
+  "/privacidad",
+  "/cookies",
   "/calendario",
   "/clientes",
   "/comparar",

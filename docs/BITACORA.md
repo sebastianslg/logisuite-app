@@ -515,3 +515,28 @@ el mapa 3D (contexto WebGL, sombreadores, teselas). Medido con el sitio real y c
 - 202 pruebas de la API y 13 de navegador en verde; axe sin violaciones en las pantallas nuevas.
 - Sin violaciones de la política de contenido en el mapa, la ficha, el resumen, el historial ni la
   configuración, en claro y oscuro.
+
+## 16. Base legal: documentos, aceptación y registro (28/10/2026)
+
+- **Documentos en borrador:**
+  - `/terminos`: términos y condiciones.
+  - `/privacidad`: política de tratamiento de datos (Ley 1581 de 2012 y Decreto 1074 de 2015), con
+    responsable, datos, finalidades, conservación, derechos, plazos de consultas (10 días) y reclamos (15),
+    encargados y seguridad.
+  - `/cookies`: sin cookies; tabla de lo que se guarda en el navegador y por qué no hace falta aviso.
+  - Los datos del responsable salen de `LEGAL_*` en `.env`; si faltan, se ven marcados y con aviso de
+    borrador.
+- **Bienvenida:**
+  - La primera vez, o cuando cambia la versión de un documento, pide en dos casillas separadas y sin marcar
+    aceptar los términos y autorizar el tratamiento de datos, con el aviso de privacidad corto.
+  - Los documentos se pueden leer sin aceptar.
+- **Registro (`mm_consents`):**
+  - Guarda documento, versión, texto exacto de la casilla, formulario, nombre declarado, identificador al azar
+    del navegador, navegador, fecha y un resumen SHA-256 de la IP con sal secreta (la IP no se guarda).
+  - Las revocaciones son filas nuevas; nada se edita ni se borra.
+  - Exportable en CSV desde Configuración, donde también se ve lo aceptado y se revoca.
+- **Adjuntos e importación:**
+  - Exigen declarar la autorización sobre los datos de terceros; la API lo exige también (422 sin
+    `autorizado`), y la declaración queda en el registro.
+- **Pruebas:** 6 de la API (208 en total) y una de navegador del flujo completo (14 en total). Las demás
+  pruebas de navegador usan un navegador que ya aceptó.

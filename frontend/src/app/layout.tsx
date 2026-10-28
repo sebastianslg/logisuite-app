@@ -9,6 +9,7 @@ import { RippleRoot } from "@/components/ui/ripple";
 import { Toaster } from "@/components/ui/toast";
 import { AppProvider } from "@/components/providers";
 import { Diagnostics } from "@/components/diagnostics";
+import { ConsentGate } from "@/components/legal/consent-gate";
 import { Dock } from "@/components/shell/dock";
 import { SiteFooter } from "@/components/shell/site-footer";
 
@@ -54,6 +55,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <div className="print:hidden">
                   <Toaster />
                 </div>
+                {/* Aceptación de términos y datos la primera vez (o cuando cambian); usa usePathname */}
+                <Suspense fallback={null}>
+                  <ConsentGate />
+                </Suspense>
                 {/* Panel de rendimiento: solo con ?diagnostico (usa usePathname: va en su propio límite) */}
                 <Suspense fallback={null}>
                   <Diagnostics />

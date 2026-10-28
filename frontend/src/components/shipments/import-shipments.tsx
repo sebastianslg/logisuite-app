@@ -11,6 +11,7 @@ import { ModeChain } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { api, saveBlob } from "@/lib/client";
+import { CHECK_THIRD_PARTY, recordConsent } from "@/lib/consent";
 import type { ImportResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +36,7 @@ export function ImportShipments({ onDone }: { onDone?: () => void }) {
   const [file, setFile] = useState<{ name: string; b64: string } | null>(null);
   const [preview, setPreview] = useState<ImportResult | null>(null);
   const [done, setDone] = useState<ImportResult | null>(null);
+  const [authorized, setAuthorized] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
@@ -58,13 +60,15 @@ export function ImportShipments({ onDone }: { onDone?: () => void }) {
   }
 
   async function confirm() {
-    if (!file) return;
+    if (!file || !authorized) return;
     setBusy(true);
     setError(null);
     try {
+      // La declaración queda en el registro de aceptaciones antes de guardar los envíos
+      await recordConsent([{ document: "autorizacion_terceros", text: CHECK_THIRD_PARTY }], "importacion", operator);
       const r = await api<ImportResult>("/api/shipments/import", {
         method: "POST",
-        body: { filename: file.name, content_b64: file.b64, commit: true, usuario: operator },
+        body: { filename: file.name, content_b64: file.b64, commit: true, usuario: operator, autorizado: true },
       });
       setDone(r);
       setPreview(null);
@@ -215,8 +219,12 @@ export function ImportShipments({ onDone }: { onDone?: () => void }) {
               </li>
             ))}
           </ul>
+          <label className="flex items-start gap-3 text-sm">
+            <input type="checkbox" checked={authorized} onChange={(e) => setAuthorized(e.target.checked)} className="mt-0.5" />
+            <span>{CHECK_THIRD_PARTY}</span>
+          </label>
           <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={confirm} disabled={busy || preview.valid === 0}>
+            <Button onClick={confirm} disabled={busy || preview.valid === 0 || !authorized}>
               {busy ? <LoaderCircle className="animate-spin" /> : <CircleCheck />}
               Crear {preview.valid} {preview.valid === 1 ? "envío" : "envíos"}
             </Button>

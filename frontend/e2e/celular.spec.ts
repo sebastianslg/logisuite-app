@@ -1,6 +1,4 @@
-import { expect, test } from "@playwright/test";
-
-import { noHorizontalOverflow, PAGES, watchErrors } from "./helpers";
+import { expect, noHorizontalOverflow, PAGES, test, watchErrors } from "./helpers";
 
 test("en celular no hay desborde horizontal y el dock inferior funciona", async ({ page }) => {
   const w = watchErrors(page);

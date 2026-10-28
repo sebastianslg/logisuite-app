@@ -84,7 +84,7 @@ def _code(client):
 
 def _post(client, code, name, data):
     return client.post(f"/api/shipments/{code}/attachments",
-                       json={"filename": name, "content_b64": base64.b64encode(data).decode()})
+                       json={"filename": name, "content_b64": base64.b64encode(data).decode(), "autorizado": True})
 
 
 def _office(folder):
