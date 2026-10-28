@@ -90,14 +90,19 @@ async function DashboardContent() {
   );
 }
 
+/** Misma forma que la página (cifras, avisos, mapa y flota, cuatro paneles): al cargar nada salta de lugar. */
 function DashboardSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-6 xl:grid-cols-12">
-      {[0, 1, 2, 3].map((i) => (
-        <Skeleton key={i} className="h-36 md:col-span-3" />
-      ))}
-      <Skeleton className="h-96 md:col-span-6 xl:col-span-8" />
-      <Skeleton className="h-96 md:col-span-6 xl:col-span-4" />
+    <div aria-hidden>
+      <Skeleton className="mb-6 h-[214px] rounded-3xl md:h-[246px]" />
+      <Skeleton className="mb-6 h-36 rounded-3xl" />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-6 xl:grid-cols-12">
+        <Skeleton className="h-[560px] rounded-3xl md:col-span-6 xl:col-span-8" />
+        <Skeleton className="h-[560px] rounded-3xl md:col-span-6 xl:col-span-4" />
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-80 rounded-3xl md:col-span-3" />
+        ))}
+      </div>
     </div>
   );
 }

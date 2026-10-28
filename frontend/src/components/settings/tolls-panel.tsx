@@ -105,9 +105,10 @@ export function TollsPanel({ tolls }: { tolls: Toll[] }) {
         aria-label="Filtrar peajes"
       />
 
-      <div className="max-h-[520px] overflow-auto rounded-md border border-border">
-        <table className="w-full text-xs">
-          <thead className="sticky top-0 bg-background text-left text-muted-foreground">
+      {/* En celular cada tramo es un bloque (sin tabla que se desborde); desde 1024 px, tabla. */}
+      <div className="max-h-[520px] overflow-y-auto rounded-xl border border-border lg:overflow-x-auto">
+        <table className="block w-full text-xs lg:table">
+          <thead className="sticky top-0 hidden bg-background text-left text-muted-foreground lg:table-header-group">
             <tr>
               <th className="px-3 py-2 font-medium">Corredor</th>
               <th className="px-3 py-2 font-medium">Tramo</th>
@@ -118,7 +119,7 @@ export function TollsPanel({ tolls }: { tolls: Toll[] }) {
               <th className="px-3 py-2" />
             </tr>
           </thead>
-          <tbody>
+          <tbody className="block lg:table-row-group">
             {visible.map((t) => (
               <TollRow key={t.link_id} toll={t} operator={operator} onSaved={() => router.refresh()} />
             ))}
@@ -158,28 +159,35 @@ function TollRow({ toll: t, operator, onSaved }: { toll: Toll; operator: string;
   }
 
   return (
-    <tr className="border-t border-border align-top">
-      <td className="px-3 py-2">{t.corridor}</td>
-      <td className="px-3 py-2">{t.origin} → {t.destination}</td>
-      <td className="tabular px-3 py-2 text-right">{t.distance_km.toFixed(0)}</td>
-      <td className="px-3 py-2">
+    <tr className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border p-3 first:border-t-0 lg:table-row lg:p-0 lg:align-top lg:first:border-t">
+      <td className="col-span-2 font-medium lg:table-cell lg:px-3 lg:py-2 lg:font-normal">{t.corridor}</td>
+      <td className="col-span-2 text-muted-foreground lg:table-cell lg:px-3 lg:py-2 lg:text-foreground">
+        {t.origin} → {t.destination}
+        <span className="tabular lg:hidden"> · {t.distance_km.toFixed(0)} km</span>
+      </td>
+      <td className="tabular hidden px-3 py-2 text-right lg:table-cell">{t.distance_km.toFixed(0)}</td>
+      <td className="lg:table-cell lg:px-3 lg:py-2">
+        <span className="mb-1 block text-muted-foreground lg:hidden">Peaje (COP)</span>
         <input
           type="number"
           min={0}
           step={100}
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          className={`${input} tabular w-28`}
+          className={`${input} tabular w-full lg:w-28`}
           aria-label={`Peaje de ${t.origin} a ${t.destination}`}
         />
       </td>
-      <td className="px-3 py-2">
-        <input value={note} onChange={(e) => setNote(e.target.value)} className={`${input} w-44`} aria-label="Nota" />
+      {/* En celular: peaje y fuente lado a lado, la nota a lo ancho debajo y luego Guardar */}
+      <td className="col-span-2 max-lg:order-1 lg:table-cell lg:px-3 lg:py-2">
+        <span className="mb-1 block text-muted-foreground lg:hidden">Nota</span>
+        <input value={note} onChange={(e) => setNote(e.target.value)} className={`${input} w-full lg:w-44`} aria-label="Nota" />
       </td>
-      <td className="px-3 py-2">
-        <input value={source} onChange={(e) => setSource(e.target.value)} className={`${input} w-32`} aria-label="Fuente" />
+      <td className="lg:table-cell lg:px-3 lg:py-2">
+        <span className="mb-1 block text-muted-foreground lg:hidden">Fuente</span>
+        <input value={source} onChange={(e) => setSource(e.target.value)} className={`${input} w-full lg:w-32`} aria-label="Fuente" />
       </td>
-      <td className="px-3 py-2">
+      <td className="col-span-2 max-lg:order-2 lg:table-cell lg:px-3 lg:py-2">
         <Button size="sm" variant={changed ? "default" : "ghost"} disabled={!changed || busy} onClick={save} type="button" burst={Check}>
           <SaveIcon state={done ? "done" : busy ? "busy" : "idle"} />
           Guardar

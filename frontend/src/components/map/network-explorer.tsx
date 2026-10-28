@@ -158,6 +158,7 @@ export function NetworkExplorer() {
             onCityClick={pickCity}
             paused={interacting}
             live={mapFull}
+            insets={{ top: 150, left: panelOpen && !panelFull ? 424 : 0, bottom: 64 }}
           />
         ) : (
           <MapLoading label={error ?? undefined} />
@@ -214,15 +215,27 @@ export function NetworkExplorer() {
         animate={{ opacity: 1 }}
         transition={T_VIEW}
         className={cn(
-          "glass-float absolute z-10 flex flex-col overflow-hidden rounded-3xl",
-          showMap
-            ? "inset-x-3 bottom-3 max-h-[62%] md:inset-x-auto md:top-44 md:bottom-6 md:left-6 md:max-h-none md:w-[400px]"
-            : "inset-x-3 top-36 bottom-3 md:inset-x-auto md:top-44 md:bottom-6 md:left-1/2 md:w-[min(960px,calc(100%-3rem))] md:-translate-x-1/2",
-          panelFull && "fixed inset-0 z-[65] h-dvh max-h-none w-full translate-x-0 rounded-none pb-[env(safe-area-inset-bottom)] md:w-full",
+          "z-10 flex flex-col overflow-hidden",
+          // Pantalla completa: ocupa toda la ventana (también sobre el dock) y en escritorio se parte en dos
+          // columnas, formulario a la izquierda y resultados a la derecha, cada una con su desplazamiento.
+          // Las clases de panel flotante no se mezclan con estas: antes el panel quedaba 176 px abajo y se
+          // salía 24 px por la derecha.
+          panelFull
+            ? "fixed inset-0 z-[65] bg-card pb-[env(safe-area-inset-bottom)] md:flex-row"
+            : cn(
+                "glass-float absolute rounded-3xl",
+                showMap
+                  ? "inset-x-3 bottom-3 max-h-[62%] md:inset-x-auto md:top-44 md:bottom-6 md:left-6 md:max-h-none md:w-[400px]"
+                  : "inset-x-3 top-36 bottom-3 md:inset-x-auto md:top-44 md:bottom-6 md:left-1/2 md:w-[min(960px,calc(100%-3rem))] md:-translate-x-1/2",
+              ),
         )}
-        style={panelFull ? { backgroundColor: "var(--card)" } : undefined}
       >
-        <div className="shrink-0 border-b border-border p-4 md:p-5">
+        <div
+          className={cn(
+            "shrink-0 border-b border-border p-4 md:p-5",
+            panelFull && "max-h-[55%] overflow-y-auto md:max-h-none md:w-[420px] md:border-r md:border-b-0 md:p-6 lg:w-[460px]",
+          )}
+        >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-[0.9375rem] font-semibold">
               <Route className="size-4 text-primary" aria-hidden /> Simulador de rutas
@@ -337,7 +350,7 @@ export function NetworkExplorer() {
           )}
         </div>
 
-        <div className={cn("flex-1 overflow-y-auto", !expanded && "hidden md:block")}>
+        <div className={cn("@container min-w-0 flex-1 overflow-y-auto", !expanded && "hidden md:block", panelFull && "md:bg-background")}>
           <AnimatePresence mode="wait">
             {result ? (
               <RouteResultView
@@ -467,7 +480,7 @@ function RouteResultView({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={T_VIEW}
-      className="flex flex-col gap-5 p-5"
+      className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-5 @3xl:gap-6 @3xl:p-8"
     >
       <div className="flex items-start justify-between gap-2">
         <div>
@@ -489,7 +502,7 @@ function RouteResultView({
           <PackagePlus /> Crear envío con esta ruta
       </BurstLink>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 @xl:grid-cols-3 @4xl:grid-cols-6">
         <Metric icon={<Clock />} label="Tiempo total" value={r.time_fmt} />
         <Metric icon={<CircleDollarSign />} label="Costo total" value={<Money usd={r.cost} />} />
         <Metric icon={<Route />} label="Distancia" value={r.distance_fmt} />

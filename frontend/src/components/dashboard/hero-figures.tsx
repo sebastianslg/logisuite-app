@@ -12,7 +12,8 @@ export type Secondary = { label: string; value: string; href: string; hint?: str
 /**
  * Estado de la operación: las tres cifras que más importan (envíos en ruta, retrasos y costo acumulado en
  * tránsito) en grande, y debajo, tras una línea fina, las secundarias en una fila compacta. Todo en una sola
- * superficie: se lee de un vistazo, como el encabezado de un informe. Cada cifra abre la vista filtrada.
+ * superficie: se lee de un vistazo, como el encabezado de un informe. La fila secundaria usa
+ * las mismas columnas que las cifras, para que las líneas verticales coincidan. Cada cifra abre la vista filtrada.
  * Las cifras cuentan al cargar y, cuando cambian, desde el valor anterior.
  */
 export function HeroFigures({
@@ -65,7 +66,7 @@ export function HeroFigures({
         ))}
       </div>
       {secondary.length > 0 && (
-        <ul className="-ml-px grid grid-cols-1 border-t border-border sm:grid-cols-3">
+        <ul className="-ml-px grid grid-cols-1 border-t border-border sm:grid-cols-3 md:grid-cols-[1fr_1fr_1.4fr]">
           {secondary.map((s) => (
             <li key={s.label} className="border-l border-border not-first:border-t sm:not-first:border-t-0">
               <Link
@@ -75,7 +76,7 @@ export function HeroFigures({
               >
                 <span className="min-w-0 truncate text-[13px] text-muted-foreground">
                   {s.label}
-                  {s.hint && <span className="text-muted-foreground/80"> · {s.hint}</span>}
+                  {s.hint && <span> · {s.hint}</span>}
                 </span>
                 <span className="tabular shrink-0 text-[0.9375rem] font-semibold">{s.value}</span>
               </Link>

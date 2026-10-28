@@ -271,7 +271,7 @@
 /* Contenedor de página: márgenes comunes y ancho máximo para que en pantallas anchas no se estire sin fin. */
 @utility page {
   width: 100%;
-  max-width: 1440px;
+  max-width: 1760px; /* 1680 px de contenido: en 1920 px quedan 120 px por lado, no 280 */
   margin-inline: auto;
   padding: 1.5rem 1rem 2.5rem;
   @media (min-width: 768px) {

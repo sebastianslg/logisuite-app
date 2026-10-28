@@ -15,7 +15,7 @@ export interface Column<T> {
   csv?: (row: T) => string | number;
 }
 
-/** Tabla de detalle para las hojas de ampliación, con exportación a CSV. */
+/** Tabla de detalle (hojas de ampliación e historial) con exportación a CSV; en celular, filas apiladas. */
 export function DetailTable<T>({
   columns,
   rows,
@@ -51,7 +51,25 @@ export function DetailTable<T>({
           </Button>
         </div>
       )}
-      <div className="glass overflow-x-auto rounded-3xl">
+      {/* Celular: cada fila es un bloque con la primera columna como título y el resto en pares etiqueta/valor.
+          Antes la tabla se encogía hasta partir los nombres letra por letra y se desbordaba. */}
+      <ul className="glass rule-list overflow-hidden rounded-3xl lg:hidden">
+        {rows.map((r) => (
+          <li key={getKey(r)} className="px-4 py-3.5">
+            <div className="text-[0.9375rem]">{columns[0].render(r)}</div>
+            <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              {columns.slice(1).map((c) => (
+                <div key={c.key} className="min-w-0">
+                  <dt className="text-xs text-muted-foreground">{c.label}</dt>
+                  <dd className="tabular mt-0.5 min-w-0 [overflow-wrap:anywhere]">{c.render(r)}</dd>
+                </div>
+              ))}
+            </dl>
+          </li>
+        ))}
+        {rows.length === 0 && <li className="px-4 py-8 text-center text-sm text-muted-foreground">{empty}</li>}
+      </ul>
+      <div className="glass hidden overflow-x-auto rounded-3xl lg:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">

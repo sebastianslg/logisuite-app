@@ -58,7 +58,6 @@ export function HistoryView({ data }: { data: History }) {
       render: (c) => (
         <Link href={`/red?ciudad=${encodeURIComponent(c.city)}`} className="font-medium hover:text-primary">
           {c.city}
-          {c.department && <span className="ml-2 text-xs font-normal text-muted-foreground">{c.department}</span>}
         </Link>
       ),
       csv: (c) => c.city,

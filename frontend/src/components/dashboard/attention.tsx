@@ -85,12 +85,27 @@ export function buildAlertItems(alerts: DashboardSummary["alerts"]): AlertItem[]
   return [...items.filter((i) => i.tone === "danger"), ...items.filter((i) => i.tone === "warning")];
 }
 
+/** Columnas en escritorio según cuántos avisos hay: 4 caben en una fila; desde 5, de a 3. */
+const XL_COLS = ["", "xl:grid-cols-1", "xl:grid-cols-2", "xl:grid-cols-3", "xl:grid-cols-4"];
+const XL_SPAN = ["", "xl:col-span-1", "xl:col-span-2", "xl:col-span-3"];
+
+/**
+ * El último aviso ocupa lo que queda de su fila, así la superficie nunca termina con celdas vacías
+ * (antes, 4 avisos en 3 columnas dejaban dos huecos).
+ */
+function lastSpan(n: number) {
+  const xl = n <= 4 ? n : 3;
+  const rest = n % xl;
+  return cn(n > 1 && n % 2 === 1 && "md:col-span-2", rest ? XL_SPAN[xl - rest + 1] : "xl:col-span-1");
+}
+
 /** Filas de alertas (resumen y panel de avisos del dock): ícono del color del estado, título, detalle y destino. */
 export function AlertRows({ items, columns = false, onNavigate }: { items: AlertItem[]; columns?: boolean; onNavigate?: () => void }) {
+  const n = items.length;
   return (
-    <ul className={cn("-mt-px -ml-px grid grid-cols-[minmax(0,1fr)]", columns && "md:grid-cols-2 xl:grid-cols-3")}>
-      {items.map((it) => (
-        <li key={it.key} className="min-w-0 border-t border-l border-border">
+    <ul className={cn("-mt-px -ml-px grid grid-cols-[minmax(0,1fr)]", columns && n > 1 && "md:grid-cols-2", columns && XL_COLS[n <= 4 ? n : 3])}>
+      {items.map((it, i) => (
+        <li key={it.key} className={cn("min-w-0 border-t border-l border-border", columns && i === n - 1 && lastSpan(n))}>
           <Link
             href={it.href}
             onClick={onNavigate}

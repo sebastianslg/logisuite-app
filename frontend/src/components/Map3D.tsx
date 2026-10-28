@@ -116,7 +116,52 @@ export interface Map3DProps {
   focusCity?: string | null;
   /** Se llama al pulsar un nodo. */
   onCityClick?: (city: string) => void;
+  /**
+   * Lo que tapan los controles que flotan sobre el mapa en escritorio (px): arriba el encabezado, a la izquierda
+   * el simulador, abajo la leyenda. El encuadre usa solo el espacio libre. En celular se usan márgenes propios.
+   */
+  insets?: { top?: number; left?: number; bottom?: number };
 }
+
+type Padding = { top: number; bottom: number; left: number; right: number };
+
+/**
+ * Encuadre con la cámara inclinada. `fitBounds` supone un mapa plano: con inclinación y giro el sur se acerca
+ * (se ve más grande y baja) y el norte se aleja, así que el país quedaba cortado abajo. Se parte del encuadre
+ * plano y se corrige proyectando el contorno con la cámara real: escala y centro, tres pasadas. Cálculo único.
+ */
+function fitTilted(bounds: [[number, number], [number, number]], width: number, height: number, padding: Padding, pitch: number, bearing: number) {
+  let { longitude, latitude, zoom } = new WebMercatorViewport({ width, height }).fitBounds(bounds, { padding });
+  const [[w, s], [e, n]] = bounds;
+  const outline: [number, number][] = [];
+  for (let i = 0; i <= 4; i++) {
+    const x = w + ((e - w) * i) / 4;
+    const y = s + ((n - s) * i) / 4;
+    outline.push([x, s], [x, n], [w, y], [e, y]);
+  }
+  const box = { x: padding.left, y: padding.top, w: width - padding.left - padding.right, h: height - padding.top - padding.bottom };
+  for (let k = 0; k < 3; k++) {
+    const vp = new WebMercatorViewport({ width, height, longitude, latitude, zoom, pitch, bearing });
+    const pts = outline.map((p) => vp.project(p));
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
+    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    // Un tramo recto norte-sur o este-oeste tiene caja de ancho o alto casi nulo: mínimo 1 px
+    const scale = Math.min(box.w / Math.max(x1 - x0, 1), box.h / Math.max(y1 - y0, 1));
+    // Mueve el centro para que el contorno quede centrado en el espacio libre, y ajusta el zoom
+    const [lng, lat] = vp.unproject([width / 2 + ((x0 + x1) / 2 - (box.x + box.w / 2)), height / 2 + ((y0 + y1) / 2 - (box.y + box.h / 2))]);
+    longitude = lng;
+    latitude = lat;
+    zoom = Math.min(Math.max(zoom + Math.log2(scale), 1), 12);
+  }
+  return { longitude, latitude, zoom };
+}
+
+/** Colombia continental más San Andrés: lo que el encuadre inicial debe mostrar completo. */
+const COLOMBIA_BOUNDS: [[number, number], [number, number]] = [
+  [-81.8, -4.3],
+  [-66.8, 13.6],
+];
 
 export default function Map3D({
   network,
@@ -134,7 +179,11 @@ export default function Map3D({
   selectedCities = [],
   focusCity = null,
   onCityClick,
+  insets,
 }: Map3DProps) {
+  const insetTop = insets?.top ?? 0;
+  const insetLeft = insets?.left ?? 0;
+  const insetBottom = insets?.bottom ?? 0;
   // En la vista compacta el país sube para no quedar bajo los chips de resumen
   const [viewState, setViewState] = useState<MapViewState>(
     compact ? { ...COLOMBIA_VIEW, latitude: 1.4, zoom: 4.25, pitch: 40 } : COLOMBIA_VIEW,
@@ -249,42 +298,85 @@ export default function Map3D({
 
   const isVisible = useCallback((m: Mode) => !visibleModes || visibleModes.has(m), [visibleModes]);
 
+  // ---- Encuadre inicial ----------------------------------------------
+  // El país se ajusta al tamaño real del contenedor (antes era un zoom fijo: en pantallas anchas Colombia
+  // quedaba pequeña, rodeada de Centroamérica, y detrás del simulador). Una sola vez, antes del primer cuadro.
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    // Con una ruta el encuadre es el de la ruta (efecto siguiente)
+    if (!el || route) return;
+    const { width, height } = el.getBoundingClientRect();
+    const narrow = width < 768;
+    // Los chips y la leyenda flotan sobre el borde inferior; el sur del país (Amazonas) cae al centro y puede
+    // pasar por debajo de ellos sin tapar nada importante.
+    const padding = compact
+      ? { top: 12, bottom: 44, left: 16, right: 16 }
+      : narrow
+        ? { top: insetTop ? 110 : 16, bottom: insetTop ? Math.round(height * 0.3) : 16, left: 16, right: 16 }
+        : { top: 24 + insetTop, bottom: 24 + insetBottom, left: 24 + insetLeft, right: 24 };
+    // deck.gl falla si el margen no deja espacio: en ese caso se queda la vista por defecto
+    if (width - padding.left - padding.right < 120 || height - padding.top - padding.bottom < 120) return;
+    try {
+      setViewState((v) => {
+        const fit = fitTilted(COLOMBIA_BOUNDS, width, height, padding, v.pitch ?? 0, v.bearing ?? 0);
+        return { ...v, longitude: fit.longitude, latitude: fit.latitude, zoom: Math.min(Math.max(fit.zoom, 3.4), 6.4) };
+      });
+    } catch {
+      // Sin encuadre posible se queda la vista por defecto
+    }
+    // Solo al montar: después la cámara es del usuario
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ---- Encuadre de la ruta simulada -----------------------------------
-  useEffect(() => {
+  // La ficha del envío arma un objeto de ruta nuevo en cada render: la clave depende del trazado, no de la
+  // identidad, para no re-encuadrar ni reiniciar la animación cada vez que la página refresca sus datos.
+  const routeKey = route
+    ? route.legs.map((l) => `${l.mode}:${l.path.length}:${l.path[0]?.join(",")}:${l.path.at(-1)?.join(",")}`).join("|")
+    : "";
+  const mountedRef = useRef(false);
+  // Efecto de diseño (antes del primer cuadro): si corriera después, el mapa al iniciarse avisa su vista
+  // original y pisa el encuadre.
+  useLayoutEffect(() => {
     if (!route || !containerRef.current) return;
     routeStartRef.current = clockRef.current;
     const pts = route.legs.flatMap((l) => l.path);
     const { width, height } = containerRef.current.getBoundingClientRect();
     if (!width || !height || pts.length < 2) return;
-    // Márgenes según el ancho: en celular el simulador es una hoja inferior y
-    // el margen de escritorio (420 px) supera la pantalla, lo que hace fallar
-    // deck.gl ("assertion failed") y tumba la página.
+    // Márgenes según el ancho: en celular el simulador es una hoja inferior y un margen lateral grande
+    // supera la pantalla, lo que hace fallar deck.gl ("assertion failed") y tumba la página. A la izquierda
+    // se deja el ancho del panel solo si hay uno (en la ficha del envío no lo hay).
     const narrow = width < 768;
     const padding = {
-      top: narrow ? 40 : 80,
-      bottom: narrow ? Math.round(height * 0.55) : 80,
-      left: compact || narrow ? 24 : 420,
-      right: narrow ? 24 : 80,
+      top: narrow ? 40 : 48 + insetTop,
+      bottom: narrow ? Math.round(height * (insetTop ? 0.55 : 0.1)) : 48 + insetBottom,
+      left: compact || narrow ? 24 : 48 + insetLeft,
+      right: narrow ? 24 : 48,
     };
+    // Al crear el mapa con una ruta (ficha del envío) se encuadra directo: una transición en ese momento la
+    // cancelaba el primer aviso de vista del mapa y quedaba todo el país. Con el mapa ya abierto, vuelo.
+    const instant = !mountedRef.current;
     try {
-      const vp = new WebMercatorViewport({ width, height });
-      const { longitude, latitude, zoom } = vp.fitBounds(boundsOf(pts), { padding });
+      const fit = fitTilted(boundsOf(pts), width, height, padding, 50, -12);
       setViewState((v) => ({
         ...v,
-        longitude,
-        latitude,
-        zoom: Math.min(zoom, 7.5),
+        longitude: fit.longitude,
+        latitude: fit.latitude,
+        zoom: Math.min(fit.zoom, 7.5),
         pitch: 50,
         bearing: -12,
-        transitionDuration: 1800,
-        transitionInterpolator: new FlyToInterpolator({ speed: 1.4 }),
+        ...(instant ? {} : { transitionDuration: 1800, transitionInterpolator: new FlyToInterpolator({ speed: 1.4 }) }),
       }));
     } catch {
       // Si el encuadre no es posible, la ruta sigue dibujada sin mover la cámara
     }
-    // Solo se re-encuadra cuando cambia la ruta
+    // Solo se re-encuadra cuando cambia el trazado
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route]);
+  }, [routeKey]);
+  // Declarado después del encuadre: en el primer render ese efecto aún ve el mapa "recién creado"
+  useEffect(() => {
+    mountedRef.current = true;
+  }, []);
 
   // ---- Vuelo a una ciudad elegida (lista, URL o paleta de comandos) ----
   useEffect(() => {

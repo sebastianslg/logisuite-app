@@ -26,7 +26,7 @@ export function NetworkMapCard({ network: stats }: { network: DashboardSummary["
         )}
       </div>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-3 p-5">
-        <div className="pointer-events-auto flex flex-wrap gap-2">
+        <div className="pointer-events-auto chip-scroll flex gap-2 md:flex-wrap">
           {MODE_ORDER.map((m) => {
             const Icon = MODES[m].icon;
             return (
@@ -42,8 +42,11 @@ export function NetworkMapCard({ network: stats }: { network: DashboardSummary["
             );
           })}
         </div>
-        <div className="flex items-end justify-between gap-4">
-          <MapLegend />
+        {/* En celular la leyenda tapaba medio mapa: los chips ya llevan el ícono y el color de cada modo */}
+        <div className="flex items-end justify-end gap-4 sm:justify-between">
+          <div className="hidden sm:block">
+            <MapLegend />
+          </div>
           <Link
             href="/red"
             className="pointer-events-auto inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-solid px-3 py-1.5 text-sm font-medium text-primary-foreground press hover:bg-solid/90 focus-visible:ring-[3px] focus-visible:ring-ring/80 outline-none"

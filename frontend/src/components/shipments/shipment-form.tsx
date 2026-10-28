@@ -345,7 +345,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
         )}
       </div>
 
-      <aside className="glass rounded-3xl p-5">
+      <aside className="glass h-fit rounded-3xl p-5 lg:sticky lg:top-24">
         <h2 className="text-sm font-medium">Ruta calculada</h2>
         {!preview ? (
           <p className="mt-3 text-xs text-muted-foreground">

@@ -11,10 +11,10 @@ export const FLEET_TABS = [
 
 export type FleetTab = (typeof FLEET_TABS)[number]["key"];
 
-/** Pestañas de la flota: cada una es una URL, así que se puede enlazar y recargar. */
+/** Pestañas de la flota: cada una es una URL, así que se puede enlazar y recargar. En celular, dos por fila. */
 export function FleetTabs({ current, badges = {} }: { current: FleetTab; badges?: Partial<Record<FleetTab, number>> }) {
   return (
-    <nav aria-label="Secciones de la flota" className="inline-flex max-w-full overflow-x-auto rounded-full bg-fill p-1 text-sm">
+    <nav aria-label="Secciones de la flota" className="grid grid-cols-2 gap-1 rounded-2xl bg-fill p-1 text-sm sm:inline-flex sm:gap-0 sm:rounded-full">
       {FLEET_TABS.map((t) => {
         const on = t.key === current;
         const n = badges[t.key];
@@ -24,7 +24,7 @@ export function FleetTabs({ current, badges = {} }: { current: FleetTab; badges?
             href={t.href}
             aria-current={on ? "page" : undefined}
             className={cn(
-              "press flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 transition-colors",
+              "press flex shrink-0 items-center justify-center gap-1.5 rounded-xl px-4 py-1.5 transition-colors sm:rounded-full",
               on ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >

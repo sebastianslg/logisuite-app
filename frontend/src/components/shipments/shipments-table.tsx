@@ -108,10 +108,10 @@ const columns = helper.columns([
       const s = info.row.original;
       return (
         <div className="flex flex-col">
-          <span className="font-medium">
+          <span className="block max-w-48 truncate font-medium min-[1600px]:max-w-none" title={`${s.origin} → ${s.destination}`}>
             {s.origin} <span className="text-muted-foreground">→</span> {s.destination}
           </span>
-          <span className="max-w-56 truncate text-xs text-muted-foreground">{s.cargo}</span>
+          <span className="max-w-44 truncate text-xs text-muted-foreground 2xl:max-w-56">{s.cargo}</span>
         </div>
       );
     },
@@ -125,7 +125,7 @@ const columns = helper.columns([
       <div className="flex items-center gap-2">
         <ModeChain modes={info.getValue()} />
         {info.row.original.n_transfers > 0 && (
-          <span className="text-xs text-muted-foreground">
+          <span className="hidden text-xs text-muted-foreground xl:inline">
             {info.row.original.n_transfers} transb.
           </span>
         )}
@@ -156,7 +156,7 @@ const columns = helper.columns([
       const s = info.row.original;
       const color = s.current_mode ? MODES[s.current_mode].color : "var(--muted-foreground)";
       return (
-        <div className="flex w-28 items-center gap-2">
+        <div className="flex w-20 items-center gap-2 min-[1600px]:w-28">
           <div className="h-1 flex-1 rounded-full bg-fill">
             <div
               className="h-full rounded-full"
@@ -197,7 +197,10 @@ const columns = helper.columns([
       );
     },
   }),
-  helper.accessor("client", { header: "Cliente" }),
+  helper.accessor("client", {
+    header: "Cliente",
+    cell: (info) => <span className="block max-w-44 truncate" title={info.getValue()}>{info.getValue()}</span>,
+  }),
   helper.accessor("priority", {
     header: "Prioridad",
     cell: (info) => (
@@ -210,7 +213,16 @@ const PAGE_SIZES = [10, 20, 50];
 
 /** Columnas de cifras: alineadas a la derecha para comparar de un vistazo. */
 const NUMERIC = new Set(["weight_t", "cost"]);
-const colClass = (id: string) => cn(id === "client" && "hidden 2xl:table-cell", NUMERIC.has(id) && "text-right");
+/**
+ * Columnas que ceden su lugar cuando falta ancho, para que la tabla nunca se desplace hacia el lado: la tabla
+ * aparece desde 1024 px (debajo, tarjetas); ETA y cliente desde 1280 px; prioridad desde 1600 px.
+ */
+const COL_VISIBILITY: Record<string, string> = {
+  eta_at: "hidden xl:table-cell",
+  client: "hidden xl:table-cell",
+  priority: "hidden min-[1600px]:table-cell",
+};
+const colClass = (id: string) => cn(COL_VISIBILITY[id], NUMERIC.has(id) && "text-right");
 
 /** Filtros iniciales (vienen de la URL: ?estado=, ?modo=, ?q=). */
 export interface ShipmentFilters {
@@ -455,7 +467,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
       </AnimatePresence>
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 
-      <div className="glass hidden overflow-x-auto rounded-3xl md:block">
+      <div className="glass hidden overflow-x-auto rounded-3xl lg:block">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((group) => (
@@ -533,8 +545,8 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                       <table.FlexRender cell={cell} />
                     </TableCell>
                   ))}
-                  <TableCell>
-                    <div className="flex justify-end gap-0.5">
+                  <TableCell className="pr-3">
+                    <div className="flex justify-end">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -594,7 +606,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2, ease: EASE }}
-        className="flex flex-col gap-3 md:hidden"
+        className="grid gap-3 md:grid-cols-2 lg:hidden"
         aria-label="Envíos"
       >
         {table.getRowModel().rows.map((row) => {

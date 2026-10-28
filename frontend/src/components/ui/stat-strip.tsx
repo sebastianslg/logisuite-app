@@ -56,7 +56,7 @@ function StatCell({ label, value, hint, tone, href, onClick, active }: Stat) {
   const body = (
     <>
       <span className="flex items-center justify-between gap-2 text-[13px] font-medium text-muted-foreground">
-        <span className="truncate">{label}</span>
+        <span className="line-clamp-2">{label}</span>
         {interactive && (
           <ChevronRight
             className="size-3.5 shrink-0 opacity-0 transition-opacity duration-200 group-hover/stat:opacity-60 group-focus-visible/stat:opacity-60 motion-reduce:transition-none"
@@ -67,7 +67,7 @@ function StatCell({ label, value, hint, tone, href, onClick, active }: Stat) {
       <span className={cn("tabular mt-2 block text-[1.75rem] leading-none font-semibold tracking-[-0.03em]", tone && TONE[tone])}>
         {value}
       </span>
-      {hint && <div className="mt-2 truncate text-[13px] text-muted-foreground">{hint}</div>}
+      {hint && <div className="mt-2 line-clamp-2 text-[13px] text-muted-foreground">{hint}</div>}
     </>
   );
   const cls = cn(

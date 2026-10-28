@@ -216,7 +216,7 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
         </ul>
       </div>
 
-      <aside className="h-fit glass rounded-3xl p-5">
+      <aside className="glass h-fit rounded-3xl p-5 xl:sticky xl:top-24 xl:max-h-[calc(100dvh-7.5rem)] xl:overflow-y-auto">
         <h2 className="flex items-center gap-2 text-sm font-medium">
           <History className="size-4 text-muted-foreground" /> Historial de cierres
         </h2>
