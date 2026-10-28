@@ -4,6 +4,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  CalendarDays,
+  FileText,
+  Scale,
+  Users,
   BookOpen,
   Banknote,
   CornerDownLeft,
@@ -35,7 +39,7 @@ import { cn } from "@/lib/utils";
 
 interface Item {
   id: string;
-  group: "Ir a" | "Acciones" | "Envíos" | "Ciudades";
+  group: "Ir a" | "Acciones" | "Envíos" | "Ciudades" | "Vehículos" | "Bodegas" | "Vías";
   label: string;
   hint?: string;
   icon: LucideIcon;
@@ -56,6 +60,10 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
   const [active, setActive] = useState(0);
   const [shipments, setShipments] = useState<{ code: string; origin: string; destination: string }[]>([]);
   const [cities, setCities] = useState<{ city: string; category: string }[]>([]);
+  // Más resultados para la búsqueda: vehículos, bodegas y vías (se piden al abrir por primera vez)
+  const [vehicles, setVehicles] = useState<{ id: number; code: string; vehicle_type: string; mode_label: string; home_name?: string }[]>([]);
+  const [warehouses, setWarehouses] = useState<{ warehouse_id: number; code: string; name: string; city: string }[]>([]);
+  const [corridors, setCorridors] = useState<{ corridor: string; active: boolean; distance_fmt: string }[]>([]);
   const mac = useSyncExternalStore(
     () => () => {},
     () => /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent),
@@ -101,6 +109,14 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d && setCities(d.cities))
       .catch(() => {});
+    const load = <T,>(url: string, set: (v: T[]) => void) =>
+      fetch(url, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => d && set(d.items))
+        .catch(() => {});
+    load("/api/fleet/vehicles", setVehicles);
+    load("/api/warehouses", setWarehouses);
+    load("/api/corridors", setCorridors);
   }, [open, shipments.length]);
 
   useEffect(() => {
@@ -127,10 +143,15 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
       { id: "p-wh", group: "Ir a", label: "Bodegas", icon: Warehouse, run: go("/bodegas") },
       { id: "p-hist", group: "Ir a", label: "Historial de trayectos", hint: "Por ciudad, departamento y corredor", icon: History, run: go("/historial") },
       { id: "p-metodo", group: "Ir a", label: "Metodología", hint: "Cómo se calculan rutas, costos y huella", icon: BookOpen, run: go("/metodologia") },
+      { id: "p-cal", group: "Ir a", label: "Calendario de envíos", hint: "Qué sale y qué llega", icon: CalendarDays, run: go("/calendario") },
+      { id: "p-cli", group: "Ir a", label: "Clientes", hint: "Envíos, puntualidad y flete por cliente", icon: Users, run: go("/clientes") },
+      { id: "p-cmp", group: "Ir a", label: "Comparar rutas", hint: "Escenarios lado a lado", icon: Scale, run: go("/comparar") },
+      { id: "p-cot", group: "Ir a", label: "Cotización", hint: "Precio de un traslado con margen", icon: FileText, run: go("/cotizacion") },
       { id: "p-cfg", group: "Ir a", label: "Configuración", icon: Settings, run: go("/configuracion") },
       { id: "a-veh", group: "Acciones", label: "Agregar un vehículo", hint: "Flota", icon: Truck, run: go("/flota/nuevo") },
       { id: "a-wh", group: "Acciones", label: "Crear una bodega", hint: "Bodegas", icon: Warehouse, run: go("/bodegas/nueva") },
       { id: "a-new", group: "Acciones", label: "Crear envío", hint: "Simulador de rutas", icon: PackagePlus, run: go("/envios/nuevo") },
+      { id: "a-rep", group: "Acciones", label: "Descargar el reporte semanal", hint: "PDF", icon: FileText, run: () => { close(); window.open("/api/reports/operations?days=7", "_blank", "noopener"); } },
       ...(fx?.rate ? [{ id: "a-cop", group: "Acciones" as const, label: "Mostrar costos en pesos (COP)", icon: Banknote, run: () => { setCurrency("COP"); close(); } }] : []),
       { id: "a-usd", group: "Acciones", label: "Mostrar costos en dólares (USD)", icon: Banknote, run: () => { setCurrency("USD"); close(); } },
       { id: "a-keys", group: "Acciones", label: "Ver atajos de teclado", hint: "?", icon: Keyboard, run: () => { close(); setTimeout(() => window.dispatchEvent(new Event(OPEN_SHORTCUTS_EVENT)), 0); } },
@@ -150,8 +171,20 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
       id: `c-${c.city}`, group: "Ciudades", label: c.city, hint: "Ver en el mapa",
       icon: MapPin, run: go(`/red?ciudad=${encodeURIComponent(c.city)}`),
     }));
-    return [...base, ...ships, ...cs];
-  }, [shipments, cities, go, setCurrency, setTheme, close, fx]);
+    const vs = vehicles.map<Item>((v) => ({
+      id: `v-${v.id}`, group: "Vehículos", label: v.code, hint: `${v.vehicle_type} · ${v.mode_label}${v.home_name ? ` · ${v.home_name}` : ""}`,
+      icon: Truck, run: go(`/flota/${v.id}`),
+    }));
+    const ws = warehouses.map<Item>((w) => ({
+      id: `w-${w.warehouse_id}`, group: "Bodegas", label: w.name, hint: `${w.code} · ${w.city}`,
+      icon: Warehouse, run: go(`/bodegas/${w.warehouse_id}`),
+    }));
+    const cr = corridors.map<Item>((c) => ({
+      id: `r-${c.corridor}`, group: "Vías", label: c.corridor, hint: `${c.active ? "Activa" : "Cerrada"} · ${c.distance_fmt}`,
+      icon: TrafficCone, run: go("/vias"),
+    }));
+    return [...base, ...ships, ...cs, ...vs, ...ws, ...cr];
+  }, [shipments, cities, vehicles, warehouses, corridors, go, setCurrency, setTheme, close, fx]);
 
   const results = useMemo(() => {
     const needle = norm(q.trim());

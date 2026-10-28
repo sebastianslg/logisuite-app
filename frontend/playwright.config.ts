@@ -39,14 +39,15 @@ export default defineConfig({
         {
           command: `python -m uvicorn app.main:app --port ${API_PORT}`,
           cwd: "../backend",
-          env: { WESTVANE_DB_PATH: DB, WESTVANE_CACHE_TTL: "0" },
+          // Misma zona horaria que producción (docker-compose: TZ=America/Bogota) y que el navegador de las pruebas
+          env: { WESTVANE_DB_PATH: DB, WESTVANE_CACHE_TTL: "0", TZ: "America/Bogota" },
           url: `http://127.0.0.1:${API_PORT}/api/health`,
           reuseExistingServer: !process.env.CI,
           timeout: 60_000,
         },
         {
           command: `npx next start -p ${PORT}`,
-          env: { API_INTERNAL_URL: `http://127.0.0.1:${API_PORT}` },
+          env: { API_INTERNAL_URL: `http://127.0.0.1:${API_PORT}`, TZ: "America/Bogota" },
           url: baseURL,
           reuseExistingServer: !process.env.CI,
           timeout: 60_000,

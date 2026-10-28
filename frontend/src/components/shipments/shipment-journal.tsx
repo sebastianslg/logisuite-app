@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRightLeft, Check, CircleCheck, Flag, MapPin, MessageSquare, Plus, Trash2, TriangleAlert } from "lucide-react";
 
 import { useApp } from "@/components/providers";
+import { useHydrated } from "@/lib/use-hydrated";
 import { Button } from "@/components/ui/button";
 import { SaveIcon, useSavedFlash } from "@/components/ui/save-icon";
 import { toast } from "@/components/ui/toast";
@@ -65,7 +66,10 @@ export function ShipmentJournal({ shipment: s, initial }: { shipment: Shipment; 
     return [...plan, ...ev].sort((a, b) => a.at.getTime() - b.at.getTime());
   }, [s, events]);
 
-  const nowIndex = items.findIndex((i) => i.at > now);
+  // «Ahora» y lo previsto dependen del reloj y de la zona horaria del navegador: se marcan después de hidratar,
+  // así el HTML del servidor (otra hora, quizá otra zona) nunca difiere del primer render del cliente.
+  const hydrated = useHydrated();
+  const nowIndex = hydrated ? items.findIndex((i) => i.at > now) : -2;
   const openIncidents = events.filter((e) => e.incident && !e.resolved_at).length;
 
   async function resolve(e: ShipmentEvent) {
@@ -131,12 +135,12 @@ export function ShipmentJournal({ shipment: s, initial }: { shipment: Shipment; 
 
       <ol className="mt-4" aria-label="Línea de tiempo del envío">
         {items.map((it, i) => {
-          const future = it.at > now;
+          const future = hydrated && it.at > now;
           return (
             <li key={it.key}>
               {i === nowIndex && <NowMarker />}
               <div className={cn("grid grid-cols-[5.5rem_1.25rem_minmax(0,1fr)] gap-x-3 pb-4", future && it.type === "plan" && "opacity-60")}>
-                <time dateTime={it.at.toISOString()} className="tabular pt-0.5 text-right text-[12px] text-muted-foreground">
+                <time dateTime={hydrated ? it.at.toISOString() : undefined} className="tabular pt-0.5 text-right text-[12px] text-muted-foreground">
                   {when(it.at)}
                 </time>
                 <div className="relative flex justify-center">
@@ -158,7 +162,7 @@ export function ShipmentJournal({ shipment: s, initial }: { shipment: Shipment; 
             </li>
           );
         })}
-        {nowIndex === -1 && <NowMarker />}
+        {hydrated && nowIndex === -1 && <NowMarker />}
       </ol>
     </div>
   );

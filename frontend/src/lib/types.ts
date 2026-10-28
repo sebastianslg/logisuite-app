@@ -187,6 +187,8 @@ export interface RouteResult {
   cost_fmt: string;
   cost_per_t: number;
   cost_per_t_fmt: string;
+  /** Desglose del costo total (USD). */
+  cost_breakdown?: { fletes: number; peajes: number; manipulacion: number; impuestos: number; total: number };
   legs: Leg[];
   transfers: Transfer[];
   trip: Trip;

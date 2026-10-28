@@ -11,18 +11,20 @@ test("bitácora: nota e incidencia con retraso en la ficha del envío", async ({
   const timeline = page.getByRole("list", { name: "Línea de tiempo del envío" });
   await expect(timeline).toBeVisible();
 
+  // Textos únicos: la base de las pruebas se conserva entre corridas
+  const stamp = Date.now();
   await page.getByRole("button", { name: "Registrar" }).click();
-  await page.locator("textarea").fill("Nota de prueba automática");
+  await page.locator("textarea").fill(`Nota de prueba ${stamp}`);
   await page.getByRole("button", { name: "Guardar nota" }).click();
-  await expect(timeline.getByText("Nota de prueba automática")).toBeVisible();
+  await expect(timeline.getByText(`Nota de prueba ${stamp}`)).toBeVisible();
 
   await page.getByRole("button", { name: "Registrar" }).click();
   await page.locator("select").first().selectOption("paro");
   await page.getByPlaceholder("0").fill("2");
-  await page.locator("textarea").fill("Paro camionero en la vía");
+  await page.locator("textarea").fill(`Paro camionero ${stamp}`);
   await page.getByRole("button", { name: "Registrar incidencia" }).click();
-  await expect(timeline.getByText("Paro camionero en la vía")).toBeVisible();
-  await expect(timeline.getByRole("button", { name: /Marcar resuelta/ })).toBeVisible();
+  await expect(timeline.getByText(`Paro camionero ${stamp}`)).toBeVisible();
+  await expect(timeline.getByRole("button", { name: /Marcar resuelta/ }).first()).toBeVisible();
   w.expectClean();
 });
 

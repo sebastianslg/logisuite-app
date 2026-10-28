@@ -8,6 +8,7 @@ import { LayoutGroup, motion } from "framer-motion";
 import { Money } from "@/components/money";
 import { useApp } from "@/components/providers";
 import { ModeIcon } from "@/components/status-badge";
+import { DepartmentMap } from "@/components/history/department-map";
 import { DetailTable, type Column } from "@/components/ui/detail-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Delta } from "@/components/ui/sparkline";
@@ -19,10 +20,11 @@ import type { History, HistoryCity, HistoryCorridor, HistoryDepartment } from "@
 import { cn } from "@/lib/utils";
 
 const WINDOWS = [7, 30, 90] as const;
-type View = "ciudades" | "departamentos" | "corredores";
+type View = "ciudades" | "departamentos" | "mapa" | "corredores";
 const VIEWS: { key: View; label: string }[] = [
   { key: "ciudades", label: "Ciudades" },
   { key: "departamentos", label: "Departamentos" },
+  { key: "mapa", label: "Mapa" },
   { key: "corredores", label: "Corredores" },
 ];
 
@@ -190,9 +192,9 @@ export function HistoryView({ data }: { data: History }) {
 
       <StatStrip
         items={[
-          { label: "Envíos", value: n(t.shipments), hint: <>{vs(prev?.change_pct.shipments ?? null)} <span className="text-muted-foreground">· antes {n(prev?.shipments ?? 0)}</span></> },
-          { label: "Toneladas movidas", value: t.tons_fmt, hint: <>{vs(prev?.change_pct.tons ?? null)} <span className="text-muted-foreground">· antes {prev?.tons_fmt ?? "—"}</span></> },
-          { label: "Flete", value: money(t.cost, true), hint: <>{vs(prev?.change_pct.cost ?? null)} <span className="text-muted-foreground">· antes {money(prev?.cost ?? 0, true)}</span></> },
+          { label: "Envíos", value: n(t.shipments), hint: <>{vs(prev?.change_pct.shipments ?? null)}{prev?.change_pct.shipments != null && <span className="text-muted-foreground"> · antes {n(prev?.shipments ?? 0)}</span>}</> },
+          { label: "Toneladas movidas", value: t.tons_fmt, hint: <>{vs(prev?.change_pct.tons ?? null)}{prev?.change_pct.tons != null && <span className="text-muted-foreground"> · antes {prev?.tons_fmt ?? "—"}</span>}</> },
+          { label: "Flete", value: money(t.cost, true), hint: <>{vs(prev?.change_pct.cost ?? null)}{prev?.change_pct.cost != null && <span className="text-muted-foreground"> · antes {money(prev?.cost ?? 0, true)}</span>}</> },
           {
             label: "Peajes",
             value: tolls ? money(tolls, true) : "Sin tarifa",
@@ -213,6 +215,8 @@ export function HistoryView({ data }: { data: History }) {
         </div>
       ) : view === "ciudades" ? (
         <DetailTable columns={cityCols} rows={data.by_city} getKey={(c) => c.city} csvName={`historial-ciudades-${data.window_days}d`} />
+      ) : view === "mapa" ? (
+        <DepartmentMap departments={data.by_department} />
       ) : view === "departamentos" ? (
         <DetailTable columns={deptCols} rows={data.by_department} getKey={(d) => d.code} csvName={`historial-departamentos-${data.window_days}d`} />
       ) : (

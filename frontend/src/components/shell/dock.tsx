@@ -5,6 +5,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import {
+  CalendarDays,
+  Scale,
+  Users,
   BookOpen,
   Ellipsis,
   Fuel,
@@ -49,6 +52,9 @@ const MORE: NavItem[] = [
   { href: "/combustible", label: "Combustible", icon: Fuel },
   { href: "/huella", label: "Huella de carbono", short: "Huella", icon: Leaf },
   { href: "/historial", label: "Historial de trayectos", short: "Historial", icon: History },
+  { href: "/calendario", label: "Calendario", icon: CalendarDays },
+  { href: "/clientes", label: "Clientes", icon: Users },
+  { href: "/comparar", label: "Comparar rutas", short: "Comparar", icon: Scale },
   { href: "/configuracion", label: "Configuración", icon: Settings },
   { href: "/metodologia", label: "Metodología", icon: BookOpen },
 ];

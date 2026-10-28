@@ -41,3 +41,26 @@ export async function apiGetOrNull<T>(path: string): Promise<T | null> {
   }
   return (await res.json()) as T;
 }
+
+/**
+ * POST de solo cálculo desde Server Components (por ejemplo, simular una ruta). Devuelve `{ ok, data | error }`
+ * en vez de lanzar: un escenario sin ruta es un resultado válido, no un fallo de la página.
+ */
+export async function apiPost<T>(path: string, body: unknown): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+  await connection();
+  const base = process.env.API_INTERNAL_URL ?? "http://localhost:8000";
+  try {
+    const res = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: typeof data.detail === "string" ? data.detail : `Error ${res.status}` };
+    return { ok: true, data: data as T };
+  } catch {
+    return { ok: false, error: "La API no respondió" };
+  }
+}

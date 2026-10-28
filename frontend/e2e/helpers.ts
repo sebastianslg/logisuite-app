@@ -43,4 +43,8 @@ export const PAGES = [
   "/historial",
   "/configuracion",
   "/metodologia",
+  "/calendario",
+  "/clientes",
+  "/comparar",
+  "/cotizacion?origen=Leticia&destino=Cartagena&peso=5",
 ];

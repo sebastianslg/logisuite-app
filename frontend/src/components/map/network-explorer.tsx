@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
-import { ArrowDownUp, ArrowRightLeft, Check, ChevronDown, Clock, Maximize2, Minimize2, Pause, Play, Rows3, CircleDollarSign, Cloud, Fuel, Layers, ListFilter, LoaderCircle, Map as MapIcon, PackagePlus, Radio, Route, Weight, X } from "lucide-react";
+import {
+  FileText,
+  Scale, ArrowDownUp, ArrowRightLeft, Check, ChevronDown, Clock, Maximize2, Minimize2, Pause, Play, Rows3, CircleDollarSign, Cloud, Fuel, Layers, ListFilter, LoaderCircle, Map as MapIcon, PackagePlus, Radio, Route, Weight, X } from "lucide-react";
 
 import { CityCombobox } from "./city-combobox";
 import { CategoryFilter, CityDirectory, CityInspector } from "./city-explorer";
@@ -501,6 +503,18 @@ function RouteResultView({
         >
           <PackagePlus /> Crear envío con esta ruta
       </BurstLink>
+      <div className="-mt-2 flex flex-wrap gap-2">
+        <Button variant="secondary" size="sm" asChild>
+          <Link href={`/cotizacion?origen=${encodeURIComponent(r.origin)}&destino=${encodeURIComponent(r.destination)}&peso=${r.weight_t}&prioridad=${r.priority}`}>
+            <FileText /> Cotizar
+          </Link>
+        </Button>
+        <Button variant="secondary" size="sm" asChild>
+          <Link href={`/comparar?origen=${encodeURIComponent(r.origin)}&destino=${encodeURIComponent(r.destination)}&peso=${r.weight_t}`}>
+            <Scale /> Comparar escenarios
+          </Link>
+        </Button>
+      </div>
 
       <div className="grid grid-cols-2 gap-2 @xl:grid-cols-3 @4xl:grid-cols-6">
         <Metric icon={<Clock />} label="Tiempo total" value={r.time_fmt} />
