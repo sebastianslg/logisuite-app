@@ -62,8 +62,12 @@ Desde la sesión SSH (bash, dentro del servidor):
 ```bash
 cd /opt/logisuite
 git pull
+docker run --rm -v ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro -e DOMAIN=revisar.local caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
+
+- La tercera línea revisa el `Caddyfile` antes de reiniciar: si dice `Valid configuration`, sigue; si
+  muestra un error, no reinicies (Caddy no arrancaría y el sitio quedaría caído) y pásame el error.
 
 - `git pull` trae los cambios de `main`.
 - `up -d --build` reconstruye las imágenes y reinicia los contenedores. Tarda **3 a 6 minutos**
@@ -159,17 +163,46 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml start backend
 
 - El archivo `.env` en `/opt/logisuite` debe tener `DOMAIN=westvane.duckdns.org`. Caddy lo usa
   para pedir el certificado HTTPS. Si falta, `docker compose` se detiene con un error que lo indica.
+- Opcionales: `NTFY_TOPIC` (avisos al celular si el sitio cae), `HC_PING_URL` (aviso si el respaldo diario
+  falla, con Healthchecks.io), `ALLOW_INDEXING=1` (dejar que los buscadores indexen, al lanzarla al público).
 - Plantilla: `.env.example` en la raíz del repositorio.
 
-## 8. Seguridad del servidor (estado y pendientes)
+## 8. Seguridad del servidor
 
-- Entrada por clave SSH: activa para root.
-- **Pendiente:** cerrar la entrada por contraseña en SSH (`PasswordAuthentication no`). En Ubuntu 24.04 los
-  ajustes de SSH pueden estar en `/etc/ssh/sshd_config.d/`, y un archivo ahí puede sobrescribir el cambio.
-  Antes de cerrar la contraseña, prueba que la clave entra desde una **segunda** ventana.
-- **Pendiente:** `fail2ban` y actualizaciones automáticas (`unattended-upgrades`). No está confirmado que
-  estén instalados; revisar con `systemctl status fail2ban`.
-- Ningún puerto además de 80, 443 y 22 debe estar abierto.
+### Blindaje (una vez, y cuando quieras repetirlo)
+
+```bash
+sudo bash /opt/logisuite/deploy/harden-server.sh
+```
+
+Hace, revisando antes cada paso:
+
+- **Firewall:** solo 22, 80 y 443.
+- **SSH solo con llave:** sin contraseñas y root solo con llave. Si root no tiene una llave autorizada, no
+  toca SSH (te dejaría afuera). El archivo `/etc/ssh/sshd_config.d/10-westvane.conf` se lee antes que los de
+  cloud-init, así que su ajuste manda.
+- **fail2ban:** una hora de bloqueo a la IP que falle 5 veces al entrar.
+- **Actualizaciones de seguridad automáticas,** sin reinicios automáticos.
+- **Permisos:** `.env` y `backups/` solo para root.
+- **Swap de 2 GB** si no hay.
+
+**Deja abierta la sesión actual y prueba entrar en otra ventana de PowerShell antes de cerrarla.**
+
+### Lo que ya trae la app
+
+- **Cabeceras de seguridad en cada página:** política de contenido (solo scripts propios y el mapa de
+  OpenFreeMap), HTTPS obligatorio (HSTS, en Caddy), sin marcos de otros sitios y sin `X-Powered-By`.
+- **API:** 120 escrituras por minuto por IP (20 para adjuntos e importación), cuerpo máximo de 16 MB (20 MB
+  en Caddy), adjuntos revisados por su contenido real y sin documentación pública en producción
+  (`WESTVANE_ENV=production`).
+- **Buscadores:** la app no se indexa (`robots.txt` y `X-Robots-Tag`) mientras sea privada.
+- **Docker:** memoria tope por contenedor y registros con tope de 30 MB por contenedor.
+- La API y el frontend no publican puertos: solo Caddy (80 y 443).
+
+### Con dominio propio (pendiente)
+
+- Cloudflare en modo proxy (oculta la IP, protege de ataques de saturación, caché), DNSSEC, registro CAA y
+  Cloudflare Access para pedir un código por correo antes de entrar a la app.
 
 ## 9. Lo que NO hacer
 

@@ -10,6 +10,12 @@ DEST="${APP_DIR}/backups"
 STAMP=$(date +%Y%m%d-%H%M%S)
 KEEP=14
 
+# Aviso opcional a Healthchecks.io (gratis): si el respaldo diario no llega o falla, te escribe por correo.
+# Crea un chequeo diario allí y pon su URL en .env como HC_PING_URL=https://hc-ping.com/<uuid>.
+HC_PING_URL=$(grep -E '^HC_PING_URL=' "${APP_DIR}/.env" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"' || true)
+ping_hc() { [ -n "${HC_PING_URL}" ] && curl -fsS -m 10 --retry 2 "${HC_PING_URL}$1" >/dev/null 2>&1 || true; }
+trap 'ping_hc /fail' ERR
+
 mkdir -p "${DEST}"
 [ -f "${DB}" ] || { echo "No existe ${DB}"; exit 0; }
 
@@ -41,6 +47,7 @@ fi
 if [ "${ok}" != "ok" ]; then
   rm -f "${OUT}"
   echo "[$(date -Is)] ERROR: el respaldo ${STAMP} no pasó la revisión de integridad (${ok:-sin respuesta})" >&2
+  ping_hc /fail
   exit 1
 fi
 gzip -f "${OUT}"
@@ -54,3 +61,4 @@ fi
 ls -1t "${DEST}"/logistics-*.db.gz 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -f
 ls -1t "${DEST}"/adjuntos-*.tar.gz 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -f
 echo "[$(date -Is)] respaldo ${STAMP} listo ($(du -sh "${DEST}" | cut -f1) en ${DEST})"
+ping_hc ""

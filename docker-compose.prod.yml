@@ -5,9 +5,15 @@
 services:
   backend:
     ports: !reset []
+    environment:
+      # Sin documentación interactiva de la API (/docs) en producción
+      WESTVANE_ENV: production
+    # Un contenedor desbocado no puede llevarse la memoria de toda la máquina
+    mem_limit: 1g
 
   frontend:
     ports: !reset []
+    mem_limit: 1g
 
   caddy:
     image: caddy:2-alpine
@@ -24,6 +30,10 @@ services:
       - caddy_config:/config
     depends_on:
       - frontend
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
 volumes:
   caddy_data:

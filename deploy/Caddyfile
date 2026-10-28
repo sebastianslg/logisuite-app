@@ -2,10 +2,17 @@
 # DOMAIN debe apuntar (registro A) a la IP pública de la VM antes de levantarlo.
 {$DOMAIN} {
 	encode zstd gzip
+	# Cuerpo máximo de una petición: un adjunto de 10 MB viaja en base64 (unos 13,4 MB)
+	request_body {
+		max_size 20MB
+	}
 	reverse_proxy frontend:3000
 	header {
+		# HTTPS obligatorio durante un año también para quien escriba http:// (el navegador lo recuerda)
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
 		-Server
+		-X-Powered-By
 	}
 }

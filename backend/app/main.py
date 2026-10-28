@@ -49,6 +49,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, Field
 
 from app.api import format as F
+from app.api import guard
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
@@ -124,7 +125,17 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="Westvane TMS API", version="2.0.0", lifespan=lifespan)
+# En producción no se publica la documentación interactiva de la API (/docs, /redoc, /openapi.json):
+# describe cada ruta y parámetro a quien la busque. WESTVANE_ENV=production la apaga (docker-compose.prod.yml).
+_PROD = os.environ.get("WESTVANE_ENV") == "production"
+app = FastAPI(
+    title="Westvane TMS API",
+    version="2.0.0",
+    lifespan=lifespan,
+    docs_url=None if _PROD else "/docs",
+    redoc_url=None if _PROD else "/redoc",
+    openapi_url=None if _PROD else "/openapi.json",
+)
 
 
 @app.middleware("http")
@@ -176,6 +187,21 @@ async def read_cache(request: Request, call_next):
         # Si nadie esperaba el resultado fallido, se marca como visto para que asyncio no avise en el log
         if future.done() and not future.cancelled():
             future.exception()
+
+
+@app.middleware("http")
+async def abuse_guard(request: Request, call_next):
+    """Tamaño máximo del cuerpo y límite de escrituras por cliente (ver app/api/guard.py)."""
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and request.url.path.startswith("/api/"):
+        if guard.body_too_large(request.headers.get("content-length")):
+            return Response(json.dumps({"detail": "La solicitud es demasiado grande (máximo 16 MB)."}),
+                            status_code=413, media_type="application/json")
+        key = guard.client_key(request.headers.get("x-forwarded-for"), request.client.host if request.client else None)
+        wait = guard.check_rate(key, request.url.path)
+        if wait is not None:
+            return Response(json.dumps({"detail": "Demasiadas solicitudes seguidas; espera un momento y vuelve a intentar."}),
+                            status_code=429, media_type="application/json", headers={"Retry-After": str(int(wait))})
+    return await call_next(request)
 
 
 app.add_middleware(GZipMiddleware, minimum_size=1024)

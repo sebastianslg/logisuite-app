@@ -18,12 +18,17 @@ services:
     volumes:
       # Persistencia de SQLite en el host
       - ./backend/data:/data
+    # Registros de Docker con tope (10 MB x 3 por contenedor): sin esto crecen hasta llenar el disco
+    logging: &logging
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
   frontend:
     build:
       context: ./frontend
       args:
         NEXT_PUBLIC_MAP_STYLE: ${NEXT_PUBLIC_MAP_STYLE:-}
+        ALLOW_INDEXING: ${ALLOW_INDEXING:-}
     image: westvane-web:latest
     container_name: westvane-web
     restart: unless-stopped
@@ -33,6 +38,7 @@ services:
       TZ: ${TZ:-America/Bogota}
     ports:
       - "${WEB_PORT:-3000}:3000"
+    logging: *logging
     depends_on:
       backend:
         condition: service_healthy

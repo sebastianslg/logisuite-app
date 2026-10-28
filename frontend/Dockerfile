@@ -14,6 +14,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Vacío: el mapa sigue la apariencia elegida (claro u oscuro). Con valor, fija un único estilo.
 ARG NEXT_PUBLIC_MAP_STYLE=
 ENV NEXT_PUBLIC_MAP_STYLE=${NEXT_PUBLIC_MAP_STYLE}
+# 1 = permitir que los buscadores indexen el sitio (robots.txt y X-Robots-Tag se fijan al compilar)
+ARG ALLOW_INDEXING=
+ENV ALLOW_INDEXING=${ALLOW_INDEXING}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Typecheck + build (prebuild copia el worker de MapLibre a public/vendor)

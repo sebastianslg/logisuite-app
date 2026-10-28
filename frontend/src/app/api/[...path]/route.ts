@@ -15,7 +15,11 @@ async function forward(req: NextRequest, path: string[]) {
   const url = `${base()}/api/${path.map(encodeURIComponent).join("/")}${req.nextUrl.search}`;
   const init: RequestInit = {
     method: req.method,
-    headers: { "content-type": req.headers.get("content-type") ?? "application/json" },
+    headers: {
+      "content-type": req.headers.get("content-type") ?? "application/json",
+      // La IP del cliente (la que puso Caddy) para el límite de escrituras de la API
+      ...(req.headers.get("x-forwarded-for") ? { "x-forwarded-for": req.headers.get("x-forwarded-for")! } : {}),
+    },
     cache: "no-store",
     signal: AbortSignal.any([req.signal, AbortSignal.timeout(TIMEOUT_MS)]),
   };

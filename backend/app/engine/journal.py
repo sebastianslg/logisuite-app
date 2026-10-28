@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import base64
 import binascii
+import io
 import os
 import re
+import zipfile
 from datetime import datetime
 
 import app.database.db as db
@@ -44,6 +46,43 @@ ALLOWED = {
     ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
+
+
+def _content_matches(ext: str, data: bytes) -> bool:
+    """El contenido corresponde a la extensión (firma del archivo): un .pdf es un PDF y no un HTML con otro nombre.
+
+    Los adjuntos se abren en el navegador desde el mismo sitio; sin esta revisión, un archivo disfrazado podría
+    ejecutar código al abrirlo. Texto y CSV: sin bytes nulos y legibles como UTF-8 o Windows-1252."""
+    head = data[:16]
+    if ext == ".pdf":
+        return data[:1024].lstrip().startswith(b"%PDF-")
+    if ext == ".png":
+        return head.startswith(b"\x89PNG\r\n\x1a\n")
+    if ext in (".jpg", ".jpeg"):
+        return head.startswith(b"\xff\xd8\xff")
+    if ext == ".webp":
+        return head[:4] == b"RIFF" and head[8:12] == b"WEBP"
+    if ext in (".xlsx", ".docx"):
+        if not head.startswith(b"PK\x03\x04"):
+            return False
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as z:
+                names = z.namelist()
+        except zipfile.BadZipFile:
+            return False
+        folder = "xl/" if ext == ".xlsx" else "word/"
+        return "[Content_Types].xml" in names and any(n.startswith(folder) for n in names)
+    if ext in (".csv", ".txt"):
+        if b"\x00" in data:
+            return False
+        for enc in ("utf-8", "cp1252"):
+            try:
+                data.decode(enc)
+                return True
+            except UnicodeDecodeError:
+                continue
+        return False
+    return False
 
 
 def attachments_dir() -> str:
@@ -172,6 +211,8 @@ def add_attachment(code: str, filename: str, content_b64: str, user: str | None)
         raise OperationError("El archivo está vacío.")
     if len(data) > MAX_BYTES:
         raise OperationError("El archivo pasa de 10 MB.")
+    if not _content_matches(ext, data):
+        raise OperationError(f"El contenido de {name} no corresponde a un archivo {ext[1:].upper()}.")
     folder = os.path.join(attachments_dir(), re.sub(r"[^\w\-]", "_", code))
     os.makedirs(folder, exist_ok=True)
     stored = f"{datetime.now():%Y%m%d%H%M%S%f}{ext}"

@@ -55,8 +55,10 @@ deckProto._drawLayers = function (this: Drawable, ...args: unknown[]) {
 };
 
 // NEXT_PUBLIC_MAP_STYLE fija un estilo único; sin él, el mapa sigue la apariencia elegida (Sistema/Claro/Oscuro).
-const MAP_STYLE_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
-const MAP_STYLE_LIGHT = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+// OpenFreeMap: teselas de OpenStreetMap libres también para uso comercial, sin clave ni límite de visitas
+// (los mapas de CARTO que se usaban solo son gratis para uso no comercial).
+const MAP_STYLE_DARK = "https://tiles.openfreemap.org/styles/dark";
+const MAP_STYLE_LIGHT = "https://tiles.openfreemap.org/styles/positron";
 
 
 export const COLOMBIA_VIEW: MapViewState = {
