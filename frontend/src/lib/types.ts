@@ -785,3 +785,59 @@ export interface Toll {
   tolls_source: string | null;
   tolls_updated_at: string | null;
 }
+
+/** Historial de trayectos (GET /api/history). */
+export interface HistoryCity {
+  city: string;
+  department: string | null;
+  out: number;
+  in: number;
+  tons_out: number;
+  tons_in: number;
+  tons_fmt: string;
+  cost_out: number;
+  top_destinations: { city: string; shipments: number }[];
+}
+export interface HistoryDepartment {
+  code: string;
+  name: string;
+  cities: number;
+  out: number;
+  in: number;
+  tons_out: number;
+  tons_in: number;
+  tons_fmt: string;
+  cost_out: number;
+}
+export interface HistoryCorridor {
+  corridor: string;
+  mode: Mode;
+  trips: number;
+  shipments: number;
+  tons: number;
+  tons_fmt: string;
+  km: number;
+  km_fmt: string;
+  cost: number;
+  tolls: number;
+  fuel_l: number;
+  fuel_fmt: string;
+  co2e_kg: number;
+  co2e_fmt: string;
+}
+export interface History {
+  window_days: number;
+  since: string;
+  totals: { shipments: number; tons: number; tons_fmt: string; cost: number; cities: number; departments: number; corridors: number };
+  by_city: HistoryCity[];
+  by_department: HistoryDepartment[];
+  by_corridor: HistoryCorridor[];
+}
+
+/** Alertas globales (GET /api/alerts). */
+export interface AlertsResponse {
+  generated_at: string;
+  urgent: number;
+  total: number;
+  alerts: DashboardSummary["alerts"];
+}

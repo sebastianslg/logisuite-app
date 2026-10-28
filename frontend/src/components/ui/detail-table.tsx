@@ -51,14 +51,14 @@ export function DetailTable<T>({
           </Button>
         </div>
       )}
-      <div className="overflow-x-auto rounded-2xl bg-fill/50">
+      <div className="glass overflow-x-auto rounded-3xl">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
               {columns.map((c) => (
                 <th
                   key={c.key}
-                  className={cn("h-9 px-3 text-xs font-medium whitespace-nowrap text-muted-foreground", c.align === "right" ? "text-right" : "text-left")}
+                  className={cn("h-10 px-3 text-xs font-medium whitespace-nowrap text-muted-foreground first:pl-5 last:pr-5", c.align === "right" ? "text-right" : "text-left")}
                 >
                   {c.label}
                 </th>
@@ -67,9 +67,9 @@ export function DetailTable<T>({
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={getKey(r)} className="border-b border-border last:border-0">
+              <tr key={getKey(r)} className="border-b border-border transition-colors duration-200 last:border-0 hover:bg-[color-mix(in_srgb,var(--card)_97%,var(--foreground))]">
                 {columns.map((c) => (
-                  <td key={c.key} className={cn("tabular px-3 py-2.5 align-middle", c.align === "right" ? "text-right" : "text-left")}>
+                  <td key={c.key} className={cn("tabular px-3 py-3 align-middle first:pl-5 last:pr-5", c.align === "right" ? "text-right" : "text-left")}>
                     {c.render(r)}
                   </td>
                 ))}

@@ -93,3 +93,35 @@ def test_resumen_dashboard(client):
     data = client.get("/api/dashboard/summary").json()
     assert sum(m["share_pct"] for m in data["modal_split"]) == pytest.approx(100, abs=0.5)
     assert data["kpis"]["active"]["value"] >= 1
+
+
+def test_alertas_globales(client):
+    data = client.get("/api/alerts").json()
+    assert set(data) >= {"urgent", "total", "alerts"}
+    assert 0 <= data["urgent"] <= data["total"]
+    assert set(data["alerts"]) >= {"fleet", "warehouses", "closed_corridors", "no_route", "rerouted", "delayed"}
+
+
+def test_historial_por_ciudad_departamento_y_corredor(client):
+    data = client.get("/api/history?days=30").json()
+    t = data["totals"]
+    assert t["shipments"] == sum(c["out"] for c in data["by_city"]) == sum(c["in"] for c in data["by_city"])
+    assert sum(d["out"] for d in data["by_department"]) == t["shipments"]
+    if data["by_corridor"]:
+        c = data["by_corridor"][0]
+        assert c["mode"] in {"terrestre", "fluvial", "maritimo", "aereo", "ferreo"}
+        assert c["fuel_l"] >= 0 and c["tolls"] >= 0 and c["trips"] >= c["shipments"] >= 1
+    assert client.get("/api/history?days=0").status_code == 422
+
+
+def test_exportar_excel(client):
+    codes = [s["code"] for s in client.get("/api/shipments").json()["items"][:3]]
+    r = client.post("/api/exports/xlsx", json={"codes": codes, "moneda": "USD"})
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/vnd.openxmlformats")
+    assert r.content[:2] == b"PK"  # un .xlsx es un zip
+    import io
+    from openpyxl import load_workbook
+    ws = load_workbook(io.BytesIO(r.content))["Envíos"]
+    assert ws.max_row == len(codes) + 1 and ws["A2"].value == codes[0]
+    assert client.post("/api/exports/xlsx", json={"codes": ["NO-EXISTE"]}).status_code == 404

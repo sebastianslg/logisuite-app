@@ -7,6 +7,7 @@ import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-m
 import {
   Ellipsis,
   Fuel,
+  History,
   Keyboard,
   LayoutDashboard,
   Leaf,
@@ -25,8 +26,10 @@ import {
 import { useApp } from "@/components/providers";
 import { useCommandPalette } from "@/components/shell/command-palette";
 import { OPEN_SHORTCUTS_EVENT } from "@/components/shell/shortcuts";
+import { AlertCount, AlertsList, AlertsMenu, useAlerts } from "@/components/shell/alerts-menu";
 import { CurrencyControl, ThemeControl } from "@/components/shell/toolbar";
 import { EASE, SPRING, stagger } from "@/lib/motion";
+import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 
 type NavItem = { href: string; label: string; short?: string; icon: LucideIcon };
@@ -44,14 +47,20 @@ const MORE: NavItem[] = [
   { href: "/bodegas", label: "Bodegas", icon: Warehouse },
   { href: "/combustible", label: "Combustible", icon: Fuel },
   { href: "/huella", label: "Huella de carbono", short: "Huella", icon: Leaf },
+  { href: "/historial", label: "Historial de trayectos", short: "Historial", icon: History },
   { href: "/configuracion", label: "Configuración", icon: Settings },
 ];
 
 const ring = "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80";
 
+/**
+ * Destino activo. Se marca después de hidratar: en una página reescrita por el proxy (la 404 de un envío que no
+ * existe) el servidor renderiza otra ruta que la del navegador, y marcarlo antes rompía la hidratación.
+ */
 function useIsActive() {
   const pathname = usePathname();
-  return (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  const hydrated = useHydrated();
+  return (href: string) => hydrated && (href === "/" ? pathname === "/" : pathname.startsWith(href));
 }
 
 /**
@@ -166,6 +175,7 @@ function DesktopDock() {
         <span className="mx-1 h-6 w-px bg-border" aria-hidden />
 
         <motion.div layout="position" transition={SPRING} className="flex items-center gap-1">
+          <AlertsMenu />
           <button
             type="button"
             onClick={openPalette}
@@ -362,6 +372,7 @@ function MobileDock() {
   const [open, setOpen] = useState(false);
   const moreActive = MORE.some((m) => isActive(m.href));
   const { open: openPalette } = useCommandPalette();
+  const alerts = useAlerts();
   const closeRef = useRef<HTMLButtonElement>(null);
 
   const [lastPath, setLastPath] = useState(pathname);
@@ -414,6 +425,7 @@ function MobileDock() {
             type="button"
             onClick={() => setOpen(true)}
             aria-haspopup="dialog"
+            aria-label={alerts.items.length ? `Más secciones y ${alerts.items.length} avisos` : undefined}
             aria-expanded={open}
             className={cn(
               "group/item press relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[11px]",
@@ -422,7 +434,10 @@ function MobileDock() {
             )}
           >
             {moreActive && <MobilePill />}
-            <DockIcon icon={Ellipsis} active={moreActive} />
+            <span className="relative">
+              <DockIcon icon={Ellipsis} active={moreActive} />
+              <AlertCount count={alerts.items.length} urgent={alerts.urgent} className="-top-2 -right-3" />
+            </span>
             <span className="relative">Más</span>
           </button>
         </LayoutGroup>
@@ -475,6 +490,14 @@ function MobileDock() {
               >
                 <Search className="size-4" aria-hidden /> Buscar envíos, ciudades o comandos
               </button>
+              {alerts.items.length > 0 && (
+                <section aria-label="Requiere atención" className="glass mt-4 shrink-0 overflow-hidden rounded-[20px]">
+                  <h2 className="border-b border-border px-5 py-3 text-sm font-semibold">
+                    Requiere atención <span className="tabular font-normal text-muted-foreground">· {alerts.items.length}</span>
+                  </h2>
+                  <AlertsList limit={3} onNavigate={() => setOpen(false)} />
+                </section>
+              )}
               <ul className="mt-4 grid grid-cols-3 gap-2">
                 {MORE.map(({ href, label, short, icon: Icon }, i) => {
                   const on = isActive(href);

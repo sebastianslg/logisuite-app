@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDown,
   CircleOff,
+  FileSpreadsheet,
   FileText,
   LoaderCircle,
   Pencil,
@@ -43,12 +44,13 @@ import { useApp } from "@/components/providers";
 import { rememberCode, rememberCodeIn } from "@/components/shipments/shared-code";
 import { CountUp } from "@/components/ui/count-up";
 import { EmptyState } from "@/components/ui/empty-state";
+import { toast } from "@/components/ui/toast";
 import { ExportActions } from "@/components/shipments/export-actions";
 import { ModeChain, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { api, openBlob } from "@/lib/client";
+import { api, openBlob, saveBlob } from "@/lib/client";
 import { MODE_ORDER, MODES, PRIORITIES, STATUSES, STATUS_ORDER, tint } from "@/lib/modes";
 import { EASE } from "@/lib/motion";
 import type { Mode, Shipment, ShipmentStatus } from "@/lib/types";
@@ -312,6 +314,22 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
       setBusy(null);
     }
   }
+  /** Excel con todos los envíos que dejan los filtros (no solo la página), en la moneda elegida. */
+  async function exportExcel() {
+    const codes = table.getFilteredRowModel().rows.map((r) => r.original.code);
+    if (!codes.length) return;
+    setBusy("xlsx");
+    setActionError(null);
+    try {
+      const blob = await api<Blob>("/api/exports/xlsx", { method: "POST", body: { codes, moneda: currency } });
+      saveBlob(blob, `envios-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      toast({ title: "Excel descargado", description: `${codes.length} ${codes.length === 1 ? "envío" : "envíos"} en ${currency}.` });
+    } catch (e) {
+      setActionError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
   const { pageIndex, pageSize } = table.state.pagination;
   const hasFilters = statusFilter.length > 0 || modeFilter.length > 0 || globalFilter.length > 0;
 
@@ -391,6 +409,19 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
             Limpiar
           </Button>
         )}
+        <Button
+          variant="secondary"
+          size="sm"
+          className="ml-auto"
+          burst={FileSpreadsheet}
+          disabled={busy === "xlsx" || filteredCount === 0}
+          onClick={exportExcel}
+          title="Descargar en Excel los envíos filtrados"
+        >
+          {busy === "xlsx" ? <LoaderCircle className="animate-spin" /> : <FileSpreadsheet />}
+          Excel
+          <span className="tabular text-muted-foreground">{filteredCount}</span>
+        </Button>
       </div>
 
       <AnimatePresence initial={false}>

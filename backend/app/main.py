@@ -46,7 +46,7 @@ from app.api import format as F
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
-from app.engine import fleet, geo, operations as ops, pdf, sustainability as SU, telemetry, tolls, warehouses
+from app.engine import fleet, geo, history, operations as ops, pdf, sustainability as SU, telemetry, tolls, warehouses, xlsx
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
 
@@ -599,6 +599,33 @@ class ExportIn(BaseModel):
     codes: list[str] = Field(..., min_length=1, max_length=300)
     moneda: Currency = "USD"
     usuario: str | None = None
+
+
+@app.post("/api/exports/xlsx")
+def export_xlsx(body: ExportIn) -> Response:
+    """Envíos elegidos (por ejemplo, la tabla filtrada) en Excel, con montos en la moneda pedida."""
+    now = _sync()
+    placeholders = ",".join("?" for _ in body.codes)
+    rows = run_query(f"SELECT * FROM mm_shipments WHERE shipment_code IN ({placeholders})", tuple(body.codes))
+    if rows.empty:
+        raise HTTPException(status_code=404, detail="Ninguno de los envíos existe")
+    order = {c: i for i, c in enumerate(body.codes)}
+    records = sorted(rows.to_dict(orient="records"), key=lambda r: order.get(r["shipment_code"], 0))
+    try:
+        data = xlsx.render(records, body.moneda, ops.get_fx(), now)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    name = f"envios-{now:%Y%m%d-%H%M}.xlsx"
+    return Response(data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@app.get("/api/history")
+def history_view(days: int = 30) -> dict:
+    """Historial de trayectos por ciudad, departamento y corredor en los últimos `days` días."""
+    if not 1 <= days <= 365:
+        raise HTTPException(status_code=422, detail="La ventana debe estar entre 1 y 365 días.")
+    return history.history(_sync(), days)
 
 
 @app.post("/api/exports/pdf")

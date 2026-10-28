@@ -17,6 +17,7 @@ const GO: { key: string; href: string; label: string }[] = [
   { key: "b", href: "/bodegas", label: "Ir a bodegas" },
   { key: "c", href: "/combustible", label: "Ir a combustible" },
   { key: "h", href: "/huella", label: "Ir a huella de carbono" },
+  { key: "t", href: "/historial", label: "Ir al historial de trayectos" },
   { key: "s", href: "/configuracion", label: "Ir a configuración" },
 ];
 

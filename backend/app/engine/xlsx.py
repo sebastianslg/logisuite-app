@@ -45,11 +45,13 @@ def render(rows: list, currency: str, fx: dict, now: datetime) -> bytes:
     ws.freeze_panes = "A2"
 
     for r in rows:
-        modes = json.loads(r["modes"]) if isinstance(r["modes"], str) else (r["modes"] or [])
-        status = status_at(r, now) if callable(status_at) else r["status"]
+        # La columna guarda los modos separados por comas ("terrestre,fluvial")
+        raw = r["modes"] or ""
+        modes = json.loads(raw) if raw.startswith("[") else [m for m in raw.split(",") if m]
+        status = status_at(r, now).get("status") or r["status"]
         ws.append([
             r["shipment_code"], r["origin_city"], r["dest_city"], r["cargo"], r["client"],
-            status if isinstance(status, str) else r["status"],
+            status,
             " → ".join(F.MODE_LABELS.get(m, m) for m in modes), r["n_transfers"],
             float(r["weight_t"]), float(r["distance_km"] or 0), float(r["total_time_h"] or 0),
             round(float(r["total_cost"] or 0) * factor, 2),
