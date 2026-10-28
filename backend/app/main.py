@@ -97,6 +97,18 @@ def _bump_cache() -> None:
         _cache.clear()
 
 
+_last_purge_day = ""
+
+
+def _purge_attachments_daily(now: datetime) -> None:
+    """Una vez al día aplica el plazo de conservación de adjuntos (ATTACHMENT_RETENTION_DAYS)."""
+    global _last_purge_day
+    day = now.strftime("%Y-%m-%d")
+    if day != _last_purge_day:
+        _last_purge_day = day
+        journal.purge_expired(now)
+
+
 def _sync() -> datetime:
     """Actualiza estados y repone despachos, con un mínimo de intervalo.
 
@@ -110,6 +122,7 @@ def _sync() -> datetime:
             if time.monotonic() - _last_sync >= SYNC_INTERVAL_S:
                 telemetry.sync(network(), now)
                 _last_sync = time.monotonic()
+                _purge_attachments_daily(now)
                 _bump_cache()
         finally:
             _sync_lock.release()

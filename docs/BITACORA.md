@@ -565,3 +565,14 @@ el mapa 3D (contexto WebGL, sombreadores, teselas). Medido con el sitio real y c
   blanco a 4,6:1). Detalle al pasar el puntero o con el foco, y nota de cómo se cuenta: un envío retrasado
   suma en cada vía de su ruta, así que muestra concentración, no causa.
 - **Pruebas:** 217 de la API y 14 de navegador; axe sin violaciones en claro y oscuro.
+
+## 19. Retención de adjuntos, estado del servidor y prueba de carga (28/10/2026)
+
+- `ATTACHMENT_RETENTION_DAYS`: borra a diario los adjuntos de envíos entregados hace más del plazo, con una
+  línea de auditoría por envío; sin la variable no borra nada. Así la política de datos se cumple en la práctica.
+- `deploy/estado.sh` (memoria, disco, carga, contenedores, respuesta y último respaldo) y
+  `deploy/prueba-carga.py` (N personas navegando, solo lecturas; en local, 8 usuarios: páginas p95 641 ms, API
+  p95 89 ms, sin errores).
+- Accesos directos en la app instalable (nuevo envío, envíos, red). El manifiesto ya existía.
+- axe sin violaciones en 21 páginas, claro y oscuro. No se unificó el sondeo en vivo: ya se comparte por URL y se
+  pausa con la pestaña oculta, así que no aportaba.

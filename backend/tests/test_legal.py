@@ -101,3 +101,18 @@ def test_adjuntos_e_importacion_exigen_la_declaracion(client):
     assert client.post("/api/shipments/import", json={"filename": "e.csv", "content_b64": csv_b64, "commit": True}).status_code == 422
     # La vista previa no guarda nada: no la necesita
     assert client.post("/api/shipments/import", json={"filename": "e.csv", "content_b64": csv_b64}).status_code == 200
+
+
+def test_plazo_de_conservacion_de_adjuntos(client, monkeypatch):
+    from app.engine import journal
+    body = {"origin": "Bogotá", "destination": "Cali", "cargo": "X", "weight_t": 3, "priority": "costo", "client": "Plazo",
+            "departure_at": (datetime.now() - timedelta(days=40)).isoformat(timespec="minutes")}
+    code = client.post("/api/shipments", json=body).json()["code"]
+    pdf = base64.b64encode(b"%PDF-1.4 x").decode()
+    assert client.post(f"/api/shipments/{code}/attachments", json={"filename": "a.pdf", "content_b64": pdf, "autorizado": True}).status_code == 201
+    monkeypatch.setenv("ATTACHMENT_RETENTION_DAYS", "0")
+    assert journal.purge_expired(datetime.now()) == 0  # sin plazo no se borra nada
+    client.get("/api/shipments")  # sincroniza: el envío de hace 40 días ya está entregado
+    monkeypatch.setenv("ATTACHMENT_RETENTION_DAYS", "30")
+    assert journal.purge_expired(datetime.now()) >= 1
+    assert client.get(f"/api/shipments/{code}/attachments").json()["count"] == 0

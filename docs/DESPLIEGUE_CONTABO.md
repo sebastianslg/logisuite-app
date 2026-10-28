@@ -168,7 +168,18 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml start backend
 - Datos del responsable para los documentos legales: `LEGAL_NAME`, `LEGAL_ID`, `LEGAL_CITY`, `LEGAL_EMAIL`
   (y opcionales `LEGAL_ADDRESS`, `LEGAL_PHONE`, `SERVER_LOCATION`). Tras editarlos basta
   `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d backend` (no hace falta reconstruir).
+- `ATTACHMENT_RETENTION_DAYS` (por ejemplo 90): borra a diario los adjuntos de envíos entregados hace más de esos días.
 - Plantilla: `.env.example` en la raíz del repositorio.
+
+### Estado y carga del servidor
+
+```bash
+bash /opt/logisuite/deploy/estado.sh
+python3 /opt/logisuite/deploy/prueba-carga.py https://westvane.duckdns.org --usuarios 10 --segundos 30
+```
+
+`estado.sh` muestra memoria, disco, carga, contenedores y tiempos de respuesta. `prueba-carga.py` simula
+varias personas navegando (solo lecturas) y da mediana, p95 y errores; úsala solo contra tu propio servidor.
 
 ## 8. Seguridad del servidor
 

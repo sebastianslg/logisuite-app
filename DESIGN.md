@@ -144,6 +144,9 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 - **Modo presentación:** cifras a 7 vw para proyectar, actualizadas cada 30 s mientras está abierto.
 - **Control segmentado (`Segmented`):** fondo `fill`, píldora de tarjeta que se desliza; `md` en cabeceras, `sm` en paneles; grupo de radio con flechas del teclado. Es el único segmentado de la app.
 - **Casilla de verificación:** 16 px, radio de 5 px, línea `separator-strong`; marcada, acento sólido con palomita; estado parcial con guion.
+- **Mapa de calor de retrasos (`DelayHeatmap`):** tabla de vías por día, un tono del acento en cinco pasos por quintiles sin repetir cortes; el paso más oscuro es el acento pleno con texto blanco. Detalle al pasar el puntero y con el foco.
+- **Bienvenida (`ConsentGate`):** diálogo con dos casillas separadas y sin marcar (términos y datos) y el aviso de privacidad corto; los documentos legales se leen sin aceptar y llevan aviso de borrador mientras falten datos del responsable.
+- **Vista plana de la red (`NetworkPreview`):** SVG con departamentos, enlaces por modo, nodos y flota de tamaño fijo en pantalla; es lo que muestra el Resumen y lo que se ve mientras carga el mapa 3D.
 - **Atajos:** `Ctrl K` o `/` buscar (envíos, ciudades, vehículos, bodegas, vías y páginas), `n` nuevo envío, `g` y una letra para navegar, `?` ayuda.
 
 ## Motion

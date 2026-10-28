@@ -18,7 +18,7 @@ import io
 import os
 import re
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import app.database.db as db
 from app.database.db import run_query, run_write
@@ -267,6 +267,37 @@ def purge(code: str) -> None:
         if os.path.exists(path):
             os.remove(path)
     run_write("DELETE FROM mm_attachments WHERE shipment_code = ?", (code,))
+
+
+def retention_days() -> int:
+    """Días que se conservan los adjuntos de un envío entregado (ATTACHMENT_RETENTION_DAYS); 0 = sin límite."""
+    try:
+        return max(0, int(os.environ.get("ATTACHMENT_RETENTION_DAYS", "0")))
+    except ValueError:
+        return 0
+
+
+def purge_expired(now: datetime) -> int:
+    """Borra los adjuntos de envíos entregados hace más del plazo configurado. Devuelve cuántos borró.
+
+    Cumple lo que dice la política de datos: los documentos (que pueden traer datos personales) no se guardan
+    para siempre. La bitácora y el historial se conservan; queda una línea de auditoría por envío."""
+    days = retention_days()
+    if not days:
+        return 0
+    cutoff = (now - timedelta(days=days)).isoformat(timespec="seconds")
+    rows = records(run_query(
+        "SELECT DISTINCT a.shipment_code FROM mm_attachments a JOIN mm_shipments s ON s.shipment_code = a.shipment_code "
+        "WHERE s.status = 'Entregado' AND s.eta_at < ?", (cutoff,)))
+    total = 0
+    for r in rows:
+        code = r["shipment_code"]
+        items = records(run_query("SELECT attachment_id FROM mm_attachments WHERE shipment_code = ?", (code,)))
+        for it in items:
+            delete_attachment(code, it["attachment_id"], "sistema")
+        total += len(items)
+        audit("sistema", "DELETE", "mm_attachments", code, f"{len(items)} adjunto(s) borrados por plazo de conservación ({days} días)")
+    return total
 
 
 # ---------------------------------------------------------------------------
