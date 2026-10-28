@@ -58,7 +58,8 @@ if [ -d "${DATA}/adjuntos" ]; then
 fi
 
 # 3) Se conservan los últimos ${KEEP} de cada tipo
-ls -1t "${DEST}"/logistics-*.db.gz 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -f
-ls -1t "${DEST}"/adjuntos-*.tar.gz 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -f
+# (|| true: sin adjuntos todavía, el patrón no encuentra nada y ls falla; con pipefail eso cortaba el script)
+{ ls -1t "${DEST}"/logistics-*.db.gz 2>/dev/null || true; } | tail -n +$((KEEP + 1)) | xargs -r rm -f
+{ ls -1t "${DEST}"/adjuntos-*.tar.gz 2>/dev/null || true; } | tail -n +$((KEEP + 1)) | xargs -r rm -f
 echo "[$(date -Is)] respaldo ${STAMP} listo ($(du -sh "${DEST}" | cut -f1) en ${DEST})"
 ping_hc ""
