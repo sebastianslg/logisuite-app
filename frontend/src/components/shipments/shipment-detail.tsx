@@ -11,6 +11,7 @@ import { Map3DLazy, MapLoading } from "@/components/map/map-3d-lazy";
 import { MapFrame } from "@/components/map/map-frame";
 import { useMapData } from "@/components/map/use-map-data";
 import { useApp } from "@/components/providers";
+import { ActualCost } from "@/components/shipments/actual-cost";
 import { ExportActions } from "@/components/shipments/export-actions";
 import { SharedCode } from "@/components/shipments/shared-code";
 import { ShipmentAttachments } from "@/components/shipments/shipment-attachments";
@@ -288,6 +289,10 @@ export function ShipmentDetail({
                 { k: "Impuestos (IVA e ICA)", v: impuestos },
               ]}
             />
+          </Card>
+
+          <Card title="Costo real">
+            <ActualCost shipment={s} />
           </Card>
 
           {fp && (

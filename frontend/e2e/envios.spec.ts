@@ -35,9 +35,12 @@ test("filtros de la tabla y exportación a Excel", async ({ page }) => {
 test("historial: vistas y ventana de tiempo", async ({ page }) => {
   const w = watchErrors(page);
   await page.goto("/historial");
-  for (const v of ["Departamentos", "Corredores", "Ciudades"]) {
+  for (const v of ["Departamentos", "Corredores", "Retrasos", "Ciudades"]) {
     await page.getByRole("radio", { name: v }).click();
     await expect(page.getByRole("radio", { name: v })).toHaveAttribute("aria-checked", "true");
+    if (v === "Retrasos") {
+      await expect(page.getByRole("heading", { name: "Retrasos por vía y día de salida" }).or(page.getByText("Sin retrasos en esta ventana"))).toBeVisible();
+    }
   }
   await page.getByRole("link", { name: "7 días" }).click();
   await expect(page).toHaveURL(/dias=7/);

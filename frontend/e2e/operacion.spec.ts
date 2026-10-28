@@ -11,12 +11,12 @@ test("bitácora: nota e incidencia con retraso en la ficha del envío", async ({
 
   // Textos únicos: la base de las pruebas se conserva entre corridas
   const stamp = Date.now();
-  await page.getByRole("button", { name: "Registrar" }).click();
+  await page.getByRole("button", { name: "Registrar", exact: true }).click();
   await page.locator("textarea").fill(`Nota de prueba ${stamp}`);
   await page.getByRole("button", { name: "Guardar nota" }).click();
   await expect(timeline.getByText(`Nota de prueba ${stamp}`)).toBeVisible();
 
-  await page.getByRole("button", { name: "Registrar" }).click();
+  await page.getByRole("button", { name: "Registrar", exact: true }).click();
   await page.locator("select").first().selectOption("paro");
   await page.getByPlaceholder("0").fill("2");
   await page.locator("textarea").fill(`Paro camionero ${stamp}`);

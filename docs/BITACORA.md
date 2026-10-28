@@ -553,3 +553,15 @@ el mapa 3D (contexto WebGL, sombreadores, teselas). Medido con el sitio real y c
   parámetros de la URL) y se ven en Configuración › Errores recientes. Se guardan los últimos 500.
 - **Carga del mapa:** mientras llega el mapa 3D se ve la red en plano (silueta del país con sus rutas).
 - **Pruebas:** 214 de la API y 14 de navegador.
+
+## 18. Costo real contra estimado y mapa de calor de retrasos (28/10/2026)
+
+- **Costo real** (schema v9: `actual_cost`, nota, fecha y quién) en la ficha de cada envío: se registra en la
+  moneda en pantalla (COP se convierte con la TRM), muestra estimado, real y desviación (rojo si supera +5 %,
+  verde si baja de −5 %) y queda en el historial. En Clientes, el total real contra el estimado de los envíos
+  con costo registrado.
+- **Historial › Retrasos:** tabla-mapa de calor de las 12 vías con más horas de retraso por día de salida.
+  Un tono en cinco pasos por quintiles sin repetir cortes; el paso más oscuro es el acento pleno (texto
+  blanco a 4,6:1). Detalle al pasar el puntero o con el foco, y nota de cómo se cuenta: un envío retrasado
+  suma en cada vía de su ruta, así que muestra concentración, no causa.
+- **Pruebas:** 217 de la API y 14 de navegador; axe sin violaciones en claro y oscuro.

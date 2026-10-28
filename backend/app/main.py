@@ -803,6 +803,31 @@ def shipment_pdf(code: str, moneda: Currency = "USD", descargar: bool = False) -
     return _pdf_response([code], moneda, f"{code}.pdf", descargar)
 
 
+class ActualCostIn(BaseModel):
+    # None borra el costo registrado
+    amount: float | None = Field(None, ge=0)
+    moneda: Literal["USD", "COP"] = "USD"
+    note: str | None = Field(None, max_length=300)
+    usuario: str | None = None
+
+
+@app.put("/api/shipments/{code}/actual-cost")
+def shipment_actual_cost(code: str, body: ActualCostIn) -> dict:
+    """Lo que de verdad costó el envío (facturas), para compararlo con el costo estimado por el motor."""
+    amount = body.amount
+    if amount is not None and body.moneda == "COP":
+        rate = ops.get_fx().get("rate")
+        if not rate:
+            raise HTTPException(status_code=422, detail="No hay TRM configurada: ingrésala en Configuración o registra el valor en USD.")
+        amount = amount / rate
+    try:
+        return journal.set_actual_cost(code, amount, body.note, body.usuario)
+    except LookupError:
+        _not_found(code)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
 @app.get("/api/shipments/{code}/remesa")
 def shipment_remesa(code: str, descargar: bool = False) -> Response:
     """Remesa de carga para imprimir y firmar (formato de referencia; no reemplaza la del RNDC)."""
@@ -866,7 +891,7 @@ def report_operations(days: int = 7, moneda: Currency = "USD", descargar: bool =
 def clients_summary() -> dict:
     now = _sync()
     rows = run_query("SELECT shipment_code, client, origin_city, dest_city, weight_t, total_cost, modes, status, "
-                     "departure_at, total_time_h, delay_h, route_json FROM mm_shipments").to_dict(orient="records")
+                     "departure_at, total_time_h, delay_h, route_json, actual_cost FROM mm_shipments").to_dict(orient="records")
     items = clients.summary(rows, now)
     return {"count": len(items), "items": items}
 

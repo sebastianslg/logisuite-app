@@ -36,7 +36,7 @@ def history(now: datetime, days: int = 30) -> dict:
     since = now - timedelta(days=days)
     before = since - timedelta(days=days)
     all_rows = run_query(
-        "SELECT shipment_code, origin_city, dest_city, weight_t, total_cost, status, departure_at, route_json "
+        "SELECT shipment_code, origin_city, dest_city, weight_t, total_cost, status, departure_at, route_json, delay_h "
         "FROM mm_shipments WHERE status != 'Programado'"
     ).to_dict(orient="records")
     rows = [r for r in all_rows if since <= datetime.fromisoformat(r["departure_at"]) <= now]
@@ -48,6 +48,8 @@ def history(now: datetime, days: int = 30) -> dict:
 
     cities: dict[str, dict] = {}
     corridors: dict[str, dict] = {}
+    # Retrasos por vía y día de salida (0 = lunes): horas de retraso de los envíos que pasaron por la vía
+    delays: dict[str, dict] = {}
 
     def city(name: str) -> dict:
         return cities.setdefault(name, {
@@ -65,6 +67,15 @@ def history(now: datetime, days: int = 30) -> dict:
         d["in"] += 1
         d["tons_in"] += w
         route = json.loads(r["route_json"] or "{}")
+        delay = float(r.get("delay_h") or 0)
+        if delay > 0:
+            weekday = datetime.fromisoformat(r["departure_at"]).weekday()
+            used = {seg.get("corridor"): lg["mode"] for lg in route.get("legs", []) for seg in lg.get("segments") or []
+                    if seg.get("corridor")}
+            for name, mode in used.items():
+                dl = delays.setdefault(name, {"corridor": name, "mode": mode, "hours": [0.0] * 7, "shipments": [0] * 7})
+                dl["hours"][weekday] += delay
+                dl["shipments"][weekday] += 1
         for lg in route.get("legs", []):
             for seg in lg.get("segments") or []:
                 name = seg.get("corridor")
@@ -149,4 +160,10 @@ def history(now: datetime, days: int = 30) -> dict:
         "by_city": sorted((city_out(c) for c in cities.values()), key=lambda c: -(c["out"] + c["in"])),
         "by_department": sorted((dept_out(d) for d in depts.values()), key=lambda d: -(d["out"] + d["in"])),
         "by_corridor": sorted((corridor_out(c) for c in corridors.values()), key=lambda c: -c["tons"]),
+        # Las 12 vías con más horas de retraso; un envío retrasado cuenta en cada vía de su ruta
+        "delays": [
+            {"corridor": d["corridor"], "mode": d["mode"], "hours": [round(h, 1) for h in d["hours"]],
+             "shipments": d["shipments"], "total_h": round(sum(d["hours"]), 1)}
+            for d in sorted(delays.values(), key=lambda d: -sum(d["hours"]))[:12]
+        ],
     }

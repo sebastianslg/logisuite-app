@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Money } from "@/components/money";
 import { useApp } from "@/components/providers";
 import { ModeIcon } from "@/components/status-badge";
+import { DelayHeatmap } from "@/components/history/delay-heatmap";
 import { DepartmentMap } from "@/components/history/department-map";
 import { DetailTable, type Column } from "@/components/ui/detail-table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -19,12 +20,13 @@ import type { History, HistoryCity, HistoryCorridor, HistoryDepartment } from "@
 import { cn } from "@/lib/utils";
 
 const WINDOWS = [7, 30, 90] as const;
-type View = "ciudades" | "departamentos" | "mapa" | "corredores";
+type View = "ciudades" | "departamentos" | "mapa" | "corredores" | "retrasos";
 const VIEWS: { key: View; label: string }[] = [
   { key: "ciudades", label: "Ciudades" },
   { key: "departamentos", label: "Departamentos" },
   { key: "mapa", label: "Mapa" },
   { key: "corredores", label: "Corredores" },
+  { key: "retrasos", label: "Retrasos" },
 ];
 
 const n = (v: number) => v.toLocaleString("es-CO");
@@ -216,6 +218,8 @@ export function HistoryView({ data }: { data: History }) {
         <DetailTable columns={cityCols} rows={data.by_city} getKey={(c) => c.city} csvName={`historial-ciudades-${data.window_days}d`} />
       ) : view === "mapa" ? (
         <DepartmentMap departments={data.by_department} />
+      ) : view === "retrasos" ? (
+        <DelayHeatmap delays={data.delays ?? []} />
       ) : view === "departamentos" ? (
         <DetailTable columns={deptCols} rows={data.by_department} getKey={(d) => d.code} csvName={`historial-departamentos-${data.window_days}d`} />
       ) : (

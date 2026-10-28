@@ -95,6 +95,17 @@ def route_summary(r: dict) -> dict:
     }
 
 
+def _actual(s: dict) -> dict | None:
+    """Costo real registrado y su desviación frente al estimado (None si no se ha registrado)."""
+    amount = s.get("actual_cost")
+    if amount is None or amount != amount:  # vacío o NaN
+        return None
+    est = float(s["total_cost"] or 0)
+    return {"amount": F.money(amount), "note": s.get("actual_cost_note"), "at": s.get("actual_cost_at"),
+            "by": s.get("actual_cost_by"),
+            "variance_pct": F.pct(100 * (amount - est) / est) if est else None}
+
+
 def shipment(s: dict, state: dict | None = None, detail: bool = False) -> dict:
     route_data = json.loads(s["route_json"])
     modes = s["modes"].split(",") if s["modes"] else []
@@ -128,6 +139,7 @@ def shipment(s: dict, state: dict | None = None, detail: bool = False) -> dict:
         "created_by": s.get("created_by"),
         "updated_at": s.get("updated_at"),
         "updated_by": s.get("updated_by"),
+        "actual_cost": _actual(s),
     }
     if detail:
         out["legs"] = [leg(l) for l in route_data["legs"]]

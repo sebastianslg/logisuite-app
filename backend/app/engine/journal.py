@@ -267,3 +267,33 @@ def purge(code: str) -> None:
         if os.path.exists(path):
             os.remove(path)
     run_write("DELETE FROM mm_attachments WHERE shipment_code = ?", (code,))
+
+
+# ---------------------------------------------------------------------------
+# Costo real
+# ---------------------------------------------------------------------------
+MAX_COST_USD = 10_000_000
+
+
+def set_actual_cost(code: str, amount_usd: float | None, note: str | None, user: str | None) -> dict:
+    """Registra (o borra, con None) lo que de verdad costó el envío, en USD, para compararlo con el estimado."""
+    rows = run_query("SELECT shipment_code, total_cost, actual_cost FROM mm_shipments WHERE shipment_code = ?", (code,))
+    if rows.empty:
+        raise LookupError(code)
+    estimated = float(rows.iloc[0]["total_cost"] or 0)
+    note = (note or "").strip()[:300] or None
+    if amount_usd is None:
+        run_write("UPDATE mm_shipments SET actual_cost = NULL, actual_cost_note = NULL, actual_cost_at = NULL, "
+                  "actual_cost_by = NULL WHERE shipment_code = ?", (code,))
+        audit(user, "UPDATE", "mm_shipments", code, "Costo real borrado")
+        return {"code": code, "actual_cost": None, "estimated_cost": estimated, "variance_pct": None}
+    amount = round(float(amount_usd), 2)
+    if not 0 < amount <= MAX_COST_USD:
+        raise OperationError("El costo real debe ser mayor que cero.")
+    run_write("UPDATE mm_shipments SET actual_cost = ?, actual_cost_note = ?, actual_cost_at = ?, actual_cost_by = ? "
+              "WHERE shipment_code = ?", (amount, note, _now_iso(), _user(user), code))
+    variance = round(100 * (amount - estimated) / estimated, 1) if estimated else None
+    audit(user, "UPDATE", "mm_shipments", code,
+          f"Costo real: US$ {amount:,.2f} (estimado US$ {estimated:,.2f}"
+          + (f", {variance:+.1f} %)" if variance is not None else ")"))
+    return {"code": code, "actual_cost": amount, "estimated_cost": estimated, "variance_pct": variance}

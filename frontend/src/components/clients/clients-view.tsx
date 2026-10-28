@@ -186,6 +186,16 @@ export function ClientsView({ items }: { items: ClientSummary[] }) {
                             </Link>
                           ))}
                         </div>
+                        {c.actual && (
+                          <p className="tabular mt-3 text-xs text-muted-foreground">
+                            Costo real en {c.actual.shipments} {c.actual.shipments === 1 ? "envío" : "envíos"}: {money(c.actual.amount, true)} contra{" "}
+                            {money(c.actual.estimated, true)} estimado{" "}
+                            <span className={cn("font-medium", c.actual.variance_pct > 5 ? "text-destructive" : c.actual.variance_pct < -5 ? "text-success" : "text-foreground")}>
+                              ({c.actual.variance_pct > 0 ? "+" : ""}
+                              {c.actual.variance_pct.toLocaleString("es-CO", { maximumFractionDigits: 1 })} %)
+                            </span>
+                          </p>
+                        )}
                         <Link href={`/envios?q=${encodeURIComponent(c.client)}`} className="mt-3 inline-block text-sm font-medium text-primary hover:underline">
                           Ver todos sus envíos
                         </Link>

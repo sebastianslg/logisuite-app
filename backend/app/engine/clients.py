@@ -21,7 +21,7 @@ def summary(rows: list, now: datetime) -> list:
         c = clients.setdefault(name, {
             "client": name, "shipments": 0, "active": 0, "delayed": 0, "scheduled": 0, "delivered": 0,
             "on_time": 0, "tons": 0.0, "cost": 0.0, "modes": {}, "routes": {}, "last_departure": None,
-            "codes": [],
+            "codes": [], "actual": 0.0, "actual_est": 0.0, "actual_n": 0,
         })
         st = status_at(r, now)["status"]
         c["shipments"] += 1
@@ -43,6 +43,11 @@ def summary(rows: list, now: datetime) -> list:
         if not c["last_departure"] or r["departure_at"] > c["last_departure"]:
             c["last_departure"] = r["departure_at"]
         c["codes"].append((r["departure_at"], r["shipment_code"]))
+        actual = r.get("actual_cost")
+        if actual is not None and actual == actual:  # registrado y no NaN
+            c["actual"] += float(actual)
+            c["actual_est"] += float(r["total_cost"] or 0)
+            c["actual_n"] += 1
 
     out = []
     for c in clients.values():
@@ -59,6 +64,10 @@ def summary(rows: list, now: datetime) -> list:
             "top_routes": [{"route": k, "count": n} for k, n in sorted(c["routes"].items(), key=lambda kv: -kv[1])[:4]],
             "last_departure": c["last_departure"],
             "recent": recent,
+            # Costo real contra estimado, solo sobre los envíos con costo real registrado
+            "actual": {"shipments": c["actual_n"], "amount": F.money(c["actual"]), "estimated": F.money(c["actual_est"]),
+                       "variance_pct": F.pct(100 * (c["actual"] - c["actual_est"]) / c["actual_est"])}
+            if c["actual_n"] and c["actual_est"] else None,
         })
     return sorted(out, key=lambda c: -c["cost"])
 

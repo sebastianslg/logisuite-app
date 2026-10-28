@@ -164,6 +164,8 @@ export interface Shipment {
   created_by: string | null;
   updated_at: string | null;
   updated_by: string | null;
+  /** Lo que de verdad costó (facturas), registrado a mano; null si aún no se registra. */
+  actual_cost?: { amount: number; note: string | null; at: string | null; by: string | null; variance_pct: number | null } | null;
   legs?: Leg[];
   transfers?: Transfer[];
   trip?: Trip;
@@ -843,6 +845,8 @@ export interface History {
     cost: number;
     change_pct: { shipments: number | null; tons: number | null; cost: number | null };
   };
+  /** Horas de retraso por vía y día de salida (índice 0 = lunes); un envío cuenta en cada vía de su ruta. */
+  delays: { corridor: string; mode: Mode; hours: number[]; shipments: number[]; total_h: number }[];
 }
 
 /** Alertas globales (GET /api/alerts). */
@@ -919,6 +923,8 @@ export interface ClientSummary {
   top_routes: { route: string; count: number }[];
   last_departure: string | null;
   recent: string[];
+  /** Costo real contra estimado en los envíos con costo real registrado. */
+  actual: { shipments: number; amount: number; estimated: number; variance_pct: number } | null;
 }
 
 // ---------------------------------------------------------------------------
