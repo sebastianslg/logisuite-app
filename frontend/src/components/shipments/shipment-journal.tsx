@@ -297,8 +297,12 @@ function EventForm({ code, delivered, operator, onAdded }: { code: string; deliv
           rows={3}
           maxLength={2000}
           placeholder={incident ? "Ej. Derrumbe en el km 42 de La Línea; paso habilitado a un carril." : "Ej. El cliente pide confirmar por teléfono antes de entregar."}
+          aria-describedby="journal-privacy"
           className="field w-full resize-y px-3 py-2 text-sm"
         />
+        <span id="journal-privacy" className="mt-1 block text-[11px] text-muted-foreground">
+          No escribas cédulas, teléfonos ni datos de salud o sensibles de personas: la nota queda en el historial.
+        </span>
       </label>
       <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
         <Button type="submit" size="sm" disabled={busy || !body.trim()}>

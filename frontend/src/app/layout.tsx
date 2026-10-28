@@ -10,6 +10,7 @@ import { Toaster } from "@/components/ui/toast";
 import { AppProvider } from "@/components/providers";
 import { Diagnostics } from "@/components/diagnostics";
 import { Dock } from "@/components/shell/dock";
+import { SiteFooter } from "@/components/shell/site-footer";
 
 import { PrefsProvider, THEME_INIT_SCRIPT } from "@/lib/prefs";
 
@@ -66,6 +67,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 {/* El dock flota arriba en escritorio (5 rem) y abajo en celular (6 rem con el área segura) */}
                 <main className="min-h-screen min-w-0 pt-[env(safe-area-inset-top)] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-20 md:pb-0 print:min-h-0 print:p-0">
                   {children}
+                  <Suspense fallback={null}>
+                    <SiteFooter />
+                  </Suspense>
                 </main>
               </CommandPalette>
             </MotionProvider>

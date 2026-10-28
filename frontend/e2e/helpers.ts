@@ -45,6 +45,7 @@ export const PAGES = [
   "/historial",
   "/configuracion",
   "/metodologia",
+  "/creditos",
   "/calendario",
   "/clientes",
   "/comparar",

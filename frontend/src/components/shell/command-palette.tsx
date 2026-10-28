@@ -143,6 +143,7 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
       { id: "p-wh", group: "Ir a", label: "Bodegas", icon: Warehouse, run: go("/bodegas") },
       { id: "p-hist", group: "Ir a", label: "Historial de trayectos", hint: "Por ciudad, departamento y corredor", icon: History, run: go("/historial") },
       { id: "p-metodo", group: "Ir a", label: "Metodología", hint: "Cómo se calculan rutas, costos y huella", icon: BookOpen, run: go("/metodologia") },
+      { id: "p-creditos", group: "Ir a", label: "Créditos y licencias", hint: "Fuentes de datos, mapas y software de terceros", icon: BookOpen, run: go("/creditos") },
       { id: "p-cal", group: "Ir a", label: "Calendario de envíos", hint: "Qué sale y qué llega", icon: CalendarDays, run: go("/calendario") },
       { id: "p-cli", group: "Ir a", label: "Clientes", hint: "Envíos, puntualidad y flete por cliente", icon: Users, run: go("/clientes") },
       { id: "p-cmp", group: "Ir a", label: "Comparar rutas", hint: "Escenarios lado a lado", icon: Scale, run: go("/comparar") },

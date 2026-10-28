@@ -160,8 +160,9 @@ export function QuoteView({ data, issuedAt, number }: { data: SimulateResponse; 
           </section>
         )}
         <p className="mt-8 border-t border-border pt-4 text-xs text-muted-foreground">
-          Cotización referencial calculada con la red y las tarifas vigentes en Westvane (datos de operación simulados). El tiempo es
-          estimado y no incluye esperas en origen o destino. Impuestos según los parámetros configurados.
+          Cotización referencial calculada con la red y las tarifas vigentes en Westvane (datos de operación simulados); no constituye
+          una oferta comercial vinculante. El tiempo es estimado y no incluye esperas en origen o destino. Impuestos según los
+          parámetros configurados.
         </p>
       </article>
     </div>

@@ -464,3 +464,54 @@ recorrido y falla si la página deja de pintar.
   el navegador emulado se ensanchaba con el desborde y no lo veía); encontró el segmentado del historial.
 - axe-core sin violaciones en claro y oscuro en las pantallas tocadas.
 - `/red`: 60 cuadros por segundo en reposo, sin trabajo nuevo por cuadro.
+
+## 15. Rendimiento, seguridad y base legal sin datos personales (28/10/2026)
+
+### Diagnóstico del "se cuelga"
+El servidor de Contabo responde en 0,2–0,6 s en todas las páginas, con compresión y caché: no es la causa.
+En el navegador, entrar o salir de Resumen y Red bloqueaba la pestaña entre 1 y 2,5 s por crear o destruir
+el mapa 3D (contexto WebGL, sombreadores, teselas). Medido con el sitio real y con la misma prueba en local.
+
+### Rendimiento (`a444d8a`)
+- **Resumen:** la red se dibuja en SVG por defecto. Sin WebGL ni reloj; la flota se ve en su posición del
+  último sondeo. «3D» monta el mapa completo y se recuerda. Resultado: 0 bloqueos largos al cargar el
+  Resumen y al volver a él (antes, de 1,3 a 2,5 s).
+- **Calidad del mapa** (Configuración): Automática / Alta / Liviana. Liviana: plano, sin relieve, sin rotar
+  y a 1x. Automática la elige en navegadores sin aceleración gráfica o con 4 GB de memoria o menos, y la
+  página explica cómo activar la aceleración en Chrome y Edge.
+- **`?diagnostico`:** panel con cuadros por segundo y bloqueos por página, más un informe para copiar.
+  Pendiente según lo que mida en el PC real: un solo lienzo WebGL (rutas dentro del mapa base) y conservar el
+  mapa de Red entre visitas.
+
+### Seguridad (`a72dc78`)
+- **Cabeceras:** política de contenido (solo scripts propios y OpenFreeMap), HSTS, sin marcos ajenos,
+  Permissions-Policy, COOP, sin `X-Powered-By`, `noindex` mientras sea privada.
+- **API:**
+  - 120 escrituras por minuto por IP, y 20 para adjuntos e importación.
+  - Cuerpo máximo de 16 MB.
+  - Adjuntos revisados por su firma: un HTML renombrado `.pdf` no entra.
+  - Sin `/docs` en producción.
+- **Servidor:**
+  - `deploy/harden-server.sh`: firewall, SSH solo con llave (no lo toca si root no tiene llave), fail2ban,
+    parches automáticos, permisos y swap.
+  - Contenedores con memoria y registros con tope.
+  - Aviso opcional de Healthchecks.io si falla el respaldo.
+- **Mapa base:** de CARTO (gratis solo sin uso comercial) a OpenFreeMap (OpenStreetMap, libre también para
+  uso comercial).
+
+### Base legal sin datos personales
+- Página **Créditos y licencias** con fuentes de datos, cartografía (OSM/ODbL, OpenMapTiles, OpenFreeMap,
+  Natural Earth, DANE MGN 2018), tipografía (Inter y Noto, OFL), íconos (Lucide, ISC) y software con sus
+  licencias.
+- **Avisos y pie de página:**
+  - Pie en todas las páginas: datos simulados, enlaces a Metodología y a Créditos.
+  - La cotización aclara que no es una oferta vinculante.
+  - La bitácora pide no escribir datos sensibles de personas.
+  - Los adjuntos piden subir solo lo autorizado.
+- **Pendiente** (necesita los datos del responsable): términos y condiciones, política de tratamiento de
+  datos, política de cookies y almacenamiento, casillas de aceptación y registro de aceptaciones.
+
+### Verificación
+- 202 pruebas de la API y 13 de navegador en verde; axe sin violaciones en las pantallas nuevas.
+- Sin violaciones de la política de contenido en el mapa, la ficha, el resumen, el historial ni la
+  configuración, en claro y oscuro.
