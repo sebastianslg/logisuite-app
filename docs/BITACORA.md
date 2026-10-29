@@ -872,3 +872,18 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
   **Verificado:** con la misma base, la prueba de SOAT y la de hidratación pasan 5 de 5 cada una, y la suite pasa
   21 de 21.
 - Pruebas: 263 de la API y 21 de navegador.
+
+## 35. Mapa de Red en celular (29/10/2026)
+
+- **Antes:** el mapa abría tan alejado que se veían Perú, el Caribe y Centroamérica, con Colombia pequeña y los nombres
+  encimados. Había tres causas:
+  - la cámara inclinada 45° encogía el norte, donde están casi todos los nodos;
+  - el encuadre incluía San Andrés, 3° al oeste, en una pantalla que manda por el ancho;
+  - reservaba el 30 % de la altura para el simulador plegado, que ocupa cerca del 22 %.
+- **Ahora, en pantallas angostas:**
+  - la cámara arranca plana y sin giro (se puede inclinar con dos dedos);
+  - el encuadre es la Colombia continental (San Andrés queda a un arrastre);
+  - la reserva inferior es del 22 %;
+  - solo se rotulan los CEDI y los puertos marítimos (las demás ciudades conservan su punto y su ficha).
+- El escritorio no cambia. El mapa sigue quieto en reposo: es solo la vista inicial.
+- Pruebas: 21 de navegador.
