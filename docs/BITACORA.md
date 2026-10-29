@@ -608,3 +608,27 @@ el mapa 3D (contexto WebGL, sombreadores, teselas). Medido con el sitio real y c
 - **Entorno:** en este PC a Playwright le falta su Chromium (`npx playwright install` lo descarga). Se corrieron las
   pruebas con Edge (`channel: "msedge"`) y con el `.venv` del backend en el `PATH`, porque Playwright arranca la API
   con el Python del sistema.
+
+## 22. Coherencia geográfica de la red (28/10/2026)
+
+Pendiente «validar coordenadas». Las fuentes oficiales (INVÍAS, ANI, Aerocivil, Cormagdalena) no están en el repo y
+no se consultaron; esto es una comprobación de coherencia contra lo que sí hay: los polígonos del DANE
+(`colombia_departamentos.geojson`) y la física de las distancias. Queda como `backend/tests/test_coordenadas.py`.
+
+- **Nodos (87):** todos dentro de Colombia; 79 dentro del polígono de su departamento. Los otros 8 están a 2–14 km
+  del borde y son explicables: puertos sobre la costa (Cartagena, Tumaco, Puerto Bolívar, Puerto Nuevo, San Andrés),
+  ciudades sobre un río fronterizo (La Dorada, Arauca) y el aeropuerto de Cartagena, cuyo polígono está muy
+  simplificado. La prueba tolera 15 km al borde.
+- **Enlaces (148):** 99 ya estaban marcados `approximate`. Ninguno sale de Colombia. **Tres vías terrestres declaran
+  menos kilómetros que la línea recta entre sus extremos, lo cual es imposible**, y siguen sin corregir (no hay una
+  distancia oficial en el repo y no la inventé):
+  - Cali (CEDI Yumbo) → Santander de Quilichao: declara 45 km, la recta mide 64.
+  - Honda → Ibagué: declara 95 km, la recta mide 102.
+  - Bosconia → Valledupar: declara 90 km, su propio trazado mide 105.
+  Están en `DISTANCIA_POR_REVISAR`; al corregir una hay que quitarla (una prueba lo exige). Corregirlas cambia costos y
+  tiempos de las rutas que las usan.
+- **Cosmético:** Pasto–Mocoa (71 km de trazado para 145 km declarados) y Ocaña–Cúcuta (101 para 190) tienen pocos
+  puntos de paso: la línea del mapa es casi recta, la distancia es razonable.
+- **No cubre:** que cada coordenada esté sobre la vía, el puerto o la pista reales. Eso sigue exigiendo las fuentes
+  oficiales.
+- Pruebas: 235 de la API.
