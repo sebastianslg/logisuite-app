@@ -151,9 +151,9 @@ export function HistoryView({ data }: { data: History }) {
 
   const tolls = data.by_corridor.reduce((a, c) => a + c.tolls, 0);
   const prev = data.previous;
-  const vs = (pct: number | null) => (
-    <Delta pct={pct} good="none" suffix="" />
-  );
+  // Sin período anterior el aviso va una sola vez bajo las cifras, no repetido en cada una
+  const vs = (pct: number | null) => (pct == null ? null : <Delta pct={pct} good="none" suffix="" />);
+  const noPrevious = [prev?.change_pct.shipments, prev?.change_pct.tons, prev?.change_pct.cost].every((x) => x == null);
   const fuel = data.by_corridor.reduce((a, c) => a + c.fuel_l, 0);
 
   return (
@@ -198,12 +198,13 @@ export function HistoryView({ data }: { data: History }) {
           { label: "Flete", value: money(t.cost, true), hint: <>{vs(prev?.change_pct.cost ?? null)}{prev?.change_pct.cost != null && <span className="text-muted-foreground"> · antes {money(prev?.cost ?? 0, true)}</span>}</> },
           {
             label: "Peajes",
-            value: tolls ? money(tolls, true) : "Sin tarifa",
-            hint: tolls ? `${n(Math.round(fuel))} L de combustible estimado` : `Carga las tarifas en Configuración · ${n(Math.round(fuel))} L de combustible`,
+            value: tolls ? money(tolls, true) : "—",
+            hint: tolls ? `${n(Math.round(fuel))} L de combustible estimado` : `Sin tarifas: cárgalas en Configuración · ${n(Math.round(fuel))} L de combustible`,
             href: tolls ? undefined : "/configuracion",
           },
         ]}
       />
+      {noPrevious && <p className="-mt-3 text-xs text-muted-foreground">Aún no hay un período anterior con envíos para comparar.</p>}
 
       {t.shipments === 0 ? (
         <div className="glass rounded-3xl">

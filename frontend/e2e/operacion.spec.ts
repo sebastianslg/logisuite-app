@@ -78,13 +78,20 @@ test("prueba de entrega: firmar en pantalla, ver el comprobante y anular", async
   await expect(page.getByRole("alert").filter({ hasText: "Falta la firma" })).toBeVisible();
 
   const pad = page.getByRole("img", { name: /Firma de quien recibe/ });
-  const box = (await pad.boundingBox())!;
-  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.6);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.3, { steps: 8 });
-  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.7, { steps: 8 });
-  await page.mouse.up();
-  await expect(pad).toHaveAccessibleName(/firmada/);
+  // El formulario entra con un desplazamiento corto: se firma cuando el lienzo ya está quieto (si el trazo cae
+  // durante la entrada, se repite)
+  await expect(async () => {
+    const a = (await pad.boundingBox())!;
+    await page.waitForTimeout(120);
+    const box = (await pad.boundingBox())!;
+    expect(Math.abs(box.y - a.y)).toBeLessThan(0.5);
+    await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.6);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.3, { steps: 8 });
+    await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.7, { steps: 8 });
+    await page.mouse.up();
+    await expect(pad).toHaveAccessibleName(/firmada/, { timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
 
   await page.getByRole("button", { name: /Guardar entrega/ }).click();
   await expect(page.getByText("Recibió Prueba Automática", { exact: true })).toBeVisible();

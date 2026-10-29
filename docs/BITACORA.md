@@ -834,3 +834,14 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
   - La versión oscura se buscó en forma sistemática: mismos tonos, la luminosidad dentro de la banda del oscuro y la
     más luminosa entre las que pasan.
 - Cambian solo `globals.css` y `lib/modes.ts` (RGB del mapa). Pruebas: 21 de navegador.
+
+## 33. Pulido visual, cuarta ronda: formularios e historial (29/10/2026)
+
+- **Desplegables de formulario** (`select.field`): sin la flecha del sistema operativo, que en Windows no se parece
+  a la app. Llevan un chevrón fino en el gris secundario, con su versión para el oscuro. Aplica a envío, vehículo,
+  bodega, conductor, bitácora y configuración.
+- **Historial:** «Sin período anterior para comparar» salía repetido bajo cada cifra. Ahora va una sola vez debajo de
+  la franja. Peajes sin tarifa muestra «—» como cifra y la explicación en la línea pequeña.
+- **Prueba de firma estable:** fallaba 1 de cada 4 veces porque dibujaba mientras el formulario entraba. Ahora espera a
+  que el lienzo esté quieto y repite el trazo si no se registró.
+- Pruebas: 21 de navegador.
