@@ -52,6 +52,7 @@ export const PAGES = [
   "/",
   "/envios",
   "/envios/nuevo",
+  "/hoy",
   "/red",
   "/vias",
   "/vias?ver=nodos",

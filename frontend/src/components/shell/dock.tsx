@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import {
+  CalendarClock,
   CalendarDays,
   Scale,
   Users,
@@ -47,6 +48,7 @@ const PRIMARY: NavItem[] = [
 ];
 /** Lo que vive dentro de "Más". */
 const MORE: NavItem[] = [
+  { href: "/hoy", label: "Hoy", icon: CalendarClock },
   { href: "/vias", label: "Vías y cierres", short: "Vías", icon: TrafficCone },
   { href: "/bodegas", label: "Bodegas", icon: Warehouse },
   { href: "/combustible", label: "Combustible", icon: Fuel },

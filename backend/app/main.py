@@ -24,6 +24,7 @@ Operación (sin autenticación; el campo `usuario` es un nombre declarado):
   GET/POST            /api/shipments/{code}/events            Bitácora: notas e incidencias en ruta
   GET/POST/DELETE     /api/shipments/{code}/attachments       Documentos adjuntos del envío
   GET/PUT/DELETE      /api/shipments/{code}/delivery          Prueba de entrega con firma
+  GET                 /api/today                              Tablero «Hoy» del despachador
   POST                /api/shipments/import                   Carga masiva desde Excel o CSV (vista previa y confirmar)
   GET                 /api/reports/operations                 Reporte operativo del período en PDF
   GET                 /api/clients                            Resumen por cliente
@@ -54,7 +55,7 @@ from app.api import guard
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
-from app.engine import (clients, delivery, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
+from app.engine import (clients, delivery, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
                         shipments_io, sustainability as SU, telemetry, tolls, tracking, trends, warehouses, xlsx)
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
@@ -1110,6 +1111,12 @@ def alerts() -> dict:
     urgent = (fl["disabled"] + fl["in_shop"] > 0) + bool(data["no_route"]) + bool(data["closed_corridors"]) + bool(data["closed_nodes"])
     warn = (fl["overdue"] > 0) + bool(wh["low_stock"] or wh["full"]) + bool(data["rerouted"]) + bool(data["delayed"])
     return {"generated_at": now.isoformat(timespec="seconds"), "urgent": urgent, "total": urgent + warn, "alerts": data}
+
+
+@app.get("/api/today")
+def today_board() -> dict:
+    """Tablero «Hoy»: salidas y llegadas de las próximas 24 h, entregas sin firmar, incidencias y documentos por vencer."""
+    return today.board(_sync())
 
 
 @app.get("/api/dashboard/summary")

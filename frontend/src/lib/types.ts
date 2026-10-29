@@ -983,6 +983,33 @@ export interface TrackingView {
   updated_at: string;
 }
 
+/** Fila del tablero «Hoy». `in_h`: horas desde ahora (negativas = ya pasó), calculadas por la API. */
+export interface TodayShipment {
+  code: string;
+  origin: string;
+  destination: string;
+  cargo: string;
+  client: string;
+  modes: string[];
+  at: string;
+  in_h: number;
+  delay_h: number;
+  vehicle: string | null;
+  outsourced: boolean;
+  no_route: boolean;
+}
+
+export interface TodayBoard {
+  now: string;
+  window_h: number;
+  departures: TodayShipment[];
+  arrivals: TodayShipment[];
+  to_sign: TodayShipment[];
+  incidents: { code: string; kind_label: string; body: string; delay_h: number; at: string; resolved: boolean; origin: string | null; destination: string | null }[];
+  fleet_documents: FleetSummary["documents_due"];
+  counts: { departures: number; arrivals: number; to_sign: number; incidents: number; fleet_documents: number; late_arrivals: number };
+}
+
 /** Prueba de entrega (POD) de un envío. */
 export interface Delivery {
   /** null cuando se borró por el plazo de conservación de datos. */

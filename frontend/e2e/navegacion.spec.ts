@@ -75,3 +75,18 @@ test("los avisos se abren desde el dock en cualquier página", async ({ page }) 
   await page.keyboard.press("Escape");
   await expect(bell).toHaveAttribute("aria-expanded", "false");
 });
+
+test("Hoy: cifras, cuatro bloques y la fila lleva a la ficha del envío", async ({ page }, info) => {
+  const w = watchErrors(page);
+  await page.goto("/hoy");
+  for (const name of ["Salen", "Llegan", "Por firmar", "Requiere atención"]) {
+    await expect(page.getByRole("heading", { level: 2, name: new RegExp(`^${name}`) })).toBeVisible();
+  }
+  await page.screenshot({ path: info.outputPath("hoy.png"), fullPage: true });
+  const first = page.locator("section#salen a, section#llegan a").first();
+  if (await first.count()) {
+    await first.click();
+    await page.waitForURL(/\/envios\/LS-/);
+  }
+  w.expectClean();
+});

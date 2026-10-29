@@ -700,3 +700,34 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
   fechas deterministas a partir de la placa: casi todas vigentes y una de cada nueve por vencer. Los creados por usuarios
   quedan sin registrar. En Contabo la migración llena solo la semilla de carretera que esté vacía.
 - **Pruebas:** 254 de la API (9 nuevas, sin saltos) y 18 de navegador.
+
+## 26. Tablero «Hoy» del despachador (29/10/2026)
+
+- **`/hoy`** (primero en «Más» y en `Ctrl K`). Muestra en una vista lo que pasa en las próximas 24 horas:
+  - **Salen:** con el vehículo del primer tramo.
+  - **Llegan:** con su retraso.
+  - **Por firmar:** envíos que llegaron en los últimos 7 días sin prueba de entrega.
+  - **Requiere atención:** incidencias del día y SOAT o técnico-mecánica que vencen en 7 días.
+  - **Arriba:** cuatro cifras que llevan a cada bloque.
+  - **Actualización:** sola cada minuto, con la pestaña a la vista.
+- **Sin el reloj del navegador:** la API manda «en cuántas horas» (`in_h`) y la página es un componente de servidor;
+  el texto de la hora no puede diferir entre el servidor y el navegador.
+- **Movimiento:** los bloques entran escalonados (`Reveal`: fundido y 12 px con `transform`).
+- **API:** `GET /api/today`. Pruebas: 3 de la API y 1 de navegador (más `/hoy` en la revisión de páginas y de celular).
+- **Corregido antes de publicar:** en celular la página desbordaba a lo ancho (textos largos sin `min-w-0` dentro de
+  filas flexibles).
+
+### Error de hidratación intermitente (abierto)
+
+- **Qué se ve:** React #418 en `/configuracion`, y una vez campos duplicados en `/flota/<id>/editar`: el mismo
+  `<input>` con id de servidor (`_R_…`) y con id de cliente (`_r_…`). React vuelve a pintar en el navegador y queda el
+  segmento del servidor.
+- **Cuándo pasa:** salió en 1 de 4 corridas y luego en las 2 últimas. Parece depender de los datos de la base de
+  pruebas, que se conserva entre corridas. No se reprodujo en `next dev` ni cargando las páginas a mano.
+- **Descartado:**
+  - Una transición con `AnimatePresence` en la ruta: no la hay, `template.tsx` solo hace un fundido.
+  - Texto dependiente de la hora en el armazón.
+  - Diferencias de formato de fecha entre Node (ICU 78.3) y Chromium: son idénticas.
+- **Siguiente paso:** usar una copia de `/tmp/westvane-e2e.db` con `next dev` para ver el diff exacto de la
+  hidratación.
+- **Este lote no toca Configuración.**

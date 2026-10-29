@@ -87,7 +87,7 @@ test("prueba de entrega: firmar en pantalla, ver el comprobante y anular", async
   await expect(pad).toHaveAccessibleName(/firmada/);
 
   await page.getByRole("button", { name: /Guardar entrega/ }).click();
-  await expect(page.getByText("Recibió Prueba Automática")).toBeVisible();
+  await expect(page.getByText("Recibió Prueba Automática", { exact: true })).toBeVisible();
   await expect(page.getByRole("img", { name: "Firma de Prueba Automática" })).toBeVisible();
 
   page.once("dialog", (d) => d.accept());
