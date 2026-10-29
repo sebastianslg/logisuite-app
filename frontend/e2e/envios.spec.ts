@@ -77,3 +77,15 @@ test("elegir a mano el vehículo de un tramo y volver a automático", async ({ p
   }
   w.expectClean();
 });
+
+test("lista de envíos: filtro «Por firmar» desde la URL y desde el chip", async ({ page }) => {
+  const w = watchErrors(page);
+  await page.goto("/envios?firmar=1");
+  const chip = page.getByRole("button", { name: /Por firmar/ });
+  await expect(chip).toHaveAttribute("aria-pressed", "true");
+  const rows = page.locator("table tbody tr");
+  if (await rows.count()) await expect(rows.first().getByText("Sin firmar")).toBeVisible();
+  await chip.click();
+  await expect(chip).toHaveAttribute("aria-pressed", "false");
+  w.expectClean();
+});

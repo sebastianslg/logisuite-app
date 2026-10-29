@@ -42,6 +42,7 @@ async function parseFilters(searchParams: Promise<Record<string, string | string
     status: list(sp.estado).filter((s): s is ShipmentStatus => (STATUS_ORDER as string[]).includes(s)),
     modes: list(sp.modo).filter((m): m is Mode => (MODE_ORDER as string[]).includes(m)),
     q: first(sp.q) ?? "",
+    unsigned: first(sp.firmar) === "1",
   };
 }
 

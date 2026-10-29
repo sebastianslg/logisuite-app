@@ -742,3 +742,16 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
 - En Contabo, la caída registrada a las 02:15 (29/10) no tiene causa clara. Caddy muestra respuestas cortadas a una
   IP de AWS un instante antes y no hay reinicios ni falta de memoria. No se repitió. Los 5 s de `/api/health` justo
   después de reconstruir son el arranque en frío; en reposo responde en 0,04 a 0,24 s.
+
+## 28. La entrega en la lista de envíos y en el PDF (29/10/2026)
+
+- **Lista de envíos:** los entregados llevan «Firmada» (verde) o «Sin firmar». Hay un chip **«Por firmar»** con su
+  cifra que deja solo los que llegaron sin prueba de entrega. También se abre con `/envios?firmar=1`. «Limpiar
+  filtros» lo quita.
+- **API:** `delivery_signed` en la lista y en la ficha (true / false en los entregados, null en los demás). Una sola
+  consulta para toda la lista.
+- **PDF del envío:** sección «Entrega» con la fecha, el estado y la novedad si la hubo, o el aviso de que falta
+  registrarla. **Sin nombre ni firma**, porque ese PDF también se comparte por enlace. Nombre y firma siguen solo en la
+  remesa, de uso interno. Una prueba verifica que no lleva imagen.
+- El chip «Por firmar» de `/hoy` sigue apuntando a su bloque: allí cuenta solo la última semana y la lista cuenta todo.
+- Pruebas: 260 de la API y 20 de navegador (falla la de celular solo por el #418 abierto de la sección 26).

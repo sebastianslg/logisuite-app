@@ -376,7 +376,13 @@ def shipments(status: str | None = None, limit: int = 300) -> dict:
     sql += " ORDER BY departure_at DESC LIMIT ?"
     params.append(max(1, min(limit, 1000)))
     rows = run_query(sql, tuple(params)).to_dict(orient="records")
-    items = [S.shipment(r, status_at(r, now)) for r in rows]
+    signed = delivery.signed_codes()
+    items = []
+    for r in rows:
+        item = S.shipment(r, status_at(r, now))
+        # Solo tiene sentido en los entregados: firmada o pendiente de firma
+        item["delivery_signed"] = (r["shipment_code"] in signed) if item["status"] == "Entregado" else None
+        items.append(item)
     return {"count": len(items), "items": items}
 
 
@@ -384,6 +390,7 @@ def _detail(r: dict, now: datetime) -> dict:
     """Envío con su recorrido y su huella (CO2e y combustible)."""
     out = S.shipment(r, status_at(r, now), detail=True)
     out["footprint"] = _footprint(json.loads(r["route_json"])["legs"], r["weight_t"])
+    out["delivery_signed"] = (r["shipment_code"] in delivery.signed_codes()) if out["status"] == "Entregado" else None
     return out
 
 

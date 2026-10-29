@@ -22,6 +22,7 @@ import {
   X,
   Bookmark,
   BookmarkPlus,
+  PenLine,
   FileUp,
   Rows3,
   Rows4,
@@ -148,6 +149,18 @@ const columns = helper.columns([
     cell: (info) => (
       <div className="flex flex-col items-start gap-1">
         <StatusBadge status={info.getValue()} />
+        {info.row.original.delivery_signed === true && (
+          <Badge tone="success" title="Tiene prueba de entrega">
+            <PenLine />
+            Firmada
+          </Badge>
+        )}
+        {info.row.original.delivery_signed === false && (
+          <Badge tone="neutral" title="Llegó y aún no tiene prueba de entrega">
+            <PenLine />
+            Sin firmar
+          </Badge>
+        )}
         {info.row.original.route_status === "sin_ruta" && (
           <Badge tone="danger" title={info.row.original.route_note ?? undefined}>
             <CircleOff />
@@ -246,10 +259,15 @@ export interface ShipmentFilters {
   status?: ShipmentStatus[];
   modes?: Mode[];
   q?: string;
+  /** Solo entregados sin prueba de entrega (?firmar=1). */
+  unsigned?: boolean;
 }
 
 export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: ShipmentFilters }) {
-  const rows = data;
+  // «Por firmar»: entregados sin prueba de entrega. Filtra antes de la tabla; las cifras de los chips usan todo
+  const [unsigned, setUnsigned] = useState(!!initial?.unsigned);
+  const unsignedCount = useMemo(() => data.filter((s) => s.delivery_signed === false).length, [data]);
+  const rows = useMemo(() => (unsigned ? data.filter((s) => s.delivery_signed === false) : data), [data, unsigned]);
   const router = useRouter();
   const { operator, currency } = useApp();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -281,9 +299,9 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
 
   const statusCounts = useMemo(() => {
     const c = new Map<ShipmentStatus, number>();
-    rows.forEach((r) => c.set(r.status, (c.get(r.status) ?? 0) + 1));
+    data.forEach((r) => c.set(r.status, (c.get(r.status) ?? 0) + 1));
     return c;
-  }, [rows]);
+  }, [data]);
   const modeCounts = useMemo(() => {
     const c = new Map<Mode, number>();
     rows.forEach((r) => new Set(r.modes).forEach((m) => c.set(m, (c.get(m) ?? 0) + 1)));
@@ -364,7 +382,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
     }
   }
   const { pageIndex, pageSize } = table.state.pagination;
-  const hasFilters = statusFilter.length > 0 || modeFilter.length > 0 || globalFilter.length > 0;
+  const hasFilters = statusFilter.length > 0 || modeFilter.length > 0 || globalFilter.length > 0 || unsigned;
 
   const same = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
   const activeView = views.find((v) => same(v.status, statusFilter) && same(v.modes, modeFilter) && v.q === globalFilter);
@@ -418,6 +436,20 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
               </motion.button>
             );
           })}
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.96 }}
+            onClick={() => setUnsigned((v) => !v)}
+            aria-pressed={unsigned}
+            title="Entregados que aún no tienen prueba de entrega"
+            className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/80"
+          >
+            <Badge tone={unsigned ? "accent" : "neutral"} className={cn("cursor-pointer transition-colors duration-200", !unsigned && "hover:border-border-strong")}>
+              <PenLine />
+              Por firmar
+              <CountUp value={unsignedCount} duration={0.6} className="tabular font-semibold" />
+            </Badge>
+          </motion.button>
         </div>
         <div className="chip-scroll flex items-center gap-1" role="group" aria-label="Filtrar por modo">
           {MODE_ORDER.map((m) => {
@@ -450,6 +482,7 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
             onClick={() => {
               table.resetColumnFilters();
               table.setGlobalFilter("");
+              setUnsigned(false);
             }}
           >
             <X />

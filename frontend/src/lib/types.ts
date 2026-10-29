@@ -160,6 +160,8 @@ export interface Shipment {
   progress_pct: number;
   source: "seed" | "auto" | "manual";
   route_status: "ok" | "sin_ruta";
+  /** Solo en los entregados: true si ya tiene prueba de entrega, false si falta firmarla. */
+  delivery_signed?: boolean | null;
   route_note: string | null;
   forced_modes: Mode[];
   forced_corridors: string[];

@@ -159,6 +159,19 @@ def shipment_story(s: dict, money: Money, now: datetime, st: dict) -> list:
         Paragraph(money.note(), st["muted"]),
     ]))
 
+    # Entrega: solo que se confirmó, cuándo y en qué estado. Este PDF también se comparte por enlace, así que no
+    # lleva el nombre ni la firma de quien recibió (datos personales); esos van en la remesa, de uso interno.
+    from app.engine import delivery
+    pod = delivery.public(s["shipment_code"])
+    if pod:
+        d, _ = delivery.signature_bytes(s["shipment_code"])
+        text = f"Entrega confirmada el {_dt(pod['received_at'])} · {pod['condition_label'].lower()}."
+        if d["condition"] == "con_novedad" and d.get("notes"):
+            text += f" Novedad: {d['notes']}"
+        out += [Paragraph("Entrega", st["h2"]), Paragraph(text, st["body"])]
+    elif status == "Entregado":
+        out += [Paragraph("Entrega", st["h2"]), Paragraph("Llegó a destino; la prueba de entrega aún no se ha registrado.", st["muted"])]
+
     modes = list(dict.fromkeys(l["mode"] for l in legs))
     docs = DOCS_ALWAYS + [d for m in modes for d in DOCS_BY_MODE[m]]
     out.append(KeepTogether([

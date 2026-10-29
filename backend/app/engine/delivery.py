@@ -142,6 +142,11 @@ def public(code: str) -> dict | None:
     return {"confirmed": True, "received_at": d["received_at"], "condition_label": CONDITIONS[d["condition"]]}
 
 
+def signed_codes() -> set:
+    """Envíos con la entrega registrada (para marcar la lista sin una consulta por envío)."""
+    return {r["shipment_code"] for r in records(run_query("SELECT shipment_code FROM mm_deliveries"))}
+
+
 def signature_bytes(code: str) -> tuple[dict, bytes | None] | None:
     """Para la remesa en PDF."""
     d = _row(code)

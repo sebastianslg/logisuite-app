@@ -144,3 +144,16 @@ def test_borrar_el_envio_borra_su_entrega(client):
     assert client.put(f"/api/shipments/{code}/delivery", json=body()).status_code == 200
     assert client.delete(f"/api/shipments/{code}", params={"usuario": "Ana"}).status_code == 200
     assert rows("SELECT * FROM mm_deliveries WHERE shipment_code = ?", (code,)) == []
+
+
+def test_lista_y_pdf_marcan_la_entrega(client):
+    items = client.get("/api/shipments").json()["items"]
+    assert all(i["delivery_signed"] is None for i in items if i["status"] != "Entregado")
+    code = next(i["code"] for i in items if i["status"] == "Entregado" and i["delivery_signed"] is False)
+    assert client.put(f"/api/shipments/{code}/delivery", json=body(condition="con_novedad", notes="Faltó una caja")).status_code == 200
+    again = {i["code"]: i for i in client.get("/api/shipments").json()["items"]}
+    assert again[code]["delivery_signed"] is True
+    assert client.get(f"/api/shipments/{code}").json()["delivery_signed"] is True
+    pdf = client.get(f"/api/shipments/{code}/pdf")
+    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
+    assert b"/Subtype /Image" not in pdf.content  # el PDF compartible no lleva la firma
