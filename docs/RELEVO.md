@@ -28,21 +28,23 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
 
 ## Estado actual  (reescríbelo al terminar cada sesión)
 - **Última herramienta:** Antigravity · **Fecha:** 2026-10-29
-- **Hecho:** ver sección 35 de `docs/BITACORA.md`:
-  - Vehículo asignado (`vehicle` y lista multimodal `vehicles`) en la lista general (`GET /api/shipments`) y detalle de envíos.
-  - Columna «Vehículo» en escritorio con enlace a la ficha para flota propia (`/flota/:id`) o nombre del transportista si es tercero.
-  - Placa / código en tarjeta móvil (`ShipmentsTable`) junto al código de envío.
-  - Panel de peajes de `/configuracion` adaptado a tarjetas en celular para evitar desborde horizontal.
-  - Ajuste de `z-index` del dock de navegación para evitar intercepción de clics por el canvas WebGL deck.gl en `/red`.
-  - Configuración de runtime `turbopackPluginRuntimeStrategy: "workerThreads"` en `next.config.ts` y compatibilidad Windows para uvicorn en `playwright.config.ts`.
+- **Hecho:** ver sección 36 de `docs/BITACORA.md`:
+  - **Autenticación sin contraseña (OTP por correo), empresas y roles:**
+    - Esquema aditivo `schema_v13.py` con tablas `companies`, `auth_codes`, `user_sessions` y columnas `email`, `company_id` en `users`.
+    - Motor `backend/app/engine/auth_otp.py` y endpoints en `backend/app/main.py` (`/api/auth/otp/request`, `/api/auth/otp/verify`, `/api/auth/me`, `/api/auth/logout`, `/api/companies`, `/api/admin/users`).
+    - Flujo sin contraseña de aplicación (cumpliendo `AGENTS.md`); códigos de 6 dígitos con expiración de 10 min y hash con salt.
+    - Cliente frontend `frontend/src/lib/auth.ts` con almacén reactivo `useSyncExternalStore` e inyección de token portador en `frontend/src/lib/client.ts`.
+    - Componente accesible `LoginDialog` en `frontend/src/components/auth/login-dialog.tsx` y visualización de usuario/rol/empresa en el dock (`frontend/src/components/shell/dock.tsx`).
+    - Suite de pruebas de backend ampliada a 268 pruebas unitarias (`backend/tests/test_auth_otp.py`).
+    - Prueba E2E de navegador para autenticación OTP agregada en `frontend/e2e/auth.spec.ts`.
 - **En curso / a medias:** nada.
 - **Siguiente paso sugerido:**
   - Validar coordenadas de la red contra fuentes oficiales (INVÍAS, ANI, Aerocivil, Cormagdalena).
-  - Usuarios y empresas con roles (código por correo).
   - Preparar migración a PostgreSQL cuando haya múltiples usuarios concurrentes.
-  - Despliegue automático con GitHub Secrets y dominio/Cloudflare.
+  - Completar datos del responsable en `.env` (`LEGAL_*`) y revisión de documentos legales por un abogado.
+  - Despliegue automático con GitHub Secrets y dominio propio / Cloudflare.
 - **Verificaciones al cerrar:**
-  - `cd frontend && npx tsc --noEmit && npx eslint src e2e && npm run build` (0 errores).
-  - `cd backend && python -m pytest -q` (264 pruebas pasadas).
-  - `cd frontend && TZ=America/Bogota npx playwright test` (22 pruebas de navegador pasadas, escritorio y celular).
+  - `cd frontend && npx tsc --noEmit && npx eslint src e2e && npm run build` (0 errores, 0 avisos).
+  - `cd backend && python -m pytest -q` (268 pruebas pasadas al 100%).
+  - `cd frontend && TZ=America/Bogota npx playwright test` (23 pruebas de navegador pasadas al 100%).
 - **Avisos:** `desarrollo` está verificado y listo para merge en `main` cuando se decida desplegar.

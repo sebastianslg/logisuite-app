@@ -891,3 +891,35 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
   - `cd backend && python -m pytest -q` (264 pruebas pasadas).
   - `cd frontend && TZ=America/Bogota npx playwright test` (22 pruebas de navegador pasadas, cubriendo escritorio y celular a 412 px y 375 px).
 - Pruebas: 264 de la API y 22 de navegador.
+
+
+## 36. Autenticación sin contraseña por correo (OTP), empresas y roles (29/10/2026)
+
+- **Regla del sistema:** Sin contraseña de aplicación (cumpliendo estrictamente `AGENTS.md`). El acceso se realiza mediante código numérico de 6 dígitos enviado al correo institucional (`auth_codes`), con expiración a los 10 minutos y hash criptográfico con salt (SHA-256).
+- **Esquema aditivo `schema_v13.py`:**
+  - Nueva tabla `companies` (`company_id`, `name`, `nit`, `active`, `created_at`).
+  - Columnas añadidas a `users`: `email` (TEXT) y `company_id` (INTEGER, FK a `companies`).
+  - Tabla `auth_codes` (`code_id`, `email`, `code_hash`, `salt`, `attempts`, `expires_at`, `used_at`, `created_at`).
+  - Tabla `user_sessions` (`session_id`, `user_id`, `expires_at`, `created_at`).
+  - Migración aditiva e idempotente integrada en `init_db.py` y `_seed_users()`.
+- **Motor y endpoints (`backend/app/engine/auth_otp.py` y `backend/app/main.py`):**
+  - `POST /api/auth/otp/request`: valida formato y existencia de correo; genera OTP de 6 dígitos; en modo desarrollo retorna `dev_code`.
+  - `POST /api/auth/otp/verify`: valida código y expiración; invalida reintentos abusivos; crea sesión de 30 días y retorna token portador.
+  - `GET /api/auth/me`: retorna identidad completa (`user_id`, `username`, `full_name`, `email`, `role`, `company`).
+  - `POST /api/auth/logout`: revoca sesión activa.
+  - `GET/POST /api/companies`: listado y creación de empresas asociadas.
+  - `GET/POST /api/admin/users` y `PUT /api/admin/users/{id}/role`: administración de usuarios, empresas y roles.
+- **Frontend y experiencia de usuario:**
+  - `frontend/src/lib/auth.ts`: almacén reactivo con `useSyncExternalStore` sin llamadas síncronas a `setState` en efectos (cero advertencias de React Compiler).
+  - `frontend/src/lib/client.ts`: inyección automática del token de sesión (`Authorization: Bearer <token>`) en todas las peticiones `api()`.
+  - `frontend/src/components/auth/login-dialog.tsx`: modal accesible de ingreso con código por correo, selector rápido de cuentas semilla de prueba, y ficha de usuario y empresa con botón de cierre de sesión.
+  - `frontend/src/components/shell/dock.tsx`: `OperatorField` muestra usuario activo, rol y empresa si está autenticado; o campo de operador declarado con botón para ingresar por correo si no lo está.
+  - `frontend/src/app/layout.tsx`: `LoginDialog` montado a nivel raíz.
+- **Pruebas y verificación:**
+  - `backend/tests/test_auth_otp.py`: 4 pruebas unitarias cubriendo solicitudes de OTP inválidas, código erróneo, flujo exitoso, cierre de sesión y gestión de empresas/roles.
+  - `frontend/e2e/auth.spec.ts`: prueba Playwright E2E del flujo completo de ingreso con OTP y verificación de sesión en la interfaz.
+- **Verificado:**
+  - `cd frontend && npx tsc --noEmit && npx eslint src e2e && npm run build` (0 errores).
+  - `cd backend && python -m pytest -q` (268 pruebas pasadas).
+  - `cd frontend && TZ=America/Bogota npx playwright test` (23 pruebas de navegador pasadas).
+- Pruebas: 268 de la API y 23 de navegador.
