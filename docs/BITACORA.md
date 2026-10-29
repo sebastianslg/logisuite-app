@@ -845,3 +845,30 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
 - **Prueba de firma estable:** fallaba 1 de cada 4 veces porque dibujaba mientras el formulario entraba. Ahora espera a
   que el lienzo esté quieto y repite el trazo si no se registró.
 - Pruebas: 21 de navegador.
+
+## 34. Conductor en la remesa, hoja del día imprimible y la causa real de los campos duplicados (29/10/2026)
+
+- **Remesa:** la columna «Conductor o capitán» lleva el conductor activo asignado a cada vehículo propio, con su
+  categoría de licencia. Con varios vehículos va uno por cada uno; los terceros quedan en blanco. Una prueba genera
+  el PDF sin compresión y busca el nombre.
+- **Hoy:**
+  - botón «Imprimir la hoja del día»;
+  - en papel lleva la fecha y hora de generación (la pantalla se actualiza sola, el papel no);
+  - «en 0 min» ahora dice «ahora».
+- **Campos duplicados en formularios (React volvía a pintar el bloque en el cliente):** la sección 30 había corregido
+  `useConsent`, pero quedaban dos fuentes de la misma clase de fallo:
+  - `AppProvider` cambiaba el valor de su contexto al llegar la TRM (`/api/settings`) y al leer del navegador el
+    operador y la moneda;
+  - `PrefsProvider` hacía lo mismo con el tema guardado (afectaba a quien usa el oscuro).
+
+  Todo componente con `useApp()` o `usePrefs()` dentro de un `<Suspense>` que aún esperaba su HTML recibía esa
+  actualización antes de hidratarse. React lo pintaba de nuevo en el cliente y el segmento del servidor (`S:1`) se
+  quedaba oculto en el documento: había 6 campos de fecha en vez de 3 en `/flota/<id>/editar`. Se reprodujo en
+  `next dev` con la base de pruebas donde falló.
+
+  **Arreglo:** los contextos ya no llevan valores que cambian; cada componente lee la TRM, la moneda, el operador y el
+  tema con `useSyncExternalStore` (al hidratar, el valor del servidor).
+
+  **Verificado:** con la misma base, la prueba de SOAT y la de hidratación pasan 5 de 5 cada una, y la suite pasa
+  21 de 21.
+- Pruebas: 263 de la API y 21 de navegador.

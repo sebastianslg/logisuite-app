@@ -18,7 +18,7 @@ interface Prefs {
   resolved: "light" | "dark";
 }
 
-const Ctx = createContext<Prefs | null>(null);
+const Ctx = createContext(false);
 
 function read(key: string): string | null {
   try {
@@ -56,7 +56,17 @@ const subscribeScheme = (cb: () => void) => {
 };
 const getSystemDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
 
+/**
+ * El proveedor no lleva el tema en su valor (que no cambia nunca): cada componente lo lee con usePrefs. Así, al
+ * hidratar con el tema oscuro guardado, ningún bloque <Suspense> pendiente recibe una actualización antes de
+ * hidratarse (ver providers.tsx).
+ */
 export function PrefsProvider({ children }: { children: React.ReactNode }) {
+  return <Ctx.Provider value>{children}</Ctx.Provider>;
+}
+
+export function usePrefs(): Prefs {
+  if (!useContext(Ctx)) throw new Error("usePrefs debe usarse dentro de <PrefsProvider>");
   const theme = useSyncExternalStore(subscribe, getTheme, () => "light" as ThemePref);
   const systemDark = useSyncExternalStore(subscribeScheme, getSystemDark, () => false);
 
@@ -73,14 +83,7 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resolved = theme === "system" ? (systemDark ? "dark" : "light") : theme;
-  const value = useMemo(() => ({ theme, setTheme, resolved }), [theme, setTheme, resolved]);
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
-}
-
-export function usePrefs(): Prefs {
-  const v = useContext(Ctx);
-  if (!v) throw new Error("usePrefs debe usarse dentro de <PrefsProvider>");
-  return v;
+  return useMemo(() => ({ theme, setTheme, resolved }), [theme, setTheme, resolved]);
 }
 
 /** Script que fija la apariencia elegida antes del primer pintado (evita el destello). */

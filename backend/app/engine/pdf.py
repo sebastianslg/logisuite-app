@@ -249,6 +249,17 @@ def _obs_box(text: str, st) -> Table:
     return t
 
 
+def _drivers_of(vehicle_ids: list) -> dict:
+    """Nombre y licencia del conductor activo de cada vehículo propio (para la remesa)."""
+    ids = sorted({int(v) for v in vehicle_ids})
+    if not ids:
+        return {}
+    from app.database.db import run_query
+    df = run_query(f"""SELECT v.vehicle_id, d.name, d.license_cat FROM fl_vehicles v JOIN fl_drivers d ON d.driver_id = v.driver_id
+                       WHERE d.status = 'Activo' AND v.vehicle_id IN ({','.join('?' * len(ids))})""", tuple(ids))
+    return {int(r["vehicle_id"]): f"{r['name']} ({r['license_cat']})" for r in df.to_dict(orient="records")}
+
+
 def remesa(s: dict, now: datetime, company: str | None = None, pod: tuple | None = None) -> bytes:
     """Remesa de carga de un envío: quién envía, qué, por dónde y en qué vehículos, con espacios para firmas.
 
@@ -281,10 +292,13 @@ def remesa(s: dict, now: datetime, company: str | None = None, pod: tuple | None
                      [70 * mm, 24 * mm, 32 * mm, 30 * mm, 24 * mm], st),
               Paragraph("Trayecto y vehículos", st["h2"])]
     rows = [["#", "Modo", "Desde", "Hasta", "Vehículo", "Conductor o capitán"]]
+    drivers = _drivers_of([x for l in legs for x in (l.get("asset") or {}).get("vehicle_ids", [])])
     for i, l in enumerate(legs, 1):
         a = l.get("asset") or {}
+        # El conductor asignado al vehículo en la flota; con varios vehículos, uno por línea. Los terceros, en blanco.
+        who = ", ".join(drivers[v] for v in a.get("vehicle_ids", []) if v in drivers)
         rows.append([i, F.MODE_LABELS[l["mode"]], l["from"]["name"], l["to"]["name"],
-                     f"{a.get('type', '')} {a.get('id', '')}".strip() or "-", ""])
+                     f"{a.get('type', '')} {a.get('id', '')}".strip() or "-", who])
     story.append(_table(rows, [7 * mm, 22 * mm, 40 * mm, 40 * mm, 33 * mm, 38 * mm], st))
     story += [
         Paragraph("Observaciones", st["h2"]),

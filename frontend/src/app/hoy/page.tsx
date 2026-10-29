@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowDownToLine, ArrowUpFromLine, FileWarning, PenLine, TriangleAlert } from "lucide-react";
 
 import { PageHeader, Skeleton } from "@/components/page-header";
+import { PrintButton } from "@/components/ui/print-button";
 import { Reveal } from "@/components/reveal";
 import { ModeChain } from "@/components/status-badge";
 import { AutoRefresh } from "@/components/tracking/auto-refresh";
@@ -19,6 +20,7 @@ export default function HoyPage() {
       <PageHeader
         title="Hoy"
         description="Lo que sale, lo que llega y lo que falta cerrar en las próximas 24 horas, en una sola vista. Se actualiza sola cada minuto."
+        actions={<PrintButton label="Imprimir la hoja del día" />}
       />
       <Suspense fallback={<Skeleton className="h-[640px]" />}>
         <Board />
@@ -30,6 +32,7 @@ export default function HoyPage() {
 /** «en 3 h», «en 40 min», «hace 2 h»: sale de `in_h`, que calcula la API; aquí no se usa el reloj. */
 function relative(h: number) {
   const m = Math.round(Math.abs(h) * 60);
+  if (m < 1) return "ahora";
   const txt = m < 60 ? `${m} min` : `${Math.round(Math.abs(h))} h`;
   return h >= 0 ? `en ${txt}` : `hace ${txt}`;
 }
@@ -49,6 +52,10 @@ async function Board() {
   return (
     <>
       <AutoRefresh seconds={60} />
+      {/* En papel: de cuándo es la hoja (la pantalla se actualiza sola, el papel no) */}
+      <p className="mb-4 hidden text-xs text-muted-foreground print:block">
+        Hoja del día generada el {new Date(b.now).toLocaleString("es-CO", { dateStyle: "full", timeStyle: "short" })} · ventana de {b.window_h} h
+      </p>
       <Reveal>
         <StatStrip
           className="mb-8"

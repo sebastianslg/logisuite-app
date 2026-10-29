@@ -184,3 +184,38 @@ def test_aviso_por_firmar_solo_cuenta_48_h(client):
     assert old.status_code == 201
     assert client.get("/api/today").json()["counts"]["to_sign"] == week_before + 1  # entra en la semana...
     assert client.get("/api/alerts").json()["alerts"]["to_sign"] == alert_before  # ...pero no en el aviso de 48 h
+
+
+def test_la_remesa_lleva_el_conductor_del_vehiculo(client):
+    import json as _json
+    from app.engine import pdf
+    rows_ = db.run_query("SELECT shipment_code, route_json FROM mm_shipments").to_dict(orient="records")
+    pick = None
+    for r in rows_:
+        for leg in _json.loads(r["route_json"])["legs"]:
+            ids = (leg.get("asset") or {}).get("vehicle_ids") or []
+            if ids:
+                d = pdf._drivers_of(ids)
+                # un nombre con alguna parte sin tildes: así se puede buscar tal cual en el PDF
+                ok = [n for n in d.values() if any(t.isascii() for t in n.split(" (")[0].split())]
+                if ok:
+                    pick = (r["shipment_code"], ok[0])
+                    break
+        if pick:
+            break
+    assert pick, "la semilla debe tener algún tramo con vehículo propio y conductor"
+    assert "(" in pick[1]  # nombre (categoría de licencia)
+    r = client.get(f"/api/shipments/{pick[0]}/remesa")
+    assert r.status_code == 200 and r.content.startswith(b"%PDF")
+    # Sin compresión, el nombre se puede buscar en el contenido del PDF
+    from datetime import datetime as _dt
+    from reportlab import rl_config
+    old_c = rl_config.pageCompression
+    rl_config.pageCompression = 0
+    try:
+        row = db.run_query("SELECT * FROM mm_shipments WHERE shipment_code = ?", (pick[0],)).to_dict(orient="records")[0]
+        raw = pdf.remesa(row, _dt.now())
+    finally:
+        rl_config.pageCompression = old_c
+    ascii_part = next(t for t in pick[1].split(" (")[0].split() if t.isascii())  # las tildes van codificadas en el PDF
+    assert ascii_part.encode() in raw

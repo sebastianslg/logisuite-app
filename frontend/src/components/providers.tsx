@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 
 import type { Currency, FxRate } from "@/lib/types";
 
@@ -10,6 +10,11 @@ import type { Currency, FxRate } from "@/lib/types";
  *    y se convierten con la TRM configurada en /configuracion.
  *  - Nombre del operador: firma los cambios en el historial. No hay
  *    autenticación; es un nombre declarado que se guarda en este navegador.
+ *
+ * Estos valores NO viajan por el contexto: cada componente los lee de su almacén con useSyncExternalStore. Si el
+ * contexto cambiara al llegar la TRM o al leer el navegador, los bloques <Suspense> que aún esperaban su HTML del
+ * servidor recibirían esa actualización antes de hidratarse y React los volvería a pintar en el cliente, dejando
+ * oculta una segunda copia (formularios con campos duplicados, intermitente según qué llegara antes).
  */
 interface AppState {
   currency: Currency;
@@ -22,7 +27,7 @@ interface AppState {
   money: (usd: number | null | undefined, compact?: boolean) => string;
 }
 
-const AppContext = createContext<AppState | null>(null);
+const AppContext = createContext(false);
 
 const KEY_CURRENCY = "westvane.currency";
 const KEY_OPERATOR = "westvane.operator";
@@ -85,35 +90,44 @@ export function formatMoney(usd: number, currency: Currency, rate: number | null
   return `US$ ${group.format(usd)}`;
 }
 
+// TRM: almacén fuera de React (se pide una vez al montar la app y al cambiarla en Configuración)
+let fxState: FxRate | null = null;
+const fxListeners = new Set<() => void>();
+const subscribeFx = (cb: () => void) => {
+  fxListeners.add(cb);
+  return () => {
+    fxListeners.delete(cb);
+  };
+};
+async function refreshFx() {
+  try {
+    const res = await fetch("/api/settings", { cache: "no-store" });
+    if (res.ok) {
+      fxState = (await res.json()).fx;
+      fxListeners.forEach((l) => l());
+    }
+  } catch {
+    /* sin TRM: se sigue mostrando USD */
+  }
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    void refreshFx();
+  }, []);
+  // El valor del contexto no cambia nunca: solo marca que el proveedor está montado
+  return <AppContext.Provider value>{children}</AppContext.Provider>;
+}
+
+export function useApp(): AppState {
+  if (!useContext(AppContext)) throw new Error("useApp debe usarse dentro de <AppProvider>");
   const storedCurrency = usePref(KEY_CURRENCY, "USD");
   const currency: Currency = storedCurrency === "COP" ? "COP" : "USD";
   const operator = usePref(KEY_OPERATOR, "");
-  const [fx, setFx] = useState<FxRate | null>(null);
+  // Al hidratar, null como en el servidor; después, la TRM que haya llegado
+  const fx = useSyncExternalStore(subscribeFx, () => fxState, () => null);
 
-  const refreshFx = useCallback(async () => {
-    try {
-      const res = await fetch("/api/settings", { cache: "no-store" });
-      if (res.ok) setFx((await res.json()).fx);
-    } catch {
-      /* sin TRM: se sigue mostrando USD */
-    }
-  }, []);
-
-  useEffect(() => {
-    let alive = true;
-    fetch("/api/settings", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (alive && data) setFx(data.fx);
-      })
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const value = useMemo<AppState>(() => {
+  return useMemo<AppState>(() => {
     const rate = fx?.rate ?? null;
     // Sin TRM configurada, COP no es posible: se muestra USD
     const effective: Currency = currency === "COP" && rate ? "COP" : "USD";
@@ -126,13 +140,5 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setOperator: (name) => write(KEY_OPERATOR, name),
       money: (usd, compact) => (usd === null || usd === undefined ? "N/D" : formatMoney(usd, effective, rate, compact)),
     };
-  }, [currency, fx, operator, refreshFx]);
-
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
-}
-
-export function useApp(): AppState {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error("useApp debe usarse dentro de <AppProvider>");
-  return ctx;
+  }, [currency, fx, operator]);
 }
