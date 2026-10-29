@@ -17,13 +17,10 @@ import app.init_db as init_db
 COLOMBIA = (-4.3, 13.5, -82.0, -66.8)  # lat mín, lat máx, lon mín, lon máx (incluye San Andrés y Leticia)
 EDGE_KM = 15.0  # los polígonos del DANE vienen simplificados: puertos y orillas de río quedan en el borde
 
-# Enlaces cuyo kilometraje declarado es MENOR que la línea recta entre sus extremos (imposible por carretera).
-# Pendientes de corregir con la distancia oficial de INVÍAS; cada uno aparece aquí a propósito.
-DISTANCIA_POR_REVISAR = {
-    ("CEDI-CLO", "CITY-SQU"): "declara 45 km; el CEDI está en Yumbo y la recta mide 64 km",
-    ("CITY-HND", "CITY-IBG"): "declara 95 km; la recta mide 102 km",
-    ("CITY-BOS", "CITY-VUP"): "declara 90 km; su propio trazado mide 105 km",
-}
+# Enlaces cuyo kilometraje declarado es MENOR que la línea recta entre sus extremos (imposible por carretera) y que
+# aún no se corrigen. Hoy no hay ninguno: las tres vías conocidas se corrigieron en schema_v10. Si aparece una nueva,
+# se corrige o se nombra aquí con el motivo, para que no pase en silencio.
+DISTANCIA_POR_REVISAR: dict = {}
 
 
 @pytest.fixture(scope="module")
@@ -133,3 +130,21 @@ def test_las_excepciones_conocidas_siguen_siendo_ciertas(red):
         trazado = sum(haversine(p[1], p[0], q[1], q[0]) for p, q in zip(*(lambda g: (g, g[1:]))(json.loads(l["geometry_json"]))))
         recta = haversine(a["latitude"], a["longitude"], b["latitude"], b["longitude"])
         assert l["distance_km"] < max(recta, trazado) * 0.98, f"{k} ya no es inconsistente: quítalo de DISTANCIA_POR_REVISAR"
+
+
+def test_migracion_v10_corrige_solo_las_filas_sin_editar_y_es_idempotente():
+    import sqlite3
+
+    from app.database.schema_v10 import DISTANCE_FIXES, apply_v10_migration
+
+    con = sqlite3.connect(":memory:")
+    con.execute("""CREATE TABLE mm_links (origin_code TEXT, dest_code TEXT, mode TEXT, corridor TEXT,
+                   distance_km REAL, time_h REAL, approximate INTEGER NOT NULL DEFAULT 0)""")
+    (o1, d1, c1, antes1, _, _), (o2, d2, c2, antes2, _, _), _ = DISTANCE_FIXES
+    con.execute("INSERT INTO mm_links VALUES (?,?,?,?,?,?,0)", (o1, d1, "terrestre", c1, antes1, 2.6))  # sin editar
+    con.execute("INSERT INTO mm_links VALUES (?,?,?,?,?,?,0)", (o2, d2, "terrestre", c2, 111, 2.0))    # editada a mano
+    apply_v10_migration(con)
+    apply_v10_migration(con)
+    sin_editar, editada = con.execute("SELECT distance_km, approximate FROM mm_links ORDER BY rowid").fetchall()
+    assert sin_editar == (DISTANCE_FIXES[0][4], 1)
+    assert editada == (111, 0)

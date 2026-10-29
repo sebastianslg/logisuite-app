@@ -619,16 +619,20 @@ no se consultaron; esto es una comprobación de coherencia contra lo que sí hay
   del borde y son explicables: puertos sobre la costa (Cartagena, Tumaco, Puerto Bolívar, Puerto Nuevo, San Andrés),
   ciudades sobre un río fronterizo (La Dorada, Arauca) y el aeropuerto de Cartagena, cuyo polígono está muy
   simplificado. La prueba tolera 15 km al borde.
-- **Enlaces (148):** 99 ya estaban marcados `approximate`. Ninguno sale de Colombia. **Tres vías terrestres declaran
-  menos kilómetros que la línea recta entre sus extremos, lo cual es imposible**, y siguen sin corregir (no hay una
-  distancia oficial en el repo y no la inventé):
-  - Cali (CEDI Yumbo) → Santander de Quilichao: declara 45 km, la recta mide 64.
-  - Honda → Ibagué: declara 95 km, la recta mide 102.
-  - Bosconia → Valledupar: declara 90 km, su propio trazado mide 105.
-  Están en `DISTANCIA_POR_REVISAR`; al corregir una hay que quitarla (una prueba lo exige). Corregirlas cambia costos y
-  tiempos de las rutas que las usan.
+- **Enlaces (148):** 99 ya estaban marcados `approximate`. Ninguno sale de Colombia. Tres vías terrestres declaraban
+  menos kilómetros que la línea recta entre sus extremos, algo imposible por carretera. **Corregidas** (migración
+  `schema_v10.py`, que solo toca filas con el valor anterior, así que respeta lo editado a mano, y las marca
+  `approximate`). Ninguna cifra es oficial de INVÍAS:
+  - Honda → Ibagué: 95 → **102 km** (Bookaway). Es exactamente la línea recta, así que es un piso y se queda corta.
+  - Bosconia → Valledupar: 90 → **94 km** (estimación de ruta de Rome2rio). Su trazado dibujado mide 105 km: la línea
+    del mapa da un rodeo, la distancia declarada no.
+  - Cali (CEDI Yumbo) → Santander de Quilichao: 45 → **80 km**. Los 45 km publicados son desde el centro de Cali; desde
+    Yumbo no hay cifra y se usó la recta (64 km) × 1,25, factor de sinuosidad típico. Es una estimación, no un dato.
+  - Los tiempos conservan la velocidad media de cada tramo. Los envíos ya creados conservan el costo y el tiempo con que
+    se calcularon; los nuevos y los recalculados usan las distancias nuevas.
+  - Cuando haya la cifra oficial, se cambia en `DISTANCE_FIXES` y en `colombia_multimodal.py`.
 - **Cosmético:** Pasto–Mocoa (71 km de trazado para 145 km declarados) y Ocaña–Cúcuta (101 para 190) tienen pocos
   puntos de paso: la línea del mapa es casi recta, la distancia es razonable.
 - **No cubre:** que cada coordenada esté sobre la vía, el puerto o la pista reales. Eso sigue exigiendo las fuentes
   oficiales.
-- Pruebas: 235 de la API.
+- Pruebas: 236 de la API.

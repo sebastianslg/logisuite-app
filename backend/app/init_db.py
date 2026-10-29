@@ -23,6 +23,7 @@ from app.database.schema_v6 import apply_v6_migration
 from app.database.schema_v7 import apply_v7_migration
 from app.database.schema_v8 import apply_v8_migration
 from app.database.schema_v9 import apply_v9_migration
+from app.database.schema_v10 import apply_v10_migration
 from app.database.schema_v5 import SCHEMA_V5_SQL
 from app.database.db import DB_PATH
 
@@ -48,6 +49,7 @@ def init_database(reset: bool = False):
     apply_v7_migration(conn)
     apply_v8_migration(conn)
     apply_v9_migration(conn)
+    apply_v10_migration(conn)
     conn.commit()
     conn.close()
 

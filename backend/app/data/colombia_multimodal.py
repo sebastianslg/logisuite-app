@@ -314,7 +314,7 @@ LINKS_V2 = [
      [(6.4500, -75.7300), (6.5560, -75.8300), (7.0000, -76.2600), (7.2400, -76.4300), (7.6700, -76.6800)]),
     ("CEDI-MDE", "CITY-UIB", "terrestre", "Vía Medellín - Quibdó", 230, 10.0,
      [(5.8500, -76.0200), (5.9000, -76.1500), (5.7400, -76.5300)]),
-    ("CITY-BOS", "CITY-VUP", "terrestre", "Vía Bosconia - Valledupar", 90, 1.8, [(10.0000, -73.4300)]),
+    ("CITY-BOS", "CITY-VUP", "terrestre", "Vía Bosconia - Valledupar", 94, 1.9, [(10.0000, -73.4300)]),
     ("CITY-VUP", "CITY-RCH", "terrestre", "Vía Valledupar - Riohacha", 190, 4.0,
      [(10.7700, -73.0000), (10.8800, -72.8500), (11.1700, -72.6200)]),
     ("PORT-SMR", "CITY-RCH", "terrestre", "Troncal del Caribe", 170, 3.5,
@@ -388,7 +388,7 @@ LINKS_V2.extend([
     ("CEDI-CLO", "CITY-TUL", "terrestre", "Troncal de Occidente", 100, 2.0, [(3.9000, -76.3000)]),
     ("CITY-TUL", "CITY-CRT", "terrestre", "Troncal de Occidente", 85, 1.8, [(4.3100, -75.9900)]),
     ("CITY-CRT", "CITY-PEI", "terrestre", "Troncal de Occidente", 35, 0.8, [(4.7400, -75.9100)]),
-    ("CEDI-CLO", "CITY-SQU", "terrestre", "Panamericana (Cali - Popayán)", 45, 1.0, [(3.2600, -76.5400)]),
+    ("CEDI-CLO", "CITY-SQU", "terrestre", "Panamericana (Cali - Popayán)", 80, 1.7, [(3.2600, -76.5400)]),
     ("CITY-SQU", "CITY-PPN", "terrestre", "Panamericana (Cali - Popayán)", 100, 2.4, [(2.7500, -76.6000)]),
     # Troncal Central del Norte (Ruta 55) y Transversal del Cusiana
     ("CITY-TUN", "CITY-DUI", "terrestre", "Troncal Central del Norte", 50, 1.0, []),
@@ -404,7 +404,7 @@ LINKS_V2.extend([
     ("CITY-MTR", "CITY-LOR", "terrestre", "Vía Montería - Lorica", 55, 1.2, []),
     # Magdalena alto y medio
     ("RIV-LDA", "CITY-HND", "terrestre", "Troncal del Magdalena", 35, 0.8, []),
-    ("CITY-HND", "CITY-IBG", "terrestre", "Vía Honda - Ibagué", 95, 2.6, []),
+    ("CITY-HND", "CITY-IBG", "terrestre", "Vía Honda - Ibagué", 102, 2.8, []),
     ("CITY-SOA", "CITY-FUS", "terrestre", "Autopista Bogotá - Girardot", 50, 1.1, []),
     ("CITY-FUS", "CITY-GIR", "terrestre", "Autopista Bogotá - Girardot", 65, 1.5, [(4.2000, -74.6400)]),
     ("CITY-NVA", "CITY-GAR", "terrestre", "Troncal del Magdalena", 100, 2.2, [(2.5500, -75.4500)]),
