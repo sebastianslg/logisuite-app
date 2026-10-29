@@ -717,7 +717,7 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
 - **Corregido antes de publicar:** en celular la página desbordaba a lo ancho (textos largos sin `min-w-0` dentro de
   filas flexibles).
 
-### Error de hidratación intermitente (abierto)
+### Error de hidratación intermitente (cerrado en la sección 30)
 
 - **Qué se ve:** React #418 en `/configuracion`, y una vez campos duplicados en `/flota/<id>/editar`: el mismo
   `<input>` con id de servidor (`_R_…`) y con id de cliente (`_r_…`). React vuelve a pintar en el navegador y queda el
@@ -776,3 +776,30 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
     - «Llegan» ya no sale en naranja cuando solo una parte viene con retraso.
   - **Prueba de entrega:** sin el ícono repetido y con fecha corta («28 de oct, 10:02 p. m.»).
 - Pruebas: 261 de la API y 20 de navegador en puertos y base propios.
+
+## 30. Error de hidratación de Configuración: causa y corrección (29/10/2026)
+
+- **Causa:** `useConsent()` (`lib/consent.ts`) daba a `useSyncExternalStore` el estado del módulo también como
+  instantánea de servidor (`() => state`). El panel de Configuración llega en un límite de Suspense que se hidrata
+  después del armazón. Si la API tardaba en dar el panel (historial de 300 cambios, base de pruebas que crece en cada
+  corrida), la ventana de aceptación del armazón ya había traído el estado de privacidad. El primer render del panel
+  mostraba la lista «Aceptado · versión…» y el HTML del servidor decía «Cargando…»: React #418 (`args[]=HTML`) y la
+  sección se volvía a pintar en el navegador. Por eso dependía de los datos y del tiempo, no de la página.
+- **Corrección:** la instantánea de servidor es siempre el estado vacío (`SERVER_STATE`). Al hidratar, el panel
+  pinta lo mismo que el servidor y enseguida pasa al estado real. Los demás `useSyncExternalStore` ya daban un valor
+  fijo al servidor.
+- **Prueba:** `e2e/hidratacion.spec.ts`. Un proxy local entrega el armazón y retiene el segmento del panel
+  (`<div hidden id="S:…">`) hasta que el navegador recibió el estado de privacidad. La TRM llega después, porque un
+  cambio de contexto antes de hidratar hace que React pinte el bloque de cero sin comparar y eso ocultaría la falla.
+  Comprueba que no hay errores y que los ids del panel son los del servidor (`_R_…`). Sin la corrección falla con el
+  mismo #418; con ella pasa siempre.
+- **Campos duplicados en `/flota/<id>/editar` (visto una vez):** no se reprodujo. El formulario no lee estado del
+  navegador al hidratar; lo único que cambia antes de que se hidrate es el contexto de `AppProvider` (llega la TRM).
+  Eso hace que React pinte el bloque de cero sin error, como se vio en la prueba. Si vuelve a salir, revisar ese
+  camino.
+- **Verificación:** `tsc`, `eslint`, `npm run build`, 259 pruebas de la API y Playwright completo (20 de 20) en dos
+  corridas seguidas sin #418, en puertos propios (3200/8200) y con una copia propia de la base de pruebas acumulada.
+  Dos sesiones que usen a la vez 3100/8100 comparten servidores por `reuseExistingServer`: dar a cada una
+  `E2E_PORT`, `E2E_API_PORT` y `E2E_DB_PATH` propios. Con ese choque, en una corrida la prueba de celular superó sus
+  60 s (suele tardar 37 a 42 s en este PC), sin errores de hidratación.
+

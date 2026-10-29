@@ -27,7 +27,9 @@ export type ConsentStatus = {
 };
 
 type State = { status: ConsentStatus | null; error: boolean };
-let state: State = { status: null, error: false };
+/** Lo que pintó el servidor: sin estado todavía. */
+const SERVER_STATE: State = { status: null, error: false };
+let state: State = SERVER_STATE;
 const listeners = new Set<() => void>();
 const set = (next: State) => {
   state = next;
@@ -90,9 +92,15 @@ export async function recordConsent(items: ConsentItem[], context: ConsentContex
   return st;
 }
 
-/** Estado de aceptación de este navegador; `pending` vacío mientras no se sabe (se usa la copia local). */
+/**
+ * Estado de aceptación de este navegador; `status` es null mientras no se sabe.
+ *
+ * Al hidratar se usa siempre el estado vacío del servidor, aunque el navegador ya lo tenga: el panel de
+ * Configuración llega en un límite de Suspense que se hidrata después del armazón, y para entonces la ventana de
+ * aceptación pudo haber traído el estado. Con `() => state` el primer render del panel difería del HTML (React #418).
+ */
 export function useConsent() {
-  const s = useSyncExternalStore(subscribe, () => state, () => state);
+  const s = useSyncExternalStore(subscribe, () => state, () => SERVER_STATE);
   useEffect(() => {
     if (!state.status) void refreshConsent();
   }, []);
