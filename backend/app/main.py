@@ -55,7 +55,7 @@ from app.api import guard
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
-from app.engine import (clients, delivery, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
+from app.engine import (auth_otp, clients, delivery, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
                         shipments_io, sustainability as SU, telemetry, tolls, tracking, trends, warehouses, xlsx)
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
@@ -1390,3 +1390,103 @@ def client_errors(limit: int = 50) -> dict:
                      "ORDER BY error_id DESC LIMIT ?", (max(1, min(limit, 200)),))
     items = rows.astype(object).where(rows.notna(), None).to_dict(orient="records")
     return {"count": len(items), "items": items}
+
+
+# ---------------------------------------------------------------------------
+# Autenticación sin contraseñas (Passwordless OTP por correo), Empresas y Roles
+# ---------------------------------------------------------------------------
+
+class OtpRequestIn(BaseModel):
+    email: str = Field(..., max_length=200)
+
+
+class OtpVerifyIn(BaseModel):
+    email: str = Field(..., max_length=200)
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+class CompanyIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    nit: str | None = Field(None, max_length=50)
+
+
+class UserCreateIn(BaseModel):
+    email: str = Field(..., max_length=200)
+    full_name: str = Field(..., min_length=1, max_length=200)
+    role: Literal["admin", "operador", "lector"] = "operador"
+    company_id: int | None = None
+
+
+class UserRoleUpdateIn(BaseModel):
+    role: Literal["admin", "operador", "lector"]
+
+
+@app.post("/api/auth/otp/request")
+def auth_otp_request(body: OtpRequestIn) -> dict:
+    try:
+        return auth_otp.request_otp(body.email)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
+@app.post("/api/auth/otp/verify")
+def auth_otp_verify(body: OtpVerifyIn) -> dict:
+    try:
+        return auth_otp.verify_otp(body.email, body.code)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
+@app.get("/api/auth/me")
+def auth_me(request: Request) -> dict:
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header[7:].strip() if auth_header.startswith("Bearer ") else None
+    user = auth_otp.get_user_by_session(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Sesión no válida o expirada.")
+    return user
+
+
+@app.post("/api/auth/logout", status_code=204)
+def auth_logout(request: Request) -> Response:
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header[7:].strip() if auth_header.startswith("Bearer ") else None
+    user = auth_otp.get_user_by_session(token)
+    auth_otp.logout(token, user["username"] if user else None)
+    return Response(status_code=204)
+
+
+@app.get("/api/companies")
+def companies_list() -> dict:
+    items = auth_otp.list_companies()
+    return {"count": len(items), "items": items}
+
+
+@app.post("/api/companies", status_code=201)
+def companies_create(body: CompanyIn, request: Request, usuario: str | None = None) -> dict:
+    try:
+        return auth_otp.create_company(body.name, body.nit, operator=usuario)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
+@app.get("/api/admin/users")
+def admin_users_list() -> dict:
+    items = auth_otp.list_users()
+    return {"count": len(items), "items": items}
+
+
+@app.post("/api/admin/users", status_code=201)
+def admin_users_create(body: UserCreateIn, usuario: str | None = None) -> dict:
+    try:
+        return auth_otp.create_user_record(body.email, body.full_name, body.role, body.company_id, operator=usuario)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
+@app.put("/api/admin/users/{user_id}/role")
+def admin_users_update_role(user_id: int, body: UserRoleUpdateIn, usuario: str | None = None) -> dict:
+    try:
+        return auth_otp.update_user_role(user_id, body.role, operator=usuario)
+    except ops.OperationError as exc:
+        _op_error(exc)
