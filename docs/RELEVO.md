@@ -27,10 +27,22 @@ git checkout desarrollo
 Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las verificaciones antes de subir.
 
 ## Estado actual  (reescríbelo al terminar cada sesión)
-- **Última herramienta:** Claude (nube) · **Fecha:** 2026-10-29
-- **Hecho:** ver las secciones 12 a 20 de `docs/BITACORA.md`; `main` y `desarrollo` están iguales.
+- **Última herramienta:** Antigravity · **Fecha:** 2026-10-29
+- **Hecho:** ver sección 35 de `docs/BITACORA.md`:
+  - Vehículo asignado (`vehicle` y lista multimodal `vehicles`) en la lista general (`GET /api/shipments`) y detalle de envíos.
+  - Columna «Vehículo» en escritorio con enlace a la ficha para flota propia (`/flota/:id`) o nombre del transportista si es tercero.
+  - Placa / código en tarjeta móvil (`ShipmentsTable`) junto al código de envío.
+  - Panel de peajes de `/configuracion` adaptado a tarjetas en celular para evitar desborde horizontal.
+  - Ajuste de `z-index` del dock de navegación para evitar intercepción de clics por el canvas WebGL deck.gl en `/red`.
+  - Configuración de runtime `turbopackPluginRuntimeStrategy: "workerThreads"` en `next.config.ts` y compatibilidad Windows para uvicorn en `playwright.config.ts`.
 - **En curso / a medias:** nada.
-- **Siguiente paso sugerido:** medir el rendimiento del mapa con `?diagnostico` en el PC y decidir si hace falta un
-  solo lienzo 3D; después asignar vehículo a cada envío.
-- **Verificaciones al cerrar:** 221 pruebas de la API y 15 de navegador en verde.
-- **Avisos:** Contabo debe tener `main` desplegado; confirmarlo con `git log --oneline -1` en el servidor.
+- **Siguiente paso sugerido:**
+  - Validar coordenadas de la red contra fuentes oficiales (INVÍAS, ANI, Aerocivil, Cormagdalena).
+  - Usuarios y empresas con roles (código por correo).
+  - Preparar migración a PostgreSQL cuando haya múltiples usuarios concurrentes.
+  - Despliegue automático con GitHub Secrets y dominio/Cloudflare.
+- **Verificaciones al cerrar:**
+  - `cd frontend && npx tsc --noEmit && npx eslint src e2e && npm run build` (0 errores).
+  - `cd backend && python -m pytest -q` (264 pruebas pasadas).
+  - `cd frontend && TZ=America/Bogota npx playwright test` (22 pruebas de navegador pasadas, escritorio y celular).
+- **Avisos:** `desarrollo` está verificado y listo para merge en `main` cuando se decida desplegar.

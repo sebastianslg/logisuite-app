@@ -872,3 +872,22 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
   **Verificado:** con la misma base, la prueba de SOAT y la de hidratación pasan 5 de 5 cada una, y la suite pasa
   21 de 21.
 - Pruebas: 263 de la API y 21 de navegador.
+
+## 35. Vehículo asignado en la lista general de envíos y pulido de adaptabilidad (29/10/2026)
+
+- **Vehículo asignado en envíos:**
+  - `backend/app/api/serializers.py`: la serialización de envíos (`shipment`) ahora incluye un resumen del vehículo activo/asignado (`vehicle`: `id`, `type`, `carrier`, `own`, `outsourced`, `vehicle_ids`, `plates`, `pinned`) y la lista de todos los vehículos de los tramos (`vehicles`). Se incluye tanto en el listado general (`GET /api/shipments`) como en el detalle individual.
+  - `frontend/src/components/shipments/shipments-table.tsx`:
+    - En escritorio: columna «Vehículo» (`hidden xl:table-cell`). Si es flota propia, enlaza directamente a su ficha `/flota/:id`; si es tercero, muestra el nombre o transportista en texto atenuado con tooltip.
+    - En celular: badge con código/placa en tipografía mono junto al código del envío en la tarjeta móvil.
+  - Pruebas: prueba unitaria en `backend/tests/test_fleet_warehouses.py` (`test_vehiculo_en_lista_y_detalle_de_envios`) y prueba E2E en `frontend/e2e/envios.spec.ts`.
+- **Pulido visual y de pruebas:**
+  - `frontend/src/components/settings/tolls-panel.tsx`: en pantallas móviles (< 1024 px), cada peaje se presenta en tarjetas responsivas en lugar de una tabla HTML que provocaba ensanchamiento horizontal en `/configuracion`.
+  - `frontend/src/components/shell/dock.tsx`: `z-index` del dock de escritorio ajustado a `z-50` para evitar que el canvas interactivo WebGL de deck.gl en `/red` intercepte clics de navegación.
+  - `frontend/next.config.ts`: agregado `turbopackPluginRuntimeStrategy: "workerThreads"` para compatibilidad de build de Turbopack en Node 26.
+  - `frontend/playwright.config.ts`: soporte para ejecutar uvicorn usando el intérprete del `.venv` en Windows.
+- **Verificado:**
+  - `cd frontend && npx tsc --noEmit && npx eslint src e2e && npm run build` (0 errores).
+  - `cd backend && python -m pytest -q` (264 pruebas pasadas).
+  - `cd frontend && TZ=America/Bogota npx playwright test` (22 pruebas de navegador pasadas, cubriendo escritorio y celular a 412 px y 375 px).
+- Pruebas: 264 de la API y 22 de navegador.
