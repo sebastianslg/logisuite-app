@@ -52,8 +52,14 @@ export function FleetBoard({ vehicles, summary }: { vehicles: Vehicle[]; summary
           { label: "Disponibles", value: bs["Disponible"] + bs["Reservado"], hint: "Listos o reservados", active: only(["Disponible", "Reservado"]), onClick: () => set(["Disponible", "Reservado"]) },
           { label: "En ruta", value: bs["En ruta"], hint: "Llevando un envío", active: only(["En ruta"]), onClick: () => set(["En ruta"]) },
           { label: "En mantenimiento", value: bs["En mantenimiento"], hint: "En el taller", tone: bs["En mantenimiento"] ? "warning" : undefined, active: only(["En mantenimiento"]), onClick: () => set(["En mantenimiento"]) },
-          { label: "Sin poder operar", value: blocked, hint: "Falla o servicio vencido", tone: blocked ? "danger" : undefined, active: only(["Inhabilitado", "Mantenimiento vencido"]), onClick: () => set(["Inhabilitado", "Mantenimiento vencido"]) },
+          { label: "Sin poder operar", value: blocked, hint: "Falla, servicio o documentos vencidos", tone: blocked ? "danger" : undefined, active: only(["Inhabilitado", "Mantenimiento vencido"]), onClick: () => set(["Inhabilitado", "Mantenimiento vencido"]) },
           { label: "Mantenimiento próximo", value: summary.maintenance_due.filter((m) => m.state === "Próximo").length, hint: "Vencen pronto" },
+          {
+            label: "SOAT y técnico-mecánica",
+            value: (summary.documents_due ?? []).length,
+            hint: (summary.documents_due ?? []).some((d) => d.state === "Vencido") ? "Hay documentos vencidos" : "Por vencer en 30 días",
+            tone: (summary.documents_due ?? []).some((d) => d.state === "Vencido") ? "danger" : (summary.documents_due ?? []).length ? "warning" : undefined,
+          },
         ]}
       />
 

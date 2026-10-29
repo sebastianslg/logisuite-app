@@ -37,7 +37,7 @@ from __future__ import annotations
 import json
 import math
 import random
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from app.data.colombia_flota import (CATALOG, DRIVER_NAMES, FAULT_CATEGORIES, NAVES, SEED_FLEET, SEVERITIES,
                                      WORKSHOPS)
@@ -54,6 +54,8 @@ RESERVED_WINDOW_H = 24     # "Reservado": sale dentro de estas horas
 TURNAROUND_H = {"terrestre": 2.0, "aereo": 3.0, "fluvial": 6.0, "maritimo": 12.0, "ferreo": 6.0}
 SOON_FRACTION = 0.15       # "Próximo" cuando queda este % del intervalo
 SOON_MIN_DAYS = 7
+DOC_SOON_DAYS = 30        # SOAT o técnico-mecánica «por vencer»
+DOCUMENTS = (("soat_expiry", "SOAT"), ("rtm_expiry", "Revisión técnico-mecánica"))
 
 
 def _dt(s) -> datetime:
@@ -162,6 +164,29 @@ def _service(v: dict, odometer: float, now: datetime) -> dict:
             "last_service_at": last.date().isoformat()}
 
 
+def _documents(v: dict, now: datetime) -> list:
+    """SOAT y técnico-mecánica de un vehículo de carretera (vigentes hasta el día del vencimiento, inclusive)."""
+    if v["mode"] != "terrestre":
+        return []
+    out = []
+    for key, label in DOCUMENTS:
+        exp = v.get(key)
+        if not exp:
+            out.append({"key": key, "label": label, "expiry": None, "days_left": None, "state": "Sin registrar"})
+            continue
+        days = (date.fromisoformat(exp) - now.date()).days
+        state = "Vencido" if days < 0 else "Por vencer" if days <= DOC_SOON_DAYS else "Vigente"
+        out.append({"key": key, "label": label, "expiry": exp, "days_left": days, "state": state})
+    return out
+
+
+def _doc_valid_through(v: dict, end: datetime) -> bool:
+    """¿Sus documentos siguen vigentes hasta `end`? Los que no están registrados no bloquean."""
+    if v["mode"] != "terrestre":
+        return True
+    return all(not v.get(k) or end.date() <= date.fromisoformat(v[k]) for k, _ in DOCUMENTS)
+
+
 def _derive(v: dict, ctx: dict) -> dict:
     now = ctx["now"]
     vid = int(v["vehicle_id"])
@@ -194,6 +219,12 @@ def _derive(v: dict, ctx: dict) -> dict:
     for f in open_faults:
         if not f["blocks_operation"]:
             warnings.append(f"Falla leve abierta: {f['category'].lower()} — {f['description'][:70]}")
+    documents = _documents(v, now)
+    for doc in documents:
+        if doc["state"] == "Vencido":
+            blockers.append(f"{doc['label']} vencido desde el {doc['expiry']}: no puede circular")
+        elif doc["state"] == "Por vencer":
+            warnings.append(f"{doc['label']} vence en {doc['days_left']} d ({doc['expiry']})")
     if svc["state"] == "Vencido":
         why = (f"hace {int(-svc['days_left'])} d" if svc["days_left"] < 0 else f"por {int(-svc['km_left']):,} km".replace(",", "."))
         blockers_service = f"Mantenimiento vencido {why}"
@@ -231,6 +262,7 @@ def _derive(v: dict, ctx: dict) -> dict:
         "driver": ({"id": int(driver["driver_id"]), "name": driver["name"], "license_cat": driver["license_cat"],
                     "license_expiry": driver["license_expiry"], "license_days_left": round(lic_days, 1),
                     "status": driver["status"]} if driver else None),
+        "documents": documents, "soat_expiry": v.get("soat_expiry"), "rtm_expiry": v.get("rtm_expiry"),
         "odometer_km": round(odo), "status": status, "operable": status in OPERABLE,
         "blockers": blockers, "warnings": warnings, "service": svc,
         "open_faults": len(open_faults), "blocking_faults": len(blocking),
@@ -325,6 +357,9 @@ def summary(now: datetime) -> dict:
     upcoming = records(run_query("""SELECT m.*, v.code, v.vehicle_type, v.mode FROM fl_maintenance m JOIN fl_vehicles v ON v.vehicle_id = m.vehicle_id
                             WHERE m.status IN ('Programado', 'En curso') ORDER BY m.scheduled_start"""))
     drivers_expiring = [v for v in active if v["driver"] and v["driver"]["status"] == "Activo" and v["driver"]["license_days_left"] <= 30]
+    docs_due = sorted(({"id": v["id"], "code": v["code"], "label": d["label"], "state": d["state"], "expiry": d["expiry"],
+                         "days_left": d["days_left"]} for v in active for d in v["documents"]
+                        if d["state"] in ("Vencido", "Por vencer")), key=lambda x: x["days_left"])
     cost90 = run_query("SELECT COALESCE(SUM(cost_usd), 0) c FROM fl_maintenance WHERE status = 'Completado' AND completed_at >= ?",
                        (_iso(now - timedelta(days=90)),)).iloc[0]["c"]
     total = len(active) or 1
@@ -337,6 +372,7 @@ def summary(now: datetime) -> dict:
         "open_faults": faults, "upcoming_maintenance": upcoming[:20],
         "licenses_expiring": [{"id": v["id"], "code": v["code"], "driver": v["driver"]["name"],
                                "days_left": v["driver"]["license_days_left"]} for v in drivers_expiring],
+        "documents_due": docs_due,
         "maintenance_cost_90d_usd": round(float(cost90), 2),
     }
 
@@ -370,6 +406,11 @@ def _validate_vehicle(data: dict, existing: dict | None = None) -> dict:
                           (driver, int(d.get("vehicle_id") or 0)))
         if not other.empty:
             raise OperationError(f"Ese conductor ya está asignado al vehículo {other.iloc[0]['code']}.")
+    docs = {}
+    for key, label in DOCUMENTS:
+        raw = d.get(key)
+        docs[key] = (_date(raw, f"El vencimiento del {label}").date().isoformat()
+                     if raw not in (None, "") and mode == "terrestre" else None)
     last = d.get("last_service_at")
     last = (_date(last, "La fecha del último mantenimiento").date().isoformat() if last else datetime.now().date().isoformat())
     return {
@@ -388,6 +429,7 @@ def _validate_vehicle(data: dict, existing: dict | None = None) -> dict:
         "service_interval_days": int(_f(d.get("service_interval_days") or days, "Los días entre mantenimientos", 1, 3650)),
         "service_interval_km": _f(d.get("service_interval_km") or km, "Los km entre mantenimientos", 1, 10000000),
         "notes": _text(d.get("notes"), "Las notas", required=False, max_len=300),
+        **docs,
     }
 
 
@@ -397,12 +439,12 @@ def create_vehicle(data: dict, user: str | None, now: datetime) -> dict:
         raise OperationError(f"Ya existe un vehículo con la placa o matrícula {v['code']}.")
     vid = run_write("""INSERT INTO fl_vehicles (code, mode, vehicle_type, make, model, year, capacity_t, capacity_m3,
                        home_warehouse_id, driver_id, odometer_base_km, last_service_at, last_service_km,
-                       service_interval_days, service_interval_km, notes, source, created_at)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       service_interval_days, service_interval_km, notes, soat_expiry, rtm_expiry, source, created_at)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (v["code"], v["mode"], v["vehicle_type"], v["make"], v["model"], v["year"], v["capacity_t"],
                      v["capacity_m3"], v["home_warehouse_id"], v["driver_id"], v["odometer_base_km"],
                      v["last_service_at"], v["last_service_km"], v["service_interval_days"], v["service_interval_km"],
-                     v["notes"], "usuario", _now_iso()))
+                     v["notes"], v["soat_expiry"], v["rtm_expiry"], "usuario", _now_iso()))
     audit(user, "CREATE", "fl_vehicles", v["code"], f"Vehículo creado: {v['vehicle_type']} {v['code']}")
     return vehicle_detail(vid, now)
 
@@ -419,13 +461,49 @@ def update_vehicle(vehicle_id: int, data: dict, user: str | None, now: datetime)
         raise OperationError("Tiene tramos pendientes con más carga que la nueva capacidad.")
     run_write("""UPDATE fl_vehicles SET code=?, mode=?, vehicle_type=?, make=?, model=?, year=?, capacity_t=?,
                  capacity_m3=?, home_warehouse_id=?, driver_id=?, odometer_base_km=?, last_service_at=?,
-                 last_service_km=?, service_interval_days=?, service_interval_km=?, notes=?, updated_at=?
-                 WHERE vehicle_id=?""",
+                 last_service_km=?, service_interval_days=?, service_interval_km=?, notes=?, soat_expiry=?,
+                 rtm_expiry=?, updated_at=? WHERE vehicle_id=?""",
               (v["code"], v["mode"], v["vehicle_type"], v["make"], v["model"], v["year"], v["capacity_t"], v["capacity_m3"],
                v["home_warehouse_id"], v["driver_id"], v["odometer_base_km"], v["last_service_at"], v["last_service_km"],
-               v["service_interval_days"], v["service_interval_km"], v["notes"], _now_iso(), vehicle_id))
-    audit(user, "UPDATE", "fl_vehicles", v["code"], "Vehículo editado")
-    return vehicle_detail(vehicle_id, now)
+               v["service_interval_days"], v["service_interval_km"], v["notes"], v["soat_expiry"], v["rtm_expiry"],
+               _now_iso(), vehicle_id))
+    changes = [f"{label}: {cur.get(k) or '—'} → {v[k] or '—'}" for k, label in DOCUMENTS if (cur.get(k) or None) != v[k]]
+    audit(user, "UPDATE", "fl_vehicles", v["code"], "Vehículo editado" + (" (" + "; ".join(changes) + ")" if changes else ""))
+    moved = _enforce_documents_for(vehicle_id, now, user)
+    out = vehicle_detail(vehicle_id, now)
+    if moved:
+        out["reassigned"] = moved
+    return out
+
+
+def _doc_cutoff(v: dict) -> datetime | None:
+    """Primer instante en que el vehículo deja de tener los documentos vigentes (o None)."""
+    if v["mode"] != "terrestre":
+        return None
+    exps = [date.fromisoformat(v[k]) for k, _ in DOCUMENTS if v.get(k)]
+    return datetime.combine(min(exps) + timedelta(days=1), datetime.min.time()) if exps else None
+
+
+def _enforce_documents_for(vehicle_id: int, now: datetime, user: str | None) -> dict | None:
+    """Saca al vehículo de los tramos pendientes que terminan después de que se vence su SOAT o su técnico-mecánica."""
+    v = _vehicle_row(vehicle_id)
+    cut = _doc_cutoff(v)
+    if cut is None or run_query("SELECT 1 FROM fl_assignments WHERE vehicle_id = ? AND end_at > ? AND end_at > ? LIMIT 1",
+                                (vehicle_id, _iso(cut), _iso(now))).empty:
+        return None
+    return replace_assignments(vehicle_id, now, reason=f"SOAT o técnico-mecánica de {v['code']} vencidos en ese viaje",
+                               user=user, ends_after=cut)
+
+
+def enforce_documents(now: datetime) -> int:
+    """Una vez al día: ningún vehículo queda en un tramo que termina con el SOAT o la técnico-mecánica vencidos."""
+    n = 0
+    for r in records(run_query("SELECT vehicle_id FROM fl_vehicles WHERE mode = 'terrestre' AND retired = 0 "
+                               "AND (soat_expiry IS NOT NULL OR rtm_expiry IS NOT NULL)")):
+        moved = _enforce_documents_for(int(r["vehicle_id"]), now, "sistema")
+        if moved:
+            n += len(moved["replaced"]) + len(moved["outsourced"])
+    return n
 
 
 def retire_vehicle(vehicle_id: int, reason: str | None, user: str | None, now: datetime) -> dict:
@@ -716,6 +794,8 @@ def _can_serve(v: dict, d: dict, ctx: dict, start: datetime, end: datetime, igno
         drv = d["driver"]
         if drv and drv["status"] == "Activo" and _dt(drv["license_expiry"]) < start:
             return False
+        if not _doc_valid_through(v, end):
+            return False
         svc = d["service"]
         if svc["km_left"] < 0 or _dt(svc["due_at"]) < start:
             return False
@@ -884,8 +964,12 @@ def _leg_context(shipment_code: str, leg_index: int) -> tuple:
     return sh, route, leg, dep + timedelta(hours=leg["start_h"]), dep + timedelta(hours=leg["end_h"])
 
 
-def _why_not(d: dict) -> str:
-    return d["blockers"][0] if d["blockers"] else "Ya tiene otro tramo en ese horario"
+def _why_not(d: dict, v: dict | None = None, end: datetime | None = None) -> str:
+    if d["blockers"]:
+        return d["blockers"][0]
+    if v is not None and end is not None and not _doc_valid_through(v, end):
+        return "El SOAT o la técnico-mecánica vencen antes de terminar el tramo"
+    return "Ya tiene otro tramo en ese horario"
 
 
 def leg_vehicle_options(shipment_code: str, leg_index: int, now: datetime) -> dict:
@@ -907,7 +991,7 @@ def leg_vehicle_options(shipment_code: str, leg_index: int, now: datetime) -> di
         items.append({"id": int(v["vehicle_id"]), "code": v["code"], "vehicle_type": v["vehicle_type"],
                       "capacity_t": v["capacity_t"], "status": d["status"], "home_name": v.get("home_name"),
                       "distance_km": near, "available": ok, "fits": v["capacity_t"] >= load,
-                      "reason": None if ok else _why_not(d), "selected": int(v["vehicle_id"]) in selected})
+                      "reason": None if ok else _why_not(d, v, end), "selected": int(v["vehicle_id"]) in selected})
     items.sort(key=lambda x: (not x["selected"], not x["available"], not x["fits"],
                               x["distance_km"] if x["distance_km"] is not None else 1e9, x["code"]))
     return {"shipment_code": shipment_code, "leg_index": leg_index, "mode": leg["mode"], "load_t": load,
@@ -962,7 +1046,7 @@ def set_leg_vehicle(shipment_code: str, leg_index: int, vehicle_ids: list | None
             raise OperationError(f"{v['code']} no es de modo {MODE_LABELS[leg['mode']].lower()}")
         d = _derive(v, ctx)
         if not _can_serve(v, d, ctx, start, end, shipment_code):
-            raise OperationError(f"{v['code']} no puede cubrir ese tramo: {_why_not(d)}")
+            raise OperationError(f"{v['code']} no puede cubrir ese tramo: {_why_not(d, v, end)}")
         chosen.append(v)
     cap = sum(v["capacity_t"] for v in chosen)
     if cap + 1e-9 < weight:
@@ -985,7 +1069,7 @@ def set_leg_vehicle(shipment_code: str, leg_index: int, vehicle_ids: list | None
 
 
 def replace_assignments(vehicle_id: int, now: datetime, window: tuple | None = None, reason: str = "",
-                        user: str | None = None) -> dict:
+                        user: str | None = None, ends_after: datetime | None = None) -> dict:
     """Saca a un vehículo de sus tramos pendientes (los que no han terminado, o los que caen
     en `window`) y pone otro de su modo; si no hay, el tramo se terceriza. Deja nota en el envío."""
     rows = records(run_query("SELECT * FROM fl_assignments WHERE vehicle_id = ? AND end_at > ? ORDER BY start_at",
@@ -996,6 +1080,8 @@ def replace_assignments(vehicle_id: int, now: datetime, window: tuple | None = N
         s, e = _dt(a["start_at"]), _dt(a["end_at"])
         if window and not _overlap(s, e, window[0], window[1]):
             continue
+        if ends_after and e <= ends_after:
+            continue  # ese tramo termina antes del vencimiento: se queda
         ship = run_query("SELECT * FROM mm_shipments WHERE shipment_code = ?", (a["shipment_code"],))
         if ship.empty:
             run_write("DELETE FROM fl_assignments WHERE assign_id = ?", (a["assign_id"],))
@@ -1137,6 +1223,11 @@ def seed_fleet(now: datetime) -> int:
             made[(vtype, k)] = vid
             created.append((vid, mode, vtype, days, km, last_days, odo, last_km))
     _seed_service_state(created, made, now, rng)
+    from app.database.schema_v12 import seed_dates
+    for vid, mode, *_ in created:
+        if mode == "terrestre":
+            soat, rtm = seed_dates(_vehicle_row(vid)["code"], now.date())
+            run_write("UPDATE fl_vehicles SET soat_expiry = ?, rtm_expiry = ? WHERE vehicle_id = ?", (soat, rtm, vid))
     return len(created)
 
 

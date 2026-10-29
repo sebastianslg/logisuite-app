@@ -31,6 +31,8 @@ type Draft = {
   service_interval_days: string;
   service_interval_km: string;
   notes: string;
+  soat_expiry: string;
+  rtm_expiry: string;
 };
 
 function draftFrom(v?: VehicleDetail): Draft {
@@ -51,6 +53,8 @@ function draftFrom(v?: VehicleDetail): Draft {
     service_interval_days: v ? String(v.service_interval_days) : "120",
     service_interval_km: v ? String(v.service_interval_km) : "15000",
     notes: v?.notes ?? "",
+    soat_expiry: v?.soat_expiry ?? "",
+    rtm_expiry: v?.rtm_expiry ?? "",
   };
 }
 
@@ -227,6 +231,22 @@ export function VehicleForm({ vehicle }: { vehicle?: VehicleDetail }) {
           El mantenimiento vence por lo que ocurra primero: los días o los kilómetros. Al vencer, el vehículo deja de recibir envíos.
         </p>
       </section>
+
+      {draft.mode === "terrestre" && (
+        <section className="grid gap-4 sm:grid-cols-2">
+          <h2 className="text-sm font-semibold sm:col-span-2">Documentos obligatorios</h2>
+          <Field label="SOAT vigente hasta">
+            <input type="date" className={inputClass} value={draft.soat_expiry} onChange={(e) => set("soat_expiry", e.target.value)} />
+          </Field>
+          <Field label="Revisión técnico-mecánica vigente hasta">
+            <input type="date" className={inputClass} value={draft.rtm_expiry} onChange={(e) => set("rtm_expiry", e.target.value)} />
+          </Field>
+          <p className="text-xs text-muted-foreground sm:col-span-2">
+            Con cualquiera de los dos vencido, el vehículo no puede circular: se inhabilita y sus envíos pasan a otro. No recibe viajes que
+            terminen después del vencimiento. Treinta días antes aparece el aviso.
+          </p>
+        </section>
+      )}
 
       <Field label="Notas">
         <textarea className={textareaClass} value={draft.notes} onChange={(e) => set("notes", e.target.value)} maxLength={300} />

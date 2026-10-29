@@ -251,6 +251,30 @@ export function VehicleDetailView({ vehicle: v }: { vehicle: VehicleDetail }) {
             )}
           </Section>
 
+          {v.documents.length > 0 && (
+            <Section title="Documentos obligatorios">
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {v.documents.map((d) => (
+                  <li key={d.key} className="rounded-2xl bg-fill p-3 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{d.label}</span>
+                      <Badge tone={d.state === "Vencido" ? "danger" : d.state === "Por vencer" ? "warning" : d.state === "Vigente" ? "success" : "neutral"}>
+                        {d.state}
+                      </Badge>
+                    </div>
+                    <p className="tabular mt-1 text-xs text-muted-foreground">
+                      {d.expiry
+                        ? d.days_left! < 0
+                          ? `Venció el ${dateOnly(d.expiry)} (hace ${-d.days_left!} d)`
+                          : `Vigente hasta el ${dateOnly(d.expiry)} · ${d.days_left === 0 ? "vence hoy" : `quedan ${d.days_left} d`}`
+                        : "Sin registrar: edita el vehículo para agregar la fecha."}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+
           <Section title={`Fallas${openFaults.length ? ` (${openFaults.length} abierta${openFaults.length === 1 ? "" : "s"})` : ""}`}
             action={!v.retired ? <Button variant="ghost" size="sm" onClick={() => setSheet("fault")}><TriangleAlert /> Reportar</Button> : null}>
             {v.faults.length === 0 ? (

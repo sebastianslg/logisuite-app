@@ -509,6 +509,15 @@ export interface VehicleDriver {
   status: string;
 }
 
+/** SOAT o revisión técnico-mecánica de un vehículo de carretera (vigente hasta el día del vencimiento). */
+export interface VehicleDocument {
+  key: "soat_expiry" | "rtm_expiry";
+  label: string;
+  expiry: string | null;
+  days_left: number | null;
+  state: "Vigente" | "Por vencer" | "Vencido" | "Sin registrar";
+}
+
 export interface Vehicle {
   id: number;
   code: string;
@@ -531,6 +540,10 @@ export interface Vehicle {
   blockers: string[];
   warnings: string[];
   service: ServiceClock;
+  /** Solo vehículos de carretera; vacío en los demás modos. */
+  documents: VehicleDocument[];
+  soat_expiry: string | null;
+  rtm_expiry: string | null;
   open_faults: number;
   blocking_faults: number;
   next_maintenance: { id: number; kind: MaintenanceKind; start: string; end: string; workshop: string | null } | null;
@@ -623,6 +636,7 @@ export interface FleetSummary {
   open_faults: Fault[];
   upcoming_maintenance: Maintenance[];
   licenses_expiring: { id: number; code: string; driver: string; days_left: number }[];
+  documents_due: { id: number; code: string; label: string; state: "Por vencer" | "Vencido"; expiry: string; days_left: number }[];
   maintenance_cost_90d_usd: number;
 }
 

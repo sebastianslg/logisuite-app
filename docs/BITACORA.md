@@ -677,3 +677,26 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
 - **Intermitente previo (sin resolver):** la prueba de celular falló una vez de tres con un error de hidratación de
   React (#418) en `/configuracion`. No se reprodujo; no viene de este cambio. Si vuelve, revisar qué texto de
   Configuración difiere entre el servidor y el navegador.
+
+## 25. SOAT y revisión técnico-mecánica de los vehículos de carretera (29/10/2026)
+
+- **Qué controla:** los dos documentos obligatorios para circular en Colombia: SOAT (Ley 769 de 2002) y revisión
+  técnico-mecánica y de emisiones (RTM). Solo aplican al modo terrestre. Son vigentes hasta el día del vencimiento,
+  inclusive.
+- **Estado derivado, como el resto de la flota:**
+  - Vencido: el vehículo queda **Inhabilitado**, con el motivo.
+  - Treinta días antes: aviso «vence en N d».
+  - Sin fecha: «Sin registrar», que no bloquea (no se inventa un dato).
+- **Asignación:** un vehículo no recibe un tramo que **termine** después del vencimiento. El selector de vehículo del
+  tramo lo explica («vencen antes de terminar el tramo»).
+- **Al vencerse o al corregir la fecha:** sus tramos pendientes que terminan después del vencimiento pasan a otro
+  vehículo o a un tercero, con nota en el envío. Los que terminan antes se quedan. Lo hace al editar el vehículo y una
+  vez al día (`fleet.enforce_documents`).
+- **Pantallas:**
+  - En el formulario del vehículo, «Documentos obligatorios» (solo en carretera).
+  - En la ficha, una tarjeta por documento con estado y días.
+  - En el tablero de flota, la cifra «SOAT y técnico-mecánica» (roja si hay vencidos).
+- **Datos:** esquema v12 (`soat_expiry`, `rtm_expiry`, aditivo). Los vehículos **de la semilla** (simulados) reciben
+  fechas deterministas a partir de la placa: casi todas vigentes y una de cada nueve por vencer. Los creados por usuarios
+  quedan sin registrar. En Contabo la migración llena solo la semilla de carretera que esté vacía.
+- **Pruebas:** 254 de la API (9 nuevas, sin saltos) y 18 de navegador.

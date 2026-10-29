@@ -95,3 +95,15 @@ test("prueba de entrega: firmar en pantalla, ver el comprobante y anular", async
   await expect(page.getByRole("button", { name: "Registrar entrega" })).toBeVisible();
   w.expectClean();
 });
+
+test("flota: SOAT y técnico-mecánica en la ficha del vehículo y en el formulario", async ({ page, request }) => {
+  const w = watchErrors(page);
+  const list = await (await request.get("/api/fleet/vehicles?mode=terrestre")).json();
+  const v = list.items[0];
+  await page.goto(`/flota/${v.id}`);
+  await expect(page.getByRole("heading", { name: "Documentos obligatorios" })).toBeVisible();
+  await expect(page.getByText("SOAT", { exact: true })).toBeVisible();
+  await page.goto(`/flota/${v.id}/editar`);
+  await expect(page.getByLabel("SOAT vigente hasta")).toHaveValue(v.soat_expiry);
+  w.expectClean();
+});
