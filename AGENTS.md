@@ -36,8 +36,9 @@ Un commit por lote, mensaje en español, y actualizar `docs/BITACORA.md`. Los ca
 - `frontend/e2e/` pruebas de navegador (el fixture ya acepta los términos); `backend/tests/` pruebas de la API.
 
 ## Pendiente (ver también la sección final de la bitácora)
-Mapa: un solo lienzo 3D y conservar el mapa de Red entre visitas (medir con `?diagnostico` en el PC real);
-validar coordenadas contra INVÍAS, ANI, Aerocivil y Cormagdalena; usuarios y
+Mapa: medido en el PC real (60 cuadros/s, sin bloqueos de 250 ms; sección 23 de la bitácora), no hace falta un
+lienzo único; reabrir solo si alguien reporta tirones. Coordenadas: tres distancias corregidas con cifras no oficiales
+(sección 22); validar coordenadas contra INVÍAS, ANI, Aerocivil y Cormagdalena; usuarios y
 empresas con roles (código por correo); PostgreSQL cuando haya varios usuarios; términos y privacidad pendientes de
 datos del responsable y revisión legal; despliegue automático (faltan los secretos en GitHub); dominio propio y
 Cloudflare.

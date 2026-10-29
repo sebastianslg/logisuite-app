@@ -636,3 +636,22 @@ no se consultaron; esto es una comprobación de coherencia contra lo que sí hay
 - **No cubre:** que cada coordenada esté sobre la vía, el puerto o la pista reales. Eso sigue exigiendo las fuentes
   oficiales.
 - Pruebas: 236 de la API.
+
+## 23. Rendimiento del mapa: no hace falta el lienzo 3D único (29/10/2026)
+
+Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el equipo real del dueño.
+
+- **Equipo:** Edge 156, AMD Radeon integrada (ANGLE/Direct3D11), 8 núcleos, 16 GB, pantalla 1912×948, calidad del mapa
+  «auto (alta)», `equipo_modesto: false`.
+- **Resultado en `/red`:** 60 cuadros/s; 13 bloqueos del hilo principal en total, **ninguno de 250 ms o más**, el peor de
+  98 ms. Aparecen en dos ráfagas, ambas al entrar a la Red: 9 tareas de 50 a 98 ms al cargar y 4 de 54 a 87 ms al volver
+  después de pasar por el Resumen. Entre las dos no hay nada: el mapa en reposo no consume.
+- **Decisión:** no se construye un solo lienzo 3D ni se conserva el mapa de Red entre visitas. Conservarlo ahorraría
+  solo la segunda ráfaga (unos 0,3 s de tirones sumados) y exigiría mantener vivo un contexto WebGL, lo que choca con
+  la regla de que el mapa en reposo no hace trabajo por cuadro.
+- **Límites de la medición:** una sola corrida, en un PC de gama media-alta y sin el informe local para comparar (el
+  informe no indica si vino del sitio real o de `localhost`). En equipos modestos la app ya baja sola a calidad
+  «liviana». Si alguien reporta tirones, se reabre con `?diagnostico` en su equipo.
+- **Cómo se mide:** se abre cualquier URL con `?diagnostico` (queda activo por origen: `localhost:3000` y
+  `127.0.0.1:3000` son distintos), se espera en reposo y se navega Resumen → Red → Resumen → Red; «Copiar informe».
+  El navegador integrado de Claude no sirve para esto: con el panel oculto pausa `requestAnimationFrame` y marca 0.
