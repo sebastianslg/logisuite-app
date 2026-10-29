@@ -141,6 +141,37 @@ const columns = helper.columns([
       </div>
     ),
   }),
+  helper.accessor((s) => s.vehicle?.id ?? "", {
+    id: "vehicle",
+    header: "Vehículo",
+    enableSorting: false,
+    cell: (info) => {
+      const v = info.row.original.vehicle;
+      if (!v || !v.id) {
+        return <span className="text-muted-foreground">—</span>;
+      }
+      if (v.own && v.vehicle_ids?.length) {
+        return (
+          <Link
+            href={`/flota/${v.vehicle_ids[0]}`}
+            className="font-mono text-xs text-accent hover:underline"
+            title={`${v.type ?? "Vehículo"} propio (${v.carrier ?? "Flota propia"})`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {v.id}
+          </Link>
+        );
+      }
+      return (
+        <span
+          className="max-w-28 truncate text-xs text-muted-foreground"
+          title={`${v.type ?? ""} ${v.id} · ${v.carrier ?? "Tercero"}`}
+        >
+          {v.id}
+        </span>
+      );
+    },
+  }),
   helper.accessor("status", {
     header: "Estado",
     filterFn: "inSet",
@@ -239,6 +270,7 @@ const NUMERIC = new Set(["weight_t", "cost"]);
  * aparece desde 1024 px (debajo, tarjetas); ETA y cliente desde 1280 px; prioridad desde 1600 px.
  */
 const COL_VISIBILITY: Record<string, string> = {
+  vehicle: "hidden xl:table-cell",
   eta_at: "hidden xl:table-cell",
   client: "hidden xl:table-cell",
   priority: "hidden min-[1600px]:table-cell",
@@ -768,7 +800,22 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
                   <span className="tabular text-xs text-muted-foreground">{Math.round(sh.progress_pct)} %</span>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
-                  <span data-code={sh.code} className="font-mono text-xs text-muted-foreground">{sh.code}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span data-code={sh.code} className="font-mono text-xs text-muted-foreground">{sh.code}</span>
+                    {sh.vehicle?.id && (
+                      <span
+                        className={cn(
+                          "rounded px-1.5 py-0.5 font-mono text-[11px]",
+                          sh.vehicle.own
+                            ? "bg-accent/10 font-medium text-accent"
+                            : "bg-fill text-muted-foreground",
+                        )}
+                        title={sh.vehicle.carrier ?? undefined}
+                      >
+                        {sh.vehicle.id}
+                      </span>
+                    )}
+                  </div>
                   <span className="tabular ml-auto text-right">
                     {sh.weight_fmt} · <Money usd={sh.cost} /> · ETA {sh.eta_fmt}
                   </span>

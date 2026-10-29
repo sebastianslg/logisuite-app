@@ -42,6 +42,9 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   // Sin "X-Powered-By: Next.js": no anunciar la tecnología a quien busca versiones vulnerables
   poweredByHeader: false,
+  experimental: {
+    turbopackPluginRuntimeStrategy: "workerThreads",
+  },
   async headers() {
     return [
       // Páginas: todas las cabeceras. /api (adjuntos y PDF que se abren en el visor del navegador) sin la

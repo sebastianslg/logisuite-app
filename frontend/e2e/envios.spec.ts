@@ -89,3 +89,10 @@ test("lista de envíos: filtro «Por firmar» desde la URL y desde el chip", asy
   await expect(chip).toHaveAttribute("aria-pressed", "false");
   w.expectClean();
 });
+
+test("lista de envíos: columna de vehículo presente en la tabla", async ({ page }) => {
+  const w = watchErrors(page);
+  await page.goto("/envios");
+  await expect(page.getByRole("columnheader", { name: "Vehículo" })).toBeAttached();
+  w.expectClean();
+});

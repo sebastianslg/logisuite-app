@@ -13,6 +13,7 @@ const PORT = Number(process.env.E2E_PORT ?? 3100);
 const API_PORT = Number(process.env.E2E_API_PORT ?? 8100);
 const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 const DB = process.env.E2E_DB_PATH ?? `${process.env.RUNNER_TEMP ?? "/tmp"}/westvane-e2e.db`;
+const PYTHON = process.platform === "win32" ? ".\\.venv\\Scripts\\python.exe" : "python";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -37,7 +38,7 @@ export default defineConfig({
     ? undefined
     : [
         {
-          command: `python -m uvicorn app.main:app --port ${API_PORT}`,
+          command: `${PYTHON} -m uvicorn app.main:app --port ${API_PORT}`,
           cwd: "../backend",
           // Misma zona horaria que producción (docker-compose: TZ=America/Bogota) y que el navegador de las pruebas
           env: { WESTVANE_DB_PATH: DB, WESTVANE_CACHE_TTL: "0", TZ: "America/Bogota" },

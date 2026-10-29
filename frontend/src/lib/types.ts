@@ -174,6 +174,10 @@ export interface Shipment {
   updated_by: string | null;
   /** Lo que de verdad costó (facturas), registrado a mano; null si aún no se registra. */
   actual_cost?: { amount: number; note: string | null; at: string | null; by: string | null; variance_pct: number | null } | null;
+  /** Vehículo activo o asignado (para tablas y listas sin cargar todo el detalle). */
+  vehicle?: Asset | null;
+  /** Resumen de vehículos asignados a los tramos de la ruta. */
+  vehicles?: (Asset & { mode: Mode })[];
   legs?: Leg[];
   transfers?: Transfer[];
   trip?: Trip;

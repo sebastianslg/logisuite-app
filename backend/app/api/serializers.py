@@ -106,15 +106,46 @@ def _actual(s: dict) -> dict | None:
             "variance_pct": F.pct(100 * (amount - est) / est) if est else None}
 
 
+def _asset_summary(a: dict | None) -> dict | None:
+    if not a or not a.get("id"):
+        return None
+    return {
+        "id": a["id"],
+        "type": a.get("type"),
+        "units": a.get("units", 1),
+        "carrier": a.get("carrier"),
+        "own": bool(a.get("own")),
+        "outsourced": bool(a.get("outsourced")),
+        "vehicle_ids": a.get("vehicle_ids") or [],
+        "plates": a.get("plates") or [],
+        "pinned": bool(a.get("pinned")),
+    }
+
+
 def shipment(s: dict, state: dict | None = None, detail: bool = False) -> dict:
     route_data = json.loads(s["route_json"])
+    legs = route_data.get("legs", [])
     modes = s["modes"].split(",") if s["modes"] else []
     progress = state["progress"] if state else (1.0 if s["status"] == "Entregado" else 0.0)
     current_mode = None
+    current_leg = None
     if state and s["status"] in ("En Ruta", "Retrasado", "Transferencia Modal"):
         h = state["route_h"]
-        current = next((l for l in route_data["legs"] if l["start_h"] <= h <= l["end_h"]), None)
-        current_mode = current["mode"] if current else None
+        current_leg = next((l for l in legs if l["start_h"] <= h <= l["end_h"]), None)
+        current_mode = current_leg["mode"] if current_leg else None
+    elif legs:
+        current_leg = legs[-1] if s["status"] == "Entregado" else legs[0]
+
+    vehicle_summary = _asset_summary(current_leg.get("asset")) if current_leg else None
+    vehicles_list = []
+    seen = set()
+    for l in legs:
+        a = l.get("asset")
+        if a and a.get("id") and a["id"] not in seen:
+            seen.add(a["id"])
+            summary = _asset_summary(a)
+            if summary:
+                vehicles_list.append({"mode": l["mode"], **summary})
     eta = datetime.fromisoformat(s["eta_at"])
     out = {
         "code": s["shipment_code"], "origin": s["origin_city"], "destination": s["dest_city"],
@@ -140,6 +171,8 @@ def shipment(s: dict, state: dict | None = None, detail: bool = False) -> dict:
         "updated_at": s.get("updated_at"),
         "updated_by": s.get("updated_by"),
         "actual_cost": _actual(s),
+        "vehicle": vehicle_summary,
+        "vehicles": vehicles_list,
     }
     if detail:
         out["legs"] = [leg(l) for l in route_data["legs"]]

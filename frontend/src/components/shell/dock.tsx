@@ -133,7 +133,7 @@ function DesktopDock() {
   }
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-3 z-40 hidden justify-center px-4 md:flex">
+    <div className="pointer-events-none fixed inset-x-0 top-3 z-50 hidden justify-center px-4 md:flex">
       <motion.header
         layout
         transition={SPRING}

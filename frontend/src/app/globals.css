@@ -256,6 +256,7 @@
     /* !important: el mismo elemento lleva `flex-wrap` para escritorio, y esa utilidad ganaba en el orden de Tailwind 4 */
     flex-wrap: nowrap !important;
     overflow-x: auto;
+    max-width: 100%;
     scrollbar-width: none;
     margin-inline: -1rem;
     padding-inline: 1rem;
