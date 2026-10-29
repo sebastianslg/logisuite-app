@@ -162,7 +162,7 @@ def test_lista_y_pdf_marcan_la_entrega(client):
 def test_avisos_cuentan_documentos_y_entregas_por_firmar(client):
     a = client.get("/api/alerts").json()
     assert {"expired", "due"} <= set(a["alerts"]["documents"]) and isinstance(a["alerts"]["to_sign"], int)
-    dep = (datetime.now() - timedelta(days=3)).isoformat(timespec="minutes")  # ya llegó: entregado sin firmar
+    dep = (datetime.now() - timedelta(hours=30)).isoformat(timespec="minutes")  # llegó hace ~1 día: dentro de las 48 h
     made = client.post("/api/shipments", json={"origin": "Bogotá", "destination": "Tunja", "cargo": "Aviso", "weight_t": 2,
                                                "client": "QA", "priority": "costo", "departure_at": dep, "usuario": "Ana"})
     assert made.status_code == 201, made.text
@@ -173,3 +173,14 @@ def test_avisos_cuentan_documentos_y_entregas_por_firmar(client):
     assert client.get("/api/alerts").json()["alerts"]["to_sign"] == before - 1
     s = client.get("/api/dashboard/summary").json()
     assert "documents" in s["alerts"] and "to_sign" in s["alerts"]
+
+
+def test_aviso_por_firmar_solo_cuenta_48_h(client):
+    week_before = client.get("/api/today").json()["counts"]["to_sign"]  # «Hoy» cuenta la semana
+    alert_before = client.get("/api/alerts").json()["alerts"]["to_sign"]
+    old = client.post("/api/shipments", json={"origin": "Bogotá", "destination": "Tunja", "cargo": "Viejo", "weight_t": 2,
+                                              "client": "QA", "priority": "costo", "usuario": "Ana",
+                                              "departure_at": (datetime.now() - timedelta(days=4)).isoformat(timespec="minutes")})
+    assert old.status_code == 201
+    assert client.get("/api/today").json()["counts"]["to_sign"] == week_before + 1  # entra en la semana...
+    assert client.get("/api/alerts").json()["alerts"]["to_sign"] == alert_before  # ...pero no en el aviso de 48 h

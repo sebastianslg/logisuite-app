@@ -813,3 +813,7 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
 - **Documentos del vehículo:** filas con línea divisoria (dos columnas en pantallas medianas) en lugar de cajas grises
   dentro de la tarjeta.
 - Pruebas: 21 de navegador (incluida la de desborde en celular).
+- **Aviso «por firmar» del resumen: solo 48 h** (decisión del dueño). En producción contaba 145, porque en la operación
+  simulada los envíos se entregan solos y nadie firma; un aviso permanente de cientos es ruido. «Requiere atención» y la
+  campana cuentan las entregas sin firma de las últimas 48 h. «Hoy» sigue mostrando la semana y la lista de Envíos,
+  todas (chip «Por firmar»). Pruebas: 262 de la API.

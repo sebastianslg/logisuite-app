@@ -1079,9 +1079,13 @@ def geo_departments() -> dict:
     return {"type": "FeatureCollection", "metadata": base.get("metadata", {}), "features": features}
 
 
-def _unsigned_recent(now: datetime, days: int = 7) -> int:
-    """Envíos que llegaron en los últimos `days` días sin prueba de entrega."""
-    since = (now - timedelta(days=days)).isoformat(timespec="minutes")
+UNSIGNED_ALERT_H = 48
+
+
+def _unsigned_recent(now: datetime, hours: int = UNSIGNED_ALERT_H) -> int:
+    """Envíos que llegaron en las últimas `hours` horas sin prueba de entrega: las que de verdad hay que cerrar.
+    (En la operación simulada nadie firma, así que contar la semana entera daba un aviso permanente de cientos.)"""
+    since = (now - timedelta(hours=hours)).isoformat(timespec="minutes")
     return int(run_query("SELECT COUNT(*) AS n FROM mm_shipments s LEFT JOIN mm_deliveries d ON d.shipment_code = s.shipment_code "
                          "WHERE s.status = 'Entregado' AND d.shipment_code IS NULL AND s.eta_at >= ?", (since,)).iloc[0]["n"])
 

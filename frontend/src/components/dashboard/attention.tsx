@@ -58,7 +58,7 @@ export function buildAlertItems(alerts: DashboardSummary["alerts"]): AlertItem[]
     items.push({
       key: "por-firmar", href: "/hoy#firmar", tone: "warning", icon: <PenLine />,
       title: plural(alerts.to_sign, "entrega por firmar", "entregas por firmar"),
-      detail: "Llegaron en la última semana sin prueba de entrega",
+      detail: "Llegaron en las últimas 48 h sin prueba de entrega",
     });
   if (fleet && fleet.overdue > 0)
     items.push({
