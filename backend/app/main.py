@@ -111,6 +111,7 @@ def _purge_attachments_daily(now: datetime) -> None:
         journal.purge_expired(now)
         delivery.purge_expired(now, journal.retention_days())
         fleet.enforce_documents(now)
+        fleet.notify_due(now)
 
 
 def _sync() -> datetime:

@@ -731,3 +731,14 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
 - **Siguiente paso:** usar una copia de `/tmp/westvane-e2e.db` con `next dev` para ver el diff exacto de la
   hidratación.
 - **Este lote no toca Configuración.**
+
+## 27. Aviso diario de documentos de flota por vencer (29/10/2026)
+
+- Una vez al día, por el mismo canal ntfy de las incidencias, se envía un aviso con los SOAT, técnico-mecánicas y
+  licencias de conducción vencidos o que vencen en 7 días o menos. Lleva hasta 8 líneas y «y N más».
+- Si hay alguno vencido, el aviso va con prioridad alta. Al tocarlo se abre `/hoy`. Sin `NTFY_TOPIC` no envía nada.
+- `fleet.notify_due`, llamado en la revisión diaria junto con `enforce_documents`.
+- Pruebas: 259 de la API.
+- En Contabo, la caída registrada a las 02:15 (29/10) no tiene causa clara. Caddy muestra respuestas cortadas a una
+  IP de AWS un instante antes y no hay reinicios ni falta de memoria. No se repitió. Los 5 s de `/api/health` justo
+  después de reconstruir son el arranque en frío; en reposo responde en 0,04 a 0,24 s.

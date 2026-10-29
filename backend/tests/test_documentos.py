@@ -162,3 +162,24 @@ def test_fechas_de_la_semilla_son_deterministas_y_futuras():
         s, r = seed_dates(code, today)
         assert seed_dates(code, today) == (s, r)
         assert date.fromisoformat(s) > today and date.fromisoformat(r) > today
+
+
+def test_aviso_diario_de_vencimientos(client, monkeypatch):
+    from app.engine import notify
+    sent = []
+    monkeypatch.setattr(notify, "send", lambda title, msg, **kw: sent.append((title, msg, kw)) or True)
+    v = next(x for x in vehicles(client, mode="terrestre") if not x["retired"])
+    assert client.put(f"/api/fleet/vehicles/{v['id']}", json={"soat_expiry": day(2), "usuario": "Ana"}).status_code == 200
+    assert fleet.notify_due(datetime.now()) is True
+    title, msg, kw = sent[-1]
+    assert "por vencer" in title and f"{v['code']}: SOAT vence en 2 d" in msg and kw["path"] == "/hoy"
+    assert client.put(f"/api/fleet/vehicles/{v['id']}", json={"soat_expiry": day(-3), "usuario": "Ana"}).status_code == 200
+    fleet.notify_due(datetime.now())
+    title, msg, kw = sent[-1]
+    assert "hay vencidos" in title and kw["priority"] == "high" and "venció hace 3 d" in msg
+
+
+def test_sin_tema_de_ntfy_no_envia(monkeypatch):
+    from app.engine import notify
+    monkeypatch.delenv("NTFY_TOPIC", raising=False)
+    assert notify.send("x", "y") is False

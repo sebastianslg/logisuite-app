@@ -495,6 +495,32 @@ def _enforce_documents_for(vehicle_id: int, now: datetime, user: str | None) -> 
                                user=user, ends_after=cut)
 
 
+NOTIFY_DAYS = 7
+
+
+def notify_due(now: datetime) -> bool:
+    """Un aviso al día (ntfy) con lo que vence en 7 días o ya venció: SOAT, técnico-mecánica y licencias.
+
+    Abre el tablero «Hoy». Sin NTFY_TOPIC no envía nada. Devuelve si hubo algo que avisar y se envió."""
+    from app.engine import notify
+    s = summary(now)
+    docs = [d for d in s["documents_due"] if d["days_left"] <= NOTIFY_DAYS]
+    lic = [x for x in s["licenses_expiring"] if x["days_left"] <= NOTIFY_DAYS]
+    if not docs and not lic:
+        return False
+
+    def when(days: float) -> str:
+        days = int(days)
+        return f"venció hace {-days} d" if days < 0 else "vence hoy" if days == 0 else f"vence en {days} d"
+
+    parts = [f"{d['code']}: {d['label']} {when(d['days_left'])}" for d in docs]
+    parts += [f"{x['code']}: licencia de {x['driver']} {when(x['days_left'])}" for x in lic]
+    expired = any(d["state"] == "Vencido" for d in docs) or any(x["days_left"] < 0 for x in lic)
+    body = "; ".join(parts[:8]) + (f"; y {len(parts) - 8} más" if len(parts) > 8 else "") + "."
+    title = f"{len(parts)} documento{'s' if len(parts) != 1 else ''} de flota por vencer" + (" (hay vencidos)" if expired else "")
+    return notify.send(title, body, tags="page_facing_up", priority="high" if expired else "default", path="/hoy")
+
+
 def enforce_documents(now: datetime) -> int:
     """Una vez al día: ningún vehículo queda en un tramo que termina con el SOAT o la técnico-mecánica vencidos."""
     n = 0
