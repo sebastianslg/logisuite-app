@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { CircleAlert, CircleCheck, PackageCheck } from "lucide-react";
+import { CircleAlert, CircleCheck } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { SignaturePad } from "@/components/shipments/signature-pad";
@@ -17,7 +17,7 @@ import { EASE, SPRING } from "@/lib/motion";
 import type { DeliveryInfo } from "@/lib/types";
 
 function dt(iso: string) {
-  return new Date(iso).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(iso).toLocaleString("es-CO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 /**
@@ -161,8 +161,7 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
 
       {view === "idle" && (
         <motion.div key="idle" initial={enter} animate={shown} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: EASE }} className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <p className="flex items-center gap-2 text-muted-foreground">
-            <PackageCheck className="size-4 shrink-0" aria-hidden />
+          <p className="text-muted-foreground">
             {info.arrived ? "Llegó a destino: registra quién recibió y su firma." : `Se registra al llegar (estimado ${dt(info.eta_at)}).`}
           </p>
           {info.can_record && (

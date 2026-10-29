@@ -48,12 +48,17 @@ export function FleetBoard({ vehicles, summary }: { vehicles: Vehicle[]; summary
     <div className="flex flex-col gap-5">
       <StatStrip
         items={[
-          { label: "Disponibilidad", value: `${summary.availability_pct.toLocaleString("es-CO")} %`, hint: `${summary.total} vehículos en flota` },
-          { label: "Disponibles", value: bs["Disponible"] + bs["Reservado"], hint: "Listos o reservados", active: only(["Disponible", "Reservado"]), onClick: () => set(["Disponible", "Reservado"]) },
+          {
+            label: "Disponibilidad",
+            value: `${summary.availability_pct.toLocaleString("es-CO")} %`,
+            hint: `${bs["Disponible"] + bs["Reservado"]} listos de ${summary.total}`,
+            active: only(["Disponible", "Reservado"]),
+            onClick: () => set(["Disponible", "Reservado"]),
+          },
           { label: "En ruta", value: bs["En ruta"], hint: "Llevando un envío", active: only(["En ruta"]), onClick: () => set(["En ruta"]) },
           { label: "En mantenimiento", value: bs["En mantenimiento"], hint: "En el taller", tone: bs["En mantenimiento"] ? "warning" : undefined, active: only(["En mantenimiento"]), onClick: () => set(["En mantenimiento"]) },
           { label: "Sin poder operar", value: blocked, hint: "Falla, servicio o documentos vencidos", tone: blocked ? "danger" : undefined, active: only(["Inhabilitado", "Mantenimiento vencido"]), onClick: () => set(["Inhabilitado", "Mantenimiento vencido"]) },
-          { label: "Mantenimiento próximo", value: summary.maintenance_due.filter((m) => m.state === "Próximo").length, hint: "Vencen pronto" },
+          { label: "Mantenimiento próximo", value: summary.maintenance_due.filter((m) => m.state === "Próximo").length, hint: "Vence pronto" },
           {
             label: "SOAT y técnico-mecánica",
             value: (summary.documents_due ?? []).length,

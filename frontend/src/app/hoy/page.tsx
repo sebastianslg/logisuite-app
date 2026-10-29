@@ -34,12 +34,13 @@ function relative(h: number) {
   return h >= 0 ? `en ${txt}` : `hace ${txt}`;
 }
 
-function clock(iso: string, nowIso: string) {
-  const sameDay = iso.slice(0, 10) === nowIso.slice(0, 10);
-  const t = iso.slice(11, 16);
-  if (sameDay) return t;
-  const d = new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString("es-CO", { weekday: "short", day: "numeric" });
-  return `${d} · ${t}`;
+/** Día relativo a `now` de la API: hoy (vacío), «mañana», «ayer» o el día de la semana. */
+function day(iso: string, nowIso: string) {
+  const d = (Date.parse(`${iso.slice(0, 10)}T12:00:00`) - Date.parse(`${nowIso.slice(0, 10)}T12:00:00`)) / 86_400_000;
+  if (d === 0) return "";
+  if (d === 1) return "mañana";
+  if (d === -1) return "ayer";
+  return new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString("es-CO", { weekday: "short", day: "numeric" });
 }
 
 async function Board() {
@@ -53,7 +54,7 @@ async function Board() {
           className="mb-8"
           items={[
             { label: "Salen", value: c.departures, hint: "Próximas 24 h", href: "#salen" },
-            { label: "Llegan", value: c.arrivals, hint: c.late_arrivals ? `${c.late_arrivals} con retraso` : "Sin retrasos", tone: c.late_arrivals ? "warning" : undefined, href: "#llegan" },
+            { label: "Llegan", value: c.arrivals, hint: c.late_arrivals ? `${c.late_arrivals} con retraso` : "Sin retrasos", href: "#llegan" },
             { label: "Por firmar", value: c.to_sign, hint: "Llegaron sin prueba de entrega", tone: c.to_sign ? "accent" : undefined, href: "#firmar" },
             { label: "Incidencias", value: c.incidents, hint: "Últimas 24 h", tone: c.incidents ? "danger" : undefined, href: "#atencion" },
           ]}
@@ -137,9 +138,11 @@ function Row({ s, now, action }: { s: TodayShipment; now: string; action?: strin
   return (
     <li>
       <Link href={`/envios/${encodeURIComponent(s.code)}`} className="row-link flex min-w-0 items-center gap-3 px-5 py-3 text-sm sm:gap-4">
-        <span className="w-16 shrink-0 sm:w-20">
-          <span className="tabular block text-base leading-tight font-semibold tracking-[-0.01em]">{clock(s.at, now)}</span>
-          <span className="tabular block text-xs text-muted-foreground">{relative(s.in_h)}</span>
+        <span className="w-[4.5rem] shrink-0 sm:w-20">
+          <span className="tabular block text-[1.0625rem] leading-tight font-semibold tracking-[-0.02em]">{s.at.slice(11, 16)}</span>
+          <span className="tabular block truncate text-xs text-muted-foreground">
+            {day(s.at, now) || relative(s.in_h)}
+          </span>
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">

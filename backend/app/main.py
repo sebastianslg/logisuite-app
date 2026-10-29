@@ -1079,9 +1079,20 @@ def geo_departments() -> dict:
     return {"type": "FeatureCollection", "metadata": base.get("metadata", {}), "features": features}
 
 
-def _alerts(rows: list, fs: dict, ws: dict) -> dict:
+def _unsigned_recent(now: datetime, days: int = 7) -> int:
+    """Envíos que llegaron en los últimos `days` días sin prueba de entrega."""
+    since = (now - timedelta(days=days)).isoformat(timespec="minutes")
+    return int(run_query("SELECT COUNT(*) AS n FROM mm_shipments s LEFT JOIN mm_deliveries d ON d.shipment_code = s.shipment_code "
+                         "WHERE s.status = 'Entregado' AND d.shipment_code IS NULL AND s.eta_at >= ?", (since,)).iloc[0]["n"])
+
+
+def _alerts(rows: list, fs: dict, ws: dict, now: datetime | None = None) -> dict:
     """Lo que requiere una decisión ahora: flota, bodegas, cierres, envíos sin ruta, redirigidos y retrasados."""
+    docs = fs.get("documents_due", [])
     return {
+        "documents": {"expired": sum(1 for d in docs if d["state"] == "Vencido"),
+                      "due": sum(1 for d in docs if d["state"] == "Por vencer")},
+        "to_sign": _unsigned_recent(now or datetime.now()),
         "fleet": {
             "disabled": fs["by_status"].get("Inhabilitado", 0),
             "in_shop": fs["by_status"].get("En mantenimiento", 0),
@@ -1114,10 +1125,12 @@ def alerts() -> dict:
     rows = run_query(
         "SELECT shipment_code, status, route_status, route_note, origin_city, dest_city, delay_h FROM mm_shipments"
     ).to_dict(orient="records")
-    data = _alerts(rows, fleet.summary(now), warehouses.summary())
-    fl, wh = data["fleet"], data["warehouses"]
-    urgent = (fl["disabled"] + fl["in_shop"] > 0) + bool(data["no_route"]) + bool(data["closed_corridors"]) + bool(data["closed_nodes"])
-    warn = (fl["overdue"] > 0) + bool(wh["low_stock"] or wh["full"]) + bool(data["rerouted"]) + bool(data["delayed"])
+    data = _alerts(rows, fleet.summary(now), warehouses.summary(), now)
+    fl, wh, dc = data["fleet"], data["warehouses"], data["documents"]
+    urgent = ((fl["disabled"] + fl["in_shop"] > 0) + bool(data["no_route"]) + bool(data["closed_corridors"])
+              + bool(data["closed_nodes"]) + bool(dc["expired"]))
+    warn = ((fl["overdue"] > 0) + bool(wh["low_stock"] or wh["full"]) + bool(data["rerouted"]) + bool(data["delayed"])
+            + bool(dc["due"]) + bool(data["to_sign"]))
     return {"generated_at": now.isoformat(timespec="seconds"), "urgent": urgent, "total": urgent + warn, "alerts": data}
 
 
@@ -1192,7 +1205,7 @@ def dashboard_summary() -> dict:
         "all_corridors": all_corridors,
         "dispatches_14d": [{"date": d.isoformat(), "count": per_day[d]} for d in days],
         "trends": trends.trends(rows, now),
-        "alerts": _alerts(rows, fs, ws),
+        "alerts": _alerts(rows, fs, ws, now),
         "network": {"nodes": len(network().nodes), "links": len(network().links),
                     "modes": S.network_geojson(network())["stats"]},
     }

@@ -34,6 +34,10 @@ export interface DashboardSummary {
   trends: Trends;
   alerts: {
     fleet?: { disabled: number; in_shop: number; overdue: number; open_faults: number };
+    /** SOAT y técnico-mecánica de la flota: vencidos y por vencer (30 días). */
+    documents?: { expired: number; due: number };
+    /** Envíos que llegaron en la última semana sin prueba de entrega. */
+    to_sign?: number;
     warehouses?: { low_stock: number; full: string[] };
     closed_corridors: string[];
     closed_nodes: { code: string; name: string; reason: string | null }[];

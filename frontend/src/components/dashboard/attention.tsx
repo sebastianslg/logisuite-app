@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, CircleCheck, CircleOff, Clock, PackageX, Route, TrafficCone, TriangleAlert, Truck, Wrench } from "lucide-react";
+import { ChevronRight, CircleCheck, CircleOff, Clock, FileWarning, PackageX, PenLine, Route, TrafficCone, TriangleAlert, Truck, Wrench } from "lucide-react";
 
 import type { DashboardSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,25 @@ export function buildAlertItems(alerts: DashboardSummary["alerts"]): AlertItem[]
       key: "flota-fuera", href: "/flota?ver=fallas", tone: "danger", icon: <Truck />,
       title: plural(fleet.disabled + fleet.in_shop, "vehículo fuera de servicio", "vehículos fuera de servicio"),
       detail: [fleet.disabled && plural(fleet.disabled, "inhabilitado", "inhabilitados"), fleet.in_shop && `${fleet.in_shop} en taller`].filter(Boolean).join(" · "),
+    });
+  const docs = alerts.documents;
+  if (docs && docs.expired > 0)
+    items.push({
+      key: "docs-vencidos", href: "/hoy#atencion", tone: "danger", icon: <FileWarning />,
+      title: plural(docs.expired, "documento de flota vencido", "documentos de flota vencidos"),
+      detail: "SOAT o técnico-mecánica: esos vehículos no pueden circular",
+    });
+  if (docs && docs.due > 0)
+    items.push({
+      key: "docs-por-vencer", href: "/hoy#atencion", tone: "warning", icon: <FileWarning />,
+      title: plural(docs.due, "documento de flota por vencer", "documentos de flota por vencer"),
+      detail: "SOAT o técnico-mecánica en los próximos 30 días",
+    });
+  if (alerts.to_sign && alerts.to_sign > 0)
+    items.push({
+      key: "por-firmar", href: "/hoy#firmar", tone: "warning", icon: <PenLine />,
+      title: plural(alerts.to_sign, "entrega por firmar", "entregas por firmar"),
+      detail: "Llegaron en la última semana sin prueba de entrega",
     });
   if (fleet && fleet.overdue > 0)
     items.push({
@@ -114,11 +133,9 @@ export function AlertRows({ items, columns = false, onNavigate }: { items: Alert
             data-ripple
             className="group/alert flex min-h-16 items-center gap-3.5 px-5 py-3.5 outline-none transition-colors duration-200 hover:bg-[color-mix(in_srgb,var(--card)_96%,var(--foreground))] focus-visible:ring-[3px] focus-visible:ring-ring/80 focus-visible:ring-inset"
           >
+            {/* Severidad en el color del ícono (rojo = impide operar, naranja = aviso); sin círculos ni franjas */}
             <span
-              className={cn(
-                "flex size-8 shrink-0 items-center justify-center rounded-full [&_svg]:size-4",
-                it.tone === "danger" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning",
-              )}
+              className={cn("flex shrink-0 [&_svg]:size-[18px]", it.tone === "danger" ? "text-destructive" : "text-warning")}
               aria-hidden
             >
               {it.icon}

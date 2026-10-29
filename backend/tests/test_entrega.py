@@ -157,3 +157,19 @@ def test_lista_y_pdf_marcan_la_entrega(client):
     pdf = client.get(f"/api/shipments/{code}/pdf")
     assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
     assert b"/Subtype /Image" not in pdf.content  # el PDF compartible no lleva la firma
+
+
+def test_avisos_cuentan_documentos_y_entregas_por_firmar(client):
+    a = client.get("/api/alerts").json()
+    assert {"expired", "due"} <= set(a["alerts"]["documents"]) and isinstance(a["alerts"]["to_sign"], int)
+    dep = (datetime.now() - timedelta(days=3)).isoformat(timespec="minutes")  # ya llegó: entregado sin firmar
+    made = client.post("/api/shipments", json={"origin": "Bogotá", "destination": "Tunja", "cargo": "Aviso", "weight_t": 2,
+                                               "client": "QA", "priority": "costo", "departure_at": dep, "usuario": "Ana"})
+    assert made.status_code == 201, made.text
+    code = made.json()["code"]
+    before = client.get("/api/alerts").json()["alerts"]["to_sign"]
+    assert before >= 1
+    assert client.put(f"/api/shipments/{code}/delivery", json=body()).status_code == 200
+    assert client.get("/api/alerts").json()["alerts"]["to_sign"] == before - 1
+    s = client.get("/api/dashboard/summary").json()
+    assert "documents" in s["alerts"] and "to_sign" in s["alerts"]

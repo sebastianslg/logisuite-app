@@ -755,3 +755,24 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
   remesa, de uso interno. Una prueba verifica que no lleva imagen.
 - El chip «Por firmar» de `/hoy` sigue apuntando a su bloque: allí cuenta solo la última semana y la lista cuenta todo.
 - Pruebas: 260 de la API y 20 de navegador (falla la de celular solo por el #418 abierto de la sección 26).
+
+## 29. Avisos de flota y entregas en el resumen, y pulido visual (29/10/2026)
+
+- **Requiere atención** (Resumen y campana del dock) suma:
+  - **documentos de flota vencidos** (rojo, cuenta como urgente) y **por vencer** (naranja), que llevan a `/hoy`;
+  - **entregas por firmar** de la última semana.
+  `/api/alerts` y el resumen traen `documents` y `to_sign`.
+- **Pulido visual** (revisado con capturas de antes y después en escritorio y celular):
+  - **Cadena de modos de la ficha:** ahora ocupa todo el ancho. Cada tramo crecía con `flex-grow` igual a sus horas,
+    y un viaje de 30 min sumaba 0,5: el navegador repartía solo la mitad del espacio y «Destino» quedaba flotando en
+    el centro. Los pesos van en % del recorrido. Barra de 8 px y un **marcador de dónde va la carga**, un punto quieto
+    del color del modo, sin animación.
+  - **Requiere atención:** el ícono va solo, en el color del estado, sin el círculo tintado que `DESIGN.md` prohíbe.
+    Se probó una franja de color al borde y se descartó por ser un patrón genérico.
+  - **Flota:** «Disponibilidad» absorbe «Disponibles», que decía lo mismo («40 listos de 60», y sigue filtrando).
+    Las seis cifras caben en una fila; antes la de SOAT quedaba sola abajo.
+  - **Hoy:**
+    - la hora va en una línea y el día («mañana») abajo; antes se partía en «jue 29 ·» / «05:33»;
+    - «Llegan» ya no sale en naranja cuando solo una parte viene con retraso.
+  - **Prueba de entrega:** sin el ícono repetido y con fecha corta («28 de oct, 10:02 p. m.»).
+- Pruebas: 261 de la API y 20 de navegador en puertos y base propios.
