@@ -236,7 +236,7 @@ def _obs_box(text: str, st) -> Table:
     return t
 
 
-def remesa(s: dict, now: datetime, company: str | None = None) -> bytes:
+def remesa(s: dict, now: datetime, company: str | None = None, pod: tuple | None = None) -> bytes:
     """Remesa de carga de un envío: quién envía, qué, por dónde y en qué vehículos, con espacios para firmas.
 
     Es un formato de referencia para imprimir y firmar en el cargue; no reemplaza la remesa ni el manifiesto
@@ -278,8 +278,17 @@ def remesa(s: dict, now: datetime, company: str | None = None) -> bytes:
         _obs_box(s.get("route_note") or "", st),
         Spacer(1, 22),
     ]
-    sign = Table([["", "", ""], ["Firma y sello del remitente", "Firma del transportador", "Recibí a satisfacción (destinatario)"],
-                  ["Nombre y documento:", "Nombre y documento:", "Nombre, documento y fecha:"]],
+    # Con la prueba de entrega registrada, la casilla del destinatario lleva la firma, el nombre y la fecha
+    received, received_text = "", "Nombre, documento y fecha:"
+    if pod:
+        d, png = pod
+        if png:
+            from reportlab.platypus import Image
+            received = Image(io.BytesIO(png), width=50 * mm, height=16 * mm, kind="proportional")
+        cond = "conforme" if d["condition"] == "conforme" else "con novedad"
+        received_text = (f"{d['received_by'] or '(dato borrado por plazo de conservación)'} · {_dt(d['received_at'])} · {cond}")
+    sign = Table([["", "", received], ["Firma y sello del remitente", "Firma del transportador", "Recibí a satisfacción (destinatario)"],
+                  ["Nombre y documento:", "Nombre y documento:", received_text]],
                  colWidths=[60 * mm, 60 * mm, 60 * mm], rowHeights=[18 * mm, None, 12 * mm])
     sign.setStyle(TableStyle([("LINEABOVE", (0, 1), (-1, 1), 0.6, INK), ("FONTSIZE", (0, 1), (-1, -1), 7.5),
                               ("TEXTCOLOR", (0, 2), (-1, 2), MUTED), ("VALIGN", (0, 2), (-1, 2), "TOP"),

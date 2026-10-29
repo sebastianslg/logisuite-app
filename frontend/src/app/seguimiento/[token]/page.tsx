@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { Check, CircleDot, Clock, MapPin } from "lucide-react";
+import { Check, CircleCheck, CircleDot, Clock, MapPin } from "lucide-react";
 
 import { AutoRefresh } from "@/components/tracking/auto-refresh";
 import { Skeleton } from "@/components/page-header";
@@ -63,6 +63,12 @@ async function Body({ params }: { params: PageProps<"/seguimiento/[token]">["par
             <dd className={cn("tabular mt-0.5 font-medium", t.delay_fmt && "text-destructive")}>{t.delay_fmt ?? "Sin retraso"}</dd>
           </div>
         </dl>
+        {t.delivery && (
+          <p className="mt-4 flex items-center gap-2 border-t border-border pt-4 text-sm font-medium text-success">
+            <CircleCheck className="size-4 shrink-0" aria-hidden />
+            Entrega confirmada · {new Date(t.delivery.received_at).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })} · {t.delivery.condition_label.toLowerCase()}
+          </p>
+        )}
       </section>
 
       <section className="mt-6" aria-labelledby="ruta">

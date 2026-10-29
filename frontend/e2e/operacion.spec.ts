@@ -56,3 +56,42 @@ test("modo presentación y metodología", async ({ page }) => {
   await expect(page.getByRole("img", { name: "Grafo expandido por estados" })).toBeVisible();
   w.expectClean();
 });
+
+test("prueba de entrega: firmar en pantalla, ver el comprobante y anular", async ({ page, request }) => {
+  const w = watchErrors(page);
+  const list = await (await request.get("/api/shipments?status=Entregado")).json();
+  let code = "";
+  for (const s of list.items as { code: string }[]) {
+    const d = await (await request.get(`/api/shipments/${s.code}/delivery`)).json();
+    if (d.can_record) {
+      code = s.code;
+      break;
+    }
+  }
+  test.skip(!code, "no hay envíos entregados sin entrega registrada");
+  await page.goto(`/envios/${code}`);
+  await page.getByRole("button", { name: "Registrar entrega" }).click();
+  await page.getByLabel("Recibe (nombre completo)").fill("Prueba Automática");
+
+  // Guardar sin firma avisa
+  await page.getByRole("button", { name: /Guardar entrega/ }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Falta la firma" })).toBeVisible();
+
+  const pad = page.getByRole("img", { name: /Firma de quien recibe/ });
+  const box = (await pad.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.6);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.3, { steps: 8 });
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.7, { steps: 8 });
+  await page.mouse.up();
+  await expect(pad).toHaveAccessibleName(/firmada/);
+
+  await page.getByRole("button", { name: /Guardar entrega/ }).click();
+  await expect(page.getByText("Recibió Prueba Automática")).toBeVisible();
+  await expect(page.getByRole("img", { name: "Firma de Prueba Automática" })).toBeVisible();
+
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Anular" }).click();
+  await expect(page.getByRole("button", { name: "Registrar entrega" })).toBeVisible();
+  w.expectClean();
+});

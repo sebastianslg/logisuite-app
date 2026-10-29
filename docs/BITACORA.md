@@ -655,3 +655,25 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
 - **Cómo se mide:** se abre cualquier URL con `?diagnostico` (queda activo por origen: `localhost:3000` y
   `127.0.0.1:3000` son distintos), se espera en reposo y se navega Resumen → Red → Resumen → Red; «Copiar informe».
   El navegador integrado de Claude no sirve para esto: con el panel oculto pausa `requestAnimationFrame` y marca 0.
+
+## 24. Prueba de entrega con firma en pantalla (29/10/2026)
+
+- **Qué es:** cuando un envío llega (estado «Entregado»), la ficha permite registrar quién recibió, la hora, si la carga
+  llegó **conforme** o **con novedad** (con la novedad obligatoria) y la **firma** de quien recibe, dibujada con el
+  dedo, el lápiz o el mouse. El lienzo es «papel» blanco con tinta oscura en los dos temas, para que la firma se vea
+  igual en pantalla y en el PDF.
+- **Una por envío.** Para corregirla se anula (queda en el historial) y se registra de nuevo. Al borrar el envío se va
+  con él.
+- **Remesa en PDF:** la casilla «Recibí a satisfacción» lleva la firma, el nombre, la fecha y el estado.
+- **Seguimiento público:** solo «Entrega confirmada · fecha · conforme/con novedad». No muestra el nombre ni la firma
+  (una prueba lo verifica).
+- **Datos personales:** con `ATTACHMENT_RETENTION_DAYS`, el nombre y la firma se borran al cumplirse el plazo; se
+  conservan el estado y las fechas, con una línea de auditoría.
+- **Seguridad:** la firma debe ser un PNG real (se revisa la firma del archivo) de máximo 200 KB.
+- **Movimiento:** al guardar, el formulario se convierte en el comprobante (fundido y desplazamiento corto) y el sello
+  entra con un resorte (`scale`). Con «reducir movimiento», solo fundidos.
+- **API:** `GET/PUT/DELETE /api/shipments/{code}/delivery`. Esquema v11: tabla `mm_deliveries` (aditiva).
+- **Pruebas:** 245 de la API y 17 de navegador.
+- **Intermitente previo (sin resolver):** la prueba de celular falló una vez de tres con un error de hidratación de
+  React (#418) en `/configuracion`. No se reprodujo; no viene de este cambio. Si vuelve, revisar qué texto de
+  Configuración difiere entre el servidor y el navegador.

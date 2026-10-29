@@ -15,6 +15,7 @@ from datetime import datetime
 from app.api import format as F
 from app.database.db import run_query, run_write
 from app.engine.common import OperationError, _now_iso, _user, audit, records
+from app.engine import delivery
 from app.engine.dispatch import status_at
 
 MAX_ACTIVE_PER_SHIPMENT = 5
@@ -69,5 +70,6 @@ def public_view(token: str, now: datetime) -> dict:
         "delay_h": F.hours(s["delay_h"]), "delay_fmt": F.duration_fmt(s["delay_h"]) if s["delay_h"] else None,
         "route_h": round(state["route_h"], 2), "legs": legs,
         "modes": [F.MODE_LABELS[m] for m in (s["modes"].split(",") if s["modes"] else [])],
+        "delivery": delivery.public(code),
         "updated_at": now.isoformat(timespec="seconds"),
     }

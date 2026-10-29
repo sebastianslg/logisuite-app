@@ -23,6 +23,7 @@ Operación (sin autenticación; el campo `usuario` es un nombre declarado):
   GET/POST/DELETE     /api/exports[/{token}]                  Enlaces para compartir
   GET/POST            /api/shipments/{code}/events            Bitácora: notas e incidencias en ruta
   GET/POST/DELETE     /api/shipments/{code}/attachments       Documentos adjuntos del envío
+  GET/PUT/DELETE      /api/shipments/{code}/delivery          Prueba de entrega con firma
   POST                /api/shipments/import                   Carga masiva desde Excel o CSV (vista previa y confirmar)
   GET                 /api/reports/operations                 Reporte operativo del período en PDF
   GET                 /api/clients                            Resumen por cliente
@@ -53,7 +54,7 @@ from app.api import guard
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
-from app.engine import (clients, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
+from app.engine import (clients, delivery, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
                         shipments_io, sustainability as SU, telemetry, tolls, tracking, trends, warehouses, xlsx)
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
@@ -107,6 +108,7 @@ def _purge_attachments_daily(now: datetime) -> None:
     if day != _last_purge_day:
         _last_purge_day = day
         journal.purge_expired(now)
+        delivery.purge_expired(now, journal.retention_days())
 
 
 def _sync() -> datetime:
@@ -475,6 +477,7 @@ def shipment_delete(code: str, usuario: str | None = None) -> dict:
     except LookupError:
         raise HTTPException(status_code=404, detail=f"Envío {code} no encontrado")
     journal.purge(code)
+    delivery.purge(code)
     return {"deleted": code}
 
 
@@ -841,6 +844,44 @@ def shipment_actual_cost(code: str, body: ActualCostIn) -> dict:
         _op_error(exc)
 
 
+class DeliveryIn(BaseModel):
+    received_by: str = Field(..., max_length=120)
+    condition: Literal["conforme", "con_novedad"] = "conforme"
+    notes: str | None = Field(None, max_length=500)
+    received_at: str | None = None
+    signature: str = Field(..., max_length=400_000)  # data:image/png;base64,... (máx. 200 KB decodificado)
+    usuario: str | None = None
+
+
+@app.get("/api/shipments/{code}/delivery")
+def shipment_delivery(code: str) -> dict:
+    """Prueba de entrega: quién recibió, cuándo, estado de la carga y firma (o null si no se ha registrado)."""
+    try:
+        return delivery.get(code, _sync())
+    except LookupError:
+        _not_found(code)
+
+
+@app.put("/api/shipments/{code}/delivery")
+def shipment_delivery_record(code: str, body: DeliveryIn) -> dict:
+    try:
+        return delivery.record(code, body.model_dump(exclude={"usuario"}), body.usuario, _sync())
+    except LookupError:
+        _not_found(code)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
+@app.delete("/api/shipments/{code}/delivery")
+def shipment_delivery_void(code: str, usuario: str | None = None) -> dict:
+    try:
+        return delivery.void(code, usuario, _sync())
+    except LookupError:
+        _not_found(code)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
 @app.post("/api/shipments/{code}/tracking", status_code=201)
 def tracking_create(code: str, usuario: str | None = None) -> dict:
     """Crea un enlace público de seguimiento (solo lectura) para compartir con el cliente."""
@@ -882,7 +923,7 @@ def shipment_remesa(code: str, descargar: bool = False) -> Response:
     """Remesa de carga para imprimir y firmar (formato de referencia; no reemplaza la del RNDC)."""
     now = _sync()
     row = _shipment_row(code)
-    data = pdf.remesa(row, now, legal.responsible()["name"])
+    data = pdf.remesa(row, now, legal.responsible()["name"], delivery.signature_bytes(code))
     disposition = "attachment" if descargar else "inline"
     return Response(data, media_type="application/pdf",
                     headers={"Content-Disposition": f'{disposition}; filename="remesa-{code}.pdf"'})

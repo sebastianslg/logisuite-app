@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRightLeft, CircleOff, CopyPlus, Leaf, FileCheck2, FileSignature, History, ListTree, LoaderCircle, Maximize2, Paperclip, Pencil, Printer, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, CircleOff, CopyPlus, Leaf, FileCheck2, FileSignature, History, ListTree, LoaderCircle, Maximize2, PackageCheck, Paperclip, Pencil, Printer, Trash2 } from "lucide-react";
 
 import { LayoutGroup, motion, useInView, useReducedMotion } from "framer-motion";
 
@@ -12,6 +12,7 @@ import { MapFrame } from "@/components/map/map-frame";
 import { useMapData } from "@/components/map/use-map-data";
 import { useApp } from "@/components/providers";
 import { ActualCost } from "@/components/shipments/actual-cost";
+import { DeliveryProof } from "@/components/shipments/delivery-proof";
 import { LegVehicle } from "@/components/shipments/leg-vehicle";
 import { TrackingLinks } from "@/components/shipments/tracking-links";
 import { ExportActions } from "@/components/shipments/export-actions";
@@ -30,7 +31,7 @@ import { api } from "@/lib/client";
 import { requiredDocuments } from "@/lib/documents";
 import { MODES, PRIORITIES } from "@/lib/modes";
 import { EASE } from "@/lib/motion";
-import type { Attachment, AuditEntry, Mode, RouteResult, Shipment, ShipmentEvent } from "@/lib/types";
+import type { Attachment, AuditEntry, DeliveryInfo, Mode, RouteResult, Shipment, ShipmentEvent } from "@/lib/types";
 
 const SOURCE: Record<Shipment["source"], string> = {
   seed: "Carga inicial",
@@ -48,11 +49,13 @@ export function ShipmentDetail({
   history,
   events,
   attachments,
+  delivery,
 }: {
   shipment: Shipment;
   history: AuditEntry[];
   events: ShipmentEvent[];
   attachments: Attachment[];
+  delivery: DeliveryInfo | null;
 }) {
   const router = useRouter();
   const { money, operator } = useApp();
@@ -278,6 +281,10 @@ export function ShipmentDetail({
               <ExportActions codes={[s.code]} />
             </Card>
           </div>
+
+          <Card title="Prueba de entrega" icon={<PackageCheck className="size-3.5 text-muted-foreground" aria-hidden />}>
+            <DeliveryProof code={s.code} initial={delivery} />
+          </Card>
 
           <Card title="Documentos adjuntos" icon={<Paperclip className="size-3.5 text-muted-foreground" aria-hidden />}>
             <ShipmentAttachments code={s.code} initial={attachments} />

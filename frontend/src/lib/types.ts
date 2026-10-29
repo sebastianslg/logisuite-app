@@ -964,5 +964,30 @@ export interface TrackingView {
   route_h: number;
   legs: { mode: Mode; mode_label: string; from: string; to: string; start_h: number; end_h: number }[];
   modes: string[];
+  /** Solo que hubo entrega, cuándo y si fue conforme: sin el nombre ni la firma de quien recibió. */
+  delivery: { confirmed: true; received_at: string; condition_label: string } | null;
   updated_at: string;
+}
+
+/** Prueba de entrega (POD) de un envío. */
+export interface Delivery {
+  /** null cuando se borró por el plazo de conservación de datos. */
+  received_by: string | null;
+  received_at: string;
+  condition: "conforme" | "con_novedad";
+  condition_label: string;
+  notes: string | null;
+  /** PNG como data URL; null cuando se borró por el plazo de conservación. */
+  signature: string | null;
+  recorded_by: string;
+  recorded_at: string;
+  purged: boolean;
+}
+
+export interface DeliveryInfo {
+  code: string;
+  delivery: Delivery | null;
+  arrived: boolean;
+  can_record: boolean;
+  eta_at: string;
 }
