@@ -9,12 +9,18 @@ Interfaz en español. Producción: https://westvane.duckdns.org (Contabo; guía 
 las secciones 12 a 20 son lo más reciente). Next.js aquí es una versión nueva: lee `frontend/AGENTS.md` y
 `node_modules/next/dist/docs/` antes de tocar rutas o caché.
 
+## Relevo entre herramientas
+Aquí trabajan por turnos Claude (nube y PC) y Antigravity. **Lee `docs/RELEVO.md` antes de empezar y actualízalo al
+terminar.** Se trabaja en la rama `desarrollo` (nunca directo en `main`), con commits pequeños y push al cerrar.
+`main` es lo estable que va a producción y solo recibe `desarrollo` cuando todas las verificaciones pasan.
+
 ## Reglas que no se rompen
 - Animaciones solo con `transform` y `opacity`; todo componente nuevo respeta «reducir movimiento». Nada de animar
   `width`, `height`, `top` ni `box-shadow` en listas, tablas o mapa.
 - El mapa está quieto en reposo: no agregar trabajo por cuadro.
 - No agregar contraseña de la aplicación (aplazado por decisión del dueño).
 - Solo Inter Variable; sin fuentes propietarias ni fotos de terceros. Paleta de modos validada (ver DESIGN.md).
+- No subir `.env`, `backend/data/`, `.venv`, `node_modules` ni claves; sin `git push --force` ni `git reset --hard`.
 - Nunca `docker compose down -v`; nunca claves, `.env` ni contraseñas en commits o chats; no `git reset --hard` en
   `/opt/logisuite` sin revisar `git status`.
 - Datos personales: el nombre del operador es declarado, sin autenticación. Documentos legales en borrador hasta que
