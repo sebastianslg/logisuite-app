@@ -36,20 +36,20 @@
   --sys-red: #ff3b30;
   --sys-orange: #ff9500;
 
-  --accent: #005bb5; /* texto/íconos interactivos: 6,6:1 sobre blanco, 5,3:1 sobre su tinte al 12 % */
-  --accent-solid: #0071e3; /* relleno de botones con texto blanco: 4,6:1 */
+  --accent: #0066cc; /* texto/íconos interactivos (enlace de apple.com): 5,6:1 sobre blanco, 4,5:1 sobre su tinte */
+  --accent-solid: #0071e3; /* relleno de botones (el de apple.com) con texto blanco: 4,7:1 */
   --accent-foreground: #ffffff;
-  --success: #18703a;
-  --warning: #984c00; /* 5:1 sobre su tinte */
-  --danger: #ad111b; /* 5:1 sobre las tarjetas tintadas de rojo */
-  --info: #3c4ccf;
+  --success: #1f7835; /* verde accesible de Apple, ajustado a 4,5:1 sobre su tinte */
+  --warning: #c13200; /* naranja accesible de Apple: 4,5:1 sobre su tinte */
+  --danger: #cc0014; /* rojo accesible de Apple: 4,5:1 sobre su tinte */
+  --info: #3634a3;
 
   /* Modos de transporte: solo identifican el modo (siempre con ícono y texto). Validados para daltonismo: ver lib/modes.ts */
-  --mode-maritimo: #5044db;
-  --mode-terrestre: #26a683;
-  --mode-aereo: #d623a7;
-  --mode-ferreo: #bc812f;
-  --mode-fluvial: #3c88e5;
+  --mode-maritimo: #5856d6;
+  --mode-terrestre: #248a3d;
+  --mode-aereo: #ff2d55;
+  --mode-ferreo: #ff9500;
+  --mode-fluvial: #32ade6;
 
   color-scheme: light;
 }
@@ -80,19 +80,19 @@
     --sys-red: #ff453a;
     --sys-orange: #ff9f0a;
 
-    --accent: #8f9cf7; /* texto sobre #1c1c1e: 6,6:1 (el #5266eb puro no llega a 4,5:1 como texto) */
-    --accent-solid: #5266eb; /* relleno de botones con texto blanco: 4,9:1 */
+    --accent: #2997ff; /* enlace de apple.com en oscuro: 5,6:1 sobre #1c1c1e */
+    --accent-solid: #0071e3; /* el mismo azul de botón que en claro (antes índigo): texto blanco 4,7:1 */
     --accent-foreground: #ffffff;
-    --success: #32d74b;
+    --success: #30d158;
     --warning: #ff9f0a;
-    --danger: #ff6961;
-    --info: #7d8cff;
+    --danger: #ff6961; /* rojo accesible de Apple en oscuro: 6:1 sobre #1c1c1e */
+    --info: #8986ff;
 
-    --mode-maritimo: #684af5;
-    --mode-terrestre: #26a683;
-    --mode-aereo: #c82a9c;
-    --mode-ferreo: #bc812f;
-    --mode-fluvial: #5b91d7;
+    --mode-maritimo: #6f71fc;
+    --mode-terrestre: #017829;
+    --mode-aereo: #e60e4c;
+    --mode-ferreo: #ce7f00;
+    --mode-fluvial: #29a1cc;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -121,19 +121,19 @@
     --sys-red: #ff453a;
     --sys-orange: #ff9f0a;
 
-    --accent: #8f9cf7; /* texto sobre #1c1c1e: 6,6:1 (el #5266eb puro no llega a 4,5:1 como texto) */
-    --accent-solid: #5266eb; /* relleno de botones con texto blanco: 4,9:1 */
+    --accent: #2997ff; /* enlace de apple.com en oscuro: 5,6:1 sobre #1c1c1e */
+    --accent-solid: #0071e3; /* el mismo azul de botón que en claro (antes índigo): texto blanco 4,7:1 */
     --accent-foreground: #ffffff;
-    --success: #32d74b;
+    --success: #30d158;
     --warning: #ff9f0a;
-    --danger: #ff6961;
-    --info: #7d8cff;
+    --danger: #ff6961; /* rojo accesible de Apple en oscuro: 6:1 sobre #1c1c1e */
+    --info: #8986ff;
 
-    --mode-maritimo: #684af5;
-    --mode-terrestre: #26a683;
-    --mode-aereo: #c82a9c;
-    --mode-ferreo: #bc812f;
-    --mode-fluvial: #5b91d7;
+    --mode-maritimo: #6f71fc;
+    --mode-terrestre: #017829;
+    --mode-aereo: #e60e4c;
+    --mode-ferreo: #ce7f00;
+    --mode-fluvial: #29a1cc;
   }
 }
 

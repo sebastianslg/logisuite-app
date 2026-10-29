@@ -10,26 +10,26 @@ colors:
   card-dark: "#1c1c1e"
   muted-foreground-light: "#5f5f64"
   muted-foreground-dark: "#a1a1a6"
-  accent-light: "#005bb5"
-  accent-dark: "#8f9cf7"
+  accent-light: "#0066cc"
+  accent-dark: "#2997ff"
   accent-solid-light: "#0071e3"
-  accent-solid-dark: "#5266eb"
-  success-light: "#18703a"
-  success-dark: "#32d74b"
-  warning-light: "#984c00"
+  accent-solid-dark: "#0071e3"
+  success-light: "#1f7835"
+  success-dark: "#30d158"
+  warning-light: "#c13200"
   warning-dark: "#ff9f0a"
-  danger-light: "#ad111b"
+  danger-light: "#cc0014"
   danger-dark: "#ff6961"
-  mode-maritimo-light: "#5044db"
-  mode-maritimo-dark: "#684af5"
-  mode-terrestre-light: "#26a683"
-  mode-terrestre-dark: "#26a683"
-  mode-aereo-light: "#d623a7"
-  mode-aereo-dark: "#c82a9c"
-  mode-ferreo-light: "#bc812f"
-  mode-ferreo-dark: "#bc812f"
-  mode-fluvial-light: "#3c88e5"
-  mode-fluvial-dark: "#5b91d7"
+  mode-maritimo-light: "#5856d6"
+  mode-maritimo-dark: "#6f71fc"
+  mode-terrestre-light: "#248a3d"
+  mode-terrestre-dark: "#017829"
+  mode-aereo-light: "#ff2d55"
+  mode-aereo-dark: "#e60e4c"
+  mode-ferreo-light: "#ff9500"
+  mode-ferreo-dark: "#ce7f00"
+  mode-fluvial-light: "#32ade6"
+  mode-fluvial-dark: "#29a1cc"
 typography:
   display:
     fontFamily: "'Inter Variable', Inter, system-ui, sans-serif"
@@ -98,9 +98,25 @@ Westvane es una herramienta de operación para despachadores y planificadores de
 ## Colors
 
 - **Un color significa una cosa.** Azul de acento = interactivo. Verde, naranja y rojo = estado (en ruta, transbordo o aviso, retraso o cierre). Los cinco colores de modo identifican únicamente el modo.
-- **Tema claro por defecto** (fondo `#f5f5f7`, tarjeta `#ffffff`); oscuro elegido a mano o "Sistema". El oscuro no es una inversión: tiene acento propio (`#5266eb` de relleno, `#8f9cf7` como texto) y su propia paleta de modos.
+- **Colores de Apple.** Los rellenos, gráficos y modos usan los colores de sistema de Apple (iOS/macOS); el texto de
+  estado usa sus variantes de «contraste aumentado», ajustadas lo mínimo para llegar a 4,5:1 también sobre su tinte al
+  14 %. El acento es el azul de apple.com: `#0071e3` en botones (los dos temas) y `#0066cc` / `#2997ff` como texto.
+  Se cambió el 29/10/2026: la paleta anterior (magenta, violeta, turquesa y un acento índigo en oscuro) «se notaba
+  hecha por IA».
+- **Tema claro por defecto** (fondo `#f5f5f7`, tarjeta `#ffffff`); oscuro elegido a mano o "Sistema". El oscuro no es
+  una inversión: tiene su propia paleta de modos.
 - **El modo nunca va solo en color:** siempre lleva ícono y texto.
-- **Paleta de modos validada** con el validador de la skill de visualización (OKLab ×100, simulación de protanopía y deuteranopía, todas las parejas): mínimo 8,1 con daltonismo y 15,9 con visión normal en claro; 9,3 y 16,4 en oscuro. La paleta propuesta al inicio (terrestre `#0f9d7a`, fluvial `#0a84ff`, marítimo `#5e5ce6`, aéreo `#d6399b`, férreo `#c98a00`) fallaba: aéreo y terrestre se confundían en deuteranopía (4,4) y fluvial y marítimo quedaban demasiado cerca incluso con visión normal (10,5). Se movió cada tono dentro de su familia (±15°) hasta pasar. Los valores viven en `lib/modes.ts` (RGB para el mapa) y en `globals.css` (`--mode-*`).
+- **Paleta de modos validada** con el validador de la skill de visualización (OKLab ×100, protanopía y deuteranopía,
+  todas las parejas, porque en el mapa se ven juntos):
+  - **Claro:** índigo `#5856d6` (marítimo), verde `#248a3d` (terrestre, el verde accesible de Apple), rosa `#ff2d55`
+    (aéreo), naranja `#ff9500` (férreo), cian `#32ade6` (fluvial). Peor pareja con daltonismo 8,9 y con visión normal
+    20,4.
+  - **Oscuro:** los mismos tonos con la luminosidad dentro de la banda del oscuro (0,48–0,67): `#6f71fc`, `#017829`,
+    `#e60e4c`, `#ce7f00`, `#29a1cc`. Peor pareja 8,9 con daltonismo y 16,2 con visión normal; todos ≥3:1 sobre
+    `#1c1c1e`.
+  - **Descartados:** el café de Apple (se lee gris y se confunde con el rosa), el morado (choca con el índigo) y el
+    verde de sistema puro en terrestre (6,5 con el rosa).
+  - Los valores viven en `lib/modes.ts` (RGB para el mapa) y en `globals.css` (`--mode-*`).
 - **Contraste:** el texto usa las variantes oscuras (`--accent`, `--success`, `--warning`, `--danger`) para llegar a 4,5:1 también sobre sus tintes al 12 %. Los colores del sistema (`--sys-*`) son para rellenos y gráficos, no para texto pequeño.
 
 ## Typography

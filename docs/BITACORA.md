@@ -817,3 +817,20 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
   simulada los envíos se entregan solos y nadie firma; un aviso permanente de cientos es ruido. «Requiere atención» y la
   campana cuentan las entregas sin firma de las últimas 48 h. «Hoy» sigue mostrando la semana y la lista de Envíos,
   todas (chip «Por firmar»). Pruebas: 262 de la API.
+
+## 32. Paleta estilo Apple (29/10/2026)
+
+- **Por qué:** el dueño dijo que los colores «se notaban de IA». La paleta tenía un magenta en aéreo, un violeta en
+  marítimo, un turquesa en terrestre y un acento índigo en el modo oscuro.
+- **Ahora:**
+  - **Modos, rellenos y gráficos:** colores de sistema de Apple.
+  - **Texto de estado:** sus variantes de «contraste aumentado», con lo mínimo para 4,5:1 sobre el tinte del 14 %.
+  - **Acento:** el azul de apple.com en los dos temas (`#0071e3` en botones; `#0066cc` / `#2997ff` como texto).
+  - Valores y razones en `DESIGN.md` (Colors).
+- **Validación de los modos** con el validador de la skill de visualización, en todas las parejas:
+  - Claro: peor 8,9 con daltonismo y 20,4 con visión normal. La paleta anterior tenía 8,1.
+  - Oscuro: 8,9 y 16,2.
+  - Se descartaron el café de Apple, el morado y el verde puro en terrestre.
+  - La versión oscura se buscó en forma sistemática: mismos tonos, la luminosidad dentro de la banda del oscuro y la
+    más luminosa entre las que pasan.
+- Cambian solo `globals.css` y `lib/modes.ts` (RGB del mapa). Pruebas: 21 de navegador.
