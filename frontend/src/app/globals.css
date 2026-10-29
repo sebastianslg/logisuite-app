@@ -253,7 +253,8 @@
 /* Grupo de chips de filtro: en celular, una sola fila que se desplaza en horizontal en lugar de varias filas. */
 @utility chip-scroll {
   @media (max-width: 767px) {
-    flex-wrap: nowrap;
+    /* !important: el mismo elemento lleva `flex-wrap` para escritorio, y esa utilidad ganaba en el orden de Tailwind 4 */
+    flex-wrap: nowrap !important;
     overflow-x: auto;
     scrollbar-width: none;
     margin-inline: -1rem;

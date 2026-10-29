@@ -253,9 +253,9 @@ export function VehicleDetailView({ vehicle: v }: { vehicle: VehicleDetail }) {
 
           {v.documents.length > 0 && (
             <Section title="Documentos obligatorios">
-              <ul className="grid gap-3 sm:grid-cols-2">
+              <ul className="rule-list -mx-5 -mb-5 border-t border-border sm:grid sm:grid-cols-2 sm:divide-x sm:divide-border sm:[&>*]:border-t-0">
                 {v.documents.map((d) => (
-                  <li key={d.key} className="rounded-2xl bg-fill p-3 text-sm">
+                  <li key={d.key} className="px-5 py-4 text-sm">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium">{d.label}</span>
                       <Badge tone={d.state === "Vencido" ? "danger" : d.state === "Por vencer" ? "warning" : d.state === "Vigente" ? "success" : "neutral"}>

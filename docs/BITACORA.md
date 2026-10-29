@@ -803,3 +803,13 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
   `E2E_PORT`, `E2E_API_PORT` y `E2E_DB_PATH` propios. Con ese choque, en una corrida la prueba de celular superó sus
   60 s (suele tardar 37 a 42 s en este PC), sin errores de hidratación.
 
+
+## 31. Pulido visual, segunda ronda (29/10/2026)
+
+- **Chips en celular:** `chip-scroll` debía poner los chips de filtro en una sola fila deslizable, pero el mismo
+  elemento lleva `flex-wrap` para escritorio y esa utilidad ganaba en el orden de Tailwind 4. En Envíos los estados
+  se partían en tres filas desparejas. Ahora lleva `!important` en `flex-wrap: nowrap`. Arregla las 10 filas de chips
+  de la app.
+- **Documentos del vehículo:** filas con línea divisoria (dos columnas en pantallas medianas) en lugar de cajas grises
+  dentro de la tarjeta.
+- Pruebas: 21 de navegador (incluida la de desborde en celular).
