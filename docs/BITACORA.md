@@ -764,7 +764,8 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
   Eso hace que React pinte el bloque de cero sin error, como se vio en la prueba. Si vuelve a salir, revisar ese
   camino.
 - **Verificación:** `tsc`, `eslint`, `npm run build`, 259 pruebas de la API y Playwright completo (20 de 20) en dos
-  corridas seguidas sin #418, con la base de pruebas acumulada. En una corrida anterior la prueba de celular superó
-  sus 60 s (recorre 52 páginas; suele tardar 37 a 42 s en este PC). No tuvo errores de hidratación; si se repite,
-  subirle el tiempo con `test.slow()`.
+  corridas seguidas sin #418, en puertos propios (3200/8200) y con una copia propia de la base de pruebas acumulada.
+  Dos sesiones que usen a la vez 3100/8100 comparten servidores por `reuseExistingServer`: dar a cada una
+  `E2E_PORT`, `E2E_API_PORT` y `E2E_DB_PATH` propios. Con ese choque, en una corrida la prueba de celular superó sus
+  60 s (suele tardar 37 a 42 s en este PC), sin errores de hidratación.
 
