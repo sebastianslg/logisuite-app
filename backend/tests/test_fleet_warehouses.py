@@ -304,6 +304,97 @@ class TestConductoresYEnvios:
 
 
 # ---------------------------------------------------------------------------
+class TestAsignacionManual:
+    """Elegir a mano el vehículo de un tramo: validaciones, fijado y vuelta a automático."""
+
+    @pytest.fixture(scope="class")
+    def code(self, client):
+        body = {"origin": "Bogotá", "destination": "Tunja", "cargo": "Asignación manual", "weight_t": 5, "client": "QA",
+                "priority": "costo", "forced_modes": ["terrestre"], "usuario": "T",
+                "departure_at": (datetime.now() + timedelta(days=6)).isoformat(timespec="minutes")}
+        r = client.post("/api/shipments", json=body)
+        assert r.status_code == 201, r.text
+        return r.json()["code"]
+
+    def asset(self, code, i=0):
+        r = rows("SELECT route_json FROM mm_shipments WHERE shipment_code = ?", (code,))[0]
+        return json.loads(r["route_json"])["legs"][i]["asset"]
+
+    def options(self, client, code, i=0):
+        r = client.get(f"/api/shipments/{code}/legs/{i}/vehicles")
+        assert r.status_code == 200, r.text
+        return r.json()
+
+    def test_opciones_del_tramo(self, client, code):
+        o = self.options(client, code)
+        assert o["mode"] == "terrestre" and o["locked"] is False and o["multi_allowed"] is True
+        assert o["items"] and all(v["id"] for v in o["items"])
+        sel = [v for v in o["items"] if v["selected"]]
+        assert len(sel) == len(self.asset(code)["vehicle_ids"])
+        flags = [v["available"] for v in o["items"] if not v["selected"]]
+        assert flags == sorted(flags, reverse=True)  # primero los que sí pueden cubrir el tramo
+        assert all(v["reason"] for v in o["items"] if not v["available"])
+
+    def test_fijar_vehiculo_lo_registra_y_no_genera_cruces(self, client, code):
+        o = self.options(client, code)
+        other = next(v for v in o["items"] if v["available"] and v["fits"] and not v["selected"])
+        r = client.put(f"/api/shipments/{code}/legs/0/vehicle", json={"vehicle_ids": [other["id"]], "usuario": "Ana"})
+        assert r.status_code == 200, r.text
+        a = self.asset(code)
+        assert a["pinned"] is True and a["vehicle_ids"] == [other["id"]] and a["plates"] == [other["code"]]
+        mine = rows("SELECT * FROM fl_assignments WHERE shipment_code = ? AND leg_index = 0", (code,))
+        assert [m["vehicle_id"] for m in mine] == [other["id"]] and mine[0]["load_t"] == pytest.approx(5)
+        assert bookings_overlap() == []
+        log = rows("SELECT * FROM audit_log WHERE record_id = ? ORDER BY audit_id DESC LIMIT 1", (code,))[0]
+        assert log["username"] == "Ana" and "a mano" in log["detail"] and other["code"] in log["detail"]
+        assert self.options(client, code)["pinned"] is True
+
+    def test_la_eleccion_sobrevive_al_recalculo_de_la_ruta(self, client, code):
+        before = self.asset(code)["vehicle_ids"]
+        r = client.put(f"/api/shipments/{code}", json={"departure_at": (datetime.now() + timedelta(days=6, hours=1)).isoformat(timespec="minutes"), "usuario": "T"})
+        assert r.status_code == 200, r.text
+        a = self.asset(code)
+        assert a["vehicle_ids"] == before and a["pinned"] is True
+
+    def test_rechaza_vehiculo_de_otro_modo_o_sin_capacidad_o_inexistente(self, client, code):
+        air = next(v for v in vehicles(client) if v["mode"] == "aereo")
+        r = client.put(f"/api/shipments/{code}/legs/0/vehicle", json={"vehicle_ids": [air["id"]]})
+        assert r.status_code == 422 and "no es de modo" in r.json()["detail"]
+        small = next((v for v in self.options(client, code)["items"] if v["available"] and not v["fits"]), None)
+        if small:
+            r = client.put(f"/api/shipments/{code}/legs/0/vehicle", json={"vehicle_ids": [small["id"]]})
+            assert r.status_code == 422 and "capacidad" in r.json()["detail"]
+        assert client.put(f"/api/shipments/{code}/legs/0/vehicle", json={"vehicle_ids": [999999]}).status_code == 422
+        assert client.put(f"/api/shipments/{code}/legs/0/vehicle", json={"vehicle_ids": ["x"]}).status_code == 422
+
+    def test_rechaza_un_vehiculo_no_operable(self, client, code):
+        blocked = next(v for v in self.options(client, code)["items"] if not v["available"] and not v["selected"])
+        r = client.put(f"/api/shipments/{code}/legs/0/vehicle", json={"vehicle_ids": [blocked["id"]]})
+        assert r.status_code == 422 and blocked["code"] in r.json()["detail"]
+        assert self.asset(code)["pinned"] is True  # nada cambió
+
+    def test_tramo_inexistente_y_envio_inexistente(self, client, code):
+        assert client.get(f"/api/shipments/{code}/legs/99/vehicles").status_code == 422
+        assert client.get("/api/shipments/NO-EXISTE/legs/0/vehicles").status_code == 404
+        assert client.put("/api/shipments/NO-EXISTE/legs/0/vehicle", json={"vehicle_ids": [1]}).status_code == 404
+
+    def test_vacio_vuelve_a_automatico(self, client, code):
+        r = client.put(f"/api/shipments/{code}/legs/0/vehicle", json={"vehicle_ids": [], "usuario": "Ana"})
+        assert r.status_code == 200, r.text
+        a = self.asset(code)
+        assert "own" in a and not a.get("pinned")
+        assert bookings_overlap() == []
+
+    def test_un_tramo_que_ya_salio_no_se_cambia(self, client):
+        sh = rows("""SELECT shipment_code FROM mm_shipments WHERE departure_at < ? AND status != 'Entregado' LIMIT 1""",
+                  (datetime.now().isoformat(timespec="minutes"),))
+        if not sh:
+            pytest.skip("la semilla no tiene envíos en curso")
+        r = client.put(f"/api/shipments/{sh[0]['shipment_code']}/legs/0/vehicle", json={"vehicle_ids": [1]})
+        assert r.status_code == 422 and "ya salió" in r.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
 class TestBodegas:
 
     def _wh(self, client, **q):

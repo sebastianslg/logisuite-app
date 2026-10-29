@@ -37,7 +37,7 @@ Un commit por lote, mensaje en español, y actualizar `docs/BITACORA.md`. Los ca
 
 ## Pendiente (ver también la sección final de la bitácora)
 Mapa: un solo lienzo 3D y conservar el mapa de Red entre visitas (medir con `?diagnostico` en el PC real);
-asignar vehículo a cada envío; validar coordenadas contra INVÍAS, ANI, Aerocivil y Cormagdalena; usuarios y
+validar coordenadas contra INVÍAS, ANI, Aerocivil y Cormagdalena; usuarios y
 empresas con roles (código por correo); PostgreSQL cuando haya varios usuarios; términos y privacidad pendientes de
 datos del responsable y revisión legal; despliegue automático (faltan los secretos en GitHub); dominio propio y
 Cloudflare.

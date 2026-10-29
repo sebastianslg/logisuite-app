@@ -10,6 +10,8 @@ Endpoints de la flota de vehículos y de la red de bodegas.
     PUT  /api/fleet/faults/{id}
     POST /api/fleet/maintenance/{id}/start | complete | cancel
     GET/POST /api/fleet/drivers           PUT/DELETE /api/fleet/drivers/{id}
+    GET  /api/shipments/{code}/legs/{i}/vehicles   Vehículos que pueden cubrir el tramo i
+    PUT  /api/shipments/{code}/legs/{i}/vehicle    Fija a mano el vehículo del tramo (vacío = automático)
 
   Bodegas
     GET  /api/warehouses/roles | /api/warehouses/summary | /api/warehouses/transfers
@@ -67,6 +69,14 @@ def register(app: FastAPI, sync: Callable[[], datetime], network: Callable) -> N
     @app.post("/api/fleet/vehicles", status_code=201)
     def fleet_vehicle_create(body: dict = Body(...)) -> dict:
         return run(fleet.create_vehicle, body, who(body), sync())
+
+    @app.get("/api/shipments/{code}/legs/{leg_index}/vehicles")
+    def leg_vehicles(code: str, leg_index: int) -> dict:
+        return read(fleet.leg_vehicle_options, code, leg_index, sync())
+
+    @app.put("/api/shipments/{code}/legs/{leg_index}/vehicle")
+    def leg_vehicle_set(code: str, leg_index: int, body: dict = Body(...)) -> dict:
+        return read(fleet.set_leg_vehicle, code, leg_index, body.get("vehicle_ids"), who(body), sync())
 
     @app.get("/api/fleet/vehicles/{vehicle_id}")
     def fleet_vehicle(vehicle_id: int) -> dict:

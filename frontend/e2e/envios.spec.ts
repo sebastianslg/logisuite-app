@@ -46,3 +46,34 @@ test("historial: vistas y ventana de tiempo", async ({ page }) => {
   await expect(page).toHaveURL(/dias=7/);
   w.expectClean();
 });
+
+test("elegir a mano el vehículo de un tramo y volver a automático", async ({ page, request }) => {
+  const w = watchErrors(page);
+  const created = await request.post("/api/shipments", {
+    data: {
+      origin: "Bogotá", destination: "Tunja", cargo: "Prueba de vehículo", weight_t: 3, client: "QA", priority: "costo",
+      forced_modes: ["terrestre"], usuario: "Prueba",
+      departure_at: new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 16),
+    },
+  });
+  expect(created.status()).toBe(201);
+  const code = (await created.json()).code as string;
+  try {
+    await page.goto(`/envios/${code}`);
+    await page.getByRole("button", { name: "Cambiar vehículo" }).first().click();
+    const sheet = page.getByRole("dialog", { name: /Vehículo del tramo 1/ });
+    await expect(sheet).toBeVisible();
+    // Otro vehículo libre, además del actual
+    await sheet.locator("input[name=vehiculo]:not(:checked):not(:disabled)").first().check();
+    await sheet.getByRole("button", { name: "Asignar" }).click();
+    await expect(sheet).toBeHidden();
+    await expect(page.getByText("Fijado a mano")).toBeVisible();
+
+    await page.getByRole("button", { name: "Cambiar vehículo" }).first().click();
+    await page.getByRole("button", { name: "Volver a automático" }).click();
+    await expect(page.getByText("Fijado a mano")).toBeHidden();
+  } finally {
+    await request.delete(`/api/shipments/${code}?usuario=Prueba`);
+  }
+  w.expectClean();
+});

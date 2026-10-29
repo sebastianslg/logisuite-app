@@ -820,6 +820,8 @@ def assign_route(shipment_code: str, route: dict, weight_t: float, departure: da
                                start, end, ctx, derived, set(), shipment_code, rng=rng)
         if chosen:
             leg["asset"] = _asset(chosen, weight_t)
+            if keep and old and old.get("pinned"):
+                leg["asset"]["pinned"] = True  # la elección manual sobrevive al recálculo de la ruta
             total_cap = sum(v["capacity_t"] for v in chosen)
             for v in chosen:
                 share = weight_t * v["capacity_t"] / total_cap if total_cap else weight_t
@@ -839,6 +841,147 @@ def assign_shipment_row(sh: dict, now: datetime | None = None) -> dict:
     res = assign_route(sh["shipment_code"], route, float(sh["weight_t"]), _dt(sh["departure_at"]), now)
     sh["route_json"] = json.dumps({k: route[k] for k in ("legs", "transfers", "timeline")})
     return res
+
+
+def carry_pins(shipment_code: str, route: dict, weight_t: float) -> None:
+    """Al recalcular la ruta de un envío (edición, cierre de vía), conserva el vehículo que alguien
+    eligió a mano en los tramos que siguen siendo los mismos (modo, origen y destino) y cuya
+    capacidad aún cubre la carga. `assign_route` lo valida contra el horario antes de mantenerlo."""
+    old = run_query("SELECT route_json FROM mm_shipments WHERE shipment_code = ?", (shipment_code,))
+    if old.empty:
+        return
+    try:
+        old_legs = json.loads(old.iloc[0]["route_json"])["legs"]
+    except (ValueError, KeyError, TypeError):
+        return
+    for i, leg in enumerate(route["legs"]):
+        if i >= len(old_legs) or leg.get("asset"):
+            continue
+        prev = old_legs[i]
+        a = prev.get("asset") or {}
+        if not (a.get("pinned") and a.get("own") and a.get("vehicle_ids")):
+            continue
+        same = lambda l: (l["mode"], l["from"]["name"], l["to"]["name"])  # noqa: E731
+        if same(prev) != same(leg):
+            continue
+        ids = [int(x) for x in a["vehicle_ids"]]
+        cap = run_query(f"SELECT SUM(capacity_t) AS c FROM fl_vehicles WHERE vehicle_id IN ({','.join('?' * len(ids))})", tuple(ids))
+        if cap.empty or float(cap.iloc[0]["c"] or 0) + 1e-9 < weight_t:
+            continue
+        leg["asset"] = a
+
+
+def _leg_context(shipment_code: str, leg_index: int) -> tuple:
+    ship = run_query("SELECT * FROM mm_shipments WHERE shipment_code = ?", (shipment_code,))
+    if ship.empty:
+        raise OperationError(f"El envío {shipment_code} no existe")
+    sh = records(ship)[0]
+    route = json.loads(sh["route_json"])
+    if not 0 <= leg_index < len(route["legs"]):
+        raise OperationError(f"El envío {shipment_code} no tiene el tramo {leg_index + 1}")
+    leg = route["legs"][leg_index]
+    dep = _dt(sh["departure_at"])
+    return sh, route, leg, dep + timedelta(hours=leg["start_h"]), dep + timedelta(hours=leg["end_h"])
+
+
+def _why_not(d: dict) -> str:
+    return d["blockers"][0] if d["blockers"] else "Ya tiene otro tramo en ese horario"
+
+
+def leg_vehicle_options(shipment_code: str, leg_index: int, now: datetime) -> dict:
+    """Vehículos propios del modo del tramo, con si pueden cubrirlo en su horario y por qué no."""
+    sh, route, leg, start, end = _leg_context(shipment_code, leg_index)
+    load = float(sh["weight_t"])
+    asset = leg.get("asset") or {}
+    selected = {int(x) for x in asset.get("vehicle_ids", [])}
+    lat, lon = leg.get("from", {}).get("lat"), leg.get("from", {}).get("lon")
+    ctx = _ctx(now)
+    items = []
+    for v in ctx["vehicles"]:
+        if v["mode"] != leg["mode"] or v["retired"]:
+            continue
+        d = _derive(v, ctx)
+        ok = _can_serve(v, d, ctx, start, end, shipment_code)
+        near = (round(haversine_km(lat, lon, v["home_lat"], v["home_lon"]))
+                if lat is not None and v.get("home_lat") is not None else None)
+        items.append({"id": int(v["vehicle_id"]), "code": v["code"], "vehicle_type": v["vehicle_type"],
+                      "capacity_t": v["capacity_t"], "status": d["status"], "home_name": v.get("home_name"),
+                      "distance_km": near, "available": ok, "fits": v["capacity_t"] >= load,
+                      "reason": None if ok else _why_not(d), "selected": int(v["vehicle_id"]) in selected})
+    items.sort(key=lambda x: (not x["selected"], not x["available"], not x["fits"],
+                              x["distance_km"] if x["distance_km"] is not None else 1e9, x["code"]))
+    return {"shipment_code": shipment_code, "leg_index": leg_index, "mode": leg["mode"], "load_t": load,
+            "start_at": _iso(start), "end_at": _iso(end), "locked": start <= now,
+            "pinned": bool(asset.get("pinned")), "multi_allowed": leg["mode"] == "terrestre",
+            "max_units": MAX_OWN_UNITS if leg["mode"] == "terrestre" else 1, "items": items}
+
+
+def set_leg_vehicle(shipment_code: str, leg_index: int, vehicle_ids: list | None, user: str | None,
+                    now: datetime) -> dict:
+    """Fija a mano los vehículos de un tramo. Con `vehicle_ids` vacío el tramo vuelve a automático.
+
+    Solo tramos que aún no salen. Cada vehículo debe ser del modo del tramo y estar libre y operable
+    en su horario, y entre todos deben cubrir la carga (por carretera hasta 4; en los demás modos, uno)."""
+    sh, route, leg, start, end = _leg_context(shipment_code, leg_index)
+    if start <= now:
+        raise OperationError("Ese tramo ya salió: no se puede cambiar su vehículo")
+    weight = float(sh["weight_t"])
+    before = (leg.get("asset") or {}).get("plates") or []
+    ids: list = []
+    for x in vehicle_ids or []:
+        try:
+            i = int(x)
+        except (TypeError, ValueError):
+            raise OperationError("Vehículo no válido")
+        if i not in ids:
+            ids.append(i)
+
+    def save(note: str) -> None:
+        run_write("UPDATE mm_shipments SET route_json = ?, updated_at = ?, updated_by = ? WHERE shipment_code = ?",
+                  (json.dumps({k: route[k] for k in ("legs", "transfers", "timeline")}), _now_iso(), _user(user),
+                   shipment_code))
+        audit(user, "UPDATE", "mm_shipments", shipment_code, note)
+
+    if not ids:
+        leg.pop("asset", None)
+        assign_route(shipment_code, route, weight, _dt(sh["departure_at"]), now)
+        after = (route["legs"][leg_index].get("asset") or {}).get("plates") or []
+        save(f"Tramo {leg_index + 1}: vehículo vuelve a asignación automática ({', '.join(before) or '—'} → {', '.join(after) or '—'})")
+        return route["legs"][leg_index]["asset"]
+
+    if len(ids) > (MAX_OWN_UNITS if leg["mode"] == "terrestre" else 1):
+        raise OperationError("Por carretera se reparten hasta %d vehículos; en los demás modos, uno" % MAX_OWN_UNITS)
+    ctx = _ctx(now)
+    by_id = {int(v["vehicle_id"]): v for v in ctx["vehicles"]}
+    chosen = []
+    for i in ids:
+        v = by_id.get(i)
+        if v is None:
+            raise OperationError("El vehículo elegido no está en la flota")
+        if v["mode"] != leg["mode"]:
+            raise OperationError(f"{v['code']} no es de modo {MODE_LABELS[leg['mode']].lower()}")
+        d = _derive(v, ctx)
+        if not _can_serve(v, d, ctx, start, end, shipment_code):
+            raise OperationError(f"{v['code']} no puede cubrir ese tramo: {_why_not(d)}")
+        chosen.append(v)
+    cap = sum(v["capacity_t"] for v in chosen)
+    if cap + 1e-9 < weight:
+        raise OperationError(f"La capacidad ({cap:g} t) no alcanza para la carga ({weight:g} t)")
+
+    release_rows = run_query("SELECT 1 FROM fl_assignments WHERE shipment_code = ? AND leg_index = ?",
+                             (shipment_code, leg_index))
+    if not release_rows.empty:
+        run_write("DELETE FROM fl_assignments WHERE shipment_code = ? AND leg_index = ?", (shipment_code, leg_index))
+    km = float(leg.get("distance_km") or 0)
+    for v in chosen:
+        share = weight * v["capacity_t"] / cap if cap else weight
+        run_write("""INSERT INTO fl_assignments (vehicle_id, shipment_code, leg_index, start_at, end_at, km, load_t)
+                     VALUES (?,?,?,?,?,?,?)""",
+                  (int(v["vehicle_id"]), shipment_code, leg_index, _iso(start), _iso(end), km / len(chosen), round(share, 3)))
+    leg["asset"] = _asset(chosen, weight)
+    leg["asset"]["pinned"] = True
+    save(f"Tramo {leg_index + 1}: vehículo asignado a mano ({', '.join(before) or '—'} → {', '.join(v['code'] for v in chosen)})")
+    return leg["asset"]
 
 
 def replace_assignments(vehicle_id: int, now: datetime, window: tuple | None = None, reason: str = "",
@@ -888,6 +1031,7 @@ def replace_assignments(vehicle_id: int, now: datetime, window: tuple | None = N
             asset["outsourced_units"] = int(asset.get("outsourced_units", 0)) + 1
         asset.update(vehicle_ids=ids, plates=plates, units=max(len(plates), 1),
                      own=bool(ids), outsourced=len(ids) < len(plates))
+        asset.pop("pinned", None)  # el vehículo elegido a mano ya no puede: vuelve a ser automático
         if plates:
             asset["id"] = plates[0] + (f" +{len(plates) - 1}" if len(plates) > 1 else "")
         if len(ids) == 0:

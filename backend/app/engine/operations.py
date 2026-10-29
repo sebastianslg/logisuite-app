@@ -293,6 +293,7 @@ def _attach_assets(route: dict, weight: float, seed: str, departure: datetime | 
     """Vehículos de cada tramo. Con la salida conocida se asignan de la flota real (sin cruces de
     horario); sin ella se simulan como antes."""
     if departure is not None:
+        fleet.carry_pins(seed, route, weight)
         fleet.assign_route(seed, route, weight, departure, now or datetime.now())
         return
     rng = random.Random(seed)

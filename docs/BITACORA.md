@@ -587,3 +587,24 @@ el mapa 3D (contexto WebGL, sombreadores, teselas). Medido con el sitio real y c
   la app. Se crean, copian y revocan desde la ficha (Seguimiento para el cliente); queda en el historial.
 - Si se activa Cloudflare Access, `/seguimiento/*` y `/api/tracking/*` deben quedar como rutas públicas.
 - Pruebas: 221 de la API y 15 de navegador.
+
+## 21. Vehículo elegido a mano por tramo (28/10/2026)
+
+- **Lo que ya había:** el motor asigna solo un vehículo de la flota propia a cada tramo (sin cruces de horario,
+  operable, con capacidad, el más cercano) y lo sustituye si falla o entra a mantenimiento. Lo que faltaba era poder
+  elegirlo a mano.
+- **Ahora:** en la ficha, cada tramo tiene «Cambiar vehículo». La hoja lista los vehículos del modo del tramo; los que
+  no pueden cubrirlo en su horario salen apagados con la razón (falla, mantenimiento, licencia vencida, otro tramo a
+  esa hora). Por carretera se pueden elegir hasta 4 vehículos que sumen la carga; en los demás modos, uno.
+  «Volver a automático» deshace la elección.
+- **Fijado:** `asset.pinned`. Sobrevive a editar el envío y a la redirección por un cierre de vía (`fleet.carry_pins`)
+  mientras el tramo siga igual (mismo modo, origen y destino) y el vehículo siga pudiendo cubrirlo y llevando la
+  carga. Si deja de poder (falla, mantenimiento), se sustituye como siempre y la marca se pierde. Antes ni la
+  asignación automática sobrevivía a editar el envío: el tramo se reasignaba desde cero.
+- **Solo tramos que aún no salen**; un tramo en curso o terminado responde 422. Queda en el historial del envío.
+- **API:** `GET /api/shipments/{code}/legs/{i}/vehicles` y `PUT /api/shipments/{code}/legs/{i}/vehicle`
+  (`{"vehicle_ids": [...], "usuario": "..."}`; lista vacía = automático). Sin cambios de esquema.
+- **Pruebas:** 229 de la API y 16 de navegador.
+- **Entorno:** en este PC a Playwright le falta su Chromium (`npx playwright install` lo descarga). Se corrieron las
+  pruebas con Edge (`channel: "msedge"`) y con el `.venv` del backend en el `PATH`, porque Playwright arranca la API
+  con el Python del sistema.

@@ -12,6 +12,7 @@ import { MapFrame } from "@/components/map/map-frame";
 import { useMapData } from "@/components/map/use-map-data";
 import { useApp } from "@/components/providers";
 import { ActualCost } from "@/components/shipments/actual-cost";
+import { LegVehicle } from "@/components/shipments/leg-vehicle";
 import { TrackingLinks } from "@/components/shipments/tracking-links";
 import { ExportActions } from "@/components/shipments/export-actions";
 import { SharedCode } from "@/components/shipments/shared-code";
@@ -242,6 +243,9 @@ export function ShipmentDetail({
                               <>{l.asset.type} {l.asset.id} · {l.asset.carrier}{l.asset.outsourced ? " (tercero)" : ""}</>
                             )}
                           </span>
+                        )}
+                        {s.status !== "Entregado" && s.route_status !== "sin_ruta" && (
+                          <LegVehicle code={s.code} legIndex={i} pinned={l.asset?.pinned} />
                         )}
                       </div>
                     </div>

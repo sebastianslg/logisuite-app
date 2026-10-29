@@ -67,6 +67,8 @@ export interface Asset {
   outsourced?: boolean;
   vehicle_ids?: number[];
   plates?: string[];
+  /** Alguien eligió el vehículo a mano: se conserva al recalcular la ruta mientras pueda cubrir el tramo. */
+  pinned?: boolean;
 }
 
 export interface Leg {
