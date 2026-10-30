@@ -39,8 +39,9 @@ def public_url(path: str) -> str:
     return f"https://{domain}{path}"
 
 
-def send_text(to: str, subject: str, body: str) -> None:
-    """Envía un correo de texto. Lanza OperationError si no hay SMTP o si el servidor de correo lo rechaza."""
+def send_text(to: str, subject: str, body: str, attachments: list | None = None) -> None:
+    """Envía un correo de texto, con adjuntos opcionales [(bytes, nombre, "tipo/subtipo")]. Lanza OperationError si no
+    hay SMTP o si el servidor de correo lo rechaza."""
     host = os.getenv("SMTP_HOST")
     if not host:
         raise OperationError("El envío de correo no está configurado en el servidor.")
@@ -51,6 +52,9 @@ def send_text(to: str, subject: str, body: str) -> None:
     msg["From"] = os.getenv("SMTP_FROM") or user
     msg["To"] = to
     msg.set_content(body)
+    for data, name, mime in attachments or []:
+        maintype, _, subtype = mime.partition("/")
+        msg.add_attachment(data, maintype=maintype, subtype=subtype or "octet-stream", filename=name)
     try:
         if port == 465:
             with smtplib.SMTP_SSL(host, port, timeout=TIMEOUT_S) as server:
@@ -76,14 +80,31 @@ def admin_email() -> str | None:
 ALERT_KINDS = {
     "vencimientos": "Resumen diario de SOAT, técnico-mecánicas y licencias por vencer",
     "novedades": "Aviso cuando una entrega llega con novedad",
+    "semanal": "Reporte operativo de la semana en PDF, los lunes",
 }
+# Los avisos que piden atención arrancan encendidos; el reporte semanal es opcional: el dueño decide si lo quiere
+DEFAULT_ON = {"vencimientos": True, "novedades": True, "semanal": False}
 
 
 def alert_enabled(kind: str) -> bool:
-    """Encendidos por defecto; el dueño los apaga desde Configuración."""
     from app.database.db import run_query
     rows = run_query("SELECT param_value FROM system_params WHERE param_key = ?", (f"MAIL_ALERT_{kind.upper()}",))
-    return True if rows.empty else str(rows.iloc[0]["param_value"]).lower() == "true"
+    return DEFAULT_ON.get(kind, True) if rows.empty else str(rows.iloc[0]["param_value"]).lower() == "true"
+
+
+def once_today(key: str, now) -> bool:
+    """True la primera vez que se pide hoy. Se recuerda en la base, así que sobrevive a los reinicios del servidor (cada
+    despliegue reinicia la app y, sin esto, repetiría el aviso diario)."""
+    from app.database.db import run_query, run_write
+    day = now.strftime("%Y-%m-%d")
+    name = f"MAIL_LAST_{key.upper()}"
+    rows = run_query("SELECT param_value FROM system_params WHERE param_key = ?", (name,))
+    if not rows.empty and str(rows.iloc[0]["param_value"]) == day:
+        return False
+    run_write("""INSERT INTO system_params (param_key, param_value, description) VALUES (?,?,?)
+                 ON CONFLICT(param_key) DO UPDATE SET param_value = excluded.param_value""",
+              (name, day, "Último día en que salió este aviso por correo"))
+    return True
 
 
 def set_alert(kind: str, enabled: bool, user: str | None) -> None:
@@ -104,7 +125,7 @@ def alerts_state() -> dict:
             "alerts": [{"kind": k, "label": label, "enabled": alert_enabled(k)} for k, label in ALERT_KINDS.items()]}
 
 
-def send_admin_async(subject: str, body: str, kind: str | None = None) -> bool:
+def send_admin_async(subject: str, body: str, kind: str | None = None, attachments: list | None = None) -> bool:
     """Aviso al administrador (ADMIN_EMAIL) en segundo plano. False si no hay SMTP o ADMIN_EMAIL, o si ese tipo de aviso
     está apagado. Cada correo termina diciendo cómo dejar de recibirlo."""
     to = admin_email()
@@ -120,7 +141,7 @@ def send_admin_async(subject: str, body: str, kind: str | None = None) -> bool:
 
     def run() -> None:
         try:
-            send_text(to, subject, body)
+            send_text(to, subject, body, attachments)
         except OperationError:
             pass  # ya quedó en el registro del servidor
 

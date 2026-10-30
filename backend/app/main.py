@@ -55,7 +55,7 @@ from app.api import guard
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
-from app.engine import (auth_otp, clients, delivery, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
+from app.engine import (auth_otp, clients, delivery, mail, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
                         shipments_io, sustainability as SU, telemetry, tolls, tracking, trends, warehouses, xlsx)
 from app.engine.common import SESSION_USER
 from app.engine.dispatch import status_at
@@ -103,6 +103,22 @@ def _bump_cache() -> None:
 _last_purge_day = ""
 
 
+def _weekly_report_mail(now: datetime) -> None:
+    """Los lunes, si el dueño lo activó (Configuración › Avisos por correo), manda a ADMIN_EMAIL el reporte operativo de
+    la última semana en PDF. Una sola vez por día, aunque el servidor se reinicie."""
+    if now.weekday() != 0 or not mail.configured() or not mail.admin_email() or not mail.alert_enabled("semanal"):
+        return
+    if not mail.once_today("semanal", now):
+        return
+    try:
+        pdf_bytes = report.render(network(), 7, "USD", ops.get_fx(), now)
+    except Exception:  # un fallo del reporte no debe tumbar la sincronización
+        return
+    mail.send_admin_async(f"Reporte operativo de la semana ({now:%d/%m/%Y})",
+                          "Adjunto el reporte operativo de los últimos 7 días, con los montos en USD.",
+                          kind="semanal", attachments=[(pdf_bytes, f"reporte-operativo-{now:%Y%m%d}.pdf", "application/pdf")])
+
+
 def _purge_attachments_daily(now: datetime) -> None:
     """Una vez al día aplica el plazo de conservación de adjuntos (ATTACHMENT_RETENTION_DAYS)."""
     global _last_purge_day
@@ -112,7 +128,10 @@ def _purge_attachments_daily(now: datetime) -> None:
         journal.purge_expired(now)
         delivery.purge_expired(now, journal.retention_days())
         fleet.enforce_documents(now)
-        fleet.notify_due(now)
+        # Los avisos salen una vez al día aunque el servidor se reinicie (cada despliegue lo reinicia)
+        if mail.once_today("vencimientos", now):
+            fleet.notify_due(now)
+        _weekly_report_mail(now)
 
 
 def _sync() -> datetime:
