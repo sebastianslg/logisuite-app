@@ -1068,3 +1068,22 @@ contra una base temporal. **Nada de esto llegó a producción.**
 - Pruebas: 8 de la API en `test_correos.py` (una nueva que cubre el apagado por tipo, el permiso y el pie del correo);
   la sección entra en el escaneo de accesibilidad. Los interruptores en sí no tienen prueba de navegador, porque ese entorno no
   tiene SMTP: se ve el estado «correo no configurado».
+
+## 44. Historial con usuario real, reporte semanal, estado del servidor, orden de trabajo y finales de línea (30/10/2026)
+
+- **Historial con usuario real:** con una sesión válida, todo lo que se escribe en el historial se firma con la **cuenta de la
+  sesión**, aunque el navegador mande otro nombre (`common.SESSION_USER` + el middleware `session_identity`). Sin sesión, o con un
+  token falso, el nombre sigue siendo declarado como siempre. La identidad no se arrastra de una petición a otra (probado).
+- **Reporte operativo semanal por correo (opcional):** los lunes, el PDF de la última semana llega a `ADMIN_EMAIL`. **Apagado por
+  defecto**; se enciende en Configuración › Avisos por correo. `mail.send_text` admite adjuntos.
+- **Los avisos diarios ya no se repiten al reiniciar:** el resumen de vencimientos salía cada vez que el servidor arrancaba un día
+  nuevo, y cada despliegue lo reinicia. `mail.once_today` recuerda en la base el último día de envío.
+- **Estado del servidor dentro de la app** (Configuración, solo administradores; `GET /api/system/status`): disco, memoria y carga
+  (las del equipo, en Linux), tamaño de la base y de los adjuntos, tiempo encendida y avisos cuando el disco pasa del 85 %, queda
+  poca memoria o la carga es alta. Lo que vive fuera del contenedor (respaldos, otros contenedores) sigue en `deploy/estado.sh`.
+- **Orden de trabajo en PDF** (`GET /api/fleet/maintenance/{id}/pdf`): vehículo, servicio, taller, la falla que lo origina y
+  espacios para anotar lo hecho, los repuestos, el kilometraje y las firmas. Enlace en cada mantenimiento de la ficha del vehículo.
+- **Foto de la entrega: no se construyó nada nuevo.** El cuadro de «Documentos adjuntos» ya acepta fotos (en el celular abre la
+  cámara) y ya exige la declaración de autorización de las personas que aparezcan en ellas.
+- **Finales de línea:** `dock.tsx`, `seed_data.py`, `layout.tsx` y el proxy de la API tenían todas sus líneas con `\r\r\n` desde el
+  commit original. Se normalizaron a LF; el contenido no cambió (`git diff -w --ignore-cr-at-eol` queda vacío).
