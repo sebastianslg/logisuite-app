@@ -26,6 +26,7 @@ from app.database.schema_v9 import apply_v9_migration
 from app.database.schema_v10 import apply_v10_migration
 from app.database.schema_v11 import apply_v11_migration
 from app.database.schema_v12 import apply_v12_migration
+from app.database.schema_v13 import apply_v13_migration
 from app.database.schema_v5 import SCHEMA_V5_SQL
 from app.database.db import DB_PATH
 
@@ -54,6 +55,7 @@ def init_database(reset: bool = False):
     apply_v10_migration(conn)
     apply_v11_migration(conn)
     apply_v12_migration(conn)
+    apply_v13_migration(conn)
     conn.commit()
     conn.close()
 

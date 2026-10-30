@@ -40,6 +40,7 @@ import type { DepartmentsGeo, FleetLive, LiveAsset, Mode, NetworkGeo, RouteResul
 import { cn } from "@/lib/utils";
 import { useMapAnimation, useMapQuality } from "@/components/map/use-map-animation";
 import { onIdle } from "@/lib/idle";
+import { useMedia } from "@/lib/use-media";
 
 // Worker publicado por scripts/copy-maplibre-worker.mjs (ver allí el porqué)
 setWorkerUrl("/vendor/maplibre-gl-worker.mjs");
@@ -174,6 +175,14 @@ function fitTilted(bounds: [[number, number], [number, number]], width: number, 
 const COLOMBIA_BOUNDS: [[number, number], [number, number]] = [
   [-81.8, -4.3],
   [-66.8, 13.6],
+];
+/**
+ * Solo la Colombia continental, para pantallas angostas: con San Andrés (3° al oeste) el país cabía a lo ancho
+ * alejándose tanto que se veían Perú y el Caribe y Colombia quedaba diminuta. La isla queda a un arrastre.
+ */
+const MAINLAND_BOUNDS: [[number, number], [number, number]] = [
+  [-79.1, -4.3],
+  [-66.8, 12.5],
 ];
 
 export default function Map3D({
@@ -325,14 +334,19 @@ export default function Map3D({
     const padding = compact
       ? { top: 12, bottom: 44, left: 16, right: 16 }
       : narrow
-        ? { top: insetTop ? 110 : 16, bottom: insetTop ? Math.round(height * 0.3) : 16, left: 16, right: 16 }
+        ? // Abajo, el simulador plegado y el dock ocupan cerca del 22 % de la altura (con 30 % el país quedaba lejano)
+          { top: insetTop ? 110 : 16, bottom: insetTop ? Math.round(height * 0.22) : 16, left: 12, right: 12 }
         : { top: 24 + insetTop, bottom: 24 + insetBottom, left: 24 + insetLeft, right: 24 };
     // deck.gl falla si el margen no deja espacio: en ese caso se queda la vista por defecto
     if (width - padding.left - padding.right < 120 || height - padding.top - padding.bottom < 120) return;
     try {
       setViewState((v) => {
-        const fit = fitTilted(COLOMBIA_BOUNDS, width, height, padding, v.pitch ?? 0, v.bearing ?? 0);
-        return { ...v, longitude: fit.longitude, latitude: fit.latitude, zoom: Math.min(Math.max(fit.zoom, 3.4), 6.4) };
+        // En celular la cámara arranca plana y sin giro: inclinada, el norte (donde están casi todos los nodos)
+        // se encogía y los nombres se encimaban, mientras el sur casi vacío ocupaba media pantalla
+        const pitch = narrow ? 0 : (v.pitch ?? 0);
+        const bearing = narrow ? 0 : (v.bearing ?? 0);
+        const fit = fitTilted(narrow ? MAINLAND_BOUNDS : COLOMBIA_BOUNDS, width, height, padding, pitch, bearing);
+        return { ...v, pitch, bearing, longitude: fit.longitude, latitude: fit.latitude, zoom: Math.min(Math.max(fit.zoom, 3.4), 6.4) };
       });
     } catch {
       // Sin encuadre posible se queda la vista por defecto
@@ -448,8 +462,13 @@ export default function Map3D({
     [network, visibleCities],
   );
   // Una etiqueta por ciudad, sobre su nodo principal
+  // En celular solo se rotulan los centros (CEDI y puertos marítimos): con todas las ciudades los nombres se
+  // encimaban hasta no leerse. Las demás siguen con su punto y su ficha al tocarlas.
+  const narrowScreen = useMedia("(max-width: 767px)");
   const cityLabels = useMemo(() => {
-    const rank = ["cedi", "puerto_maritimo", "aeropuerto", "puerto_fluvial", "terminal_ferrea"];
+    const rank = narrowScreen
+      ? ["cedi", "puerto_maritimo"]
+      : ["cedi", "puerto_maritimo", "aeropuerto", "puerto_fluvial", "terminal_ferrea"];
     const best = new Map<string, NodeDatum>();
     for (const n of nodes) {
       const r = rank.indexOf(n.properties.kind);
@@ -458,7 +477,7 @@ export default function Map3D({
       if (!cur || r < rank.indexOf(cur.properties.kind)) best.set(n.properties.city, n);
     }
     return [...best.values()];
-  }, [nodes]);
+  }, [nodes, narrowScreen]);
 
   const fleetSegments = useMemo<AssetSegment[]>(
     () =>

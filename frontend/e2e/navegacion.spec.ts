@@ -12,7 +12,7 @@ test("todas las páginas cargan sin errores", async ({ page }) => {
 test("el dock navega, el menú Más se cierra con Escape y Ctrl K abre la búsqueda", async ({ page }) => {
   const w = watchErrors(page);
   await page.goto("/");
-  const nav = page.getByRole("navigation", { name: "Navegación principal" });
+  const nav = page.getByRole("navigation", { name: "Navegación principal", exact: true });
   for (const [label, url] of [["Envíos", /\/envios$/], ["Flota", /\/flota$/], ["Resumen", /\/$/]] as const) {
     await nav.getByRole("link", { name: label, exact: true }).click();
     await expect(page).toHaveURL(url);
@@ -33,7 +33,7 @@ test("volver a una página con el mapa ya montado no congela la página", async 
   const w = watchErrors(page);
   await page.goto("/red");
   await page.locator(".maplibregl-canvas").first().waitFor({ state: "attached", timeout: 30_000 });
-  const nav = page.getByRole("navigation", { name: "Navegación principal" });
+  const nav = page.getByRole("navigation", { name: "Navegación principal", exact: true });
   await nav.getByRole("link", { name: "Envíos", exact: true }).click();
   await expect(page).toHaveURL(/\/envios$/);
   await nav.getByRole("link", { name: "Red", exact: true }).click();

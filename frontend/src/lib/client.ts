@@ -4,13 +4,28 @@
  */
 export async function api<T>(
   path: string,
-  options: { method?: "GET" | "POST" | "PUT" | "DELETE"; body?: unknown } = {},
+  options: { method?: "GET" | "POST" | "PUT" | "DELETE"; body?: unknown; headers?: Record<string, string> } = {},
 ): Promise<T> {
   let res: Response;
+  const headers: Record<string, string> = { ...options.headers };
+  if (options.body !== undefined) {
+    headers["content-type"] = "application/json";
+  }
+  if (typeof window !== "undefined") {
+    try {
+      const token = window.localStorage.getItem("westvane.session_token");
+      if (token && !headers["Authorization"] && !headers["authorization"]) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+    } catch {
+      /* localStorage inaccesible */
+    }
+  }
+
   try {
     res = await fetch(path, {
       method: options.method ?? "GET",
-      headers: options.body !== undefined ? { "content-type": "application/json" } : undefined,
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
       cache: "no-store",
       // Los PDF pueden tardar; nada debería tardar más de 60 s

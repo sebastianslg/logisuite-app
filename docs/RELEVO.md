@@ -27,10 +27,24 @@ git checkout desarrollo
 Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las verificaciones antes de subir.
 
 ## Estado actual  (reescríbelo al terminar cada sesión)
-- **Última herramienta:** Claude (nube) · **Fecha:** 2026-10-29
-- **Hecho:** ver las secciones 12 a 20 de `docs/BITACORA.md`; `main` y `desarrollo` están iguales.
+- **Última herramienta:** Claude (PC) · **Fecha:** 2026-10-29
+- **Hecho:** ver secciones 36 y 37 de `docs/BITACORA.md`.
+  - Claude **revisó la autenticación OTP de Antigravity y encontró fallos graves** (cualquiera podía crear un administrador
+    y leer el código de acceso en la respuesta de la API). Quedaron **corregidos y con pruebas** en esta rama.
+  - Iniciar sesión queda **deshabilitado en producción hasta configurar SMTP** (y `ADMIN_EMAIL` para el primer admin): es a
+    propósito. El ingreso es opcional y no restringe nada; la app sigue abierta.
+  - Arreglo de interfaz: el menú «Más» ya no tapa el diálogo de ingreso.
 - **En curso / a medias:** nada.
-- **Siguiente paso sugerido:** medir el rendimiento del mapa con `?diagnostico` en el PC y decidir si hace falta un
-  solo lienzo 3D; después asignar vehículo a cada envío.
-- **Verificaciones al cerrar:** 221 pruebas de la API y 15 de navegador en verde.
-- **Avisos:** Contabo debe tener `main` desplegado; confirmarlo con `git log --oneline -1` en el servidor.
+- **Importante para quien siga:**
+  - Antigravity: **no usar `WESTVANE_DEV_OTP` fuera de pruebas** y no volver a devolver el código en la respuesta.
+  - Hay un commit sin subir a `main`/Contabo: todo `desarrollo` espera la aprobación del dueño para desplegar.
+  - Los correos de la semilla son `@westvane.invalid` (dominio reservado); la empresa por defecto no tiene NIT.
+- **Siguiente paso sugerido:**
+  - El dueño decide si activa el ingreso: configurar SMTP, `ADMIN_EMAIL`, y actualizar la política de privacidad
+    (revisión legal) porque guarda correos.
+  - Después, si se quiere, exigir sesión y rol por endpoint (hoy ningún dato lo exige).
+  - Validar coordenadas de la red contra fuentes oficiales; PostgreSQL cuando haya concurrencia; datos del
+    responsable (`LEGAL_*`); despliegue automático y dominio propio.
+  - Mapa de Red en celular (`claude-local/mapa-celular`, `098e6f0`): arreglo hecho, falta traerlo a `desarrollo`.
+- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; 274 pruebas de la API; 23 de navegador.
+- **Avisos:** puertos de prueba propios si hay otra herramienta (`E2E_PORT`, `E2E_API_PORT`, `E2E_DB_PATH`).

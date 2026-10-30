@@ -872,3 +872,115 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
   **Verificado:** con la misma base, la prueba de SOAT y la de hidratación pasan 5 de 5 cada una, y la suite pasa
   21 de 21.
 - Pruebas: 263 de la API y 21 de navegador.
+
+## 35. Vehículo asignado en la lista general de envíos y pulido de adaptabilidad (29/10/2026)
+
+- **Vehículo asignado en envíos:**
+  - `backend/app/api/serializers.py`: la serialización de envíos (`shipment`) ahora incluye un resumen del vehículo activo/asignado (`vehicle`: `id`, `type`, `carrier`, `own`, `outsourced`, `vehicle_ids`, `plates`, `pinned`) y la lista de todos los vehículos de los tramos (`vehicles`). Se incluye tanto en el listado general (`GET /api/shipments`) como en el detalle individual.
+  - `frontend/src/components/shipments/shipments-table.tsx`:
+    - En escritorio: columna «Vehículo» (`hidden xl:table-cell`). Si es flota propia, enlaza directamente a su ficha `/flota/:id`; si es tercero, muestra el nombre o transportista en texto atenuado con tooltip.
+    - En celular: badge con código/placa en tipografía mono junto al código del envío en la tarjeta móvil.
+  - Pruebas: prueba unitaria en `backend/tests/test_fleet_warehouses.py` (`test_vehiculo_en_lista_y_detalle_de_envios`) y prueba E2E en `frontend/e2e/envios.spec.ts`.
+- **Pulido visual y de pruebas:**
+  - `frontend/src/components/settings/tolls-panel.tsx`: en pantallas móviles (< 1024 px), cada peaje se presenta en tarjetas responsivas en lugar de una tabla HTML que provocaba ensanchamiento horizontal en `/configuracion`.
+  - `frontend/src/components/shell/dock.tsx`: `z-index` del dock de escritorio ajustado a `z-50` para evitar que el canvas interactivo WebGL de deck.gl en `/red` intercepte clics de navegación.
+  - `frontend/next.config.ts`: agregado `turbopackPluginRuntimeStrategy: "workerThreads"` para compatibilidad de build de Turbopack en Node 26.
+  - `frontend/playwright.config.ts`: soporte para ejecutar uvicorn usando el intérprete del `.venv` en Windows.
+- **Verificado:**
+  - `cd frontend && npx tsc --noEmit && npx eslint src e2e && npm run build` (0 errores).
+  - `cd backend && python -m pytest -q` (264 pruebas pasadas).
+  - `cd frontend && TZ=America/Bogota npx playwright test` (22 pruebas de navegador pasadas, cubriendo escritorio y celular a 412 px y 375 px).
+- Pruebas: 264 de la API y 22 de navegador.
+
+
+## 36. Autenticación sin contraseña por correo (OTP), empresas y roles (29/10/2026)
+
+- **Regla del sistema:** Sin contraseña de aplicación (cumpliendo estrictamente `AGENTS.md`). El acceso se realiza mediante código numérico de 6 dígitos enviado al correo institucional (`auth_codes`), con expiración a los 10 minutos y hash criptográfico con salt (SHA-256).
+- **Esquema aditivo `schema_v13.py`:**
+  - Nueva tabla `companies` (`company_id`, `name`, `nit`, `active`, `created_at`).
+  - Columnas añadidas a `users`: `email` (TEXT) y `company_id` (INTEGER, FK a `companies`).
+  - Tabla `auth_codes` (`code_id`, `email`, `code_hash`, `salt`, `attempts`, `expires_at`, `used_at`, `created_at`).
+  - Tabla `user_sessions` (`session_id`, `user_id`, `expires_at`, `created_at`).
+  - Migración aditiva e idempotente integrada en `init_db.py` y `_seed_users()`.
+- **Motor y endpoints (`backend/app/engine/auth_otp.py` y `backend/app/main.py`):**
+  - `POST /api/auth/otp/request`: valida formato y existencia de correo; genera OTP de 6 dígitos; en modo desarrollo retorna `dev_code`.
+  - `POST /api/auth/otp/verify`: valida código y expiración; invalida reintentos abusivos; crea sesión de 30 días y retorna token portador.
+  - `GET /api/auth/me`: retorna identidad completa (`user_id`, `username`, `full_name`, `email`, `role`, `company`).
+  - `POST /api/auth/logout`: revoca sesión activa.
+  - `GET/POST /api/companies`: listado y creación de empresas asociadas.
+  - `GET/POST /api/admin/users` y `PUT /api/admin/users/{id}/role`: administración de usuarios, empresas y roles.
+- **Frontend y experiencia de usuario:**
+  - `frontend/src/lib/auth.ts`: almacén reactivo con `useSyncExternalStore` sin llamadas síncronas a `setState` en efectos (cero advertencias de React Compiler).
+  - `frontend/src/lib/client.ts`: inyección automática del token de sesión (`Authorization: Bearer <token>`) en todas las peticiones `api()`.
+  - `frontend/src/components/auth/login-dialog.tsx`: modal accesible de ingreso con código por correo, selector rápido de cuentas semilla de prueba, y ficha de usuario y empresa con botón de cierre de sesión.
+  - `frontend/src/components/shell/dock.tsx`: `OperatorField` muestra usuario activo, rol y empresa si está autenticado; o campo de operador declarado con botón para ingresar por correo si no lo está.
+  - `frontend/src/app/layout.tsx`: `LoginDialog` montado a nivel raíz.
+- **Pruebas y verificación:**
+  - `backend/tests/test_auth_otp.py`: 4 pruebas unitarias cubriendo solicitudes de OTP inválidas, código erróneo, flujo exitoso, cierre de sesión y gestión de empresas/roles.
+  - `frontend/e2e/auth.spec.ts`: prueba Playwright E2E del flujo completo de ingreso con OTP y verificación de sesión en la interfaz.
+- **Verificado:**
+  - `cd frontend && npx tsc --noEmit && npx eslint src e2e && npm run build` (0 errores).
+  - `cd backend && python -m pytest -q` (268 pruebas pasadas).
+  - `cd frontend && TZ=America/Bogota npx playwright test` (23 pruebas de navegador pasadas).
+- Pruebas: 268 de la API y 23 de navegador.
+
+## 37. Revisión de seguridad de la autenticación y correcciones (29/10/2026)
+
+Claude revisó la sección 36 antes de subirla a Contabo y encontró fallos que lo impedían. Se comprobaron ejecutándolos
+contra una base temporal. **Nada de esto llegó a producción.**
+
+- **Lo encontrado:**
+  1. **Cualquiera podía crear un administrador:** `POST /api/companies`, `POST /api/admin/users` y
+     `PUT /api/admin/users/{id}/role` respondían 201 sin ninguna sesión (el nombre de quien actúa era un parámetro
+     de la URL).
+  2. **El código viajaba en la respuesta** (`dev_code`) siempre que no hubiera SMTP, y en Contabo no lo hay: pedir
+     un código y leerlo de la respuesta daba una sesión de administrador sin recibir ningún correo.
+  3. **Un almacén en memoria** (`_LAST_GENERATED_CODES`) guardaba cada código en claro mientras el servidor vivía.
+  4. **Los correos de la semilla** (`admin@westvane.com`...) eran de un dominio real que podría ser de un tercero: si
+     algún día se configurara el correo, ese código le llegaría a esa persona.
+  5. **El NIT** de la empresa por defecto (`901.845.120-3`) era inventado y podría ser de una empresa real.
+  6. **Botones de «cuentas demo»** en el diálogo de ingreso, visibles para cualquiera.
+  7. La respuesta de «código enviado» distinguía correos registrados de los que no.
+- **Correcciones:**
+  - **Administrar exige sesión de administrador** (401 sin sesión, 403 con otro rol). El historial queda firmado por la
+    cuenta de la sesión, no por un nombre escrito en la URL. No se puede quitar el rol al último administrador.
+  - **`dev_code` y el registro del código en el log solo con `WESTVANE_DEV_OTP=1`**, que no se define nunca en
+    producción (sí en las pruebas). Sin SMTP y sin ese modo, pedir un código responde que el correo no está
+    configurado: **iniciar sesión queda deshabilitado, a propósito**.
+  - **Primer administrador desde el `.env`:** `ADMIN_EMAIL` (y `ADMIN_NAME`). Se crea al arrancar y, si alguien lo
+    degradó o desactivó, se restablece.
+  - La respuesta no revela si el correo existe; un código nuevo por correo cada 60 s (`WESTVANE_OTP_COOLDOWN_S`).
+  - Correos de la semilla en `@westvane.invalid` (dominio reservado por la RFC 2606, que no puede existir); empresa por
+    defecto sin NIT; sin botones de demostración; se eliminó el almacén en memoria.
+- **Para activar el ingreso en producción** hace falta el dueño: configurar un SMTP real (`SMTP_HOST`, `SMTP_PORT`,
+  `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`) y `ADMIN_EMAIL` en el `.env` del servidor. Sin eso la app funciona como hoy.
+- **Lo que NO hace el ingreso (importante):** es opcional y **no restringe nada**. Ningún endpoint de datos (envíos,
+  flota, bodegas...) exige sesión: la app sigue abierta, como decidió el dueño. El rol y la empresa se muestran pero
+  aún no limitan acciones. Cuando se quiera, exigir sesión y rol por endpoint es un paso aparte y de mayor impacto.
+- **Pendiente de revisión legal:** la política de privacidad dice que no hay cuentas; el ingreso por correo guarda
+  correos electrónicos y códigos de acceso. Hay que actualizarla antes de activar el ingreso en producción.
+- **Pruebas:** `test_auth_otp.py` pasó de 4 a 10 pruebas, que cubren el ataque original (401, 403, sin `dev_code`
+  fuera del modo de desarrollo, correo no registrado, último administrador, administrador inicial, enfriamiento).
+- **Menú «Más» tapaba el diálogo de ingreso:** al pulsar «Ingresar con código al correo», el menú seguía abierto encima
+  y cubría «Enviar código». La prueba de navegador antiguo no lo vio porque usaba los botones demo, que quedaban fuera
+  del menú. Ahora `OperatorField` cierra el menú que lo contiene (escritorio y celular).
+- **Aviso, sin cambiar:** varios archivos del proyecto (`dock.tsx`, `layout.tsx`, `seed_data.py`, `tolls-panel.tsx`...)
+  tienen finales de línea `\r\r\n` desde el commit original. No afecta a la app, pero hace que `git diff` muestre miles de
+  líneas cambiadas; usar `git diff -w --ignore-cr-at-eol`. Normalizarlos es un commit aparte.
+- **Verificado al cerrar:** 274 pruebas de la API y 23 de navegador, con la API iniciada sin `SMTP_HOST` ni modo de
+  desarrollo (salvo en las pruebas).
+
+## 38. Mapa de Red en celular (29/10/2026)
+
+- **Antes:** el mapa abría tan alejado que se veían Perú, el Caribe y Centroamérica, con Colombia pequeña y los nombres
+  encimados. Había tres causas:
+  - la cámara inclinada 45° encogía el norte, donde están casi todos los nodos;
+  - el encuadre incluía San Andrés, 3° al oeste, en una pantalla que manda por el ancho;
+  - reservaba el 30 % de la altura para el simulador plegado, que ocupa cerca del 22 %.
+- **Ahora, en pantallas angostas:**
+  - la cámara arranca plana y sin giro (se puede inclinar con dos dedos);
+  - el encuadre es la Colombia continental (San Andrés queda a un arrastre);
+  - la reserva inferior es del 22 %;
+  - solo se rotulan los CEDI y los puertos marítimos (las demás ciudades conservan su punto y su ficha).
+- El escritorio no cambia. El mapa sigue quieto en reposo: es solo la vista inicial.
+- Pruebas: 21 de navegador.

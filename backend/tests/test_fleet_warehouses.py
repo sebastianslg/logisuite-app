@@ -393,6 +393,18 @@ class TestAsignacionManual:
         r = client.put(f"/api/shipments/{sh[0]['shipment_code']}/legs/0/vehicle", json={"vehicle_ids": [1]})
         assert r.status_code == 422 and "ya salió" in r.json()["detail"]
 
+    def test_vehiculo_en_lista_y_detalle_de_envios(self, client):
+        res = client.get("/api/shipments").json()
+        assert res["count"] > 0
+        with_vehicle = [s for s in res["items"] if s.get("vehicle")]
+        assert len(with_vehicle) > 0
+        v = with_vehicle[0]["vehicle"]
+        assert "id" in v and "own" in v and "type" in v
+        # En el detalle también debe incluirse
+        det = client.get(f"/api/shipments/{with_vehicle[0]['code']}").json()
+        assert det.get("vehicle") is not None
+        assert isinstance(det.get("vehicles"), list)
+
 
 # ---------------------------------------------------------------------------
 class TestBodegas:

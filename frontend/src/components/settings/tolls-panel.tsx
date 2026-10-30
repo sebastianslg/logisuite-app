@@ -53,7 +53,7 @@ export function TollsPanel({ tolls }: { tolls: Toll[] }) {
   }
 
   return (
-    <section className="glass mt-6 rounded-3xl p-5">
+    <section className="glass mt-6 min-w-0 max-w-full overflow-hidden rounded-3xl p-5">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold">Peajes por tramo terrestre</h2>
@@ -105,10 +105,15 @@ export function TollsPanel({ tolls }: { tolls: Toll[] }) {
         aria-label="Filtrar peajes"
       />
 
-      {/* En celular cada tramo es un bloque (sin tabla que se desborde); desde 1024 px, tabla. */}
-      <div className="max-h-[520px] overflow-y-auto rounded-xl border border-border lg:overflow-x-auto">
-        <table className="block w-full text-xs lg:table">
-          <thead className="sticky top-0 hidden bg-background text-left text-muted-foreground lg:table-header-group">
+      {/* En celular cada tramo es una tarjeta sin desborde; en escritorio (>=1024 px), tabla */}
+      <div className="max-h-[520px] overflow-auto rounded-xl border border-border">
+        <div className="divide-y divide-border text-xs lg:hidden">
+          {visible.map((t) => (
+            <TollCard key={t.link_id} toll={t} operator={operator} onSaved={() => router.refresh()} />
+          ))}
+        </div>
+        <table className="hidden w-full text-xs lg:table">
+          <thead className="sticky top-0 bg-background text-left text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">Corredor</th>
               <th className="px-3 py-2 font-medium">Tramo</th>
@@ -119,7 +124,7 @@ export function TollsPanel({ tolls }: { tolls: Toll[] }) {
               <th className="px-3 py-2" />
             </tr>
           </thead>
-          <tbody className="block lg:table-row-group">
+          <tbody>
             {visible.map((t) => (
               <TollRow key={t.link_id} toll={t} operator={operator} onSaved={() => router.refresh()} />
             ))}
@@ -127,6 +132,72 @@ export function TollsPanel({ tolls }: { tolls: Toll[] }) {
         </table>
       </div>
     </section>
+  );
+}
+
+function TollCard({ toll: t, operator, onSaved }: { toll: Toll; operator: string; onSaved: () => void }) {
+  const [value, setValue] = useState(String(t.tolls_cop ?? 0));
+  const [note, setNote] = useState(t.tolls_note ?? "");
+  const [source, setSource] = useState(t.tolls_source ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, flashDone] = useSavedFlash();
+  const changed =
+    Number(value) !== t.tolls_cop || note !== (t.tolls_note ?? "") || source !== (t.tolls_source ?? "");
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/tolls/${t.link_id}`, {
+        method: "PUT",
+        body: { tolls_cop: Number(value) || 0, note: note || null, source: source || null, usuario: operator },
+      });
+      flashDone();
+      toast({ title: "Peaje guardado" });
+      onSaved();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-x-3 gap-y-2 p-3">
+      <div className="col-span-2 font-medium">{t.corridor}</div>
+      <div className="col-span-2 text-muted-foreground">
+        {t.origin} → {t.destination}
+        <span className="tabular"> · {t.distance_km.toFixed(0)} km</span>
+      </div>
+      <div>
+        <span className="mb-1 block text-muted-foreground">Peaje (COP)</span>
+        <input
+          type="number"
+          min={0}
+          step={100}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className={`${input} tabular w-full`}
+          aria-label={`Peaje de ${t.origin} a ${t.destination}`}
+        />
+      </div>
+      <div>
+        <span className="mb-1 block text-muted-foreground">Fuente</span>
+        <input value={source} onChange={(e) => setSource(e.target.value)} className={`${input} w-full`} aria-label="Fuente" />
+      </div>
+      <div className="col-span-2">
+        <span className="mb-1 block text-muted-foreground">Nota</span>
+        <input value={note} onChange={(e) => setNote(e.target.value)} className={`${input} w-full`} aria-label="Nota" />
+      </div>
+      <div className="col-span-2">
+        <Button size="sm" variant={changed ? "default" : "ghost"} disabled={!changed || busy} onClick={save} type="button" burst={Check}>
+          <SaveIcon state={done ? "done" : busy ? "busy" : "idle"} />
+          Guardar
+        </Button>
+        {error && <p className="mt-1 text-destructive">{error}</p>}
+      </div>
+    </div>
   );
 }
 
@@ -159,35 +230,28 @@ function TollRow({ toll: t, operator, onSaved }: { toll: Toll; operator: string;
   }
 
   return (
-    <tr className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border p-3 first:border-t-0 lg:table-row lg:p-0 lg:align-top lg:first:border-t">
-      <td className="col-span-2 font-medium lg:table-cell lg:px-3 lg:py-2 lg:font-normal">{t.corridor}</td>
-      <td className="col-span-2 text-muted-foreground lg:table-cell lg:px-3 lg:py-2 lg:text-foreground">
-        {t.origin} → {t.destination}
-        <span className="tabular lg:hidden"> · {t.distance_km.toFixed(0)} km</span>
-      </td>
-      <td className="tabular hidden px-3 py-2 text-right lg:table-cell">{t.distance_km.toFixed(0)}</td>
-      <td className="lg:table-cell lg:px-3 lg:py-2">
-        <span className="mb-1 block text-muted-foreground lg:hidden">Peaje (COP)</span>
+    <tr className="border-t border-border align-top first:border-t-0">
+      <td className="px-3 py-2 font-normal">{t.corridor}</td>
+      <td className="px-3 py-2 text-foreground">{t.origin} → {t.destination}</td>
+      <td className="tabular px-3 py-2 text-right">{t.distance_km.toFixed(0)}</td>
+      <td className="px-3 py-2">
         <input
           type="number"
           min={0}
           step={100}
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          className={`${input} tabular w-full lg:w-28`}
+          className={`${input} tabular w-28`}
           aria-label={`Peaje de ${t.origin} a ${t.destination}`}
         />
       </td>
-      {/* En celular: peaje y fuente lado a lado, la nota a lo ancho debajo y luego Guardar */}
-      <td className="col-span-2 max-lg:order-1 lg:table-cell lg:px-3 lg:py-2">
-        <span className="mb-1 block text-muted-foreground lg:hidden">Nota</span>
-        <input value={note} onChange={(e) => setNote(e.target.value)} className={`${input} w-full lg:w-44`} aria-label="Nota" />
+      <td className="px-3 py-2">
+        <input value={note} onChange={(e) => setNote(e.target.value)} className={`${input} w-44`} aria-label="Nota" />
       </td>
-      <td className="lg:table-cell lg:px-3 lg:py-2">
-        <span className="mb-1 block text-muted-foreground lg:hidden">Fuente</span>
-        <input value={source} onChange={(e) => setSource(e.target.value)} className={`${input} w-full lg:w-32`} aria-label="Fuente" />
+      <td className="px-3 py-2">
+        <input value={source} onChange={(e) => setSource(e.target.value)} className={`${input} w-32`} aria-label="Fuente" />
       </td>
-      <td className="col-span-2 max-lg:order-2 lg:table-cell lg:px-3 lg:py-2">
+      <td className="px-3 py-2">
         <Button size="sm" variant={changed ? "default" : "ghost"} disabled={!changed || busy} onClick={save} type="button" burst={Check}>
           <SaveIcon state={done ? "done" : busy ? "busy" : "idle"} />
           Guardar
