@@ -969,3 +969,18 @@ contra una base temporal. **Nada de esto llegó a producción.**
   líneas cambiadas; usar `git diff -w --ignore-cr-at-eol`. Normalizarlos es un commit aparte.
 - **Verificado al cerrar:** 274 pruebas de la API y 23 de navegador, con la API iniciada sin `SMTP_HOST` ni modo de
   desarrollo (salvo en las pruebas).
+
+## 38. Mapa de Red en celular (29/10/2026)
+
+- **Antes:** el mapa abría tan alejado que se veían Perú, el Caribe y Centroamérica, con Colombia pequeña y los nombres
+  encimados. Había tres causas:
+  - la cámara inclinada 45° encogía el norte, donde están casi todos los nodos;
+  - el encuadre incluía San Andrés, 3° al oeste, en una pantalla que manda por el ancho;
+  - reservaba el 30 % de la altura para el simulador plegado, que ocupa cerca del 22 %.
+- **Ahora, en pantallas angostas:**
+  - la cámara arranca plana y sin giro (se puede inclinar con dos dedos);
+  - el encuadre es la Colombia continental (San Andrés queda a un arrastre);
+  - la reserva inferior es del 22 %;
+  - solo se rotulan los CEDI y los puertos marítimos (las demás ciudades conservan su punto y su ficha).
+- El escritorio no cambia. El mapa sigue quieto en reposo: es solo la vista inicial.
+- Pruebas: 21 de navegador.
