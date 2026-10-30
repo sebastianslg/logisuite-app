@@ -923,3 +923,49 @@ Pendiente «medir el mapa con `?diagnostico`» cerrado con una medición en el e
   - `cd backend && python -m pytest -q` (268 pruebas pasadas).
   - `cd frontend && TZ=America/Bogota npx playwright test` (23 pruebas de navegador pasadas).
 - Pruebas: 268 de la API y 23 de navegador.
+
+## 37. Revisión de seguridad de la autenticación y correcciones (29/10/2026)
+
+Claude revisó la sección 36 antes de subirla a Contabo y encontró fallos que lo impedían. Se comprobaron ejecutándolos
+contra una base temporal. **Nada de esto llegó a producción.**
+
+- **Lo encontrado:**
+  1. **Cualquiera podía crear un administrador:** `POST /api/companies`, `POST /api/admin/users` y
+     `PUT /api/admin/users/{id}/role` respondían 201 sin ninguna sesión (el nombre de quien actúa era un parámetro
+     de la URL).
+  2. **El código viajaba en la respuesta** (`dev_code`) siempre que no hubiera SMTP, y en Contabo no lo hay: pedir
+     un código y leerlo de la respuesta daba una sesión de administrador sin recibir ningún correo.
+  3. **Un almacén en memoria** (`_LAST_GENERATED_CODES`) guardaba cada código en claro mientras el servidor vivía.
+  4. **Los correos de la semilla** (`admin@westvane.com`...) eran de un dominio real que podría ser de un tercero: si
+     algún día se configurara el correo, ese código le llegaría a esa persona.
+  5. **El NIT** de la empresa por defecto (`901.845.120-3`) era inventado y podría ser de una empresa real.
+  6. **Botones de «cuentas demo»** en el diálogo de ingreso, visibles para cualquiera.
+  7. La respuesta de «código enviado» distinguía correos registrados de los que no.
+- **Correcciones:**
+  - **Administrar exige sesión de administrador** (401 sin sesión, 403 con otro rol). El historial queda firmado por la
+    cuenta de la sesión, no por un nombre escrito en la URL. No se puede quitar el rol al último administrador.
+  - **`dev_code` y el registro del código en el log solo con `WESTVANE_DEV_OTP=1`**, que no se define nunca en
+    producción (sí en las pruebas). Sin SMTP y sin ese modo, pedir un código responde que el correo no está
+    configurado: **iniciar sesión queda deshabilitado, a propósito**.
+  - **Primer administrador desde el `.env`:** `ADMIN_EMAIL` (y `ADMIN_NAME`). Se crea al arrancar y, si alguien lo
+    degradó o desactivó, se restablece.
+  - La respuesta no revela si el correo existe; un código nuevo por correo cada 60 s (`WESTVANE_OTP_COOLDOWN_S`).
+  - Correos de la semilla en `@westvane.invalid` (dominio reservado por la RFC 2606, que no puede existir); empresa por
+    defecto sin NIT; sin botones de demostración; se eliminó el almacén en memoria.
+- **Para activar el ingreso en producción** hace falta el dueño: configurar un SMTP real (`SMTP_HOST`, `SMTP_PORT`,
+  `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`) y `ADMIN_EMAIL` en el `.env` del servidor. Sin eso la app funciona como hoy.
+- **Lo que NO hace el ingreso (importante):** es opcional y **no restringe nada**. Ningún endpoint de datos (envíos,
+  flota, bodegas...) exige sesión: la app sigue abierta, como decidió el dueño. El rol y la empresa se muestran pero
+  aún no limitan acciones. Cuando se quiera, exigir sesión y rol por endpoint es un paso aparte y de mayor impacto.
+- **Pendiente de revisión legal:** la política de privacidad dice que no hay cuentas; el ingreso por correo guarda
+  correos electrónicos y códigos de acceso. Hay que actualizarla antes de activar el ingreso en producción.
+- **Pruebas:** `test_auth_otp.py` pasó de 4 a 10 pruebas, que cubren el ataque original (401, 403, sin `dev_code`
+  fuera del modo de desarrollo, correo no registrado, último administrador, administrador inicial, enfriamiento).
+- **Menú «Más» tapaba el diálogo de ingreso:** al pulsar «Ingresar con código al correo», el menú seguía abierto encima
+  y cubría «Enviar código». La prueba de navegador antiguo no lo vio porque usaba los botones demo, que quedaban fuera
+  del menú. Ahora `OperatorField` cierra el menú que lo contiene (escritorio y celular).
+- **Aviso, sin cambiar:** varios archivos del proyecto (`dock.tsx`, `layout.tsx`, `seed_data.py`, `tolls-panel.tsx`...)
+  tienen finales de línea `\r\r\n` desde el commit original. No afecta a la app, pero hace que `git diff` muestre miles de
+  líneas cambiadas; usar `git diff -w --ignore-cr-at-eol`. Normalizarlos es un commit aparte.
+- **Verificado al cerrar:** 274 pruebas de la API y 23 de navegador, con la API iniciada sin `SMTP_HOST` ni modo de
+  desarrollo (salvo en las pruebas).

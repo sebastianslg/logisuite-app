@@ -140,6 +140,7 @@ async def lifespan(_app: FastAPI):
     from app.init_db import init_database
     init_database(reset=False)
     enable_wal()
+    auth_otp.ensure_bootstrap_admin()
     yield
 
 
@@ -1456,37 +1457,53 @@ def auth_logout(request: Request) -> Response:
     return Response(status_code=204)
 
 
+def _require_admin(request: Request) -> dict:
+    """Sesión de administrador (token portador). 401 sin sesión válida, 403 si el rol no alcanza."""
+    header = request.headers.get("Authorization", "")
+    user = auth_otp.get_user_by_session(header[7:].strip() if header.startswith("Bearer ") else None)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Inicia sesión para administrar usuarios y empresas.")
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo un administrador puede administrar usuarios y empresas.")
+    return user
+
+
 @app.get("/api/companies")
-def companies_list() -> dict:
+def companies_list(request: Request) -> dict:
+    _require_admin(request)
     items = auth_otp.list_companies()
     return {"count": len(items), "items": items}
 
 
 @app.post("/api/companies", status_code=201)
-def companies_create(body: CompanyIn, request: Request, usuario: str | None = None) -> dict:
+def companies_create(body: CompanyIn, request: Request) -> dict:
+    admin = _require_admin(request)
     try:
-        return auth_otp.create_company(body.name, body.nit, operator=usuario)
+        return auth_otp.create_company(body.name, body.nit, operator=admin["username"])
     except ops.OperationError as exc:
         _op_error(exc)
 
 
 @app.get("/api/admin/users")
-def admin_users_list() -> dict:
+def admin_users_list(request: Request) -> dict:
+    _require_admin(request)
     items = auth_otp.list_users()
     return {"count": len(items), "items": items}
 
 
 @app.post("/api/admin/users", status_code=201)
-def admin_users_create(body: UserCreateIn, usuario: str | None = None) -> dict:
+def admin_users_create(body: UserCreateIn, request: Request) -> dict:
+    admin = _require_admin(request)
     try:
-        return auth_otp.create_user_record(body.email, body.full_name, body.role, body.company_id, operator=usuario)
+        return auth_otp.create_user_record(body.email, body.full_name, body.role, body.company_id, operator=admin["username"])
     except ops.OperationError as exc:
         _op_error(exc)
 
 
 @app.put("/api/admin/users/{user_id}/role")
-def admin_users_update_role(user_id: int, body: UserRoleUpdateIn, usuario: str | None = None) -> dict:
+def admin_users_update_role(user_id: int, body: UserRoleUpdateIn, request: Request) -> dict:
+    admin = _require_admin(request)
     try:
-        return auth_otp.update_user_role(user_id, body.role, operator=usuario)
+        return auth_otp.update_user_role(user_id, body.role, operator=admin["username"])
     except ops.OperationError as exc:
         _op_error(exc)

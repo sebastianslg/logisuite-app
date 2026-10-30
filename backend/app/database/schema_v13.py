@@ -55,15 +55,15 @@ def apply_v13_migration(conn):
     if has_company == 0:
         conn.execute(
             "INSERT INTO companies (name, nit, active, created_at) VALUES (?, ?, 1, ?)",
-            ("Westvane Logistics S.A.S.", "901.845.120-3", now_iso),
+            ("Westvane Logistics S.A.S.", None, now_iso),
         )
 
     first_company_id = conn.execute("SELECT company_id FROM companies LIMIT 1").fetchone()
     cid = first_company_id[0] if first_company_id else 1
 
     # Asignar correos deterministas y empresa a usuarios semilla existentes si no tienen email
-    conn.execute("UPDATE users SET email = 'admin@westvane.com', company_id = ? WHERE username = 'admin' AND email IS NULL", (cid,))
-    conn.execute("UPDATE users SET email = 'operador@westvane.com', company_id = ? WHERE username = 'operador' AND email IS NULL", (cid,))
-    conn.execute("UPDATE users SET email = 'lector@westvane.com', company_id = ? WHERE username = 'lector' AND email IS NULL", (cid,))
+    conn.execute("UPDATE users SET email = 'admin@westvane.invalid', company_id = ? WHERE username = 'admin' AND email IS NULL", (cid,))
+    conn.execute("UPDATE users SET email = 'operador@westvane.invalid', company_id = ? WHERE username = 'operador' AND email IS NULL", (cid,))
+    conn.execute("UPDATE users SET email = 'lector@westvane.invalid', company_id = ? WHERE username = 'lector' AND email IS NULL", (cid,))
 
     conn.commit()

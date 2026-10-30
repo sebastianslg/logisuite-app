@@ -21,10 +21,9 @@ test.describe("Autenticación sin contraseña por correo (OTP)", () => {
     const modalTitle = page.getByRole("heading", { name: /acceso institucional/i });
     await expect(modalTitle).toBeVisible();
 
-    // Probar cuenta demo admin
-    const adminDemoBtn = page.getByRole("button", { name: "admin", exact: true });
-    await expect(adminDemoBtn).toBeVisible();
-    await adminDemoBtn.click();
+    // El correo se escribe a mano (no hay cuentas de demostración). La semilla usa un dominio reservado, que no existe.
+    await page.getByLabel("Correo electrónico").fill("admin@westvane.invalid");
+    await page.getByRole("button", { name: /enviar código/i }).click();
 
     // Debe avanzar al paso de verificación de código de 6 dígitos
     const codeInput = page.getByPlaceholder("123456");
@@ -49,6 +48,29 @@ test.describe("Autenticación sin contraseña por correo (OTP)", () => {
     }
     const userStatus = page.getByText(/usuario autenticado/i);
     await expect(userStatus).toBeVisible();
+
+    // Recargar la página para verificar que la sesión persiste vía token y /api/auth/me
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
+    if (await moreBtn.isVisible()) {
+      await moreBtn.click();
+    }
+    await expect(page.getByText(/usuario autenticado/i)).toBeVisible();
+
+    // Abrir detalles de cuenta y cerrar sesión
+    const cuentaBtn = page.getByRole("button", { name: "Cuenta", exact: true });
+    await expect(cuentaBtn).toBeVisible();
+    await cuentaBtn.click();
+
+    const logoutBtn = page.getByRole("button", { name: /cerrar sesión/i });
+    await expect(logoutBtn).toBeVisible();
+    await logoutBtn.click();
+
+    // Tras cerrar sesión, debe volver a mostrar el botón para ingresar
+    if (await moreBtn.isVisible()) {
+      await moreBtn.click();
+    }
+    await expect(page.getByRole("button", { name: /ingresar con código al correo/i })).toBeVisible();
 
     watch.expectClean();
   });

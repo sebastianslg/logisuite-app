@@ -4,7 +4,11 @@ Autenticación sin contraseñas (Passwordless OTP por correo electrónico) y ges
 - Generación de código numérico aleatorio de 6 dígitos con expiración de 10 minutos.
 - Almacenamiento seguro del código (hash SHA-256 con salt aleatorio).
 - Manejo de sesiones de usuario con tokens seguros de 32 bytes.
-- Soporte para envío SMTP si está configurado en .env (SMTP_HOST, etc.) y modo desarrollo/test con registro local.
+- Envío por SMTP (SMTP_HOST, etc. en .env). Sin SMTP el servidor NO entrega códigos: iniciar sesión queda
+  deshabilitado. Solo con WESTVANE_DEV_OTP=1 (desarrollo y pruebas) el código se registra en el log y se devuelve en
+  la respuesta (`dev_code`); en producción esa variable no se define nunca.
+- El primer administrador sale de ADMIN_EMAIL (y ADMIN_NAME) en el .env; administrar usuarios y empresas exige
+  sesión de administrador.
 - Jerarquía de roles: admin (3), operador (2), lector (1).
 """
 import hashlib
@@ -31,8 +35,16 @@ MAX_ATTEMPTS = 5
 
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
-# Almacén de depuración en memoria para pruebas automáticas cuando no hay servidor SMTP
-_LAST_GENERATED_CODES: dict[str, str] = {}
+OTP_COOLDOWN_S = 60  # segundos mínimos entre dos códigos pedidos para el mismo correo
+
+
+def dev_otp_enabled() -> bool:
+    """Modo de desarrollo y pruebas: el código se devuelve en la respuesta. Nunca en producción."""
+    return os.getenv("WESTVANE_DEV_OTP") == "1"
+
+
+def mail_configured() -> bool:
+    return bool(os.getenv("SMTP_HOST"))
 
 
 def _now() -> datetime:
@@ -63,11 +75,11 @@ def normalize_email(email: str) -> str:
 
 
 def send_email_code(email: str, code: str) -> None:
-    """Envía el código por correo si SMTP está configurado; si no, lo registra en log."""
-    _LAST_GENERATED_CODES[email] = code
+    """Envía el código por correo (SMTP). Sin SMTP solo registra el código en el modo de desarrollo."""
     smtp_host = os.getenv("SMTP_HOST")
     if not smtp_host:
-        logger.info("Código OTP para %s: %s (SMTP no configurado, modo local/desarrollo)", email, code)
+        # Solo en modo de desarrollo: sin correo configurado, en producción nunca se llega aquí (request_otp lo impide)
+        logger.info("Código OTP para %s: %s (modo de desarrollo, sin SMTP)", email, code)
         return
 
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
@@ -109,9 +121,28 @@ def request_otp(email: str) -> dict:
     norm_email = normalize_email(email)
 
     # Verificar que el usuario exista y esté activo
+    if not mail_configured() and not dev_otp_enabled():
+        raise OperationError("El envío de correo no está configurado en el servidor: por ahora no se puede iniciar sesión.")
+
+    generic = {
+        "ok": True,
+        "message": f"Si {norm_email} está registrado, recibirá un código. Válido por {CODE_TTL_MINUTES} minutos.",
+        "expires_in_minutes": CODE_TTL_MINUTES,
+        "dev_code": None,
+    }
+    # La respuesta no revela si el correo existe (no se puede averiguar quién tiene cuenta)
     u_df = run_query("SELECT user_id, active FROM users WHERE LOWER(email) = ?", (norm_email,))
     if u_df.empty or not u_df.iloc[0]["active"]:
-        raise OperationError("El correo no está registrado como usuario activo del sistema.")
+        return generic
+
+    # Un código nuevo por correo cada OTP_COOLDOWN_S: frena el reenvío masivo y el reintento de códigos
+    cooldown = int(os.getenv("WESTVANE_OTP_COOLDOWN_S", str(OTP_COOLDOWN_S)))
+    if cooldown > 0:
+        recent = run_query("SELECT created_at FROM auth_codes WHERE email = ? ORDER BY code_id DESC LIMIT 1", (norm_email,))
+        if not recent.empty:
+            last = datetime.strptime(recent.iloc[0]["created_at"], "%Y-%m-%d %H:%M:%S")
+            if (_now() - last).total_seconds() < cooldown:
+                raise OperationError("Espera un minuto antes de pedir otro código.")
 
     code = f"{secrets.randbelow(1_000_000):06d}"
     code_hash, salt = _hash_code(code)
@@ -125,13 +156,7 @@ def request_otp(email: str) -> dict:
     )
 
     send_email_code(norm_email, code)
-    return {
-        "ok": True,
-        "message": f"Código enviado a {norm_email}. Válido por {CODE_TTL_MINUTES} minutos.",
-        "expires_in_minutes": CODE_TTL_MINUTES,
-        # Si estamos en entorno de pruebas/desarrollo sin SMTP, se entrega el código en depuración
-        "dev_code": code if not os.getenv("SMTP_HOST") else None,
-    }
+    return {**generic, "dev_code": code if dev_otp_enabled() else None}
 
 
 def verify_otp(email: str, code: str) -> dict:
@@ -340,9 +365,33 @@ def create_user_record(
     }
 
 
+def ensure_bootstrap_admin() -> None:
+    """Primer administrador: el correo de ADMIN_EMAIL (con ADMIN_NAME) del .env. Se crea si falta y, si ya existe,
+    se asegura de que sea administrador activo. Sin ADMIN_EMAIL no hace nada."""
+    raw = (os.getenv("ADMIN_EMAIL") or "").strip()
+    if not raw:
+        return
+    try:
+        email = normalize_email(raw)
+    except OperationError:
+        logger.error("ADMIN_EMAIL no es un correo válido: no se creó el administrador inicial.")
+        return
+    found = run_query("SELECT user_id, role, active FROM users WHERE LOWER(email) = ?", (email,))
+    if found.empty:
+        create_user_record(email, os.getenv("ADMIN_NAME") or "Administrador", "admin", None, operator="sistema")
+    elif found.iloc[0]["role"] != "admin" or not found.iloc[0]["active"]:
+        run_write("UPDATE users SET role = 'admin', active = 1 WHERE user_id = ?", (int(found.iloc[0]["user_id"]),))
+        audit("sistema", "UPDATE", "users", str(int(found.iloc[0]["user_id"])), f"Administrador inicial restablecido ({email})")
+
+
 def update_user_role(user_id: int, role: str, operator: str | None = None) -> dict:
     if role not in ROLE_LEVEL:
         raise OperationError(f"Rol no válido: '{role}'.")
+    cur = run_query("SELECT role FROM users WHERE user_id = ?", (user_id,))
+    if not cur.empty and cur.iloc[0]["role"] == "admin" and role != "admin":
+        admins = run_query("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND active = 1 AND email IS NOT NULL").iloc[0]["n"]
+        if admins <= 1:
+            raise OperationError("Debe quedar al menos un administrador: no se puede quitar el rol al último.")
 
     u = run_query("SELECT user_id, username, email, role FROM users WHERE user_id = ?", (user_id,))
     if u.empty:

@@ -401,9 +401,9 @@ def _seed_users():
     try:
         c_id = run_query("SELECT company_id FROM companies LIMIT 1")
         cid = int(c_id.iloc[0]["company_id"]) if not c_id.empty else 1
-        run_write("UPDATE users SET email = 'admin@westvane.com', company_id = ? WHERE username = 'admin' AND (email IS NULL OR email = '')", (cid,))
-        run_write("UPDATE users SET email = 'operador@westvane.com', company_id = ? WHERE username = 'operador' AND (email IS NULL OR email = '')", (cid,))
-        run_write("UPDATE users SET email = 'lector@westvane.com', company_id = ? WHERE username = 'lector' AND (email IS NULL OR email = '')", (cid,))
+        run_write("UPDATE users SET email = 'admin@westvane.invalid', company_id = ? WHERE username = 'admin' AND (email IS NULL OR email = '')", (cid,))
+        run_write("UPDATE users SET email = 'operador@westvane.invalid', company_id = ? WHERE username = 'operador' AND (email IS NULL OR email = '')", (cid,))
+        run_write("UPDATE users SET email = 'lector@westvane.invalid', company_id = ? WHERE username = 'lector' AND (email IS NULL OR email = '')", (cid,))
     except Exception:
         pass
 

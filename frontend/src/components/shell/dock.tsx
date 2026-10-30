@@ -354,7 +354,7 @@ function MoreMenu({
               })}
             </ul>
             <div className="mt-2 border-t border-border pt-2">
-              <OperatorField />
+              <OperatorField onNavigate={() => setOpen(false)} />
               <button
                 type="button"
                 onClick={() => {
@@ -555,7 +555,7 @@ function MobileDock() {
                 <ThemeControl segmented />
               </div>
               <div className="mt-3 border-t border-border pt-3">
-                <OperatorField />
+                <OperatorField onNavigate={() => setOpen(false)} />
               </div>
             </motion.section>
           </div>
@@ -650,9 +650,14 @@ function SystemStatusText() {
 }
 
 /** Nombre del operador: firma los cambios en el historial (o usuario autenticado por correo). */
-function OperatorField() {
+function OperatorField({ onNavigate }: { onNavigate?: () => void }) {
   const { operator, setOperator } = useApp();
   const { user } = useAuth();
+  // Cierra el menú que contiene este campo: el diálogo de ingreso no debe quedar tapado por el menú «Más»
+  const openAccount = () => {
+    onNavigate?.();
+    openAuthModal();
+  };
 
   if (user) {
     return (
@@ -672,7 +677,7 @@ function OperatorField() {
           </div>
           <button
             type="button"
-            onClick={openAuthModal}
+            onClick={openAccount}
             className="text-[11px] text-primary hover:underline shrink-0 font-medium"
           >
             Cuenta
@@ -698,7 +703,7 @@ function OperatorField() {
       </label>
       <button
         type="button"
-        onClick={openAuthModal}
+        onClick={openAccount}
         className="w-full text-center text-xs py-2 px-3 rounded-xl border border-primary/30 text-primary hover:bg-primary/10 transition-colors font-medium flex items-center justify-center gap-1.5"
       >
         <Mail className="size-3.5" />

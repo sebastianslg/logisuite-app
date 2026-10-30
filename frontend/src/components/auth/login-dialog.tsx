@@ -53,8 +53,8 @@ export function LoginDialog() {
     };
   }, [open, step]);
 
-  const handleSendCode = async (targetEmail?: string) => {
-    const toSend = (targetEmail || email).trim();
+  const handleSendCode = async () => {
+    const toSend = email.trim();
     if (!toSend) {
       setErrorMessage("Por favor ingresa tu correo electrónico institucional.");
       return;
@@ -215,29 +215,10 @@ export function LoginDialog() {
                           type="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          placeholder="usuario@westvane.com"
+                          placeholder="tu@correo.com"
                           required
                           className="h-10 w-full rounded-xl bg-fill pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-[3px] focus:ring-ring/80"
                         />
-                      </div>
-                    </div>
-
-                    <div>
-                      <span className="text-[11px] text-muted-foreground block mb-1.5">Cuentas demo para pruebas rápidas:</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {["admin@westvane.com", "operador@westvane.com", "lector@westvane.com"].map((demoEmail) => (
-                          <button
-                            key={demoEmail}
-                            type="button"
-                            onClick={() => {
-                              setEmail(demoEmail);
-                              void handleSendCode(demoEmail);
-                            }}
-                            className="text-[11px] rounded-lg bg-fill px-2.5 py-1 text-muted-foreground hover:text-foreground hover:bg-fill-hover transition-colors"
-                          >
-                            {demoEmail.split("@")[0]}
-                          </button>
-                        ))}
                       </div>
                     </div>
 
