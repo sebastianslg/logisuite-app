@@ -683,6 +683,15 @@ function OperatorField({ onNavigate }: { onNavigate?: () => void }) {
             Cuenta
           </button>
         </div>
+        {user.role === "admin" && (
+          <Link
+            href="/administracion"
+            onClick={onNavigate}
+            className="mt-1.5 block rounded-lg px-2 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
+          >
+            Administrar usuarios y empresas
+          </Link>
+        )}
       </div>
     );
   }

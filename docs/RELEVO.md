@@ -27,13 +27,15 @@ git checkout desarrollo
 Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las verificaciones antes de subir.
 
 ## Estado actual  (reescríbelo al terminar cada sesión)
-- **Última herramienta:** Claude (PC) · **Fecha:** 2026-10-29
+- **Última herramienta:** Claude (PC) · **Fecha:** 2026-10-30
 - **Hecho:** ver secciones 36 y 37 de `docs/BITACORA.md`.
   - Claude **revisó la autenticación OTP de Antigravity y encontró fallos graves** (cualquiera podía crear un administrador
     y leer el código de acceso en la respuesta de la API). Quedaron **corregidos y con pruebas** en esta rama.
   - Iniciar sesión queda **deshabilitado en producción hasta configurar SMTP** (y `ADMIN_EMAIL` para el primer admin): es a
     propósito. El ingreso es opcional y no restringe nada; la app sigue abierta.
   - Arreglo de interfaz: el menú «Más» ya no tapa el diálogo de ingreso.
+  - Nueva pantalla `/administracion` (usuarios, roles y empresas; sección 39). `main` y Contabo ya tienen todo hasta la 38;
+    la 39 está solo en `desarrollo` y espera aprobación del dueño.
 - **En curso / a medias:** nada.
 - **Importante para quien siga:**
   - Antigravity: **no usar `WESTVANE_DEV_OTP` fuera de pruebas** y no volver a devolver el código en la respuesta.
@@ -46,5 +48,5 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
   - Validar coordenadas de la red contra fuentes oficiales; PostgreSQL cuando haya concurrencia; datos del
     responsable (`LEGAL_*`); despliegue automático y dominio propio.
   - Mapa de Red en celular (`claude-local/mapa-celular`, `098e6f0`): arreglo hecho, falta traerlo a `desarrollo`.
-- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; 274 pruebas de la API; 23 de navegador.
+- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; 274 pruebas de la API; 24 de navegador.
 - **Avisos:** puertos de prueba propios si hay otra herramienta (`E2E_PORT`, `E2E_API_PORT`, `E2E_DB_PATH`).
