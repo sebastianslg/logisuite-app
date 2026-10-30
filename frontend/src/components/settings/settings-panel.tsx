@@ -9,6 +9,7 @@ import { Check, CloudDownload, Copy, History, Link2, LoaderCircle, RefreshCw, Se
 import { glRenderer, useMapAnimation, useMapQuality, usesSoftwareGL, type MapQuality } from "@/components/map/use-map-animation";
 import { useApp } from "@/components/providers";
 import { MailAlerts } from "@/components/settings/mail-alerts";
+import { ServerStatus } from "@/components/settings/server-status";
 import { Badge } from "@/components/ui/badge";
 
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ export function SettingsPanel({ settings, links, history }: { settings: Settings
           <FxForm initial={settings.fx} />
           <ReplenishToggle initial={settings.auto_replenish} />
           <MailAlerts />
+          <ServerStatus />
           <MapQualitySection />
           <PrivacySection />
           <ClientErrors />

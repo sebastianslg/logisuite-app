@@ -39,7 +39,7 @@ def outbox(monkeypatch):
     """Con SMTP «configurado» y el envío real reemplazado por una lista."""
     sent = []
     monkeypatch.setenv("SMTP_HOST", "smtp.ejemplo.invalid")
-    monkeypatch.setattr(mail, "send_text", lambda to, subject, body: sent.append((to, subject, body)))
+    monkeypatch.setattr(mail, "send_text", lambda to, subject, body, attachments=None: sent.append((to, subject, body, attachments)))
     monkeypatch.setattr(auth_otp, "send_email_code", lambda email, code: None)  # el código de acceso no sale en estas pruebas
     return sent
 
@@ -75,7 +75,7 @@ def test_enlace_por_correo_contenido_y_sin_datos_internos(client, outbox):
     code, token = shipment_with_link(client)
     res = client.post(f"/api/shipments/{code}/tracking/{token}/email", json={"email": "Cliente.Prueba@Ejemplo.com"}, headers=login(client))
     assert res.status_code == 200 and res.json() == {"sent": True, "to": "c***@ejemplo.com"}
-    to, subject, body = outbox[0]
+    to, subject, body, _ = outbox[0]
     assert to == "cliente.prueba@ejemplo.com" and code in subject
     assert f"https://westvane.ejemplo.invalid/seguimiento/{token}" in body
     ship = db.run_query("SELECT client, total_cost FROM mm_shipments WHERE shipment_code = ?", (code,)).iloc[0]
@@ -115,7 +115,7 @@ def test_aviso_al_administrador_por_entrega_con_novedad(client, outbox, monkeypa
     code = next(i["code"] for i in client.get("/api/shipments", params={"status": "Entregado"}).json()["items"] if i["delivery_signed"] is False)
     body = {"received_by": "María Pérez", "condition": "con_novedad", "notes": "Dos cajas con el empaque roto", "signature": png(), "usuario": "T"}
     assert client.put(f"/api/shipments/{code}/delivery", json=body).status_code == 200
-    to, subject, text = outbox[-1]
+    to, subject, text, _ = outbox[-1]
     assert to == "dueno@ejemplo.com" and code in subject and "empaque roto" in text
     assert "María" not in text and "base64" not in text                         # ni nombre ni firma de quien recibió
     outbox.clear()
@@ -124,13 +124,21 @@ def test_aviso_al_administrador_por_entrega_con_novedad(client, outbox, monkeypa
     assert outbox == []                                                          # conforme: sin aviso
 
 
+def test_avisos_van_a_notify_email_y_no_al_administrador(monkeypatch):
+    monkeypatch.setenv("ADMIN_EMAIL", "dueno@ejemplo.com")
+    monkeypatch.delenv("NOTIFY_EMAIL", raising=False)
+    assert mail.admin_email() == "dueno@ejemplo.com"                              # sin NOTIFY_EMAIL, se usa ADMIN_EMAIL
+    monkeypatch.setenv("NOTIFY_EMAIL", "westvane@ejemplo.com")
+    assert mail.admin_email() == "westvane@ejemplo.com"
+
+
 def test_resumen_diario_de_vencimientos_por_correo(client, outbox, monkeypatch):
     monkeypatch.setenv("ADMIN_EMAIL", "dueno@ejemplo.com")
     monkeypatch.setattr(mail.threading, "Thread", lambda target, daemon: type("T", (), {"start": staticmethod(target)})())
     v = next(x for x in client.get("/api/fleet/vehicles", params={"mode": "terrestre"}).json()["items"] if not x["retired"])
     assert client.put(f"/api/fleet/vehicles/{v['id']}", json={"soat_expiry": (datetime.now() + timedelta(days=2)).date().isoformat(), "usuario": "T"}).status_code == 200
     fleet.notify_due(datetime.now())
-    to, subject, text = outbox[-1]
+    to, subject, text, _ = outbox[-1]
     assert to == "dueno@ejemplo.com" and "por vencer" in subject
     assert f"- {v['code']}: SOAT vence en 2 d" in text and "Hoy" in text
 
@@ -142,7 +150,7 @@ def test_avisos_al_administrador_se_apagan_por_tipo(client, outbox, monkeypatch)
 
     estado = client.get("/api/settings/mail-alerts").json()
     assert estado["configured"] is True and estado["admin_email"] == "d***@ejemplo.com"   # la dirección no se muestra completa
-    assert {a["kind"]: a["enabled"] for a in estado["alerts"]} == {"vencimientos": True, "novedades": True}  # encendidos por defecto
+    assert {a["kind"]: a["enabled"] for a in estado["alerts"]} == {"vencimientos": True, "novedades": True, "semanal": False}  # los de atención, encendidos; el reporte semanal, opcional
 
     # Cambiarlos exige sesión de administrador
     assert client.put("/api/settings/mail-alerts", json={"kind": "novedades", "enabled": False}).status_code == 401
@@ -161,7 +169,7 @@ def test_avisos_al_administrador_se_apagan_por_tipo(client, outbox, monkeypatch)
     # Al volver a encenderlo, sale, y el correo dice cómo dejar de recibirlo
     assert client.put("/api/settings/mail-alerts", json={"kind": "vencimientos", "enabled": True}, headers=h).status_code == 200
     fleet.notify_due(datetime.now())
-    to, subject, text = outbox[-1]
+    to, subject, text, _ = outbox[-1]
     assert to == "dueno@ejemplo.com" and "Para dejar de recibir estos avisos" in text and "/configuracion" in text
 
     # Apagar «novedades»: una entrega con novedad ya no avisa
@@ -174,3 +182,50 @@ def test_avisos_al_administrador_se_apagan_por_tipo(client, outbox, monkeypatch)
     # El cambio queda en el historial, firmado por quien lo hizo
     log = db.run_query("SELECT username, detail FROM audit_log WHERE table_name = 'system_params' AND detail LIKE '%novedad%' ORDER BY audit_id DESC LIMIT 1").iloc[0]
     assert log["username"] == "admin" and "desactivado" in log["detail"]
+
+
+def test_reporte_semanal_solo_los_lunes_si_esta_encendido_y_una_vez_por_dia(client, outbox, monkeypatch):
+    from app import main
+    monkeypatch.setenv("ADMIN_EMAIL", "dueno@ejemplo.com")
+    monkeypatch.setattr(mail.threading, "Thread", lambda target, daemon: type("T", (), {"start": staticmethod(target)})())
+    h = login(client)
+    lunes = datetime(2026, 11, 2, 7, 0)           # un lunes
+    martes = datetime(2026, 11, 3, 7, 0)
+
+    # Apagado por defecto: ni siquiera un lunes sale
+    assert {a["kind"]: a["enabled"] for a in client.get("/api/settings/mail-alerts").json()["alerts"]}["semanal"] is False
+    main._weekly_report_mail(lunes)
+    assert outbox == []
+
+    assert client.put("/api/settings/mail-alerts", json={"kind": "semanal", "enabled": True}, headers=h).status_code == 200
+    main._weekly_report_mail(martes)              # un martes, encendido: nada
+    assert outbox == []
+    main._weekly_report_mail(lunes)               # lunes: sale con el PDF adjunto
+    to, subject, text, adj = outbox[-1]
+    assert to == "dueno@ejemplo.com" and "Reporte operativo" in subject and "Para dejar de recibir" in text
+    assert adj[0][0].startswith(b"%PDF") and adj[0][1] == "reporte-operativo-20261102.pdf" and adj[0][2] == "application/pdf"
+    n = len(outbox)
+    main._weekly_report_mail(lunes)               # el servidor se reinició el mismo lunes: no se repite
+    assert len(outbox) == n
+
+
+def test_los_avisos_diarios_no_se_repiten_al_reiniciar(client):
+    now = datetime(2026, 12, 7, 6, 0)
+    assert mail.once_today("prueba_x", now) is True
+    assert mail.once_today("prueba_x", now) is False                       # mismo día: no
+    assert mail.once_today("prueba_x", now + timedelta(days=1)) is True    # otro día: sí
+    assert mail.once_today("otra_clave", now) is True                      # cada aviso tiene su propia marca
+
+
+def test_estado_del_servidor_solo_para_administradores(client):
+    assert client.get("/api/system/status").status_code == 401
+    client.post("/api/admin/users", headers=login(client), json={"email": "op.estado@ejemplo.com", "full_name": "Op Estado", "role": "operador", "company_id": None})
+    assert client.get("/api/system/status", headers=login(client, "op.estado@ejemplo.com")).status_code == 403
+    r = client.get("/api/system/status", headers=login(client))
+    assert r.status_code == 200
+    s = r.json()
+    assert s["disk"]["total"] > s["disk"]["used"] > 0 and 0 <= s["disk"]["used_pct"] <= 100
+    assert s["uptime_s"] >= 0 and s["database_bytes"] > 0 and s["counts"]["shipments"] > 0
+    assert isinstance(s["warnings"], list) and s["mail_configured"] in (True, False)
+    # memoria y carga solo existen en Linux; donde falten, vienen como null y no rompen la respuesta
+    assert s["memory"] is None or 0 <= s["memory"]["used_pct"] <= 100

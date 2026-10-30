@@ -6,6 +6,7 @@ Viven aquí para que los módulos no se importen en círculo.
 """
 from __future__ import annotations
 
+from contextvars import ContextVar
 from datetime import datetime
 
 import pandas as pd
@@ -23,7 +24,16 @@ def _now_iso() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
+# Usuario de la sesión de esta petición (lo fija el middleware `session_identity` de main.py). Con sesión válida, el
+# historial se firma con la cuenta real y se ignora el nombre que el navegador declare: no se puede firmar como otra
+# persona. Sin sesión, la app sigue como siempre: el nombre es declarado.
+SESSION_USER: ContextVar[str | None] = ContextVar("session_user", default=None)
+
+
 def _user(name: str | None) -> str:
+    real = SESSION_USER.get()
+    if real:
+        return real[:60]
     name = (name or "").strip()
     return name[:60] if name else ANON
 

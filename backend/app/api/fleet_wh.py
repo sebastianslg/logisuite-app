@@ -8,6 +8,7 @@ Endpoints de la flota de vehículos y de la red de bodegas.
     POST /api/fleet/vehicles/{id}/retire | reactivate | faults | maintenance
     GET  /api/fleet/faults | /api/fleet/maintenance
     PUT  /api/fleet/faults/{id}
+    GET  /api/fleet/maintenance/{id}/pdf          Orden de trabajo para imprimir y diligenciar en el taller
     POST /api/fleet/maintenance/{id}/start | complete | cancel
     GET/POST /api/fleet/drivers           PUT/DELETE /api/fleet/drivers/{id}
     GET  /api/shipments/{code}/legs/{i}/vehicles   Vehículos que pueden cubrir el tramo i
@@ -28,7 +29,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Callable
 
-from fastapi import Body, FastAPI, HTTPException
+from fastapi import Body, FastAPI, HTTPException, Response
 
 from app.engine import fleet, warehouses
 from app.engine.common import OperationError
@@ -119,6 +120,18 @@ def register(app: FastAPI, sync: Callable[[], datetime], network: Callable) -> N
     def fleet_maintenance(status: str | None = None, limit: int = 200) -> dict:
         items = fleet.list_maintenance(sync(), status, limit)
         return {"count": len(items), "items": items}
+
+    @app.get("/api/fleet/maintenance/{maint_id}/pdf")
+    def fleet_maintenance_pdf(maint_id: int, descargar: bool = False) -> Response:
+        from app.engine import legal, pdf
+        now = sync()
+        m = read(fleet._maint_row, maint_id)
+        v = read(fleet.vehicle_detail, int(m["vehicle_id"]), now)
+        fault = next((f for f in v["faults"] if m.get("fault_id") and int(f["fault_id"]) == int(m["fault_id"])), None)
+        data = pdf.work_order(m, v, fault, now, legal.responsible()["name"])
+        disposition = "attachment" if descargar else "inline"
+        return Response(data, media_type="application/pdf",
+                        headers={"Content-Disposition": f'{disposition}; filename="orden-trabajo-OT-{maint_id:05d}.pdf"'})
 
     @app.post("/api/fleet/maintenance/{maint_id}/start")
     def fleet_maintenance_start(maint_id: int, body: dict = Body(default={})) -> dict:

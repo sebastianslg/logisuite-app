@@ -216,3 +216,23 @@ def test_no_se_desactiva_al_ultimo_administrador(client):
     assert last.status_code == 422
     # El primero, ya inactivo, no puede actuar: su sesión se cerró
     assert client.get("/api/auth/me", headers=h).status_code == 401
+
+
+def test_el_historial_se_firma_con_la_cuenta_de_la_sesion(client):
+    """Con sesión no se puede firmar como otra persona; sin sesión el nombre sigue siendo declarado."""
+    h = login(client, "segundo.admin@ejemplo.com")  # el admin de la semilla quedó desactivado en la prueba anterior
+    code = client.get("/api/shipments").json()["items"][0]["code"]
+
+    # Con sesión: el nombre que manda el navegador se ignora
+    client.put(f"/api/shipments/{code}/actual-cost", json={"amount": 1234, "usuario": "Suplantador"}, headers=h)
+    firmado = db.run_query("SELECT username FROM audit_log WHERE record_id = ? ORDER BY audit_id DESC LIMIT 1", (code,)).iloc[0]["username"]
+    assert firmado == "segundo.admin"
+
+    # Sin sesión, en la petición siguiente: el nombre declarado, sin arrastrar la identidad anterior
+    client.put(f"/api/shipments/{code}/actual-cost", json={"amount": 1235, "usuario": "Persona Declarada"})
+    firmado = db.run_query("SELECT username FROM audit_log WHERE record_id = ? ORDER BY audit_id DESC LIMIT 1", (code,)).iloc[0]["username"]
+    assert firmado == "Persona Declarada"
+
+    # Con un token falso tampoco se toma como identidad
+    client.put(f"/api/shipments/{code}/actual-cost", json={"amount": 1236, "usuario": "Otro"}, headers={"Authorization": "Bearer falso"})
+    assert db.run_query("SELECT username FROM audit_log WHERE record_id = ? ORDER BY audit_id DESC LIMIT 1", (code,)).iloc[0]["username"] == "Otro"

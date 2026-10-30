@@ -55,8 +55,9 @@ from app.api import guard
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
-from app.engine import (auth_otp, clients, delivery, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
+from app.engine import (auth_otp, clients, delivery, mail, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
                         shipments_io, sustainability as SU, telemetry, tolls, tracking, trends, warehouses, xlsx)
+from app.engine.common import SESSION_USER
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
 
@@ -102,6 +103,22 @@ def _bump_cache() -> None:
 _last_purge_day = ""
 
 
+def _weekly_report_mail(now: datetime) -> None:
+    """Los lunes, si el dueño lo activó (Configuración › Avisos por correo), manda a ADMIN_EMAIL el reporte operativo de
+    la última semana en PDF. Una sola vez por día, aunque el servidor se reinicie."""
+    if now.weekday() != 0 or not mail.configured() or not mail.admin_email() or not mail.alert_enabled("semanal"):
+        return
+    if not mail.once_today("semanal", now):
+        return
+    try:
+        pdf_bytes = report.render(network(), 7, "USD", ops.get_fx(), now)
+    except Exception:  # un fallo del reporte no debe tumbar la sincronización
+        return
+    mail.send_admin_async(f"Reporte operativo de la semana ({now:%d/%m/%Y})",
+                          "Adjunto el reporte operativo de los últimos 7 días, con los montos en USD.",
+                          kind="semanal", attachments=[(pdf_bytes, f"reporte-operativo-{now:%Y%m%d}.pdf", "application/pdf")])
+
+
 def _purge_attachments_daily(now: datetime) -> None:
     """Una vez al día aplica el plazo de conservación de adjuntos (ATTACHMENT_RETENTION_DAYS)."""
     global _last_purge_day
@@ -111,7 +128,10 @@ def _purge_attachments_daily(now: datetime) -> None:
         journal.purge_expired(now)
         delivery.purge_expired(now, journal.retention_days())
         fleet.enforce_documents(now)
-        fleet.notify_due(now)
+        # Los avisos salen una vez al día aunque el servidor se reinicie (cada despliegue lo reinicia)
+        if mail.once_today("vencimientos", now):
+            fleet.notify_due(now)
+        _weekly_report_mail(now)
 
 
 def _sync() -> datetime:
@@ -206,6 +226,20 @@ async def read_cache(request: Request, call_next):
         # Si nadie esperaba el resultado fallido, se marca como visto para que asyncio no avise en el log
         if future.done() and not future.cancelled():
             future.exception()
+
+
+@app.middleware("http")
+async def session_identity(request: Request, call_next):
+    """Con una sesión válida (token portador), el historial de la petición se firma con esa cuenta (ver `_user`)."""
+    header = request.headers.get("Authorization", "")
+    user = None
+    if header.startswith("Bearer ") and request.url.path.startswith("/api/") and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        user = auth_otp.get_user_by_session(header[7:].strip())
+    mark = SESSION_USER.set(user["username"] if user else None)
+    try:
+        return await call_next(request)
+    finally:
+        SESSION_USER.reset(mark)
 
 
 @app.middleware("http")
@@ -742,6 +776,13 @@ class ReplenishIn(BaseModel):
 @app.put("/api/settings/replenish")
 def settings_replenish(body: ReplenishIn) -> dict:
     return {"auto_replenish": ops.set_auto_replenish(body.enabled, body.usuario)}
+
+
+@app.get("/api/system/status")
+def system_status_endpoint(request: Request) -> dict:
+    """Estado del servidor (disco, memoria, carga, tamaños). Solo administradores: son datos de la infraestructura."""
+    _require_admin(request)
+    return system_status.status(datetime.now())
 
 
 class MailAlertIn(BaseModel):

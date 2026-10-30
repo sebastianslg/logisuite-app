@@ -114,3 +114,19 @@ test("flota: SOAT y técnico-mecánica en la ficha del vehículo y en el formula
   await expect(page.getByLabel("SOAT vigente hasta")).toHaveValue(v.soat_expiry);
   w.expectClean();
 });
+
+test("flota: la orden de trabajo de un mantenimiento se abre como PDF", async ({ page, request }) => {
+  const w = watchErrors(page);
+  const list = await (await request.get("/api/fleet/maintenance")).json();
+  test.skip(!list.items.length, "no hay mantenimientos");
+  const m = list.items.find((x: { status: string }) => x.status !== "Cancelado") ?? list.items[0];
+  await page.goto(`/flota/${m.vehicle_id}`);
+  const link = page.getByRole("link", { name: "Orden de trabajo (PDF)" }).first();
+  await expect(link).toBeVisible();
+  const href = await link.getAttribute("href");
+  const res = await request.get(href!);
+  expect(res.status()).toBe(200);
+  expect(res.headers()["content-type"]).toContain("application/pdf");
+  expect((await res.body()).subarray(0, 5).toString()).toBe("%PDF-");
+  w.expectClean();
+});
