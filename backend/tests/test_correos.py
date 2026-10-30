@@ -133,3 +133,44 @@ def test_resumen_diario_de_vencimientos_por_correo(client, outbox, monkeypatch):
     to, subject, text = outbox[-1]
     assert to == "dueno@ejemplo.com" and "por vencer" in subject
     assert f"- {v['code']}: SOAT vence en 2 d" in text and "Hoy" in text
+
+
+def test_avisos_al_administrador_se_apagan_por_tipo(client, outbox, monkeypatch):
+    monkeypatch.setenv("ADMIN_EMAIL", "dueno@ejemplo.com")
+    monkeypatch.setattr(mail.threading, "Thread", lambda target, daemon: type("T", (), {"start": staticmethod(target)})())
+    h = login(client)
+
+    estado = client.get("/api/settings/mail-alerts").json()
+    assert estado["configured"] is True and estado["admin_email"] == "d***@ejemplo.com"   # la dirección no se muestra completa
+    assert {a["kind"]: a["enabled"] for a in estado["alerts"]} == {"vencimientos": True, "novedades": True}  # encendidos por defecto
+
+    # Cambiarlos exige sesión de administrador
+    assert client.put("/api/settings/mail-alerts", json={"kind": "novedades", "enabled": False}).status_code == 401
+    client.post("/api/admin/users", headers=h, json={"email": "operador.z@ejemplo.com", "full_name": "Operador Z", "role": "operador", "company_id": None})
+    assert client.put("/api/settings/mail-alerts", json={"kind": "novedades", "enabled": False}, headers=login(client, "operador.z@ejemplo.com")).status_code == 403
+    assert client.put("/api/settings/mail-alerts", json={"kind": "inventado", "enabled": False}, headers=h).status_code == 422
+
+    # Apagar «vencimientos»: el resumen diario ya no sale; «novedades» sigue
+    assert client.put("/api/settings/mail-alerts", json={"kind": "vencimientos", "enabled": False}, headers=h).status_code == 200
+    v = next(x for x in client.get("/api/fleet/vehicles", params={"mode": "terrestre"}).json()["items"] if not x["retired"])
+    client.put(f"/api/fleet/vehicles/{v['id']}", json={"soat_expiry": (datetime.now() + timedelta(days=2)).date().isoformat(), "usuario": "T"})
+    outbox.clear()
+    fleet.notify_due(datetime.now())
+    assert outbox == []
+
+    # Al volver a encenderlo, sale, y el correo dice cómo dejar de recibirlo
+    assert client.put("/api/settings/mail-alerts", json={"kind": "vencimientos", "enabled": True}, headers=h).status_code == 200
+    fleet.notify_due(datetime.now())
+    to, subject, text = outbox[-1]
+    assert to == "dueno@ejemplo.com" and "Para dejar de recibir estos avisos" in text and "/configuracion" in text
+
+    # Apagar «novedades»: una entrega con novedad ya no avisa
+    assert client.put("/api/settings/mail-alerts", json={"kind": "novedades", "enabled": False}, headers=h).status_code == 200
+    outbox.clear()
+    code = next(i["code"] for i in client.get("/api/shipments", params={"status": "Entregado"}).json()["items"] if i["delivery_signed"] is False)
+    body = {"received_by": "María Pérez", "condition": "con_novedad", "notes": "Caja rota", "signature": png(), "usuario": "T"}
+    assert client.put(f"/api/shipments/{code}/delivery", json=body).status_code == 200
+    assert outbox == []
+    # El cambio queda en el historial, firmado por quien lo hizo
+    log = db.run_query("SELECT username, detail FROM audit_log WHERE table_name = 'system_params' AND detail LIKE '%novedad%' ORDER BY audit_id DESC LIMIT 1").iloc[0]
+    assert log["username"] == "admin" and "desactivado" in log["detail"]

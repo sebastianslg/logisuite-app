@@ -160,3 +160,11 @@ test("enlace de seguimiento por correo: sin sesión no hay botón; con sesión e
   // El 422 es la respuesta que esta prueba provoca a propósito (el navegador lo anota en la consola); nada más
   expect(watch.errors.filter((e) => !/status of 422/.test(e)), watch.errors.join("\n")).toEqual([]);
 });
+
+test("Configuración: la sección «Avisos por correo» explica que falta el correo cuando no está configurado", async ({ page }) => {
+  const watch = watchErrors(page);
+  await page.goto("/configuracion");
+  await expect(page.getByText("Avisos por correo", { exact: true })).toBeVisible();
+  await expect(page.getByText("no está configurado en el servidor: no se envía ningún aviso.")).toBeVisible();
+  watch.expectClean();
+});

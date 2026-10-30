@@ -520,7 +520,7 @@ def notify_due(now: datetime) -> bool:
     title = f"{len(parts)} documento{'s' if len(parts) != 1 else ''} de flota por vencer" + (" (hay vencidos)" if expired else "")
     from app.engine import mail
     lines = "\n".join(f"- {p}" for p in parts[:20]) + (f"\n- y {len(parts) - 20} más" if len(parts) > 20 else "")
-    mail.send_admin_async(title, f"{lines}\n\nVer el detalle en la pantalla «Hoy» de Westvane.")
+    mail.send_admin_async(title, f"{lines}\n\nVer el detalle en la pantalla «Hoy» de Westvane.", kind="vencimientos")
     return notify.send(title, body, tags="page_facing_up", priority="high" if expired else "default", path="/hoy")
 
 

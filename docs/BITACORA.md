@@ -1055,3 +1055,16 @@ contra una base temporal. **Nada de esto llegó a producción.**
   87 nodos y 148 enlaces. **Un respaldo que no se prueba restaurar no es un respaldo.**
 - **Pendiente del dueño:** ejecutar `programar-respaldo-local.ps1` una vez. Y, como el cambio de `backup.sh` está en el
   repositorio pero no en el servidor hasta el próximo despliegue, la primera copia del `.env` aparecerá entonces.
+
+## 43. Los avisos por correo al administrador se pueden apagar (30/10/2026)
+
+- **Configuración → «Avisos por correo»:** un interruptor por tipo de aviso (resumen diario de vencimientos y entrega con
+  novedad). Encendidos por defecto. Muestra la dirección del administrador enmascarada.
+- **Solo un administrador con sesión puede cambiarlos** (`PUT /api/settings/mail-alerts`: 401 sin sesión, 403 con otro rol);
+  sin sesión se ven pero no se tocan. Cada cambio queda en el historial, firmado.
+- **Cada correo termina con** «Para dejar de recibir estos avisos: …/configuracion (sección Avisos por correo)».
+- Los avisos de `ntfy` al celular son otro canal y no cambian. El código de ingreso no es un aviso: sigue llegando a quien
+  lo pide.
+- Pruebas: 8 de la API en `test_correos.py` (una nueva que cubre el apagado por tipo, el permiso y el pie del correo);
+  la sección entra en el escaneo de accesibilidad. Los interruptores en sí no tienen prueba de navegador, porque ese entorno no
+  tiene SMTP: se ve el estado «correo no configurado».
