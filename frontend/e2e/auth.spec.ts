@@ -168,3 +168,20 @@ test("Configuración: la sección «Avisos por correo» explica que falta el cor
   await expect(page.getByText("no está configurado en el servidor: no se envía ningún aviso.")).toBeVisible();
   watch.expectClean();
 });
+
+test("Configuración: el estado del servidor es solo para administradores", async ({ page }) => {
+  const watch = watchErrors(page);
+  await page.goto("/configuracion");
+  await expect(page.getByText("Disco, memoria y carga del servidor. Solo para administradores.")).toBeVisible();
+  await expect(page.getByRole("meter", { name: "Disco" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: /ingresar con código al correo/i }).last().click();
+  await page.getByLabel("Correo electrónico").fill("admin@westvane.invalid");
+  await page.getByRole("button", { name: /enviar código/i }).click();
+  await page.getByRole("button", { name: /usar código/i }).click();
+  await page.getByRole("button", { name: /^ingresar$/i }).click();
+
+  await expect(page.getByRole("meter", { name: "Disco" })).toBeVisible();
+  await expect(page.getByText("Base de datos", { exact: true })).toBeVisible();
+  watch.expectClean();
+});

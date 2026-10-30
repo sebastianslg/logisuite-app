@@ -207,3 +207,17 @@ def test_los_avisos_diarios_no_se_repiten_al_reiniciar(client):
     assert mail.once_today("prueba_x", now) is False                       # mismo día: no
     assert mail.once_today("prueba_x", now + timedelta(days=1)) is True    # otro día: sí
     assert mail.once_today("otra_clave", now) is True                      # cada aviso tiene su propia marca
+
+
+def test_estado_del_servidor_solo_para_administradores(client):
+    assert client.get("/api/system/status").status_code == 401
+    client.post("/api/admin/users", headers=login(client), json={"email": "op.estado@ejemplo.com", "full_name": "Op Estado", "role": "operador", "company_id": None})
+    assert client.get("/api/system/status", headers=login(client, "op.estado@ejemplo.com")).status_code == 403
+    r = client.get("/api/system/status", headers=login(client))
+    assert r.status_code == 200
+    s = r.json()
+    assert s["disk"]["total"] > s["disk"]["used"] > 0 and 0 <= s["disk"]["used_pct"] <= 100
+    assert s["uptime_s"] >= 0 and s["database_bytes"] > 0 and s["counts"]["shipments"] > 0
+    assert isinstance(s["warnings"], list) and s["mail_configured"] in (True, False)
+    # memoria y carga solo existen en Linux; donde falten, vienen como null y no rompen la respuesta
+    assert s["memory"] is None or 0 <= s["memory"]["used_pct"] <= 100

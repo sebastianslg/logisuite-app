@@ -55,7 +55,7 @@ from app.api import guard
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
-from app.engine import (auth_otp, clients, delivery, mail, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
+from app.engine import (auth_otp, clients, delivery, mail, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
                         shipments_io, sustainability as SU, telemetry, tolls, tracking, trends, warehouses, xlsx)
 from app.engine.common import SESSION_USER
 from app.engine.dispatch import status_at
@@ -776,6 +776,13 @@ class ReplenishIn(BaseModel):
 @app.put("/api/settings/replenish")
 def settings_replenish(body: ReplenishIn) -> dict:
     return {"auto_replenish": ops.set_auto_replenish(body.enabled, body.usuario)}
+
+
+@app.get("/api/system/status")
+def system_status_endpoint(request: Request) -> dict:
+    """Estado del servidor (disco, memoria, carga, tamaños). Solo administradores: son datos de la infraestructura."""
+    _require_admin(request)
+    return system_status.status(datetime.now())
 
 
 class MailAlertIn(BaseModel):
