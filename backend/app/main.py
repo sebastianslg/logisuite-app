@@ -57,6 +57,7 @@ from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
 from app.engine import (auth_otp, clients, delivery, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
                         shipments_io, sustainability as SU, telemetry, tolls, tracking, trends, warehouses, xlsx)
+from app.engine.common import SESSION_USER
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
 
@@ -206,6 +207,20 @@ async def read_cache(request: Request, call_next):
         # Si nadie esperaba el resultado fallido, se marca como visto para que asyncio no avise en el log
         if future.done() and not future.cancelled():
             future.exception()
+
+
+@app.middleware("http")
+async def session_identity(request: Request, call_next):
+    """Con una sesión válida (token portador), el historial de la petición se firma con esa cuenta (ver `_user`)."""
+    header = request.headers.get("Authorization", "")
+    user = None
+    if header.startswith("Bearer ") and request.url.path.startswith("/api/") and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        user = auth_otp.get_user_by_session(header[7:].strip())
+    mark = SESSION_USER.set(user["username"] if user else None)
+    try:
+        return await call_next(request)
+    finally:
+        SESSION_USER.reset(mark)
 
 
 @app.middleware("http")
