@@ -999,3 +999,18 @@ contra una base temporal. **Nada de esto llegó a producción.**
 - Sigue valiendo lo de la sección 37: el rol aún no limita acciones en el resto de la app.
 - Pruebas: 24 de navegador (una nueva: crea una empresa y un usuario y le cambia el rol; y `/administracion` entra en la
   revisión de páginas y de desborde en celular).
+
+## 40. Activar y desactivar usuarios, y escaneo de accesibilidad permanente (30/10/2026)
+
+- **Activar y desactivar usuarios** (`PUT /api/admin/users/{id}/active`, botón en `/administracion`):
+  - Desactivar cierra sus sesiones y le impide pedir códigos.
+  - No se puede desactivar a uno mismo ni al último administrador activo.
+  - Queda en el historial. Bajarle el rol a un administrador ya inactivo ya no se bloquea por error.
+- **`e2e/accesibilidad.spec.ts`:** `axe-core` (WCAG 2 A y AA) sobre todas las páginas, en claro y oscuro. Corre con la suite
+  de navegador y se verificó también en celular. **Es la red de seguridad de la paleta.**
+- **Lo que encontró en cuanto se corrió:** la paleta estilo Apple dejó tres colores del tema claro por debajo de 4,5:1 sobre
+  sus tintes: el acento (4,44 en el ítem activo del menú), el rojo (4,25 en las insignias) y el naranja (4,12 en los
+  resaltados de los documentos legales). Se oscurecieron lo mínimo y sin cambiar el tono:
+  acento `#0066cc`→`#0064c8`, rojo `#cc0014`→`#c20013`, naranja `#c13200`→`#b52f00`. El tema oscuro pasó sin cambios.
+- **Resultado:** 0 violaciones en 27 páginas × claro/oscuro × escritorio/celular. `DESIGN.md` actualizado.
+- Pruebas: 14 de autenticación en la API; 2 nuevas de administración y 2 de accesibilidad en navegador.

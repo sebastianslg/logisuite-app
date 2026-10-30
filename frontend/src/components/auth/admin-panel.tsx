@@ -132,6 +132,20 @@ function UserRow({ u, me, onChanged }: { u: AdminUser; me: boolean; onChanged: (
     }
   }
 
+  async function setActive(active: boolean) {
+    if (!active && !window.confirm(`¿Desactivar a ${u.full_name}? Se le cierra la sesión y deja de recibir códigos.`)) return;
+    setBusy(true);
+    try {
+      await api(`/api/admin/users/${u.user_id}/active`, { method: "PUT", body: { active } });
+      toast({ title: active ? "Usuario activado" : "Usuario desactivado", description: u.full_name });
+      onChanged();
+    } catch (e) {
+      toast({ title: "No se pudo cambiar", description: (e as Error).message, tone: "error" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 text-sm">
       <span className="min-w-0 flex-1">
@@ -158,6 +172,12 @@ function UserRow({ u, me, onChanged }: { u: AdminUser; me: boolean; onChanged: (
           </option>
         ))}
       </select>
+      {/* Uno mismo no se desactiva (perdería el acceso); el servidor también lo impide */}
+      {!me && (
+        <Button variant="ghost" size="sm" disabled={busy} onClick={() => void setActive(!u.active)}>
+          {u.active ? "Desactivar" : "Activar"}
+        </Button>
+      )}
     </li>
   );
 }

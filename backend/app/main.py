@@ -1422,6 +1422,10 @@ class UserRoleUpdateIn(BaseModel):
     role: Literal["admin", "operador", "lector"]
 
 
+class UserActiveIn(BaseModel):
+    active: bool
+
+
 @app.post("/api/auth/otp/request")
 def auth_otp_request(body: OtpRequestIn) -> dict:
     try:
@@ -1496,6 +1500,15 @@ def admin_users_create(body: UserCreateIn, request: Request) -> dict:
     admin = _require_admin(request)
     try:
         return auth_otp.create_user_record(body.email, body.full_name, body.role, body.company_id, operator=admin["username"])
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
+@app.put("/api/admin/users/{user_id}/active")
+def admin_users_set_active(user_id: int, body: UserActiveIn, request: Request) -> dict:
+    admin = _require_admin(request)
+    try:
+        return auth_otp.update_user_active(user_id, body.active, operator=admin["username"], acting_user_id=admin["user_id"])
     except ops.OperationError as exc:
         _op_error(exc)
 

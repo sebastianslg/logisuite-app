@@ -36,12 +36,12 @@
   --sys-red: #ff3b30;
   --sys-orange: #ff9500;
 
-  --accent: #0066cc; /* texto/íconos interactivos (enlace de apple.com): 5,6:1 sobre blanco, 4,5:1 sobre su tinte */
+  --accent: #0064c8; /* texto/íconos interactivos (enlace de apple.com, un punto más oscuro): 5,7:1 sobre blanco, 4,6:1 sobre su tinte */
   --accent-solid: #0071e3; /* relleno de botones (el de apple.com) con texto blanco: 4,7:1 */
   --accent-foreground: #ffffff;
   --success: #1f7835; /* verde accesible de Apple, ajustado a 4,5:1 sobre su tinte */
-  --warning: #c13200; /* naranja accesible de Apple: 4,5:1 sobre su tinte */
-  --danger: #cc0014; /* rojo accesible de Apple: 4,5:1 sobre su tinte */
+  --warning: #b52f00; /* naranja accesible de Apple: 4,5:1 sobre su tinte */
+  --danger: #c20013; /* rojo accesible de Apple: 4,5:1 sobre su tinte */
   --info: #3634a3;
 
   /* Modos de transporte: solo identifican el modo (siempre con ícono y texto). Validados para daltonismo: ver lib/modes.ts */

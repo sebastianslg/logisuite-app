@@ -365,6 +365,29 @@ def create_user_record(
     }
 
 
+def update_user_active(user_id: int, active: bool, operator: str | None = None, acting_user_id: int | None = None) -> dict:
+    """Activa o desactiva a un usuario. Desactivar le cierra las sesiones y le impide pedir códigos. No se puede
+    desactivar a quien está administrando ni al último administrador activo."""
+    u = run_query("SELECT user_id, email, role, active FROM users WHERE user_id = ?", (user_id,))
+    if u.empty:
+        raise OperationError("Usuario no encontrado.")
+    row = u.iloc[0]
+    if bool(row["active"]) == active:
+        return {"user_id": user_id, "active": int(active)}
+    if not active:
+        if acting_user_id is not None and user_id == acting_user_id:
+            raise OperationError("No puedes desactivarte a ti mismo: perderías el acceso.")
+        if row["role"] == "admin":
+            admins = run_query("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND active = 1 AND email IS NOT NULL").iloc[0]["n"]
+            if admins <= 1:
+                raise OperationError("Debe quedar al menos un administrador: no se puede desactivar al último.")
+    run_write("UPDATE users SET active = ? WHERE user_id = ?", (1 if active else 0, user_id))
+    if not active:
+        run_write("DELETE FROM user_sessions WHERE user_id = ?", (user_id,))
+    audit(operator, "UPDATE", "users", str(user_id), f"Usuario {'activado' if active else 'desactivado'} ({row['email']})")
+    return {"user_id": user_id, "active": int(active)}
+
+
 def ensure_bootstrap_admin() -> None:
     """Primer administrador: el correo de ADMIN_EMAIL (con ADMIN_NAME) del .env. Se crea si falta y, si ya existe,
     se asegura de que sea administrador activo. Sin ADMIN_EMAIL no hace nada."""
@@ -387,8 +410,8 @@ def ensure_bootstrap_admin() -> None:
 def update_user_role(user_id: int, role: str, operator: str | None = None) -> dict:
     if role not in ROLE_LEVEL:
         raise OperationError(f"Rol no válido: '{role}'.")
-    cur = run_query("SELECT role FROM users WHERE user_id = ?", (user_id,))
-    if not cur.empty and cur.iloc[0]["role"] == "admin" and role != "admin":
+    cur = run_query("SELECT role, active FROM users WHERE user_id = ?", (user_id,))
+    if not cur.empty and cur.iloc[0]["role"] == "admin" and role != "admin" and cur.iloc[0]["active"]:
         admins = run_query("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND active = 1 AND email IS NOT NULL").iloc[0]["n"]
         if admins <= 1:
             raise OperationError("Debe quedar al menos un administrador: no se puede quitar el rol al último.")

@@ -10,15 +10,15 @@ colors:
   card-dark: "#1c1c1e"
   muted-foreground-light: "#5f5f64"
   muted-foreground-dark: "#a1a1a6"
-  accent-light: "#0066cc"
+  accent-light: "#0064c8"
   accent-dark: "#2997ff"
   accent-solid-light: "#0071e3"
   accent-solid-dark: "#0071e3"
   success-light: "#1f7835"
   success-dark: "#30d158"
-  warning-light: "#c13200"
+  warning-light: "#b52f00"
   warning-dark: "#ff9f0a"
-  danger-light: "#cc0014"
+  danger-light: "#c20013"
   danger-dark: "#ff6961"
   mode-maritimo-light: "#5856d6"
   mode-maritimo-dark: "#6f71fc"
@@ -100,7 +100,7 @@ Westvane es una herramienta de operación para despachadores y planificadores de
 - **Un color significa una cosa.** Azul de acento = interactivo. Verde, naranja y rojo = estado (en ruta, transbordo o aviso, retraso o cierre). Los cinco colores de modo identifican únicamente el modo.
 - **Colores de Apple.** Los rellenos, gráficos y modos usan los colores de sistema de Apple (iOS/macOS); el texto de
   estado usa sus variantes de «contraste aumentado», ajustadas lo mínimo para llegar a 4,5:1 también sobre su tinte al
-  14 %. El acento es el azul de apple.com: `#0071e3` en botones (los dos temas) y `#0066cc` / `#2997ff` como texto.
+  14 % y sobre los resaltados (en claro: acento `#0064c8`, rojo `#c20013`, naranja `#b52f00`; los escaneos de `axe` lo comprueban). El acento es el azul de apple.com: `#0071e3` en botones (los dos temas) y `#0064c8` / `#2997ff` como texto.
   Se cambió el 29/10/2026: la paleta anterior (magenta, violeta, turquesa y un acento índigo en oscuro) «se notaba
   hecha por IA».
 - **Tema claro por defecto** (fondo `#f5f5f7`, tarjeta `#ffffff`); oscuro elegido a mano o "Sistema". El oscuro no es

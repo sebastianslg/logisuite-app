@@ -106,3 +106,25 @@ test.describe("Administración de usuarios y empresas", () => {
     watch.expectClean();
   });
 });
+
+test("administración: desactivar y volver a activar a un usuario", async ({ page }) => {
+  const watch = watchErrors(page);
+  await page.goto("/administracion");
+  await page.getByRole("button", { name: /ingresar con código al correo/i }).click();
+  await page.getByLabel("Correo electrónico").fill("admin@westvane.invalid");
+  await page.getByRole("button", { name: /enviar código/i }).click();
+  await page.getByRole("button", { name: /usar código/i }).click();
+  await page.getByRole("button", { name: /^ingresar$/i }).click();
+  await expect(page.getByRole("heading", { name: /^Usuarios/ })).toBeVisible();
+
+  const row = page.getByRole("listitem").filter({ hasText: "Consulta Gerencial" });
+  // Uno mismo no tiene botón para desactivarse
+  await expect(page.getByRole("listitem").filter({ hasText: "Administrador del Sistema" }).getByRole("button", { name: "Desactivar" })).toHaveCount(0);
+
+  page.once("dialog", (d) => d.accept());
+  await row.getByRole("button", { name: "Desactivar" }).click();
+  await expect(row.getByText("Inactivo")).toBeVisible();
+  await row.getByRole("button", { name: "Activar" }).click();
+  await expect(row.getByText("Inactivo")).toBeHidden();
+  watch.expectClean();
+});
