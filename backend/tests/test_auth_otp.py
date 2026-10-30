@@ -172,3 +172,47 @@ def test_primer_administrador_desde_el_env(client, monkeypatch):
     monkeypatch.setenv("ADMIN_EMAIL", "no-es-un-correo")
     auth_otp.ensure_bootstrap_admin()  # no falla ni crea nada
     assert db.run_query("SELECT 1 FROM users WHERE email = 'no-es-un-correo'").empty
+
+
+def test_activar_y_desactivar_usuarios(client):
+    h = login(client)
+    me = client.get("/api/auth/me", headers=h).json()
+    created = client.post("/api/admin/users", headers=h, json={
+        "email": "temporal@ejemplo.com", "full_name": "Temporal", "role": "operador", "company_id": None}).json()
+    uid = created["user_id"]
+    other = login(client, "temporal@ejemplo.com")
+    assert client.get("/api/auth/me", headers=other).status_code == 200
+
+    off = client.put(f"/api/admin/users/{uid}/active", json={"active": False}, headers=h)
+    assert off.status_code == 200 and off.json()["active"] == 0
+    assert client.get("/api/auth/me", headers=other).status_code == 401        # se le cerró la sesión
+    pedir = client.post("/api/auth/otp/request", json={"email": "temporal@ejemplo.com"}).json()
+    assert pedir["dev_code"] is None                                          # inactivo: no recibe códigos
+
+    on = client.put(f"/api/admin/users/{uid}/active", json={"active": True}, headers=h)
+    assert on.status_code == 200 and on.json()["active"] == 1
+    assert client.post("/api/auth/otp/request", json={"email": "temporal@ejemplo.com"}).json()["dev_code"]
+
+    # No te puedes desactivar a ti mismo ni quedarte sin administrador
+    own = client.put(f"/api/admin/users/{me['user_id']}/active", json={"active": False}, headers=h)
+    assert own.status_code == 422 and "a ti mismo" in own.json()["detail"]
+    assert client.put("/api/admin/users/999999/active", json={"active": True}, headers=h).status_code == 422
+    # Y sin sesión de administrador, nada
+    assert client.put(f"/api/admin/users/{uid}/active", json={"active": False}).status_code == 401
+    log = db.run_query("SELECT detail FROM audit_log WHERE detail LIKE 'Usuario desactivado%temporal@ejemplo.com%'")
+    assert not log.empty
+
+
+def test_no_se_desactiva_al_ultimo_administrador(client):
+    h = login(client)
+    # Un segundo administrador desactiva al primero... y luego el primero queda como el último que se intenta bajar
+    second = client.post("/api/admin/users", headers=h, json={
+        "email": "segundo.admin@ejemplo.com", "full_name": "Segundo Admin", "role": "admin", "company_id": None}).json()
+    h2 = login(client, "segundo.admin@ejemplo.com")
+    first_id = client.get("/api/auth/me", headers=h).json()["user_id"]
+    assert client.put(f"/api/admin/users/{first_id}/active", json={"active": False}, headers=h2).status_code == 200
+    # Ahora solo queda el segundo: otro administrador no puede quitarlo (y él no puede quitarse)
+    last = client.put(f"/api/admin/users/{second['user_id']}/active", json={"active": False}, headers=h2)
+    assert last.status_code == 422
+    # El primero, ya inactivo, no puede actuar: su sesión se cerró
+    assert client.get("/api/auth/me", headers=h).status_code == 401

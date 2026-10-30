@@ -40,6 +40,38 @@ def links(code: str) -> list:
         "ORDER BY created_at DESC", (code,)))
 
 
+MAX_EMAILS_PER_SHIPMENT_DAY = 5
+
+
+def email_link(code: str, token: str, to: str, user: str | None, now: datetime | None = None) -> dict:
+    """Envía por correo el enlace de seguimiento al cliente. No guarda la dirección (el historial lleva solo una
+    versión enmascarada) y hay un tope diario por envío: sin él sería un reenviador de correo."""
+    from app.engine import mail
+    from app.engine.auth_otp import normalize_email
+    now = now or datetime.now()
+    email = normalize_email(to)
+    ship = run_query("SELECT origin_city, dest_city, cargo FROM mm_shipments WHERE shipment_code = ?", (code,))
+    link = run_query("SELECT 1 FROM mm_tracking_links WHERE token = ? AND shipment_code = ? AND revoked_at IS NULL", (token, code))
+    if ship.empty or link.empty:
+        raise LookupError(token)
+    if not mail.configured():
+        raise OperationError("El envío de correo no está configurado en el servidor.")
+    today = now.strftime("%Y-%m-%d")
+    sent = run_query("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'EMAIL' AND table_name = 'mm_tracking_links' "
+                     "AND record_id = ? AND timestamp >= ?", (code, today))
+    if int(sent.iloc[0]["n"]) >= MAX_EMAILS_PER_SHIPMENT_DAY:
+        raise OperationError(f"Ya se enviaron {MAX_EMAILS_PER_SHIPMENT_DAY} correos de este envío hoy. Intenta mañana.")
+    s = ship.iloc[0]
+    url = mail.public_url(f"/seguimiento/{token}")
+    mail.send_text(
+        email, f"Sigue tu envío {code}: {s['origin_city']} a {s['dest_city']}",
+        f"Hola,\n\nPuedes seguir tu envío {code} ({s['cargo']}) de {s['origin_city']} a {s['dest_city']} en este enlace:\n\n"
+        f"    {url}\n\nMuestra el estado, el avance y la llegada estimada. No pide contraseña ni muestra datos internos.\n"
+        f"Si no esperabas este mensaje, puedes ignorarlo.\n\nWestvane TMS")
+    audit(user, "EMAIL", "mm_tracking_links", code, f"Enlace de seguimiento enviado por correo a {mail.mask(email)}")
+    return {"sent": True, "to": mail.mask(email)}
+
+
 def revoke(code: str, token: str, user: str | None) -> None:
     rows = run_query("SELECT 1 FROM mm_tracking_links WHERE token = ? AND shipment_code = ? AND revoked_at IS NULL", (token, code))
     if rows.empty:
