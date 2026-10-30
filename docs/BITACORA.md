@@ -984,3 +984,18 @@ contra una base temporal. **Nada de esto llegó a producción.**
   - solo se rotulan los CEDI y los puertos marítimos (las demás ciudades conservan su punto y su ficha).
 - El escritorio no cambia. El mapa sigue quieto en reposo: es solo la vista inicial.
 - Pruebas: 21 de navegador.
+
+## 39. Pantalla de administración de usuarios y empresas (29/10/2026)
+
+- **`/administracion`:** lista de usuarios con su rol (se cambia ahí mismo), alta de usuarios (nombre, correo, rol y
+  empresa) y de empresas (nombre y NIT opcional). Usa la API que ya existía (`/api/admin/users`, `/api/companies`).
+- **Quién la ve:**
+  - Sin sesión: aviso «Inicia sesión para administrar» con el botón para ingresar.
+  - Con sesión de otro rol: aviso de que es solo para administradores.
+  - Administrador: el panel completo. El servidor lo exige igualmente (401 y 403); la pantalla solo lo explica.
+- **Cómo se llega:** desde «Más», en la ficha de la cuenta, aparece «Administrar usuarios y empresas» solo para
+  administradores.
+- El historial queda firmado por la cuenta de quien administra; el último administrador no se puede degradar.
+- Sigue valiendo lo de la sección 37: el rol aún no limita acciones en el resto de la app.
+- Pruebas: 24 de navegador (una nueva: crea una empresa y un usuario y le cambia el rol; y `/administracion` entra en la
+  revisión de páginas y de desborde en celular).

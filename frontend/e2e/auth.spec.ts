@@ -75,3 +75,34 @@ test.describe("Autenticación sin contraseña por correo (OTP)", () => {
     watch.expectClean();
   });
 });
+
+test.describe("Administración de usuarios y empresas", () => {
+  test("sin sesión pide ingresar; como administrador crea una empresa y un usuario y le cambia el rol", async ({ page }) => {
+    const watch = watchErrors(page);
+    await page.goto("/administracion");
+    await expect(page.getByText("Inicia sesión para administrar", { exact: true })).toBeVisible();
+
+    // Entrar como el administrador de la semilla (en las pruebas el código viaja en la respuesta: WESTVANE_DEV_OTP=1)
+    await page.getByRole("button", { name: /ingresar con código al correo/i }).click();
+    await page.getByLabel("Correo electrónico").fill("admin@westvane.invalid");
+    await page.getByRole("button", { name: /enviar código/i }).click();
+    await page.getByRole("button", { name: /usar código/i }).click();
+    await page.getByRole("button", { name: /^ingresar$/i }).click();
+    await expect(page.getByRole("heading", { name: /^Usuarios/ })).toBeVisible();
+
+    const stamp = Date.now();
+    await page.getByLabel("Nombre de la empresa").fill(`Empresa de prueba ${stamp}`);
+    await page.getByRole("button", { name: "Agregar empresa" }).click();
+    await expect(page.getByRole("listitem").filter({ hasText: `Empresa de prueba ${stamp}` })).toBeVisible();
+
+    await page.getByLabel("Nombre completo").fill(`Persona ${stamp}`);
+    await page.getByLabel("Correo", { exact: true }).fill(`persona${stamp}@ejemplo.invalid`);
+    await page.getByRole("button", { name: "Crear usuario" }).click();
+    const row = page.getByRole("listitem").filter({ hasText: `Persona ${stamp}` });
+    await expect(row).toBeVisible();
+
+    await row.getByRole("combobox").selectOption("lector");
+    await expect(row.getByRole("combobox")).toHaveValue("lector");
+    watch.expectClean();
+  });
+});
