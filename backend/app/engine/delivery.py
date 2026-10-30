@@ -109,7 +109,8 @@ def record(code: str, data: dict, user: str | None, now: datetime) -> dict:
         where = f"https://{domain}/envios/{code}" if domain else "la app"
         mail.send_admin_async(
             f"Entrega con novedad: {code}",
-            f"El envío {code} ({s['origin_city']} a {s['dest_city']}) llegó con novedad:\n\n{notes}\n\nRevísalo en {where}")
+            f"El envío {code} ({s['origin_city']} a {s['dest_city']}) llegó con novedad:\n\n{notes}\n\nRevísalo en {where}",
+            kind="novedades")
     return get(code, now)
 
 

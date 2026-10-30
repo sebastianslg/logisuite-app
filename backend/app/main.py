@@ -744,6 +744,31 @@ def settings_replenish(body: ReplenishIn) -> dict:
     return {"auto_replenish": ops.set_auto_replenish(body.enabled, body.usuario)}
 
 
+class MailAlertIn(BaseModel):
+    kind: str
+    enabled: bool
+
+
+@app.get("/api/settings/mail-alerts")
+def settings_mail_alerts() -> dict:
+    """Avisos por correo al administrador: si hay correo configurado, a qué dirección (enmascarada) y qué tipos están activos."""
+    from app.engine import mail
+    return mail.alerts_state()
+
+
+@app.put("/api/settings/mail-alerts")
+def settings_mail_alerts_set(body: MailAlertIn, request: Request) -> dict:
+    """Enciende o apaga un tipo de aviso. Exige sesión de administrador: quien puede cambiar adónde van los avisos del
+    sistema es quien lo administra."""
+    from app.engine import mail
+    admin = _require_admin(request)
+    try:
+        mail.set_alert(body.kind, body.enabled, admin["username"])
+    except ops.OperationError as exc:
+        _op_error(exc)
+    return mail.alerts_state()
+
+
 class TollIn(BaseModel):
     tolls_cop: float = Field(..., ge=0)
     note: str | None = None

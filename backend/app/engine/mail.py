@@ -72,11 +72,51 @@ def admin_email() -> str | None:
     return (os.getenv("ADMIN_EMAIL") or "").strip() or None
 
 
-def send_admin_async(subject: str, body: str) -> bool:
-    """Aviso al administrador (ADMIN_EMAIL) en segundo plano. False si no hay SMTP o ADMIN_EMAIL."""
+# Tipos de aviso al administrador. Cada uno se apaga por separado en Configuración (system_params, MAIL_ALERT_<TIPO>).
+ALERT_KINDS = {
+    "vencimientos": "Resumen diario de SOAT, técnico-mecánicas y licencias por vencer",
+    "novedades": "Aviso cuando una entrega llega con novedad",
+}
+
+
+def alert_enabled(kind: str) -> bool:
+    """Encendidos por defecto; el dueño los apaga desde Configuración."""
+    from app.database.db import run_query
+    rows = run_query("SELECT param_value FROM system_params WHERE param_key = ?", (f"MAIL_ALERT_{kind.upper()}",))
+    return True if rows.empty else str(rows.iloc[0]["param_value"]).lower() == "true"
+
+
+def set_alert(kind: str, enabled: bool, user: str | None) -> None:
+    from app.database.db import run_write
+    from app.engine.common import audit
+    if kind not in ALERT_KINDS:
+        raise OperationError("Tipo de aviso no válido.")
+    run_write("""INSERT INTO system_params (param_key, param_value, description) VALUES (?,?,?)
+                 ON CONFLICT(param_key) DO UPDATE SET param_value = excluded.param_value""",
+              (f"MAIL_ALERT_{kind.upper()}", "true" if enabled else "false", ALERT_KINDS[kind]))
+    audit(user, "UPDATE", "system_params", f"MAIL_ALERT_{kind.upper()}",
+          f"Aviso por correo «{ALERT_KINDS[kind]}»: {'activado' if enabled else 'desactivado'}")
+
+
+def alerts_state() -> dict:
+    to = admin_email()
+    return {"configured": configured(), "admin_email": mask(to) if to else None,
+            "alerts": [{"kind": k, "label": label, "enabled": alert_enabled(k)} for k, label in ALERT_KINDS.items()]}
+
+
+def send_admin_async(subject: str, body: str, kind: str | None = None) -> bool:
+    """Aviso al administrador (ADMIN_EMAIL) en segundo plano. False si no hay SMTP o ADMIN_EMAIL, o si ese tipo de aviso
+    está apagado. Cada correo termina diciendo cómo dejar de recibirlo."""
     to = admin_email()
     if not to or not configured():
         return False
+    if kind is not None and not alert_enabled(kind):
+        return False
+    try:
+        where = public_url("/configuracion")
+    except OperationError:
+        where = "la pantalla Configuración de Westvane"
+    body = f"{body}\n\n--\nPara dejar de recibir estos avisos: {where} (sección «Avisos por correo»)."
 
     def run() -> None:
         try:
