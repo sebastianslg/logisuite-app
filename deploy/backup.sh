@@ -57,9 +57,16 @@ if [ -d "${DATA}/adjuntos" ]; then
   tar -czf "${DEST}/adjuntos-${STAMP}.tar.gz" -C "${DATA}" adjuntos
 fi
 
-# 3) Se conservan los últimos ${KEEP} de cada tipo
+# 3) Configuración (.env: dominio, correo, avisos). Con permisos 600: solo root la lee. Un .env sobrescrito por error
+#    dejó una vez el servidor sin DOMAIN; esta copia permite volver atrás sin adivinar.
+if [ -f "${APP_DIR}/.env" ]; then
+  (umask 077; cp "${APP_DIR}/.env" "${DEST}/env-${STAMP}.bak")
+fi
+
+# 4) Se conservan los últimos ${KEEP} de cada tipo
 # (|| true: sin adjuntos todavía, el patrón no encuentra nada y ls falla; con pipefail eso cortaba el script)
 { ls -1t "${DEST}"/logistics-*.db.gz 2>/dev/null || true; } | tail -n +$((KEEP + 1)) | xargs -r rm -f
 { ls -1t "${DEST}"/adjuntos-*.tar.gz 2>/dev/null || true; } | tail -n +$((KEEP + 1)) | xargs -r rm -f
+{ ls -1t "${DEST}"/env-*.bak 2>/dev/null || true; } | tail -n +$((KEEP + 1)) | xargs -r rm -f
 echo "[$(date -Is)] respaldo ${STAMP} listo ($(du -sh "${DEST}" | cut -f1) en ${DEST})"
 ping_hc ""

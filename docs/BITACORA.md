@@ -1033,3 +1033,25 @@ contra una base temporal. **Nada de esto llegó a producción.**
   nunca se registra el cuerpo del correo ni la clave.
 - **Pruebas:** 7 de la API (`test_correos.py`, con el envío simulado) y 1 de navegador. No se mandó ningún correo real
   desde las pruebas: la primera prueba real es del dueño.
+
+## 42. Respaldo fuera del servidor, verificado y programado (30/10/2026)
+
+- **El hueco:** los respaldos viven en el mismo VPS (14 copias), y la copia al PC dependía de que el dueño ejecutara un
+  script a mano. Además, el respaldo no incluía el `.env`: un `.env` sobrescrito al pegar en `nano` dejó el servidor sin
+  `DOMAIN` y sin copia a la cual volver.
+- **`deploy/descargar-respaldos.ps1` reescrito:** descarga a un `.part`, y solo lo acepta si pasa tres pruebas: el gzip se lee
+  completo con su tamaño final correcto, la base es SQLite, y la huella SHA-256 coincide con la del servidor. Lo dañado se
+  descarta. Retención local de 30, registro en `descarga.log`, y código de salida 2 si el último respaldo del servidor es
+  viejo.
+- **Un fallo propio, encontrado probando:** la primera versión daba por sana una descarga **cortada**, porque el descompresor
+  de .NET no se queja de un gzip truncado. Se comprobó con cuatro archivos dañados a propósito (cortado cerca del final,
+  cortado al principio, bytes alterados, gzip que no es SQLite): los cuatro se detectan.
+- **`deploy/programar-respaldo-local.ps1`:** registra la tarea diaria de Windows (13:00; si el PC estaba apagado, al
+  encenderse). Sin permisos de administrador; `-Quitar` la elimina.
+- **`backup.sh`:** guarda `env-FECHA.bak` con permisos 600 y conserva 14. El script del PC lo baja solo con `-IncluirEnv`.
+- **`.gitattributes`:** `deploy/*.sh text eol=lf`, para que ningún script de bash vuelva a llegar al servidor con finales de
+  línea de Windows.
+- **Prueba de restauración:** el respaldo más reciente se descomprimió y abrió: integridad `ok`, 259 envíos, 60 vehículos,
+  87 nodos y 148 enlaces. **Un respaldo que no se prueba restaurar no es un respaldo.**
+- **Pendiente del dueño:** ejecutar `programar-respaldo-local.ps1` una vez. Y, como el cambio de `backup.sh` está en el
+  repositorio pero no en el servidor hasta el próximo despliegue, la primera copia del `.env` aparecerá entonces.

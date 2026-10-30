@@ -140,13 +140,30 @@ el sitio cae y otro cuando vuelve.
 del VPS; si el servidor entero se cae, GitHub avisa por correo de la ejecución fallida. GitHub pausa las
 tareas programadas tras 60 días sin actividad en el repositorio (se reactivan desde la pestaña Actions).
 
-**Copia fuera del servidor:** desde Windows, en la carpeta del repositorio:
+**Copia fuera del servidor:** el servidor guarda 14 respaldos, pero en el mismo VPS: si se pierde, se pierde todo. Desde
+Windows, en la carpeta del repositorio:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File deploy\descargar-respaldos.ps1
 ```
 
-Descarga a `Documentos\Westvane\respaldos` solo los respaldos que aún no tienes.
+Descarga a `Documentos\Westvaneespaldos` solo lo que aún no tienes y **verifica cada archivo**: que el gzip esté completo (con su
+tamaño final correcto), que la base sea SQLite y que la huella SHA-256 coincida con la del servidor; lo que llega dañado se
+descarta. Conserva los últimos 30 de cada tipo, deja un registro en `descarga.log` y sale con código 2 si el último respaldo del
+servidor tiene más de ~36 horas (el respaldo diario dejó de correr). Con `-IncluirEnv` baja también las copias del `.env`
+(llevan claves: quedan legibles solo para tu usuario de Windows).
+
+Para no depender de acordarte, **prográmalo una vez** (no pide permisos de administrador):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\programar-respaldo-local.ps1
+```
+
+Corre todos los días a las 13:00; si el PC estaba apagado, en cuanto se encienda y haya red. Para quitarlo, agrega `-Quitar`. Para
+probarlo ya: `Start-ScheduledTask -TaskName 'Westvane - respaldo diario'`.
+
+`backup.sh` también guarda una copia del `.env` (`env-FECHA.bak`, permisos 600): un `.env` sobrescrito por error dejó una vez el
+servidor sin `DOMAIN`. **Editar el `.env`** sin riesgo: nunca pegues sobre el contenido existente en `nano`; agrega líneas al final.
 
 Restaurar un respaldo (con cuidado: sobrescribe la base):
 

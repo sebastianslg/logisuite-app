@@ -6,3 +6,6 @@
 .github/skills/** linguist-vendored
 .github/agents/** linguist-vendored
 .github/hooks/** linguist-vendored
+
+# Scripts de bash: siempre LF (un retorno de carro rompe `bash` en el servidor Linux)
+deploy/*.sh text eol=lf
