@@ -73,7 +73,8 @@ def send_text(to: str, subject: str, body: str, attachments: list | None = None)
 
 
 def admin_email() -> str | None:
-    return (os.getenv("ADMIN_EMAIL") or "").strip() or None
+    """Destino de los avisos: NOTIFY_EMAIL (el buzón de Westvane); si no existe, ADMIN_EMAIL. El ingreso sigue en ADMIN_EMAIL."""
+    return (os.getenv("NOTIFY_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip() or None
 
 
 # Tipos de aviso al administrador. Cada uno se apaga por separado en Configuración (system_params, MAIL_ALERT_<TIPO>).

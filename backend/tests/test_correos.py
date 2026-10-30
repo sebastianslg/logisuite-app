@@ -124,6 +124,14 @@ def test_aviso_al_administrador_por_entrega_con_novedad(client, outbox, monkeypa
     assert outbox == []                                                          # conforme: sin aviso
 
 
+def test_avisos_van_a_notify_email_y_no_al_administrador(monkeypatch):
+    monkeypatch.setenv("ADMIN_EMAIL", "dueno@ejemplo.com")
+    monkeypatch.delenv("NOTIFY_EMAIL", raising=False)
+    assert mail.admin_email() == "dueno@ejemplo.com"                              # sin NOTIFY_EMAIL, se usa ADMIN_EMAIL
+    monkeypatch.setenv("NOTIFY_EMAIL", "westvane@ejemplo.com")
+    assert mail.admin_email() == "westvane@ejemplo.com"
+
+
 def test_resumen_diario_de_vencimientos_por_correo(client, outbox, monkeypatch):
     monkeypatch.setenv("ADMIN_EMAIL", "dueno@ejemplo.com")
     monkeypatch.setattr(mail.threading, "Thread", lambda target, daemon: type("T", (), {"start": staticmethod(target)})())

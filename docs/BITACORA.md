@@ -1087,3 +1087,8 @@ contra una base temporal. **Nada de esto llegó a producción.**
   cámara) y ya exige la declaración de autorización de las personas que aparezcan en ellas.
 - **Finales de línea:** `dock.tsx`, `seed_data.py`, `layout.tsx` y el proxy de la API tenían todas sus líneas con `\r\r\n` desde el
   commit original. Se normalizaron a LF; el contenido no cambió (`git diff -w --ignore-cr-at-eol` queda vacío).
+
+## 45. Los avisos van al buzón de Westvane (`NOTIFY_EMAIL`)
+- Los avisos por correo (vencimientos, entregas con novedad, reporte semanal) ya no dependen de `ADMIN_EMAIL`: van a
+  `NOTIFY_EMAIL` y, si no existe, a `ADMIN_EMAIL`. El ingreso con código sigue usando `ADMIN_EMAIL`, así que se puede entrar con
+  el correo personal sin recibir avisos ahí. En el servidor basta agregar `NOTIFY_EMAIL=...` al `.env` y reiniciar `backend`.
