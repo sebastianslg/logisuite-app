@@ -327,3 +327,58 @@ def remesa(s: dict, now: datetime, company: str | None = None, pod: tuple | None
         "diligencia.", st["muted"])]
     doc.build(story, onFirstPage=_footer(f"{now:%d/%m/%Y %H:%M}"), onLaterPages=_footer(f"{now:%d/%m/%Y %H:%M}"))
     return buf.getvalue()
+
+
+def work_order(m: dict, v: dict, fault: dict | None, now: datetime, company: str | None = None) -> bytes:
+    """Orden de trabajo de un mantenimiento: qué vehículo, qué servicio, dónde y cuándo, con espacio para que el taller
+    anote lo hecho, los repuestos y el kilometraje al cerrar, y para las firmas. Es un formato interno para imprimir; no
+    reemplaza la factura ni el informe del taller."""
+    st = _styles()
+    buf = io.BytesIO()
+    number = f"OT-{int(m['maint_id']):05d}"
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15 * mm, rightMargin=15 * mm,
+                            topMargin=15 * mm, bottomMargin=18 * mm, title=f"Orden de trabajo {number}", author="Westvane TMS")
+    blank = "_" * 34
+    drv = v.get("driver") or {}
+    story: list = [
+        Paragraph("Orden de trabajo", st["title"]),
+        Paragraph(f"N.º <b>{number}</b> · {m['kind']} · estado: <b>{m['status']}</b> · expedida el {now:%d/%m/%Y %H:%M} · "
+                  f"Empresa: {company or 'Westvane (operación simulada)'}", st["body"]),
+        Spacer(1, 6),
+    ]
+    left = [("Vehículo", f"{v['code']} · {v['vehicle_type']}"),
+            ("Marca y modelo", " ".join(x for x in (v.get("make"), v.get("model"), str(v.get("year") or "")) if x) or "-"),
+            ("Modo", v["mode_label"]),
+            ("Conductor asignado", drv.get("name") or "Sin conductor"),
+            ("Kilometraje del sistema", f"{int(v['odometer_km']):,} km".replace(",", "."))]
+    right = [("Servicio", m["kind"]),
+             ("Taller", m.get("workshop") or blank[:24]),
+             ("Programado desde", _dt(m["scheduled_start"])),
+             ("Hasta", _dt(m["scheduled_end"])),
+             ("Costo estimado", f"US$ {float(m.get('est_cost_usd') or 0):,.0f}".replace(",", "."))]
+    grid = Table([[_kv(left, st), _kv(right, st)]], colWidths=[90 * mm, 90 * mm])
+    grid.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
+    story.append(grid)
+    if fault:
+        story += [Paragraph("Falla que origina el servicio", st["h2"]),
+                  Paragraph(f"<b>{fault['severity']}</b> · {fault['category']} · reportada el {_dt(fault['reported_at'])}", st["body"]),
+                  Paragraph(str(fault["description"]), st["body"])]
+    if m.get("notes"):
+        story += [Paragraph("Notas del programador", st["h2"]), Paragraph(str(m["notes"]), st["body"])]
+    story += [Paragraph("Trabajo realizado y repuestos", st["h2"]),
+              _table([["Descripción", "Cantidad", "Valor"]] + [["", "", ""]] * 6, [110 * mm, 30 * mm, 40 * mm], st),
+              Paragraph("Al cerrar", st["h2"]),
+              _kv([("Kilometraje al ingresar", blank), ("Kilometraje al salir", blank), ("Fecha y hora de entrega", blank),
+                   ("Costo real (US$)", blank[:20])], st),
+              Paragraph("Observaciones", st["h2"]), _obs_box("", st), Spacer(1, 22)]
+    sign = Table([["", ""], ["Firma y sello del taller", "Recibe: responsable de la flota"],
+                  ["Nombre y documento:", "Nombre, documento y fecha:"]],
+                 colWidths=[90 * mm, 90 * mm], rowHeights=[18 * mm, None, 12 * mm])
+    sign.setStyle(TableStyle([("LINEABOVE", (0, 1), (-1, 1), 0.6, INK), ("FONTSIZE", (0, 1), (-1, -1), 7.5),
+                              ("TEXTCOLOR", (0, 2), (-1, 2), MUTED), ("VALIGN", (0, 2), (-1, 2), "TOP"),
+                              ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 10)]))
+    story += [sign, Spacer(1, 10), Paragraph(
+        "Formato interno de Westvane para imprimir y diligenciar en el taller. No reemplaza la factura ni el informe técnico del "
+        "taller. Al cerrar el servicio, registra el costo y el kilometraje reales en la ficha del vehículo.", st["muted"])]
+    doc.build(story, onFirstPage=_footer(f"{now:%d/%m/%Y %H:%M}"), onLaterPages=_footer(f"{now:%d/%m/%Y %H:%M}"))
+    return buf.getvalue()

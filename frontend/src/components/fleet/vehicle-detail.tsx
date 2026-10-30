@@ -8,6 +8,7 @@ import {
   Archive,
   CalendarPlus,
   CircleCheck,
+  FileText,
   LoaderCircle,
   OctagonAlert,
   Pencil,
@@ -337,6 +338,16 @@ export function VehicleDetailView({ vehicle: v }: { vehicle: VehicleDetail }) {
                       {m.status === "Completado" ? <> · costó <Money usd={m.cost_usd} />{m.odometer_km ? ` · ${km(m.odometer_km)} km` : ""}</> : m.est_cost_usd ? <> · estimado <Money usd={m.est_cost_usd} /></> : null}
                     </p>
                     {m.notes && <p className="mt-1 text-xs">{m.notes}</p>}
+                    {m.status !== "Cancelado" && (
+                      <a
+                        href={`/api/fleet/maintenance/${m.maint_id}/pdf`}
+                        target="_blank"
+                        rel="noopener"
+                        className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline print:hidden"
+                      >
+                        <FileText className="size-3.5" aria-hidden /> Orden de trabajo (PDF)
+                      </a>
+                    )}
                     {(m.status === "Programado" || m.status === "En curso") && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {m.status === "Programado" && (

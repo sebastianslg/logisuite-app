@@ -538,3 +538,31 @@ class TestBodegas:
         det = client.get(f"/api/warehouses/{hub['warehouse_id']}").json()
         assert det["vehicles"] >= 3 and len(det["vehicles_list"]) == det["vehicles"]
         assert client.delete(f"/api/warehouses/{hub['warehouse_id']}").status_code == 422
+
+
+class TestOrdenDeTrabajo:
+
+    def test_pdf_de_un_mantenimiento(self, client):
+        from reportlab.rl_config import pageCompression  # noqa: F401  (se desactiva abajo para poder buscar el texto)
+        m = client.get("/api/fleet/maintenance").json()["items"][0]
+        r = client.get(f"/api/fleet/maintenance/{m['maint_id']}/pdf")
+        assert r.status_code == 200 and r.content.startswith(b"%PDF")
+        assert "orden-trabajo-OT-" in r.headers["content-disposition"] and "inline" in r.headers["content-disposition"]
+        assert "attachment" in client.get(f"/api/fleet/maintenance/{m['maint_id']}/pdf", params={"descargar": True}).headers["content-disposition"]
+        assert client.get("/api/fleet/maintenance/999999/pdf").status_code == 404
+
+    def test_el_pdf_lleva_el_vehiculo_el_servicio_y_la_falla(self, client):
+        from reportlab import rl_config
+        from app.engine import pdf
+        now = datetime.now()
+        m = next(x for x in client.get("/api/fleet/maintenance").json()["items"])
+        v = fleet.vehicle_detail(int(m["vehicle_id"]), now)
+        fault = {"fault_id": 1, "severity": "Crítica", "category": "Frenos", "description": "Pérdida de presión en el circuito", "reported_at": now.isoformat(timespec="minutes")}
+        old = rl_config.pageCompression
+        rl_config.pageCompression = 0
+        try:
+            raw = pdf.work_order(m, v, fault, now)
+        finally:
+            rl_config.pageCompression = old
+        assert f"OT-{int(m['maint_id']):05d}".encode() in raw
+        assert v["code"].encode() in raw and b"Frenos" in raw and b"Firma y sello del taller" in raw
