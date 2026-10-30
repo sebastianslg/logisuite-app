@@ -128,3 +128,35 @@ test("administración: desactivar y volver a activar a un usuario", async ({ pag
   await expect(row.getByText("Inactivo")).toBeHidden();
   watch.expectClean();
 });
+
+test("enlace de seguimiento por correo: sin sesión no hay botón; con sesión el servidor explica que falta el correo", async ({ page, request }) => {
+  const watch = watchErrors(page);
+  const list = await (await request.get("/api/shipments?limit=1")).json();
+  const code = list.items[0].code as string;
+  await page.goto(`/envios/${code}`);
+  await page.getByRole("button", { name: "Crear enlace de seguimiento" }).click();
+  await expect(page.getByRole("button", { name: "Copiar enlace" }).first()).toBeVisible();
+
+  // Sin sesión: se pide iniciar sesión y no hay botón de correo
+  await expect(page.getByText("Inicia sesión como operador para enviar el enlace por correo.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Enviar enlace por correo" })).toHaveCount(0);
+
+  // Con sesión de administrador (arriba del todo: desplazada, el dock se compacta y el menú cambia de aspecto)
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const moreBtn = page.getByRole("button", { name: "Más", exact: true });
+  await expect(moreBtn).toBeVisible(); // el dock tarda un instante en expandirse al volver arriba
+  await moreBtn.click();
+  await page.getByRole("button", { name: /ingresar con código al correo/i }).click();
+  await page.getByLabel("Correo electrónico").fill("admin@westvane.invalid");
+  await page.getByRole("button", { name: /enviar código/i }).click();
+  await page.getByRole("button", { name: /usar código/i }).click();
+  await page.getByRole("button", { name: /^ingresar$/i }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+
+  await page.getByRole("button", { name: "Enviar enlace por correo" }).first().click();
+  await page.getByLabel("Correo del cliente").fill("cliente@ejemplo.com");
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(page.getByText("no está configurado")).toBeVisible();
+  // El 422 es la respuesta que esta prueba provoca a propósito (el navegador lo anota en la consola); nada más
+  expect(watch.errors.filter((e) => !/status of 422/.test(e)), watch.errors.join("\n")).toEqual([]);
+});

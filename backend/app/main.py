@@ -911,6 +911,33 @@ def tracking_list(code: str) -> dict:
     return {"count": len(items), "items": [{**i, "path": f"/seguimiento/{i['token']}"} for i in items]}
 
 
+class TrackingEmailIn(BaseModel):
+    email: str = Field(..., max_length=160)
+
+
+def _require_operator(request: Request) -> dict:
+    """Sesión de operador o administrador. Enviar correos exige identidad: sin ella la API sería un reenviador."""
+    header = request.headers.get("Authorization", "")
+    user = auth_otp.get_user_by_session(header[7:].strip() if header.startswith("Bearer ") else None)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Inicia sesión para enviar correos.")
+    if user["role"] not in ("admin", "operador"):
+        raise HTTPException(status_code=403, detail="Tu rol solo permite consultar: no puede enviar correos.")
+    return user
+
+
+@app.post("/api/shipments/{code}/tracking/{token}/email")
+def tracking_email(code: str, token: str, body: TrackingEmailIn, request: Request) -> dict:
+    """Envía el enlace de seguimiento al correo del cliente (sesión de operador o administrador, con tope diario)."""
+    user = _require_operator(request)
+    try:
+        return tracking.email_link(code, token, body.email, user["username"])
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Enlace inexistente o ya revocado")
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
 @app.delete("/api/shipments/{code}/tracking/{token}")
 def tracking_revoke(code: str, token: str, usuario: str | None = None) -> dict:
     try:

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import os
 from datetime import datetime, timedelta
 
 from app.database.db import run_query, run_write
@@ -101,6 +102,14 @@ def record(code: str, data: dict, user: str | None, now: datetime) -> dict:
               (code, name, at.isoformat(timespec="minutes"), condition, notes, sig, _user(user), _now_iso()))
     audit(user, "INSERT", "mm_deliveries", code,
           f"Entrega registrada: recibió {name}, {CONDITIONS[condition].lower()}" + (f" ({notes[:80]})" if notes else ""))
+    if condition == "con_novedad":
+        # Aviso al administrador: sin nombre ni firma de quien recibió (datos personales), solo lo que hay que atender
+        from app.engine import mail
+        domain = os.getenv("DOMAIN", "").strip()
+        where = f"https://{domain}/envios/{code}" if domain else "la app"
+        mail.send_admin_async(
+            f"Entrega con novedad: {code}",
+            f"El envío {code} ({s['origin_city']} a {s['dest_city']}) llegó con novedad:\n\n{notes}\n\nRevísalo en {where}")
     return get(code, now)
 
 

@@ -1014,3 +1014,22 @@ contra una base temporal. **Nada de esto llegó a producción.**
   acento `#0066cc`→`#0064c8`, rojo `#cc0014`→`#c20013`, naranja `#c13200`→`#b52f00`. El tema oscuro pasó sin cambios.
 - **Resultado:** 0 violaciones en 27 páginas × claro/oscuro × escritorio/celular. `DESIGN.md` actualizado.
 - Pruebas: 14 de autenticación en la API; 2 nuevas de administración y 2 de accesibilidad en navegador.
+
+## 41. Correos de la app: enlace de seguimiento al cliente y avisos al administrador (30/10/2026)
+
+- **Enlace de seguimiento por correo:** en la ficha del envío, cada enlace tiene un botón «Enviar por correo». Manda al
+  cliente el enlace (código, origen, destino y carga; **sin costos, sin cliente, sin datos internos**).
+  - **Exige sesión de operador o administrador** (401 sin sesión, 403 para lectores): sin eso la API sería un
+    reenviador de correo usando la cuenta del sistema.
+  - **Tope de 5 correos por envío al día.**
+  - **No guarda la dirección del cliente:** el historial lleva solo una versión enmascarada (`c***@empresa.com`).
+  - Sin SMTP en el servidor responde que el correo no está configurado, y no envía nada.
+  - `POST /api/shipments/{code}/tracking/{token}/email`.
+- **Avisos al administrador (`ADMIN_EMAIL`)**, en segundo plano:
+  - Resumen diario de SOAT, técnico-mecánicas y licencias por vencer (los mismos del aviso de ntfy).
+  - Aviso inmediato cuando una entrega llega **con novedad**, con la novedad y el enlace al envío; sin el nombre ni la firma
+    de quien recibió.
+- **Módulo `engine/mail.py`:** SMTP con 10 s de tiempo máximo; los errores van al registro del servidor, no al navegador, y
+  nunca se registra el cuerpo del correo ni la clave.
+- **Pruebas:** 7 de la API (`test_correos.py`, con el envío simulado) y 1 de navegador. No se mandó ningún correo real
+  desde las pruebas: la primera prueba real es del dueño.
