@@ -147,7 +147,7 @@ Windows, en la carpeta del repositorio:
 powershell -ExecutionPolicy Bypass -File deploy\descargar-respaldos.ps1
 ```
 
-Descarga a `Documentos\Westvaneespaldos` solo lo que aún no tienes y **verifica cada archivo**: que el gzip esté completo (con su
+Descarga a `Documentos\Westvane\respaldos` solo lo que aún no tienes y **verifica cada archivo**: que el gzip esté completo (con su
 tamaño final correcto), que la base sea SQLite y que la huella SHA-256 coincida con la del servidor; lo que llega dañado se
 descarta. Conserva los últimos 30 de cada tipo, deja un registro en `descarga.log` y sale con código 2 si el último respaldo del
 servidor tiene más de ~36 horas (el respaldo diario dejó de correr). Con `-IncluirEnv` baja también las copias del `.env`
