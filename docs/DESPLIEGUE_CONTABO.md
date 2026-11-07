@@ -185,6 +185,17 @@ probarlo ya: `Start-ScheduledTask -TaskName 'Westvane - respaldo diario'`.
 `backup.sh` también guarda una copia del `.env` (`env-FECHA.bak`, permisos 600): un `.env` sobrescrito por error dejó una vez el
 servidor sin `DOMAIN`. **Editar el `.env`** sin riesgo: nunca pegues sobre el contenido existente en `nano`; agrega líneas al final.
 
+**Ensayo de restauración (sin tocar producción):** un respaldo que nunca se prueba restaurar no es un respaldo.
+
+```bash
+bash /opt/logisuite/deploy/probar-restauracion.sh
+```
+
+Toma el último respaldo, lo descomprime en una carpeta temporal, comprueba la integridad de la base, levanta una **API
+aparte** en `127.0.0.1:8099` con esa copia y verifica que responde, que el tablero «Hoy» funciona y cuántos envíos, vehículos
+y usuarios activos tiene (los compara con producción). Borra el contenedor y la carpeta al terminar, salga bien o mal. Con un
+respaldo concreto: `bash deploy/probar-restauracion.sh backups/logistics-20261107-031704.db.gz`.
+
 Restaurar un respaldo (con cuidado: sobrescribe la base):
 
 ```bash

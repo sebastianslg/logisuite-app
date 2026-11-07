@@ -1124,3 +1124,17 @@ contra una base temporal. **Nada de esto llegó a producción.**
   simulan, así que no se notó antes.
 - El nombre del tema **no se escribe en el repositorio**: solo vive en el `.env`. `deploy/healthcheck.sh` lo lee de allí en cada
   pasada, así que la vigilancia del sitio ya lo usa.
+
+## 48. Ensayo de restauración de un respaldo (`deploy/probar-restauracion.sh`)
+
+- **Por qué:** teníamos respaldos diarios, verificados al descargarlos, pero nunca se había probado **restaurar** uno con la app
+  funcionando. Es la única prueba que dice si un respaldo sirve.
+- **Qué hace:** toma el último respaldo (o el que se le indique), lo descomprime en una carpeta temporal, comprueba la
+  integridad con SQLite, levanta una **API aparte** con esa base en `127.0.0.1:8099` —con las migraciones corriendo sobre la
+  copia, no sobre producción— y verifica que responde, que el tablero «Hoy» funciona y cuántos envíos, vehículos y usuarios
+  activos tiene. Al terminar borra el contenedor y la carpeta, salga bien o mal.
+- **Resultado del primer ensayo:** integridad `ok`, la API arrancó, 395 envíos en el respaldo frente a 410 en producción en ese
+  momento (el respaldo era de las 03:17 y la simulación había repuesto envíos), 60 vehículos y 1 usuario activo.
+- **Un error mío corregido en el camino:** la primera versión contaba los envíos con `/api/shipments?limit=1`, que devuelve el
+  número de elementos de la página (1), no el total. Ahora cuenta en la base restaurada y compara con producción.
+- Documentado en `docs/DESPLIEGUE_CONTABO.md`, antes del procedimiento manual de restauración.
