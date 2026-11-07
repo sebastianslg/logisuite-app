@@ -119,10 +119,18 @@ async function Tabla({ searchParams }: { searchParams: Promise<Record<string, st
         </Link>
       </form>
 
-      <p className="tabular text-xs text-muted-foreground" role="status">
-        {data.total.toLocaleString("es-CO")} {data.total === 1 ? "cambio" : "cambios"}
-        {paginas > 1 && ` · página ${f.pagina} de ${paginas}`}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="tabular text-xs text-muted-foreground" role="status">
+          {data.total.toLocaleString("es-CO")} {data.total === 1 ? "cambio" : "cambios"}
+          {paginas > 1 && ` · página ${f.pagina} de ${paginas}`}
+        </p>
+        <a
+          href={`/api/audit/export.csv?${new URLSearchParams({ ...Object.fromEntries(query), limit: "1000", offset: "0" }).toString()}`}
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          Descargar CSV
+        </a>
+      </div>
 
       <section className="glass overflow-hidden rounded-3xl" aria-label="Cambios">
         {data.items.length === 0 ? (

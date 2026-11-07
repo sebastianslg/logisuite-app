@@ -1184,3 +1184,19 @@ contra una base temporal. **Nada de esto llegó a producción.**
 - **Privacidad:** el seguimiento público no muestra la dirección (una prueba lo verifica). **Pendiente para el abogado:** la
   política de privacidad debe mencionar que se guardan correos de clientes y su plazo.
 - Pruebas: 303 de la API (6 nuevas) y 34 de navegador (1 nueva).
+
+## 52. Índices, auditoría en CSV y prueba de carga contra producción
+
+- **Índices (esquema v15, aditivos):** el historial se ordena y se filtra por fecha, persona y registro; la lista de envíos
+  ordena por salida y filtra por estado; los avisos al cliente solo miran los envíos con correo. Sin índices, cada filtro
+  recorría la tabla entera. Con 400 envíos no se nota; con miles, sí.
+- **Auditoría en CSV:** botón «Descargar CSV» en `/auditoria`, con **los filtros puestos** (hasta 1000 líneas). Separador `;` y
+  BOM de UTF-8 para que Excel abra bien las tildes; el detalle con `;` va entre comillas.
+- **`deploy/verificar.sh`** comprueba también `/auditoria` y `/api/audit`.
+- **Prueba de carga contra producción** (`deploy/prueba-carga.py`, 8 personas, 30 s, solo lecturas):
+  - páginas: 96 peticiones, 0 errores, mediana 1.036 ms, p95 2.141 ms, peor 2.209 ms;
+  - API: 96 peticiones, 0 errores, mediana 430 ms, p95 640 ms, peor 666 ms;
+  - 6,4 peticiones por segundo.
+  - En local, la misma prueba daba páginas p95 641 ms y API p95 89 ms: la diferencia es la red y la CPU del VPS, no un error.
+    **Lo lento son las páginas** (renderizado en el servidor), no la API. Si algún día molesta, lo primero es medir cuál tarda.
+- Pruebas: 305 de la API (2 nuevas) y 34 de navegador.

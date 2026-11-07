@@ -138,3 +138,24 @@ def test_el_historial_de_un_envio_sigue_funcionando(client):
     code = client.get("/api/shipments", params={"limit": 1}).json()["items"][0]["code"]
     solo = client.get("/api/audit", params={"record": code}).json()
     assert all(i["record_id"] == code for i in solo["items"])
+
+
+def test_el_historial_se_descarga_en_csv(client):
+    db.run_write("INSERT INTO audit_log (username, action, table_name, record_id, detail, timestamp) VALUES (?,?,?,?,?,?)",
+                 ("ana", "UPDATE", "mm_shipments", "LS-9", "detalle con ; punto y coma", "2026-04-01T09:00:00"))
+    r = client.get("/api/audit/export.csv", params={"usuario": "ana", "desde": "2026-04-01", "hasta": "2026-04-01"})
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/csv")
+    assert "attachment" in r.headers["content-disposition"] and "auditoria-" in r.headers["content-disposition"]
+    texto = r.content.decode("utf-8-sig")
+    lineas = texto.strip().splitlines()
+    assert lineas[0] == "fecha;usuario;accion;tabla;registro;detalle"
+    assert len(lineas) == 2 and "ana" in lineas[1] and "LS-9" in lineas[1]
+    assert '"detalle con ; punto y coma"' in lineas[1]          # el punto y coma va entre comillas
+    assert r.content.startswith("\ufeff".encode("utf-8"))        # BOM: Excel abre las tildes bien
+
+
+def test_los_indices_de_la_v15_existen(client):
+    nombres = {r["name"] for r in db.run_query("SELECT name FROM sqlite_master WHERE type = 'index'").to_dict(orient="records")}
+    assert {"idx_audit_timestamp", "idx_audit_user", "idx_audit_record", "idx_ship_departure", "idx_ship_status",
+            "idx_ship_client_email", "idx_tracking_ship"} <= nombres

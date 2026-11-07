@@ -895,6 +895,24 @@ def audit_log(limit: int = 200, offset: int = 0, table: str | None = None, recor
     return {"count": len(data["items"]), "total": data["total"], "items": data["items"]}
 
 
+@app.get("/api/audit/export.csv")
+def audit_export(limit: int = 1000, offset: int = 0, table: str | None = None, record: str | None = None,
+                 usuario: str | None = None, accion: str | None = None, desde: str | None = None,
+                 hasta: str | None = None, q: str | None = None) -> Response:
+    """El historial con los mismos filtros de la pantalla, en CSV (para abrirlo en Excel)."""
+    import csv
+    import io as _io
+    data = ops.audit_search(limit, offset, table, record, usuario, accion, desde, hasta, q)
+    buf = _io.StringIO()
+    w = csv.writer(buf, delimiter=";", lineterminator="\r\n")
+    w.writerow(["fecha", "usuario", "accion", "tabla", "registro", "detalle"])
+    for e in data["items"]:
+        w.writerow([e["timestamp"], e["username"], e["action"], e["table_name"], e["record_id"] or "", e["detail"] or ""])
+    nombre = f"auditoria-{datetime.now():%Y%m%d}.csv"
+    return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
 @app.get("/api/audit/facets")
 def audit_facets() -> dict:
     """Usuarios, acciones y tablas que aparecen en el historial, para los filtros."""

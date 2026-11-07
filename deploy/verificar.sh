@@ -99,7 +99,9 @@ espera /hoy 200 "Tablero Hoy"
 espera /flota 200 "Flota"
 espera /administracion 200 "Administración"
 espera /configuracion 200 "Configuración"
+espera /auditoria 200 "Auditoría"
 espera /api/today 200 "API del tablero Hoy"
+espera /api/audit?limit=1 200 "API del historial"
 
 salud=$(cuerpo "${URL}/api/health")
 if printf '%s' "${salud}" | grep -q '"status"'; then ok "La salud devuelve JSON"; else mal "La salud no devuelve JSON: ${salud:0:80}"; fi
