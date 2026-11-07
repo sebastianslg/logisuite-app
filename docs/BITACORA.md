@@ -1200,3 +1200,19 @@ contra una base temporal. **Nada de esto llegó a producción.**
   - En local, la misma prueba daba páginas p95 641 ms y API p95 89 ms: la diferencia es la red y la CPU del VPS, no un error.
     **Lo lento son las páginas** (renderizado en el servidor), no la API. Si algún día molesta, lo primero es medir cuál tarda.
 - Pruebas: 305 de la API (2 nuevas) y 34 de navegador.
+
+## 53. Dónde está el peso: desglose de la prueba de carga, filtro por tabla y retención a la vista
+
+- **`deploy/prueba-carga.py` dice ahora qué ruta es la lenta** (las tres peores, por mediana). Contra producción, 8 personas y
+  30 s, solo lecturas:
+  - `/` 1.665 ms · `/envios` 1.348 ms · `/flota` 1.185 ms (medianas); 0 errores.
+  - La API, al mismo tiempo: mediana 710 ms, p95 937 ms.
+  - **Conclusión:** el peso está en las **páginas** (renderizado en el servidor), no en la red ni en la base.
+- **Por qué la lista tarda:** la API arma cada envío leyendo y **parseando el recorrido completo** (`route_json`) de los 1000
+  que pide la página. No manda el trazado al navegador (eso solo va en la ficha), pero el trabajo de leerlo y parsearlo se paga
+  igual. **Siguiente paso, si algún día molesta:** guardar en columnas el modo y el vehículo actuales (lo que la lista usa) para
+  no tener que abrir el recorrido en cada petición, o paginar del lado del servidor. No se hizo ahora porque es un cambio de
+  esquema con riesgo y hoy la app la usan una o dos personas.
+- **Auditoría:** filtro por **tabla** además de usuario, acción y fechas.
+- **Estado del servidor:** muestra cuántas líneas tiene el historial y si tiene plazo (`AUDIT_RETENTION_DAYS`) o no.
+- Pruebas: 305 de la API y 34 de navegador.

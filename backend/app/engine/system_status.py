@@ -16,6 +16,7 @@ from datetime import datetime
 import app.database.db as db
 from app.database.db import run_query
 from app.engine import mail
+from app.engine.common import audit_retention_days
 
 STARTED = time.time()
 WARN_DISK_PCT = 85
@@ -83,5 +84,6 @@ def status(now: datetime) -> dict:
         "attachments_bytes": _dir_size(os.path.join(data_dir, "adjuntos")),
         "counts": counts,
         "mail_configured": mail.configured(),
+        "audit_retention_days": audit_retention_days(),
         "warnings": warnings,
     }

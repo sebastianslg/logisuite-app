@@ -54,8 +54,9 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
   - Puertos de prueba propios si hay otra herramienta: `E2E_PORT`, `E2E_API_PORT`, `E2E_DB_PATH`.
 - **Siguiente paso sugerido:**
   - Avisar al cliente: hecho (sección 51). Falta que el abogado incluya los correos de clientes en la política de privacidad.
-  - Decidir el plazo del historial (`AUDIT_RETENTION_DAYS`, p. ej. 730) y, si algún día hay miles de envíos, paginación
-    del lado del servidor en la lista (hoy pide hasta 1000 y lo dice).
+  - Decidir el plazo del historial (`AUDIT_RETENTION_DAYS`, p. ej. 730).
+  - Si las páginas se sienten lentas: guardar en columnas el modo y el vehículo actuales del envío para no parsear el
+    recorrido en la lista, o paginar del lado del servidor (medido en la sección 53).
   - Tarifas de peajes iniciales; coordenadas oficiales (hacen falta los PDF de Aerocivil) y las tres distancias con cifra de
     INVÍAS.
   - Roles que limiten acciones: espera decisión del dueño (obligaría a iniciar sesión a todos).

@@ -20,6 +20,8 @@ interface Status {
   attachments_bytes: number | null;
   counts: { shipments: number; users_active: number; audit: number };
   mail_configured: boolean;
+  /** Días que se conserva el historial; 0 = para siempre. */
+  audit_retention_days: number;
   warnings: string[];
 }
 
@@ -122,6 +124,12 @@ export function ServerStatus() {
                 <Fact k="Adjuntos" v={fmtBytes(status.attachments_bytes)} />
                 <Fact k="Envíos" v={status.counts.shipments.toLocaleString("es-CO")} />
                 <Fact k="Correo" v={status.mail_configured ? "Configurado" : "Sin configurar"} />
+                <Fact
+                  k="Historial"
+                  v={`${status.counts.audit.toLocaleString("es-CO")} líneas · ${
+                    status.audit_retention_days ? `${status.audit_retention_days} días` : "sin plazo"
+                  }`}
+                />
               </dl>
             </>
           )}

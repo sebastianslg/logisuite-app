@@ -51,6 +51,7 @@ async function Tabla({ searchParams }: { searchParams: Promise<Record<string, st
   const sp = await searchParams;
   const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
   const f = {
+    tabla: uno(sp.tabla),
     usuario: uno(sp.usuario),
     accion: uno(sp.accion),
     desde: uno(sp.desde),
@@ -59,7 +60,7 @@ async function Tabla({ searchParams }: { searchParams: Promise<Record<string, st
     pagina: Math.max(1, Number(uno(sp.pagina)) || 1),
   };
   const query = new URLSearchParams({ limit: String(PAGE), offset: String((f.pagina - 1) * PAGE) });
-  for (const k of ["usuario", "accion", "desde", "hasta", "q"] as const) if (f[k]) query.set(k, f[k]);
+  for (const k of ["tabla", "usuario", "accion", "desde", "hasta", "q"] as const) if (f[k]) query.set(k, f[k]);
 
   const [data, facets] = await Promise.all([
     apiGet<{ total: number; items: AuditEntry[] }>(`/api/audit?${query.toString()}`),
@@ -80,6 +81,17 @@ async function Tabla({ searchParams }: { searchParams: Promise<Record<string, st
         <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-muted-foreground">
           Buscar en el detalle
           <input name="q" defaultValue={f.q} placeholder="código, placa, texto…" className="field h-10 px-3 text-sm text-foreground outline-none" />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+          Tabla
+          <select name="tabla" defaultValue={f.tabla} className="field h-10 min-w-36 px-3 text-sm text-foreground outline-none">
+            <option value="">Todas</option>
+            {facets.tablas.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.value} ({t.count})
+              </option>
+            ))}
+          </select>
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           Usuario

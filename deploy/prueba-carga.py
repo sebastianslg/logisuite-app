@@ -32,7 +32,7 @@ def worker(base, stop, results, lock, pause):
             ok = False
         dt = time.monotonic() - t0
         with lock:
-            results.append((kind, ok, dt))
+            results.append((kind, ok, dt, path))
         time.sleep(pause)
 
 
@@ -59,6 +59,16 @@ def main():
         p95 = times[min(len(times) - 1, int(len(times) * 0.95))]
         print(f"  {kind:7} {len(rows):5} peticiones · {bad} con error · mediana {statistics.median(times)*1000:.0f} ms · p95 {p95*1000:.0f} ms · peor {times[-1]*1000:.0f} ms")
     print(f"  {len(results) / a.segundos:.1f} peticiones por segundo")
+
+    # Las tres rutas más lentas: saber si lo que pesa es el mapa, una lista o el resumen
+    por_ruta = {}
+    for kind, ok, dt, path in results:
+        por_ruta.setdefault(path, []).append(dt)
+    ranking = sorted(((statistics.median(v), max(v), k) for k, v in por_ruta.items()), reverse=True)[:3]
+    if ranking:
+        print("  más lentas (mediana):")
+        for mediana, peor, path in ranking:
+            print(f"    {path:32} {mediana*1000:6.0f} ms · peor {peor*1000:.0f} ms")
 
 
 if __name__ == "__main__":
