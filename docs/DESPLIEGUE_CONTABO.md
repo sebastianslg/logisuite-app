@@ -150,9 +150,11 @@ ls -lh /opt/logisuite/backups                   # logistics-*.db.gz y adjuntos-*
 tail -20 /var/log/westvane-health.log           # caídas y recuperaciones (vacío = todo bien)
 ```
 
-**Avisos al celular (opcional):** instala la app **ntfy** (Android o iPhone), suscríbete a un nombre
-difícil de adivinar y agrega `NTFY_TOPIC=ese-nombre` al `.env` de `/opt/logisuite`. Llega un aviso cuando
-el sitio cae y otro cuando vuelve.
+**Avisos al celular (ntfy):** ya está configurado. El tema vive **solo** en el `.env` del servidor (`NTFY_TOPIC`), no en el
+repositorio: quien conozca el nombre puede leer los avisos, así que es largo y al azar. Para recibirlos, instala la app
+**ntfy** (Android o iPhone, gratis y sin cuenta) y suscríbete a ese tema; el nombre está en el `.env` del servidor. Llega un
+aviso cuando el sitio cae y otro cuando vuelve, además de las incidencias en ruta y los documentos de flota por vencer. Para
+cambiarlo, agrega o edita `NTFY_TOPIC` y reinicia `backend` y el cron del chequeo (`bash deploy/install-cron.sh`).
 
 **Vigilancia externa:** el flujo «Monitor» de GitHub Actions revisa el sitio cada 30 minutos desde fuera
 del VPS; si el servidor entero se cae, GitHub avisa por correo de la ejecución fallida. GitHub pausa las

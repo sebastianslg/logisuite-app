@@ -1112,3 +1112,15 @@ contra una base temporal. **Nada de esto llegó a producción.**
 - **Probado contra producción:** 30 comprobaciones en verde, en el servidor y desde el PC. Detectó la línea `NOTIFY_EMAIL`
   duplicada del `.env`, que se limpió (quedó una sola, permisos 600, las ocho claves presentes).
 - Documentado en `docs/DESPLIEGUE_CONTABO.md` (sección 3) y en `AGENTS.md`.
+
+## 47. Avisos al celular (ntfy) recuperados
+
+- El tema de ntfy se perdió cuando el `.env` se sobrescribió, así que desde entonces una caída del sitio solo se avisaba por
+  correo desde GitHub. Se generó uno nuevo (`westvane-avisos-` más 14 caracteres al azar), se agregó al `.env` del servidor con
+  permisos 600 y se reinició `backend`.
+- **Probado de punta a punta:** el aviso salió del contenedor y llegó a los servidores de ntfy (se comprobó leyendo el tema).
+- **Detalle que hay que saber:** `notify.send` envía en un hilo aparte y devuelve `true` antes de que el envío termine. En la
+  API (proceso vivo) funciona; en un proceso corto, como una prueba de una línea, el aviso se pierde al salir. Las pruebas lo
+  simulan, así que no se notó antes.
+- El nombre del tema **no se escribe en el repositorio**: solo vive en el `.env`. `deploy/healthcheck.sh` lo lee de allí en cada
+  pasada, así que la vigilancia del sitio ya lo usa.
