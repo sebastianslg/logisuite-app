@@ -1152,3 +1152,17 @@ contra una base temporal. **Nada de esto llegó a producción.**
   envíos en producción, **se mostraban 300 y nada lo decía**. Ahora la API devuelve `total`, `limit`, `offset` y `truncated`, la
   página pide el máximo (1000) y, si hay más, la tabla avisa: «Se muestran los N más recientes de M».
 - Pruebas: `tests/test_robustez.py` (4 nuevas), 295 de la API y 31 de navegador.
+
+## 50. Pantalla de auditoría con filtros y foto en la prueba de entrega
+
+- **`/auditoria`** (en «Más» y en `Ctrl K`): todo lo que cambió en la app, con quién, cuándo y qué. Filtros por **texto**
+  (detalle o código), **usuario**, **acción**, **desde** y **hasta**; 50 por página con el total a la vista. Cada línea lleva
+  la acción con su color (crear en verde, borrar o cerrar en rojo) y, si es de un envío, el código enlaza a su ficha.
+  - La API (`/api/audit`) acepta `usuario`, `accion`, `desde`, `hasta`, `q`, `offset` y devuelve `total`; `/api/audit/facets`
+    da los valores para los desplegables con cuántas líneas tiene cada uno.
+  - El filtro por registro (`?record=CODE`) que usa la ficha del envío sigue igual.
+  - Los filtros son un formulario normal (GET): la página se puede compartir por enlace y funciona sin JavaScript.
+- **Foto de la entrega:** en la prueba de entrega hay un botón **«Tomar foto»** que, en el celular, abre la cámara
+  (`capture="environment"`); en el escritorio deja elegir un archivo. Se sube como adjunto del envío, con la **misma
+  declaración de autorización** de las personas que aparezcan (no deja subir sin marcarla) y el mismo límite de 10 MB.
+- Pruebas: 297 de la API (2 nuevas de filtros y paginación del historial) y 33 de navegador (2 nuevas: auditoría y foto).

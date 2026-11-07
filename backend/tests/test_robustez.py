@@ -95,3 +95,46 @@ def test_la_lista_dice_cuantos_hay_y_no_corta_en_silencio(client):
     # El total respeta el filtro de estado
     en_ruta = client.get("/api/shipments", params={"status": "En Ruta", "limit": 1}).json()
     assert en_ruta["total"] == len(client.get("/api/shipments", params={"status": "En Ruta", "limit": 1000}).json()["items"])
+
+
+def test_el_historial_se_puede_filtrar_y_paginar(client):
+    def insertar(usuario: str, accion: str, detalle: str, cuando: str) -> None:
+        db.run_write("INSERT INTO audit_log (username, action, table_name, record_id, detail, timestamp) VALUES (?,?,?,?,?,?)",
+                     (usuario, accion, "mm_shipments", "LS-1", detalle, cuando))
+
+    insertar("ana", "UPDATE", "cambio de prueba uno", "2026-03-01T10:00:00")
+    insertar("beto", "DELETE", "borrado de prueba dos", "2026-03-02T10:00:00")
+    insertar("ana", "DELETE", "borrado de prueba tres", "2026-03-03T10:00:00")
+
+    por_usuario = client.get("/api/audit", params={"usuario": "ana", "limit": 100}).json()
+    assert {i["username"] for i in por_usuario["items"]} == {"ana"}
+    assert por_usuario["total"] == len(por_usuario["items"]) >= 2
+
+    por_accion = client.get("/api/audit", params={"accion": "DELETE", "usuario": "beto"}).json()
+    assert [i["detail"] for i in por_accion["items"]] == ["borrado de prueba dos"]
+
+    por_texto = client.get("/api/audit", params={"q": "prueba tres"}).json()
+    assert len(por_texto["items"]) == 1 and por_texto["items"][0]["username"] == "ana"
+
+    # Las fechas incluyen el día completo en los dos extremos
+    rango = client.get("/api/audit", params={"desde": "2026-03-02", "hasta": "2026-03-02"}).json()
+    assert [i["detail"] for i in rango["items"]] == ["borrado de prueba dos"]
+
+    # Paginación: el total no cambia, los elementos sí
+    uno = client.get("/api/audit", params={"limit": 1, "offset": 0}).json()
+    dos = client.get("/api/audit", params={"limit": 1, "offset": 1}).json()
+    assert uno["total"] == dos["total"] >= 2
+    assert uno["items"][0]["audit_id"] != dos["items"][0]["audit_id"]
+
+    # Filtros para la pantalla
+    facets = client.get("/api/audit/facets").json()
+    assert {"ana", "beto"} <= {u["value"] for u in facets["usuarios"]}
+    assert {"DELETE", "UPDATE"} <= {a["value"] for a in facets["acciones"]}
+    assert any(t["value"] == "mm_shipments" for t in facets["tablas"])
+
+
+def test_el_historial_de_un_envio_sigue_funcionando(client):
+    """La ficha del envío pide /api/audit?record=CODE y debe seguir recibiendo solo lo suyo."""
+    code = client.get("/api/shipments", params={"limit": 1}).json()["items"][0]["code"]
+    solo = client.get("/api/audit", params={"record": code}).json()
+    assert all(i["record_id"] == code for i in solo["items"])

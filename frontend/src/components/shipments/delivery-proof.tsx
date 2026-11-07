@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { CircleAlert, CircleCheck } from "lucide-react";
+import { Camera, CircleAlert, CircleCheck, ImageIcon } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { SignaturePad } from "@/components/shipments/signature-pad";
@@ -13,6 +13,7 @@ import { SaveIcon } from "@/components/ui/save-icon";
 import { Segmented } from "@/components/ui/segmented";
 import { toast } from "@/components/ui/toast";
 import { api } from "@/lib/client";
+import { CHECK_THIRD_PARTY, recordConsent } from "@/lib/consent";
 import { EASE, SPRING } from "@/lib/motion";
 import type { DeliveryInfo } from "@/lib/types";
 
@@ -36,10 +37,45 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
   const [notes, setNotes] = useState("");
   const [signature, setSignature] = useState<string | null>(null);
   const [state, setState] = useState<"idle" | "busy" | "done">("idle");
+  // Foto de la entrega (opcional): se sube como adjunto del envío, con la misma declaración de autorización
+  const [photo, setPhoto] = useState<{ id: number; name: string } | null>(null);
+  const [photoOk, setPhotoOk] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const url = `/api/shipments/${encodeURIComponent(code)}/delivery`;
 
   if (!info) return <p className="text-sm text-muted-foreground">No se pudo cargar la entrega.</p>;
+
+  async function subirFoto(file: File) {
+    if (!photoOk) {
+      toast({ title: "Falta la declaración", description: "Marca que tienes autorización de las personas que aparezcan en la foto.", tone: "error" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "La foto pasa de 10 MB", tone: "error" });
+      return;
+    }
+    setPhotoBusy(true);
+    try {
+      await recordConsent([{ document: "autorizacion_terceros", text: CHECK_THIRD_PARTY }], "adjunto", operator);
+      const b64 = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+        r.onerror = () => reject(new Error("No se pudo leer la foto."));
+        r.readAsDataURL(file);
+      });
+      const created = await api<{ attachment_id: number; filename: string }>(`/api/shipments/${encodeURIComponent(code)}/attachments`, {
+        method: "POST",
+        body: { filename: file.name || "foto-entrega.jpg", content_b64: b64, usuario: operator, autorizado: true },
+      });
+      setPhoto({ id: created.attachment_id, name: created.filename });
+      toast({ title: "Foto adjuntada", description: "Queda con los documentos del envío." });
+    } catch (err) {
+      toast({ title: "No se pudo adjuntar la foto", description: (err as Error).message, tone: "error" });
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -143,6 +179,42 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} rows={2} className="field w-full px-3 py-2" placeholder={condition === "con_novedad" ? "Faltante, avería, empaque abierto…" : "Opcional"} />
           </label>
           <SignaturePad onChange={setSignature} />
+
+          {/* Foto de la entrega: en el celular abre la cámara; queda como adjunto del envío */}
+          <div className="rounded-xl border border-border p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">Foto de la entrega (opcional)</span>
+              {photo ? (
+                <span className="flex items-center gap-1.5 text-xs text-success">
+                  <ImageIcon className="size-3.5" aria-hidden /> {photo.name}
+                </span>
+              ) : (
+                <label className={photoBusy ? "pointer-events-none opacity-60" : "cursor-pointer"}>
+                  <span className="inline-flex h-8 items-center gap-1.5 rounded-md bg-fill px-3 text-xs font-medium press">
+                    <Camera className="size-3.5" aria-hidden /> {photoBusy ? "Subiendo…" : "Tomar foto"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="sr-only"
+                    aria-label="Tomar o elegir la foto de la entrega"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void subirFoto(f);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+            {!photo && (
+              <label className="mt-2 flex items-start gap-2 text-xs text-muted-foreground">
+                <input type="checkbox" checked={photoOk} onChange={(e) => setPhotoOk(e.target.checked)} className="mt-0.5 size-4" />
+                Declaro que tengo autorización de las personas que aparezcan en la foto.
+              </label>
+            )}
+          </div>
           {error && (
             <p role="alert" className="text-xs text-destructive">
               {error}

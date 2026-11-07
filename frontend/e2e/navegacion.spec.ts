@@ -90,3 +90,20 @@ test("Hoy: cifras, cuatro bloques y la fila lleva a la ficha del envío", async 
   }
   w.expectClean();
 });
+
+
+test("auditoría: filtra por texto y avisa cuando no hay coincidencias", async ({ page }) => {
+  const w = watchErrors(page);
+  await page.goto("/auditoria");
+  await expect(page.getByRole("heading", { level: 1, name: "Auditoría" })).toBeVisible();
+  await expect(page.getByText(/^\d[\d.]* cambios?/)).toBeVisible();  // el recuento, no el contenedor de avisos
+
+  await page.getByLabel("Buscar en el detalle").fill("zzzz-sin-coincidencias");
+  await page.getByRole("button", { name: "Filtrar" }).click();
+  await expect(page.getByText("No hay cambios con esos filtros.")).toBeVisible();
+  await expect(page).toHaveURL(/q=zzzz-sin-coincidencias/);
+
+  await page.getByRole("link", { name: "Limpiar" }).click();
+  await expect(page.getByText("No hay cambios con esos filtros.")).toBeHidden();
+  w.expectClean();
+});

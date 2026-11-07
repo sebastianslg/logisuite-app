@@ -867,9 +867,18 @@ def toll_import(body: TollImportIn) -> dict:
 
 
 @app.get("/api/audit")
-def audit_log(limit: int = 200, table: str | None = None, record: str | None = None) -> dict:
-    items = ops.audit_entries(limit, table, record)
-    return {"count": len(items), "items": items}
+def audit_log(limit: int = 200, offset: int = 0, table: str | None = None, record: str | None = None,
+              usuario: str | None = None, accion: str | None = None, desde: str | None = None,
+              hasta: str | None = None, q: str | None = None) -> dict:
+    """Historial de cambios. Con `record` es el de un envío (lo usa su ficha); con los demás filtros, la pantalla de auditoría."""
+    data = ops.audit_search(limit, offset, table, record, usuario, accion, desde, hasta, q)
+    return {"count": len(data["items"]), "total": data["total"], "items": data["items"]}
+
+
+@app.get("/api/audit/facets")
+def audit_facets() -> dict:
+    """Usuarios, acciones y tablas que aparecen en el historial, para los filtros."""
+    return ops.audit_facets()
 
 
 # ---------------------------------------------------------------------------
