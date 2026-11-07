@@ -27,26 +27,38 @@ git checkout desarrollo
 Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las verificaciones antes de subir.
 
 ## Estado actual  (reescríbelo al terminar cada sesión)
-- **Última herramienta:** Claude (PC) · **Fecha:** 2026-10-30
-- **Hecho:** ver secciones 36 y 37 de `docs/BITACORA.md`.
-  - Claude **revisó la autenticación OTP de Antigravity y encontró fallos graves** (cualquiera podía crear un administrador
-    y leer el código de acceso en la respuesta de la API). Quedaron **corregidos y con pruebas** en esta rama.
-  - Iniciar sesión queda **deshabilitado en producción hasta configurar SMTP** (y `ADMIN_EMAIL` para el primer admin): es a
-    propósito. El ingreso es opcional y no restringe nada; la app sigue abierta.
-  - Arreglo de interfaz: el menú «Más» ya no tapa el diálogo de ingreso.
-  - Nueva pantalla `/administracion` (usuarios, roles y empresas; sección 39). `main` y Contabo ya tienen todo hasta la 38;
-    la 39 está solo en `desarrollo` y espera aprobación del dueño.
+- **Última herramienta:** Claude (PC) · **Fecha:** 2026-11-07
+- **Hecho:** ver secciones 40 a 48 de `docs/BITACORA.md`. Resumen:
+  - **Usuarios:** activar/desactivar con protecciones (no a uno mismo, no al último administrador). Pantalla `/administracion`
+    con alta de usuarios y empresas.
+  - **Accesibilidad:** `frontend/e2e/accesibilidad.spec.ts` corre `axe-core` en todas las páginas, claro y oscuro. Encontró tres
+    colores del tema claro por debajo de 4,5:1 y se oscurecieron lo mínimo (acento `#0064c8`, rojo `#c20013`, naranja `#b52f00`).
+  - **Correos:** enlace de seguimiento al cliente (con sesión y tope diario), resumen diario de vencimientos, aviso de entrega con
+    novedad y reporte semanal opcional. Todo apagable en Configuración › Avisos por correo. Los avisos van a `NOTIFY_EMAIL`
+    (buzón de Westvane); el ingreso sigue en `ADMIN_EMAIL` (correo personal del dueño).
+  - **Respaldo fuera del servidor:** `deploy/descargar-respaldos.ps1` verifica cada archivo (gzip completo, SQLite, SHA-256) y
+    `deploy/programar-respaldo-local.ps1` deja una tarea diaria en el PC del dueño (ya instalada y funcionando). `backup.sh`
+    guarda también una copia del `.env`.
+  - **Operación:** `deploy/verificar.sh` (30 comprobaciones, enganchado al despliegue automático) y
+    `deploy/probar-restauracion.sh` (ensayo de restauración en un contenedor aparte, sin tocar producción).
+  - **Historial** firmado con la cuenta de la sesión; **estado del servidor** en Configuración; **orden de trabajo en PDF** para
+    mantenimientos; **avisos al celular (ntfy)** recuperados (el tema vive solo en el `.env` del servidor).
 - **En curso / a medias:** nada.
 - **Importante para quien siga:**
-  - Antigravity: **no usar `WESTVANE_DEV_OTP` fuera de pruebas** y no volver a devolver el código en la respuesta.
-  - Hay un commit sin subir a `main`/Contabo: todo `desarrollo` espera la aprobación del dueño para desplegar.
-  - Los correos de la semilla son `@westvane.invalid` (dominio reservado); la empresa por defecto no tiene NIT.
+  - **Nunca** devolver el código OTP en la respuesta fuera de pruebas (`WESTVANE_DEV_OTP=1`).
+  - **No pegar sobre el contenido del `.env` en `nano`**: agregar líneas al final (o con `printf ... >> .env`). Ya pasó una vez y
+    dejó el servidor sin `DOMAIN`. Hay copias en `backups/env-*.bak`.
+  - El nombre del tema de ntfy **no va en el repositorio**; está en el `.env` del servidor.
+  - `main` y Contabo están en `e1835c4`. `desarrollo` tiene **3 commits más** (verificación, documentación de ntfy y ensayo de
+    restauración) que esperan la orden del dueño para desplegar.
+  - Puertos de prueba propios si hay otra herramienta: `E2E_PORT`, `E2E_API_PORT`, `E2E_DB_PATH`.
 - **Siguiente paso sugerido:**
-  - El dueño decide si activa el ingreso: configurar SMTP, `ADMIN_EMAIL`, y actualizar la política de privacidad
-    (revisión legal) porque guarda correos.
-  - Después, si se quiere, exigir sesión y rol por endpoint (hoy ningún dato lo exige).
-  - Validar coordenadas de la red contra fuentes oficiales; PostgreSQL cuando haya concurrencia; datos del
-    responsable (`LEGAL_*`); despliegue automático y dominio propio.
-  - Mapa de Red en celular (`claude-local/mapa-celular`, `098e6f0`): arreglo hecho, falta traerlo a `desarrollo`.
-- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; 274 pruebas de la API; 24 de navegador.
-- **Avisos:** puertos de prueba propios si hay otra herramienta (`E2E_PORT`, `E2E_API_PORT`, `E2E_DB_PATH`).
+  - Avisar al cliente por correo cuando su envío cambia de estado (sale, llega, se retrasa).
+  - Retención del historial (`audit_log` crece sin límite) y paginación real de la lista de envíos.
+  - Tarifas de peajes iniciales; coordenadas oficiales (hacen falta los PDF de Aerocivil) y las tres distancias con cifra de
+    INVÍAS.
+  - Roles que limiten acciones: espera decisión del dueño (obligaría a iniciar sesión a todos).
+  - Política de privacidad con abogado; secretos de GitHub para el despliegue automático; dominio propio y Cloudflare;
+    PostgreSQL cuando haya varios usuarios a la vez.
+- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **290 pruebas de la API**; **31 de navegador** (incluye
+  accesibilidad). En el servidor, `bash deploy/verificar.sh`.

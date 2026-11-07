@@ -1092,3 +1092,49 @@ contra una base temporal. **Nada de esto llegó a producción.**
 - Los avisos por correo (vencimientos, entregas con novedad, reporte semanal) ya no dependen de `ADMIN_EMAIL`: van a
   `NOTIFY_EMAIL` y, si no existe, a `ADMIN_EMAIL`. El ingreso con código sigue usando `ADMIN_EMAIL`, así que se puede entrar con
   el correo personal sin recibir avisos ahí. En el servidor basta agregar `NOTIFY_EMAIL=...` al `.env` y reiniciar `backend`.
+
+## 46. Verificación automática del despliegue (`deploy/verificar.sh`)
+
+- **Por qué:** después de cada despliegue yo comprobaba a mano, en distinto orden y a veces con menos pruebas. Un despliegue
+  puede quedar «arriba» y aun así roto (el `.env` sin una variable, un contenedor sin la configuración nueva, una ruta
+  devolviendo 500). Ahora hay un solo comando que hace siempre lo mismo y **falla en voz alta**.
+- **Qué comprueba:** el `.env` (nombres de variables, repetidas y permisos 600, nunca los valores); los tres contenedores;
+  ocho rutas públicas; que sin sesión no se administre ni se envíe correo; que el código de ingreso no viaje en la respuesta
+  ni delate si un correo existe; los 404 de los enlaces públicos; el disco y la antigüedad del último respaldo.
+- **Una comprobación que habría evitado un incidente:** si el `.env` tiene `SMTP_HOST` y la API responde que el correo no
+  está configurado, falla. Es exactamente lo que pasó cuando el `.env` se sobrescribió: el sitio seguía en pie y el ingreso
+  estaba muerto sin que nadie lo notara.
+- **Dos modos:** `bash deploy/verificar.sh` en el servidor (todo) y `bash deploy/verificar.sh --url https://…` desde
+  cualquier sitio (solo red). Sale con 0 o 1, así que sirve dentro de otros scripts.
+- **Enganchado al despliegue automático:** `deploy.yml` corre el script completo en el servidor después de levantar la
+  versión nueva (con `script_stop`, un fallo tumba el despliegue) y, al final, el modo `--url` desde el runner. Se agregó el
+  `checkout`, que faltaba, porque el runner necesita el repositorio para tener el script.
+- **Probado contra producción:** 30 comprobaciones en verde, en el servidor y desde el PC. Detectó la línea `NOTIFY_EMAIL`
+  duplicada del `.env`, que se limpió (quedó una sola, permisos 600, las ocho claves presentes).
+- Documentado en `docs/DESPLIEGUE_CONTABO.md` (sección 3) y en `AGENTS.md`.
+
+## 47. Avisos al celular (ntfy) recuperados
+
+- El tema de ntfy se perdió cuando el `.env` se sobrescribió, así que desde entonces una caída del sitio solo se avisaba por
+  correo desde GitHub. Se generó uno nuevo (`westvane-avisos-` más 14 caracteres al azar), se agregó al `.env` del servidor con
+  permisos 600 y se reinició `backend`.
+- **Probado de punta a punta:** el aviso salió del contenedor y llegó a los servidores de ntfy (se comprobó leyendo el tema).
+- **Detalle que hay que saber:** `notify.send` envía en un hilo aparte y devuelve `true` antes de que el envío termine. En la
+  API (proceso vivo) funciona; en un proceso corto, como una prueba de una línea, el aviso se pierde al salir. Las pruebas lo
+  simulan, así que no se notó antes.
+- El nombre del tema **no se escribe en el repositorio**: solo vive en el `.env`. `deploy/healthcheck.sh` lo lee de allí en cada
+  pasada, así que la vigilancia del sitio ya lo usa.
+
+## 48. Ensayo de restauración de un respaldo (`deploy/probar-restauracion.sh`)
+
+- **Por qué:** teníamos respaldos diarios, verificados al descargarlos, pero nunca se había probado **restaurar** uno con la app
+  funcionando. Es la única prueba que dice si un respaldo sirve.
+- **Qué hace:** toma el último respaldo (o el que se le indique), lo descomprime en una carpeta temporal, comprueba la
+  integridad con SQLite, levanta una **API aparte** con esa base en `127.0.0.1:8099` —con las migraciones corriendo sobre la
+  copia, no sobre producción— y verifica que responde, que el tablero «Hoy» funciona y cuántos envíos, vehículos y usuarios
+  activos tiene. Al terminar borra el contenedor y la carpeta, salga bien o mal.
+- **Resultado del primer ensayo:** integridad `ok`, la API arrancó, 395 envíos en el respaldo frente a 410 en producción en ese
+  momento (el respaldo era de las 03:17 y la simulación había repuesto envíos), 60 vehículos y 1 usuario activo.
+- **Un error mío corregido en el camino:** la primera versión contaba los envíos con `/api/shipments?limit=1`, que devuelve el
+  número de elementos de la página (1), no el total. Ahora cuenta en la base restaurada y compara con producción.
+- Documentado en `docs/DESPLIEGUE_CONTABO.md`, antes del procedimiento manual de restauración.

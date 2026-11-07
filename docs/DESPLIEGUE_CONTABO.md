@@ -74,15 +74,33 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
   (el build de Next.js es el más pesado). No interrumpas el comando.
 - Al terminar, el resumen debe mostrar `westvane-api ... Healthy` y `westvane-web ... Started`.
 
-Verificación después de desplegar:
+Verificación después de desplegar: **un solo comando**, el mismo siempre.
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
-curl -s http://127.0.0.1:8000/api/health        # debe responder {"status":"ok"} (solo si el puerto 8000 está publicado; si no, usa docker exec)
+bash /opt/logisuite/deploy/verificar.sh
 ```
 
-Luego, en el navegador, abre `https://westvane.duckdns.org/envios` en ventana privada y revisa el cambio
-que desplegaste.
+Comprueba, en este orden, y dice `FALLA` por cada cosa que no esté bien:
+
+- **Configuración:** que el `.env` tenga `DOMAIN`, `SMTP_*` y `ADMIN_EMAIL` (solo mira los nombres, nunca los valores), que
+  no haya variables repetidas y que sus permisos sean 600.
+- **Contenedores:** `westvane-api` y `westvane-web` sanos y `logisuite-caddy` en marcha.
+- **Sitio:** salud de la API, portada, envíos, Hoy, flota, administración, configuración y la API del tablero.
+- **Seguridad:** que sin sesión no se listen usuarios, no se creen empresas, no se cambien los avisos y no se envíen correos.
+- **Ingreso:** que la API acepte pedir un código, que el código **no** viaje en la respuesta y que no delate si un correo
+  existe. Si el `.env` tiene `SMTP_HOST` pero la API dice que el correo no está configurado, falla: el contenedor no tomó el
+  `.env`.
+- **Enlaces públicos:** que un token inválido y un envío inexistente den 404.
+- **Recursos:** disco por debajo del 85 % y último respaldo de hace menos de 36 h, con su copia del `.env`.
+
+Sale con código 0 si todo está bien y 1 si algo falla, así que también sirve dentro de un script o del despliegue automático.
+Desde tu PC, contra el sitio público (solo las pruebas de red):
+
+```bash
+bash deploy/verificar.sh --url https://westvane.duckdns.org
+```
+
+Y en el navegador, abre `https://westvane.duckdns.org/envios` en ventana privada y revisa el cambio que desplegaste.
 
 ### Si el build falla
 
@@ -132,9 +150,11 @@ ls -lh /opt/logisuite/backups                   # logistics-*.db.gz y adjuntos-*
 tail -20 /var/log/westvane-health.log           # caídas y recuperaciones (vacío = todo bien)
 ```
 
-**Avisos al celular (opcional):** instala la app **ntfy** (Android o iPhone), suscríbete a un nombre
-difícil de adivinar y agrega `NTFY_TOPIC=ese-nombre` al `.env` de `/opt/logisuite`. Llega un aviso cuando
-el sitio cae y otro cuando vuelve.
+**Avisos al celular (ntfy):** ya está configurado. El tema vive **solo** en el `.env` del servidor (`NTFY_TOPIC`), no en el
+repositorio: quien conozca el nombre puede leer los avisos, así que es largo y al azar. Para recibirlos, instala la app
+**ntfy** (Android o iPhone, gratis y sin cuenta) y suscríbete a ese tema; el nombre está en el `.env` del servidor. Llega un
+aviso cuando el sitio cae y otro cuando vuelve, además de las incidencias en ruta y los documentos de flota por vencer. Para
+cambiarlo, agrega o edita `NTFY_TOPIC` y reinicia `backend` y el cron del chequeo (`bash deploy/install-cron.sh`).
 
 **Vigilancia externa:** el flujo «Monitor» de GitHub Actions revisa el sitio cada 30 minutos desde fuera
 del VPS; si el servidor entero se cae, GitHub avisa por correo de la ejecución fallida. GitHub pausa las
@@ -164,6 +184,17 @@ probarlo ya: `Start-ScheduledTask -TaskName 'Westvane - respaldo diario'`.
 
 `backup.sh` también guarda una copia del `.env` (`env-FECHA.bak`, permisos 600): un `.env` sobrescrito por error dejó una vez el
 servidor sin `DOMAIN`. **Editar el `.env`** sin riesgo: nunca pegues sobre el contenido existente en `nano`; agrega líneas al final.
+
+**Ensayo de restauración (sin tocar producción):** un respaldo que nunca se prueba restaurar no es un respaldo.
+
+```bash
+bash /opt/logisuite/deploy/probar-restauracion.sh
+```
+
+Toma el último respaldo, lo descomprime en una carpeta temporal, comprueba la integridad de la base, levanta una **API
+aparte** en `127.0.0.1:8099` con esa copia y verifica que responde, que el tablero «Hoy» funciona y cuántos envíos, vehículos
+y usuarios activos tiene (los compara con producción). Borra el contenedor y la carpeta al terminar, salga bien o mal. Con un
+respaldo concreto: `bash deploy/probar-restauracion.sh backups/logistics-20261107-031704.db.gz`.
 
 Restaurar un respaldo (con cuidado: sobrescribe la base):
 

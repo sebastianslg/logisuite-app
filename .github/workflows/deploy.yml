@@ -27,6 +27,8 @@ jobs:
     env:
       DEPLOY_URL: ${{ vars.DEPLOY_URL || 'https://westvane.duckdns.org' }}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Comprobar que existen los secretos
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -75,15 +77,8 @@ jobs:
             done
             docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
             [ "$state" = "healthy" ] || { echo "La API no quedó sana ($state)"; docker logs westvane-api --tail 60; exit 1; }
+            # Verificación completa: configuración, contenedores, rutas, seguridad y respaldos
+            bash deploy/verificar.sh
 
       - name: Comprobar el sitio público
-        run: |
-          for i in $(seq 1 12); do
-            api=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOY_URL/api/health" || true)
-            web=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOY_URL/envios" || true)
-            echo "intento $i: api=$api web=$web"
-            [ "$api" = "200" ] && [ "$web" = "200" ] && exit 0
-            sleep 10
-          done
-          echo "::error::El sitio no respondió 200 en $DEPLOY_URL"
-          exit 1
+        run: bash deploy/verificar.sh --url "$DEPLOY_URL"
