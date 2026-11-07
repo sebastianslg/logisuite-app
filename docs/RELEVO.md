@@ -53,8 +53,7 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     restauración) que esperan la orden del dueño para desplegar.
   - Puertos de prueba propios si hay otra herramienta: `E2E_PORT`, `E2E_API_PORT`, `E2E_DB_PATH`.
 - **Siguiente paso sugerido:**
-  - Avisar al cliente por correo cuando su envío cambia de estado (sale, llega, se retrasa). Hace falta decidir de dónde
-    sale el correo del cliente: hoy el envío guarda su nombre, no su dirección.
+  - Avisar al cliente: hecho (sección 51). Falta que el abogado incluya los correos de clientes en la política de privacidad.
   - Decidir el plazo del historial (`AUDIT_RETENTION_DAYS`, p. ej. 730) y, si algún día hay miles de envíos, paginación
     del lado del servidor en la lista (hoy pide hasta 1000 y lo dice).
   - Tarifas de peajes iniciales; coordenadas oficiales (hacen falta los PDF de Aerocivil) y las tres distancias con cifra de
@@ -62,5 +61,5 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
   - Roles que limiten acciones: espera decisión del dueño (obligaría a iniciar sesión a todos).
   - Política de privacidad con abogado; secretos de GitHub para el despliegue automático; dominio propio y Cloudflare;
     PostgreSQL cuando haya varios usuarios a la vez.
-- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **297 pruebas de la API**; **33 de navegador** (incluye
+- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **303 pruebas de la API**; **34 de navegador** (incluye
   accesibilidad). En el servidor, `bash deploy/verificar.sh`.

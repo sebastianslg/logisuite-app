@@ -1166,3 +1166,21 @@ contra una base temporal. **Nada de esto llegó a producción.**
   (`capture="environment"`); en el escritorio deja elegir un archivo. Se sube como adjunto del envío, con la **misma
   declaración de autorización** de las personas que aparezcan (no deja subir sin marcarla) y el mismo límite de 10 MB.
 - Pruebas: 297 de la API (2 nuevas de filtros y paginación del historial) y 33 de navegador (2 nuevas: auditoría y foto).
+
+## 51. Avisar al cliente por correo cuando su envío cambia de estado
+
+- **La dirección:** el envío guarda el nombre del cliente, no su correo. Se agregó **`client_email`** (esquema v14, aditivo),
+  **opcional y por envío**: se pone en la ficha, en «Seguimiento para el cliente», y sin ella no se envía nada. Es un dato
+  personal: se borra con `ATTACHMENT_RETENTION_DAYS` y al borrar el envío, y el historial guarda la dirección enmascarada
+  (`c***@ejemplo.com`).
+- **Qué se avisa:** tres cambios, ni uno más: **salió** (En Ruta), **se retrasó** y **llegó** (Entregado). Los estados
+  intermedios (Transferencia Modal) no generan correo, para no llenar la bandeja. El correo lleva código, origen, destino y el
+  enlace de seguimiento si hay uno activo; **nunca** costos, nombre del cliente, peso ni datos internos.
+- **Cómo se dispara:** el estado de un envío se deriva del reloj, así que no hay un «evento» que escuchar. Cada pasada compara
+  el estado de ahora con el último avisado (`last_notified_status`) y solo escribe cuando cambia. La pasada va dentro de la
+  sincronización, con su propio límite de 5 minutos, y un fallo al avisar no tumba la sincronización.
+- **API:** `PUT /api/shipments/{code}/client-email` con `{"email": "..."}` o `{"email": null}`; exige sesión de operador o
+  administrador.
+- **Privacidad:** el seguimiento público no muestra la dirección (una prueba lo verifica). **Pendiente para el abogado:** la
+  política de privacidad debe mencionar que se guardan correos de clientes y su plazo.
+- Pruebas: 303 de la API (6 nuevas) y 34 de navegador (1 nueva).

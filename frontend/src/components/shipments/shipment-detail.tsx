@@ -304,7 +304,7 @@ export function ShipmentDetail({
           </Card>
 
           <Card title="Seguimiento para el cliente" collapsible>
-            <TrackingLinks code={s.code} />
+            <TrackingLinks code={s.code} initialEmail={s.client_email ?? null} />
           </Card>
 
           <Card title="Costo real">

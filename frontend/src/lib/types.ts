@@ -166,6 +166,8 @@ export interface Shipment {
   route_status: "ok" | "sin_ruta";
   /** Solo en los entregados: true si ya tiene prueba de entrega, false si falta firmarla. */
   delivery_signed?: boolean | null;
+  /** Correo del cliente para avisarle cuando el envío sale, se retrasa o llega (opcional). */
+  client_email?: string | null;
   route_note: string | null;
   forced_modes: Mode[];
   forced_corridors: string[];

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Copy, Link2, Mail, Trash2 } from "lucide-react";
+import { BellRing, Check, Copy, Link2, Mail, Trash2 } from "lucide-react";
 
 import { useApp } from "@/components/providers";
 import { useAuth } from "@/lib/auth";
@@ -15,7 +15,7 @@ type Link = { token: string; path: string; created_at: string; created_by: strin
  * Seguimiento para el cliente: enlaces públicos de solo lectura (estado, avance, llegada estimada y recorrido; sin
  * costos ni datos internos). Se crean, copian y revocan desde aquí; revocar apaga el enlace al instante.
  */
-export function TrackingLinks({ code }: { code: string }) {
+export function TrackingLinks({ code, initialEmail = null }: { code: string; initialEmail?: string | null }) {
   const { operator } = useApp();
   const base = `/api/shipments/${encodeURIComponent(code)}/tracking`;
   const [links, setLinks] = useState<Link[] | null>(null);
@@ -26,6 +26,10 @@ export function TrackingLinks({ code }: { code: string }) {
   const [mailing, setMailing] = useState<string | null>(null); // token del enlace con el formulario de correo abierto
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
+  // Avisos al cliente: la dirección es opcional y solo se usa para avisarle cuando su envío cambia de estado
+  const [clientEmail, setClientEmail] = useState(initialEmail ?? "");
+  const [savedEmail, setSavedEmail] = useState(initialEmail ?? "");
+  const [savingEmail, setSavingEmail] = useState(false);
 
   useEffect(() => {
     api<{ items: Link[] }>(base).then((r) => setLinks(r.items)).catch(() => setLinks([]));
@@ -72,6 +76,24 @@ export function TrackingLinks({ code }: { code: string }) {
     }
   }
 
+  async function guardarCorreo(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingEmail(true);
+    try {
+      const r = await api<{ client_email: string | null }>(`/api/shipments/${encodeURIComponent(code)}/client-email`, {
+        method: "PUT",
+        body: { email: clientEmail.trim() || null },
+      });
+      setSavedEmail(r.client_email ?? "");
+      setClientEmail(r.client_email ?? "");
+      toast({ title: r.client_email ? "Avisos al cliente activados" : "Avisos al cliente desactivados" });
+    } catch (err) {
+      toast({ title: "No se pudo guardar", description: (err as Error).message, tone: "error" });
+    } finally {
+      setSavingEmail(false);
+    }
+  }
+
   async function revoke(l: Link) {
     if (!window.confirm("¿Revocar este enlace? Quien lo tenga dejará de ver el envío.")) return;
     try {
@@ -87,6 +109,32 @@ export function TrackingLinks({ code }: { code: string }) {
       <p className="text-xs text-muted-foreground">
         Un enlace de solo lectura con estado, avance, llegada estimada y recorrido. No muestra costos, cliente ni notas.
       </p>
+
+      <form onSubmit={(e) => void guardarCorreo(e)} className="mt-3 rounded-xl border border-border p-3 print:hidden">
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground" htmlFor="client-email">
+          <BellRing className="size-3.5" aria-hidden /> Avisar al cliente por correo (opcional)
+        </label>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <input
+            id="client-email"
+            type="email"
+            value={clientEmail}
+            onChange={(e) => setClientEmail(e.target.value)}
+            placeholder="correo del cliente"
+            autoComplete="off"
+            className="field h-9 min-w-0 flex-1 px-3 text-sm outline-none"
+          />
+          <Button type="submit" size="sm" variant="secondary" disabled={savingEmail || clientEmail.trim() === savedEmail}>
+            {savingEmail ? "Guardando…" : savedEmail ? "Actualizar" : "Guardar"}
+          </Button>
+        </div>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          {savedEmail
+            ? `Se le avisará cuando salga, se retrase o llegue. Se borra con el plazo de conservación.`
+            : "Solo se usa para avisarle cuando su envío sale, se retrasa o llega. Déjalo vacío para no avisarle."}
+        </p>
+        {!canEmail && <p className="mt-1 text-xs text-muted-foreground">Inicia sesión como operador para guardarlo.</p>}
+      </form>
       {links && links.length > 0 && (
         <ul className="rule-list mt-3">
           {links.map((l) => (
