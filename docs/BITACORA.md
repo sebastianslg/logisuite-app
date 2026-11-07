@@ -1092,3 +1092,23 @@ contra una base temporal. **Nada de esto llegó a producción.**
 - Los avisos por correo (vencimientos, entregas con novedad, reporte semanal) ya no dependen de `ADMIN_EMAIL`: van a
   `NOTIFY_EMAIL` y, si no existe, a `ADMIN_EMAIL`. El ingreso con código sigue usando `ADMIN_EMAIL`, así que se puede entrar con
   el correo personal sin recibir avisos ahí. En el servidor basta agregar `NOTIFY_EMAIL=...` al `.env` y reiniciar `backend`.
+
+## 46. Verificación automática del despliegue (`deploy/verificar.sh`)
+
+- **Por qué:** después de cada despliegue yo comprobaba a mano, en distinto orden y a veces con menos pruebas. Un despliegue
+  puede quedar «arriba» y aun así roto (el `.env` sin una variable, un contenedor sin la configuración nueva, una ruta
+  devolviendo 500). Ahora hay un solo comando que hace siempre lo mismo y **falla en voz alta**.
+- **Qué comprueba:** el `.env` (nombres de variables, repetidas y permisos 600, nunca los valores); los tres contenedores;
+  ocho rutas públicas; que sin sesión no se administre ni se envíe correo; que el código de ingreso no viaje en la respuesta
+  ni delate si un correo existe; los 404 de los enlaces públicos; el disco y la antigüedad del último respaldo.
+- **Una comprobación que habría evitado un incidente:** si el `.env` tiene `SMTP_HOST` y la API responde que el correo no
+  está configurado, falla. Es exactamente lo que pasó cuando el `.env` se sobrescribió: el sitio seguía en pie y el ingreso
+  estaba muerto sin que nadie lo notara.
+- **Dos modos:** `bash deploy/verificar.sh` en el servidor (todo) y `bash deploy/verificar.sh --url https://…` desde
+  cualquier sitio (solo red). Sale con 0 o 1, así que sirve dentro de otros scripts.
+- **Enganchado al despliegue automático:** `deploy.yml` corre el script completo en el servidor después de levantar la
+  versión nueva (con `script_stop`, un fallo tumba el despliegue) y, al final, el modo `--url` desde el runner. Se agregó el
+  `checkout`, que faltaba, porque el runner necesita el repositorio para tener el script.
+- **Probado contra producción:** 30 comprobaciones en verde, en el servidor y desde el PC. Detectó la línea `NOTIFY_EMAIL`
+  duplicada del `.env`, que se limpió (quedó una sola, permisos 600, las ocho claves presentes).
+- Documentado en `docs/DESPLIEGUE_CONTABO.md` (sección 3) y en `AGENTS.md`.

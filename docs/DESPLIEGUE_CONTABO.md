@@ -74,15 +74,33 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
   (el build de Next.js es el más pesado). No interrumpas el comando.
 - Al terminar, el resumen debe mostrar `westvane-api ... Healthy` y `westvane-web ... Started`.
 
-Verificación después de desplegar:
+Verificación después de desplegar: **un solo comando**, el mismo siempre.
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
-curl -s http://127.0.0.1:8000/api/health        # debe responder {"status":"ok"} (solo si el puerto 8000 está publicado; si no, usa docker exec)
+bash /opt/logisuite/deploy/verificar.sh
 ```
 
-Luego, en el navegador, abre `https://westvane.duckdns.org/envios` en ventana privada y revisa el cambio
-que desplegaste.
+Comprueba, en este orden, y dice `FALLA` por cada cosa que no esté bien:
+
+- **Configuración:** que el `.env` tenga `DOMAIN`, `SMTP_*` y `ADMIN_EMAIL` (solo mira los nombres, nunca los valores), que
+  no haya variables repetidas y que sus permisos sean 600.
+- **Contenedores:** `westvane-api` y `westvane-web` sanos y `logisuite-caddy` en marcha.
+- **Sitio:** salud de la API, portada, envíos, Hoy, flota, administración, configuración y la API del tablero.
+- **Seguridad:** que sin sesión no se listen usuarios, no se creen empresas, no se cambien los avisos y no se envíen correos.
+- **Ingreso:** que la API acepte pedir un código, que el código **no** viaje en la respuesta y que no delate si un correo
+  existe. Si el `.env` tiene `SMTP_HOST` pero la API dice que el correo no está configurado, falla: el contenedor no tomó el
+  `.env`.
+- **Enlaces públicos:** que un token inválido y un envío inexistente den 404.
+- **Recursos:** disco por debajo del 85 % y último respaldo de hace menos de 36 h, con su copia del `.env`.
+
+Sale con código 0 si todo está bien y 1 si algo falla, así que también sirve dentro de un script o del despliegue automático.
+Desde tu PC, contra el sitio público (solo las pruebas de red):
+
+```bash
+bash deploy/verificar.sh --url https://westvane.duckdns.org
+```
+
+Y en el navegador, abre `https://westvane.duckdns.org/envios` en ventana privada y revisa el cambio que desplegaste.
 
 ### Si el build falla
 

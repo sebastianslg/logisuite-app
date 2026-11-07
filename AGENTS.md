@@ -32,7 +32,8 @@ cd frontend && npx tsc --noEmit && npx eslint src e2e && npm run build   # usa n
 cd backend  && python -m pytest -q
 cd frontend && TZ=America/Bogota npx playwright test                       # necesita el build hecho
 ```
-Un commit por lote, mensaje en español, y actualizar `docs/BITACORA.md`. Los cambios de la base son aditivos
+Un commit por lote, mensaje en español, y actualizar `docs/BITACORA.md`. **Después de desplegar en Contabo, `bash deploy/verificar.sh`** (configuración, contenedores, rutas, seguridad y
+respaldos; sale con 1 si algo falla). El despliegue automático ya lo corre. Los cambios de la base son aditivos
 (`backend/app/database/schema_v*.py`, migraciones que solo agregan).
 
 ## Mapa rápido
