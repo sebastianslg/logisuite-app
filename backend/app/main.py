@@ -57,7 +57,7 @@ from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
 from app.engine import (auth_otp, clients, delivery, mail, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
                         shipments_io, sustainability as SU, telemetry, tolls, tracking, trends, warehouses, xlsx)
-from app.engine.common import SESSION_USER
+from app.engine.common import SESSION_USER, purge_old_audit
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
 
@@ -127,6 +127,7 @@ def _purge_attachments_daily(now: datetime) -> None:
         _last_purge_day = day
         journal.purge_expired(now)
         delivery.purge_expired(now, journal.retention_days())
+        purge_old_audit(now)
         fleet.enforce_documents(now)
         # Los avisos salen una vez al día aunque el servidor se reinicie (cada despliegue lo reinicia)
         if mail.once_today("vencimientos", now):
@@ -402,15 +403,19 @@ def fleet_live() -> dict:
 
 
 @app.get("/api/shipments")
-def shipments(status: str | None = None, limit: int = 300) -> dict:
+def shipments(status: str | None = None, limit: int = 300, offset: int = 0) -> dict:
+    """Lista de envíos, del más reciente al más antiguo. Devuelve `total` (cuántos hay con ese filtro) para que quien la
+    use sepa si está viendo todo o solo una parte: antes se cortaba en 300 sin decirlo."""
     now = _sync()
-    sql, params = "SELECT * FROM mm_shipments", []
+    where, params = "", []
     if status:
-        sql += " WHERE status = ?"
+        where = " WHERE status = ?"
         params.append(status)
-    sql += " ORDER BY departure_at DESC LIMIT ?"
-    params.append(max(1, min(limit, 1000)))
-    rows = run_query(sql, tuple(params)).to_dict(orient="records")
+    total = int(run_query(f"SELECT COUNT(*) AS n FROM mm_shipments{where}", tuple(params)).iloc[0]["n"])
+    limit = max(1, min(limit, 1000))
+    offset = max(0, offset)
+    rows = run_query(f"SELECT * FROM mm_shipments{where} ORDER BY departure_at DESC LIMIT ? OFFSET ?",
+                     tuple(params) + (limit, offset)).to_dict(orient="records")
     signed = delivery.signed_codes()
     items = []
     for r in rows:
@@ -418,7 +423,8 @@ def shipments(status: str | None = None, limit: int = 300) -> dict:
         # Solo tiene sentido en los entregados: firmada o pendiente de firma
         item["delivery_signed"] = (r["shipment_code"] in signed) if item["status"] == "Entregado" else None
         items.append(item)
-    return {"count": len(items), "items": items}
+    return {"count": len(items), "total": total, "limit": limit, "offset": offset,
+            "truncated": offset + len(items) < total, "items": items}
 
 
 def _detail(r: dict, now: datetime) -> dict:

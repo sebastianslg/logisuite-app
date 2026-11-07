@@ -7,11 +7,13 @@ Viven aquí para que los módulos no se importen en círculo.
 from __future__ import annotations
 
 from contextvars import ContextVar
-from datetime import datetime
+import logging
+import os
+from datetime import datetime, timedelta
 
 import pandas as pd
 
-from app.database.db import run_write
+from app.database.db import run_query, run_write
 
 ANON = "anónimo"
 
@@ -41,6 +43,32 @@ def _user(name: str | None) -> str:
 def audit(user: str | None, action: str, table: str, record: str | None, detail: str) -> None:
     run_write("""INSERT INTO audit_log (username, action, table_name, record_id, detail, timestamp)
                  VALUES (?,?,?,?,?,?)""", (_user(user), action, table, record, detail, _now_iso()))
+
+
+def audit_retention_days() -> int:
+    """Días que se conserva el historial (AUDIT_RETENTION_DAYS); 0 = para siempre (lo de por defecto)."""
+    try:
+        return max(0, int(os.environ.get("AUDIT_RETENTION_DAYS", "0")))
+    except ValueError:
+        return 0
+
+
+def purge_old_audit(now: datetime) -> int:
+    """Borra las líneas del historial más viejas que el plazo. Devuelve cuántas borró.
+
+    El historial crecía sin límite: una línea por cada cambio, para siempre. Con el plazo puesto, se conserva lo reciente y
+    se va borrando lo viejo. Se deja constancia en el registro del servidor (no en el propio historial, que es lo que se
+    está recortando)."""
+    days = audit_retention_days()
+    if not days:
+        return 0
+    cutoff = (now - timedelta(days=days)).isoformat(timespec="seconds")
+    n = int(run_query("SELECT COUNT(*) AS n FROM audit_log WHERE timestamp < ?", (cutoff,)).iloc[0]["n"])
+    if n:
+        run_write("DELETE FROM audit_log WHERE timestamp < ?", (cutoff,))
+        logging.getLogger("westvane.audit").info(
+            "Historial: %d línea(s) anteriores al %s borradas por el plazo de %d días", n, cutoff[:10], days)
+    return n
 
 
 def records(df: "pd.DataFrame") -> list:

@@ -1138,3 +1138,17 @@ contra una base temporal. **Nada de esto llegó a producción.**
 - **Un error mío corregido en el camino:** la primera versión contaba los envíos con `/api/shipments?limit=1`, que devuelve el
   número de elementos de la página (1), no el total. Ahora cuenta en la base restaurada y compara con producción.
 - Documentado en `docs/DESPLIEGUE_CONTABO.md`, antes del procedimiento manual de restauración.
+
+## 49. Robustez: avisos que no se pierden, plazo del historial y la lista que cortaba en silencio
+
+- **Avisos al celular (ntfy):** `send()` responde antes de publicar, porque el envío va en un hilo aparte. En la API funciona
+  (el proceso sigue vivo), pero en un proceso corto —una prueba, un comando suelto— el aviso se perdía aunque la función dijera
+  que sí. Ahora los hilos pendientes se guardan y `drenar()` los espera al cerrar el proceso (`atexit`). Probado: el aviso sale
+  después de `send` y antes de que el programa termine.
+- **Plazo del historial:** `audit_log` crecía sin límite (una línea por cambio, para siempre). Con `AUDIT_RETENTION_DAYS` se
+  conservan los últimos N días y se borra lo anterior en la tarea diaria; **por defecto 0 = para siempre**, que es lo seguro
+  hasta que el dueño decida. Lo borrado se anota en el registro del servidor, no en el propio historial.
+- **La lista de envíos cortaba en silencio:** la página pedía `/api/shipments` sin límite, y el valor por defecto es 300. Con 410
+  envíos en producción, **se mostraban 300 y nada lo decía**. Ahora la API devuelve `total`, `limit`, `offset` y `truncated`, la
+  página pide el máximo (1000) y, si hay más, la tabla avisa: «Se muestran los N más recientes de M».
+- Pruebas: `tests/test_robustez.py` (4 nuevas), 295 de la API y 31 de navegador.

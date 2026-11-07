@@ -295,7 +295,7 @@ export interface ShipmentFilters {
   unsigned?: boolean;
 }
 
-export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: ShipmentFilters }) {
+export function ShipmentsTable({ data, total, initial }: { data: Shipment[]; total?: number; initial?: ShipmentFilters }) {
   // «Por firmar»: entregados sin prueba de entrega. Filtra antes de la tabla; las cifras de los chips usan todo
   const [unsigned, setUnsigned] = useState(!!initial?.unsigned);
   const unsignedCount = useMemo(() => data.filter((s) => s.delivery_signed === false).length, [data]);
@@ -620,6 +620,12 @@ export function ShipmentsTable({ data, initial }: { data: Shipment[]; initial?: 
         )}
       </AnimatePresence>
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
+      {total !== undefined && total > data.length && (
+        <p role="status" className="text-xs text-muted-foreground">
+          Se muestran los {data.length.toLocaleString("es-CO")} envíos más recientes de{" "}
+          {total.toLocaleString("es-CO")}. Para ver los demás, filtra por estado o busca por código.
+        </p>
+      )}
 
       {/* overflow-clip (no auto): la tabla no se desplaza de lado desde 1024 px y así el encabezado puede quedar fijo */}
       <div

@@ -51,10 +51,11 @@ async function ShipmentsData({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [filters, { items }] = await Promise.all([
+  const [filters, { items, total }] = await Promise.all([
     parseFilters(searchParams),
-    apiGet<{ count: number; items: Shipment[] }>("/api/shipments"),
+    // 1000 es el máximo de la API: si algún día hay más envíos, la tabla lo dice en vez de cortar en silencio
+    apiGet<{ count: number; total: number; items: Shipment[] }>("/api/shipments?limit=1000"),
   ]);
   // key: al cambiar los filtros de la URL (enlaces del dashboard) la tabla se reinicia con ellos
-  return <ShipmentsTable key={JSON.stringify(filters)} data={items} initial={filters} />;
+  return <ShipmentsTable key={JSON.stringify(filters)} data={items} total={total} initial={filters} />;
 }
