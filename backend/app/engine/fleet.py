@@ -433,9 +433,15 @@ def _validate_vehicle(data: dict, existing: dict | None = None) -> dict:
     }
 
 
+def code_taken(code: str, exclude_id: int = 0) -> bool:
+    """¿Hay otro vehículo con esa placa o matrícula? Sin distinguir mayúsculas ni tildes (UPPER de SQLite solo entiende ASCII)."""
+    rows = run_query("SELECT code FROM fl_vehicles WHERE vehicle_id != ?", (exclude_id,))
+    return code.upper() in {str(c).upper() for c in rows["code"]}
+
+
 def create_vehicle(data: dict, user: str | None, now: datetime) -> dict:
     v = _validate_vehicle(data)
-    if not run_query("SELECT 1 FROM fl_vehicles WHERE code = ?", (v["code"],)).empty:
+    if code_taken(v["code"]):
         raise OperationError(f"Ya existe un vehículo con la placa o matrícula {v['code']}.")
     vid = run_write("""INSERT INTO fl_vehicles (code, mode, vehicle_type, make, model, year, capacity_t, capacity_m3,
                        home_warehouse_id, driver_id, odometer_base_km, last_service_at, last_service_km,
@@ -452,8 +458,7 @@ def create_vehicle(data: dict, user: str | None, now: datetime) -> dict:
 def update_vehicle(vehicle_id: int, data: dict, user: str | None, now: datetime) -> dict:
     cur = _vehicle_row(vehicle_id)
     v = _validate_vehicle(data, cur)
-    dup = run_query("SELECT 1 FROM fl_vehicles WHERE code = ? AND vehicle_id != ?", (v["code"], vehicle_id))
-    if not dup.empty:
+    if code_taken(v["code"], vehicle_id):
         raise OperationError(f"Ya existe otro vehículo con la placa o matrícula {v['code']}.")
     if v["capacity_t"] < cur["capacity_t"] and not run_query(
             "SELECT 1 FROM fl_assignments WHERE vehicle_id = ? AND load_t > ? AND end_at > ?",

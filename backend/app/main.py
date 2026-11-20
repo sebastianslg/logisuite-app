@@ -55,9 +55,9 @@ from app.api import guard
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
-from app.engine import (auth_otp, client_notify, clients, delivery, mail, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
-                        shipments_io, sustainability as SU, telemetry, tolls, tracking, trends, warehouses, xlsx)
-from app.engine.common import SESSION_USER, purge_old_audit
+from app.engine import (auth_otp, client_notify, clients, delivery, mail, notify, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
+                        shipments_io, sustainability as SU, tables_io, telemetry, tolls, tracking, trends, warehouses, xlsx)
+from app.engine.common import SESSION_USER, purge_old_audit, safe_cell
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
 
@@ -136,6 +136,21 @@ def _weekly_report_mail(now: datetime) -> None:
                           kind="semanal", attachments=[(pdf_bytes, f"reporte-operativo-{now:%Y%m%d}.pdf", "application/pdf")])
 
 
+def _monthly_report_mail(now: datetime) -> None:
+    """El día 1 de cada mes, si el dueño lo activó, manda el reporte operativo de los últimos 30 días en PDF (una vez por día)."""
+    if now.day != 1 or not mail.configured() or not mail.admin_email() or not mail.alert_enabled("mensual"):
+        return
+    if not mail.once_today("mensual", now):
+        return
+    try:
+        pdf_bytes = report.render(network(), 30, "USD", ops.get_fx(), now)
+    except Exception:  # un fallo del reporte no debe tumbar la sincronización
+        return
+    mail.send_admin_async(f"Reporte operativo del mes ({now:%d/%m/%Y})",
+                          "Adjunto el reporte operativo de los últimos 30 días, con los montos en USD.",
+                          kind="mensual", attachments=[(pdf_bytes, f"reporte-operativo-{now:%Y%m%d}.pdf", "application/pdf")])
+
+
 def _purge_attachments_daily(now: datetime) -> None:
     """Una vez al día aplica el plazo de conservación de adjuntos (ATTACHMENT_RETENTION_DAYS)."""
     global _last_purge_day
@@ -151,6 +166,16 @@ def _purge_attachments_daily(now: datetime) -> None:
         if mail.once_today("vencimientos", now):
             fleet.notify_due(now)
         _weekly_report_mail(now)
+        _monthly_report_mail(now)
+        _backup_alert(now)
+
+
+def _backup_alert(now: datetime) -> None:
+    """Avisa (correo y celular) una vez al día mientras el respaldo del servidor siga atrasado."""
+    problem = system_status.backup_stale(now)
+    if problem and mail.once_today("respaldo", now):
+        mail.send_admin_async("Westvane: el respaldo del servidor está atrasado", problem, kind="respaldo")
+        notify.send("Respaldo atrasado", problem, tags="floppy_disk", priority="high", path="/configuracion")
 
 
 def _sync() -> datetime:
@@ -586,6 +611,40 @@ def shipments_import_template() -> Response:
                     headers={"Content-Disposition": 'attachment; filename="plantilla-envios-westvane.xlsx"'})
 
 
+_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+@app.get("/api/tables/{kind}/export.xlsx")
+def table_export(kind: str) -> Response:
+    """Flota, conductores o inventario completos en Excel, con los encabezados que acepta la carga masiva."""
+    now = _sync()
+    try:
+        data = tables_io.export_xlsx(kind, now)
+    except ops.OperationError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return Response(data, media_type=_XLSX, headers={"Content-Disposition": f'attachment; filename="{kind}-{now:%Y%m%d-%H%M}.xlsx"'})
+
+
+@app.get("/api/tables/{kind}/template.xlsx")
+def table_template(kind: str) -> Response:
+    try:
+        data = tables_io.template(kind)
+    except ops.OperationError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return Response(data, media_type=_XLSX, headers={"Content-Disposition": f'attachment; filename="plantilla-{kind}-westvane.xlsx"'})
+
+
+@app.post("/api/tables/{kind}/import")
+def table_import(kind: str, body: ImportIn) -> dict:
+    """Sin `commit`: valida cada fila. Con `commit`: crea las válidas. Los conductores son datos personales: exige la declaración."""
+    if kind == "conductores" and body.commit and not body.autorizado:
+        raise HTTPException(status_code=422, detail=_NEEDS_AUTH)
+    try:
+        return tables_io.import_table(kind, body.filename, body.content_b64, body.usuario, _sync(), body.commit)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
 EventKind = Literal["nota", "retraso", "derrumbe", "paro", "clima", "mecanica", "otro"]
 
 
@@ -907,7 +966,7 @@ def audit_export(limit: int = 1000, offset: int = 0, table: str | None = None, r
     w = csv.writer(buf, delimiter=";", lineterminator="\r\n")
     w.writerow(["fecha", "usuario", "accion", "tabla", "registro", "detalle"])
     for e in data["items"]:
-        w.writerow([e["timestamp"], e["username"], e["action"], e["table_name"], e["record_id"] or "", e["detail"] or ""])
+        w.writerow([safe_cell(x) for x in (e["timestamp"], e["username"], e["action"], e["table_name"], e["record_id"] or "", e["detail"] or "")])
     nombre = f"auditoria-{datetime.now():%Y%m%d}.csv"
     return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{nombre}"'})

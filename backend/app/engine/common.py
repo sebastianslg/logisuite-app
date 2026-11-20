@@ -9,6 +9,7 @@ from __future__ import annotations
 from contextvars import ContextVar
 import logging
 import os
+import re
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -20,6 +21,19 @@ ANON = "anónimo"
 
 class OperationError(ValueError):
     """Dato inválido o acción imposible (se responde con 4xx)."""
+
+
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+_NUMBER = re.compile(r"^[+-]?[\d.,]+$")
+
+
+def safe_cell(value):
+    """Texto seguro para una celda de Excel o CSV. Si empieza con = + - @ (o tabulación), Excel lo ejecuta como fórmula al abrir
+    el archivo: un nombre, una nota o un navegador declarado podría llevar `=HYPERLINK(...)` y salir en una exportación. Se le
+    antepone un apóstrofo para que se lea como texto. Los números y lo que no es texto pasan igual."""
+    if isinstance(value, str) and value.startswith(_FORMULA_START) and not _NUMBER.match(value):
+        return "'" + value
+    return value
 
 
 def _now_iso() -> str:

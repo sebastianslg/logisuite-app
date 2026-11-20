@@ -11,6 +11,7 @@ import { Toaster } from "@/components/ui/toast";
 import { AppProvider } from "@/components/providers";
 import { Diagnostics } from "@/components/diagnostics";
 import { ErrorReporter } from "@/components/error-reporter";
+import { OfflineBanner } from "@/components/offline-banner";
 import { ConsentGate } from "@/components/legal/consent-gate";
 import { Dock } from "@/components/shell/dock";
 import { ShellOnly } from "@/components/shell/shell-only";
@@ -60,6 +61,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   <Toaster />
                 </div>
                 <ErrorReporter />
+                <OfflineBanner />
                 {/* Aceptación de términos y datos la primera vez (o cuando cambian); usa usePathname */}
                 <Suspense fallback={null}>
                   <ShellOnly>

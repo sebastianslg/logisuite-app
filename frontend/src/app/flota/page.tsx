@@ -8,6 +8,7 @@ import { FleetTabs, type FleetTab } from "@/components/fleet/fleet-tabs";
 import { MaintenanceBoard } from "@/components/fleet/maintenance-board";
 import { PageHeader, Skeleton } from "@/components/page-header";
 import { BurstLink } from "@/components/ui/burst-link";
+import { TableIO } from "@/components/ui/table-io";
 import { apiGet } from "@/lib/api";
 import type { Driver, Fault, FleetSummary, Maintenance, Vehicle } from "@/lib/types";
 
@@ -20,7 +21,10 @@ export default function FlotaPage({ searchParams }: PageProps<"/flota">) {
         title="Flota de vehículos"
         description="Camiones, aviones de carga, convoyes, buques y trenes de la operación: su estado, cuánto falta para su mantenimiento, sus fallas y los envíos que llevan. Un vehículo con una falla que impide operar se inhabilita solo y sus envíos pasan a otro."
         actions={
-          <BurstLink href="/flota/nuevo"><Plus /> Nuevo vehículo</BurstLink>
+          <>
+            <TableIO kind="vehiculos" />
+            <BurstLink href="/flota/nuevo"><Plus /> Nuevo vehículo</BurstLink>
+          </>
         }
       />
       <Suspense fallback={<Skeleton className="h-[640px]" />}>

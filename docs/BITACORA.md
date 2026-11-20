@@ -1216,3 +1216,39 @@ contra una base temporal. **Nada de esto llegó a producción.**
 - **Auditoría:** filtro por **tabla** además de usuario, acción y fechas.
 - **Estado del servidor:** muestra cuántas líneas tiene el historial y si tiene plazo (`AUDIT_RETENTION_DAYS`) o no.
 - Pruebas: 305 de la API y 34 de navegador.
+
+## 54. Respaldo vigilado, tablas en Excel, avisos mensuales, sin conexión y revisión de seguridad
+
+- **Respaldo vigilado.** `deploy/backup.sh` deja al final `backend/data/.ultimo-respaldo` (hora, tamaños, copias). La app lo lee:
+  *Configuración › Estado del servidor* muestra «Último respaldo: hace N h» y avisa si pasan **36 h**. Una vez al día, mientras siga
+  atrasado, sale un correo (tipo de aviso `respaldo`, apagable) y un aviso al celular (ntfy). Si el script falla, también avisa por
+  ntfy. En producción, no tener marca cuenta como problema. Prueba: `test_respaldo_atrasado_avisa_una_vez_al_dia`.
+- **Plazo del historial:** `AUDIT_RETENTION_DAYS=730` puesto en el `.env` del servidor (el mecanismo ya existía; por defecto era 0 =
+  para siempre).
+- **Flota, conductores e inventario en Excel** (`engine/tables_io.py`, `/api/tables/{vehiculos|conductores|inventario}/…`):
+  exportar a `.xlsx` con los mismos encabezados que acepta la carga, plantilla y **carga masiva en dos pasos** (vista previa sin
+  guardar y luego crear solo las válidas, con la misma función del formulario). Los conductores exigen la declaración de
+  autorización (datos personales). Botones «Excel» y «Cargar» en Flota, Conductores y Bodegas (`components/ui/table-io.tsx`).
+  Pruebas: `backend/tests/test_tablas.py`, `frontend/e2e/tablas.spec.ts`.
+- **Placa duplicada que se colaba:** la base trae placas con mayúsculas y minúsculas mezcladas y `UPPER`/`LOWER` de SQLite solo
+  entienden ASCII, así que `create_vehicle` dejaba crear «CONVOY MAGDALENA 02» junto a «Convoy Magdalena 02». Ahora `fleet.code_taken`
+  compara en Python. Lo mismo para los nombres de conductor al cargar.
+- **Reporte mensual** (tipo de aviso `mensual`, apagado por defecto): el día 1, PDF de los últimos 30 días al buzón de avisos.
+- **Seguridad (revisión):**
+  - **Fórmulas en Excel/CSV:** un texto que empieza con `= + - @` se ejecuta al abrir el archivo (nombre, nota o navegador
+    declarado con `=HYPERLINK(...)`). `common.safe_cell` antepone un apóstrofo; se aplica al Excel de envíos, a los de flota/bodegas,
+    al CSV de auditoría, de peajes y de aceptaciones.
+  - **Enumeración de cuentas:** pedir un segundo código antes del minuto respondía error solo para correos con cuenta. Ahora
+    responde igual que para uno sin cuenta (y no crea otro código).
+  - **Next.js 16.4.3 → 16.4.6** (`npm audit` marcaba siete avisos moderados, entre ellos fugas de caché entre usuarios); queda en 0.
+- **Sin conexión (prudente):** `public/sw.js` solo guarda estáticos con huella (`/_next/static/`, íconos) y la página
+  `/offline.html`; **nunca** la API ni páginas con datos (equipos compartidos). Un aviso «Sin conexión» (transform y opacity)
+  aparece al perder la red. **No** hay cola de firmas sin conexión: se descartó a propósito (una entrega firmada que no llegó al
+  servidor sin que nadie lo note es peor que no poder firmar).
+- **No se hizo, con motivo:**
+  - *Peajes iniciales:* sin tarifa oficial por tramo, cualquier cifra sería inventada y entraría en cotizaciones. Siguen en 0 salvo
+    la estimación ya rotulada de la Vía al Llano.
+  - *Rendimiento de listas:* medido 0,7 ms por envío (40 envíos = 27 ms); con la base real (decenas de envíos) no pesa. Reabrir al
+    pasar de unos 500.
+  - *Búsqueda global:* ya existía (Ctrl K, con envíos, ciudades, vehículos, bodegas y vías). *Límite de intentos del código:* ya
+    existía (5 por código, 1 código por minuto).

@@ -27,7 +27,7 @@ git checkout desarrollo
 Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las verificaciones antes de subir.
 
 ## Estado actual  (reescríbelo al terminar cada sesión)
-- **Última herramienta:** Claude (PC) · **Fecha:** 2026-11-07
+- **Última herramienta:** Claude (PC) · **Fecha:** 2026-11-19
 - **Hecho:** ver secciones 40 a 48 de `docs/BITACORA.md`. Resumen:
   - **Usuarios:** activar/desactivar con protecciones (no a uno mismo, no al último administrador). Pantalla `/administracion`
     con alta de usuarios y empresas.
@@ -43,21 +43,22 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     `deploy/probar-restauracion.sh` (ensayo de restauración en un contenedor aparte, sin tocar producción).
   - **Historial** firmado con la cuenta de la sesión; **estado del servidor** en Configuración; **orden de trabajo en PDF** para
     mantenimientos; **avisos al celular (ntfy)** recuperados (el tema vive solo en el `.env` del servidor).
+  - **Lote del 19 de noviembre (sección 54):** respaldo vigilado (marca `.ultimo-respaldo` + aviso a las 36 h), flota/conductores/
+    inventario en Excel (exportar y cargar), reporte mensual opcional, protección contra fórmulas en Excel/CSV, Next 16.4.6,
+    modo sin conexión prudente (solo estáticos).
 - **En curso / a medias:** nada.
 - **Importante para quien siga:**
   - **Nunca** devolver el código OTP en la respuesta fuera de pruebas (`WESTVANE_DEV_OTP=1`).
   - **No pegar sobre el contenido del `.env` en `nano`**: agregar líneas al final (o con `printf ... >> .env`). Ya pasó una vez y
     dejó el servidor sin `DOMAIN`. Hay copias en `backups/env-*.bak`.
   - El nombre del tema de ntfy **no va en el repositorio**; está en el `.env` del servidor.
-  - `main` y Contabo están en `e1835c4`. `desarrollo` tiene **3 commits más** (verificación, documentación de ntfy y ensayo de
-    restauración) que esperan la orden del dueño para desplegar.
+  - Revisa `git log origin/main..desarrollo` antes de asumir qué está en producción.
   - Puertos de prueba propios si hay otra herramienta: `E2E_PORT`, `E2E_API_PORT`, `E2E_DB_PATH`.
 - **Siguiente paso sugerido:**
   - Avisar al cliente: hecho (sección 51). Falta que el abogado incluya los correos de clientes en la política de privacidad.
-  - Decidir el plazo del historial (`AUDIT_RETENTION_DAYS`, p. ej. 730).
   - Si las páginas se sienten lentas: guardar en columnas el modo y el vehículo actuales del envío para no parsear el
     recorrido en la lista, o paginar del lado del servidor (medido en la sección 53).
-  - Tarifas de peajes iniciales; coordenadas oficiales (hacen falta los PDF de Aerocivil) y las tres distancias con cifra de
+  - Peajes: faltan tarifas oficiales por tramo (no inventar cifras); coordenadas oficiales (hacen falta los PDF de Aerocivil) y las tres distancias con cifra de
     INVÍAS.
   - Roles que limiten acciones: espera decisión del dueño (obligaría a iniciar sesión a todos).
   - Política de privacidad con abogado; secretos de GitHub para el despliegue automático; dominio propio y Cloudflare;

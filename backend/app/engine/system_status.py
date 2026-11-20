@@ -8,6 +8,7 @@ Lo que vive fuera del contenedor (los respaldos, los otros contenedores) sigue e
 """
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import time
@@ -21,6 +22,7 @@ from app.engine.common import audit_retention_days
 STARTED = time.time()
 WARN_DISK_PCT = 85
 WARN_MEM_AVAILABLE_PCT = 10
+BACKUP_MAX_AGE_H = 36   # el respaldo corre a diario: más de 36 h sin otro es que algo falló
 
 
 def _dir_size(path: str, limit_s: float = 2.0) -> int | None:
@@ -53,6 +55,34 @@ def _memory() -> dict | None:
         return None
 
 
+def backup_marker() -> str:
+    return os.path.join(os.path.dirname(db.DB_PATH) or ".", ".ultimo-respaldo")
+
+
+def backup_info(now: datetime) -> dict | None:
+    """Último respaldo bueno, según la marca que deja deploy/backup.sh junto a la base. None si nunca se ha hecho (o si la
+    app corre sin ese script, como en desarrollo)."""
+    try:
+        with open(backup_marker(), encoding="utf-8") as fh:
+            data = json.load(fh)
+        at = datetime.fromtimestamp(int(data["at"]))
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return {"at": at.isoformat(timespec="seconds"), "age_h": round(max(0.0, (now - at).total_seconds() / 3600), 1),
+            "db_bytes": int(data.get("db_bytes") or 0), "adjuntos_bytes": int(data.get("adjuntos_bytes") or 0),
+            "copies": int(data.get("copies") or 0)}
+
+
+def backup_stale(now: datetime) -> str | None:
+    """Mensaje si el respaldo está atrasado; None si está al día. En producción, no tener marca también es un problema."""
+    info = backup_info(now)
+    if info is None:
+        return "No hay registro de ningún respaldo del servidor." if os.environ.get("WESTVANE_ENV") == "production" else None
+    if info["age_h"] > BACKUP_MAX_AGE_H:
+        return f"El último respaldo es de hace {int(info['age_h'])} horas: revisa que el cron del servidor siga corriendo."
+    return None
+
+
 def status(now: datetime) -> dict:
     data_dir = os.path.dirname(db.DB_PATH) or "."
     disk = shutil.disk_usage(data_dir)
@@ -75,6 +105,9 @@ def status(now: datetime) -> dict:
         warnings.append("Queda poca memoria disponible en el servidor.")
     if load and load["5"] > load["cores"] * 1.5:
         warnings.append("El servidor lleva varios minutos con la carga alta.")
+    stale = backup_stale(now)
+    if stale:
+        warnings.append(stale)
     return {
         "now": now.isoformat(timespec="seconds"),
         "uptime_s": int(time.time() - STARTED),
@@ -83,6 +116,7 @@ def status(now: datetime) -> dict:
         "database_bytes": db_bytes,
         "attachments_bytes": _dir_size(os.path.join(data_dir, "adjuntos")),
         "counts": counts,
+        "backup": backup_info(now),
         "mail_configured": mail.configured(),
         "audit_retention_days": audit_retention_days(),
         "warnings": warnings,

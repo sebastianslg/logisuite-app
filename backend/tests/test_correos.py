@@ -150,7 +150,7 @@ def test_avisos_al_administrador_se_apagan_por_tipo(client, outbox, monkeypatch)
 
     estado = client.get("/api/settings/mail-alerts").json()
     assert estado["configured"] is True and estado["admin_email"] == "d***@ejemplo.com"   # la dirección no se muestra completa
-    assert {a["kind"]: a["enabled"] for a in estado["alerts"]} == {"vencimientos": True, "novedades": True, "semanal": False}  # los de atención, encendidos; el reporte semanal, opcional
+    assert {a["kind"]: a["enabled"] for a in estado["alerts"]} == {"vencimientos": True, "novedades": True, "semanal": False, "mensual": False, "respaldo": True}  # los de atención, encendidos; el reporte semanal, opcional
 
     # Cambiarlos exige sesión de administrador
     assert client.put("/api/settings/mail-alerts", json={"kind": "novedades", "enabled": False}).status_code == 401
@@ -209,6 +209,25 @@ def test_reporte_semanal_solo_los_lunes_si_esta_encendido_y_una_vez_por_dia(clie
     assert len(outbox) == n
 
 
+def test_reporte_mensual_solo_el_dia_1_si_esta_encendido_y_una_vez(client, outbox, monkeypatch):
+    from app import main
+    monkeypatch.setenv("ADMIN_EMAIL", "dueno@ejemplo.com")
+    monkeypatch.setattr(mail.threading, "Thread", lambda target, daemon: type("T", (), {"start": staticmethod(target)})())
+    h = login(client)
+    dia1, dia2 = datetime(2026, 12, 1, 7, 0), datetime(2026, 12, 2, 7, 0)
+    main._monthly_report_mail(dia1)                # apagado por defecto
+    assert outbox == []
+    assert client.put("/api/settings/mail-alerts", json={"kind": "mensual", "enabled": True}, headers=h).status_code == 200
+    main._monthly_report_mail(dia2)                # no es día 1
+    assert outbox == []
+    main._monthly_report_mail(dia1)
+    to, subject, text, adj = outbox[-1]
+    assert to == "dueno@ejemplo.com" and "del mes" in subject and "30 días" in text and adj[0][0].startswith(b"%PDF")
+    n = len(outbox)
+    main._monthly_report_mail(dia1)                # reinicio el mismo día: no se repite
+    assert len(outbox) == n
+
+
 def test_los_avisos_diarios_no_se_repiten_al_reiniciar(client):
     now = datetime(2026, 12, 7, 6, 0)
     assert mail.once_today("prueba_x", now) is True
@@ -229,3 +248,33 @@ def test_estado_del_servidor_solo_para_administradores(client):
     assert isinstance(s["warnings"], list) and s["mail_configured"] in (True, False)
     # memoria y carga solo existen en Linux; donde falten, vienen como null y no rompen la respuesta
     assert s["memory"] is None or 0 <= s["memory"]["used_pct"] <= 100
+
+
+def test_respaldo_atrasado_avisa_una_vez_al_dia(client, outbox, monkeypatch, tmp_path):
+    import json
+    from app import main as app_main
+    from app.engine import system_status
+    monkeypatch.setenv("ADMIN_EMAIL", "dueno@ejemplo.com")
+    monkeypatch.setattr(mail.threading, "Thread", lambda target, daemon: type("T", (), {"start": staticmethod(target)})())
+    marca = tmp_path / ".ultimo-respaldo"
+    monkeypatch.setattr(system_status, "backup_marker", lambda: str(marca))
+    now = datetime.now()
+    # Sin marca y fuera de producción: nada que avisar
+    assert system_status.backup_info(now) is None and system_status.backup_stale(now) is None
+    # Respaldo reciente: al día
+    marca.write_text(json.dumps({"at": int((now - timedelta(hours=5)).timestamp()), "db_bytes": 1000, "adjuntos_bytes": 0, "copies": 3}))
+    assert system_status.backup_info(now)["age_h"] == 5.0 and system_status.backup_stale(now) is None
+    app_main._backup_alert(now)
+    assert outbox == []
+    # Más de 36 h: avisa una sola vez ese día
+    marca.write_text(json.dumps({"at": int((now - timedelta(hours=50)).timestamp()), "db_bytes": 1000, "adjuntos_bytes": 0, "copies": 3}))
+    assert "hace 50 horas" in system_status.backup_stale(now)
+    app_main._backup_alert(now)
+    app_main._backup_alert(now)
+    assert len(outbox) == 1 and outbox[0][0] == "dueno@ejemplo.com" and "atrasado" in outbox[0][1]
+    # La marca dañada no rompe nada
+    marca.write_text("no es json")
+    assert system_status.backup_info(now) is None
+    # En producción, no tener marca es un problema
+    monkeypatch.setenv("WESTVANE_ENV", "production")
+    assert "No hay registro" in system_status.backup_stale(now)

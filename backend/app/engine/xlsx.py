@@ -15,6 +15,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from app.api import format as F
+from app.engine.common import safe_cell
 from app.engine.dispatch import status_at
 
 HEADER_FILL = PatternFill("solid", fgColor="F5F5F7")
@@ -49,7 +50,7 @@ def render(rows: list, currency: str, fx: dict, now: datetime) -> bytes:
         raw = r["modes"] or ""
         modes = json.loads(raw) if raw.startswith("[") else [m for m in raw.split(",") if m]
         status = status_at(r, now).get("status") or r["status"]
-        ws.append([
+        ws.append([safe_cell(x) for x in [
             r["shipment_code"], r["origin_city"], r["dest_city"], r["cargo"], r["client"],
             status,
             " → ".join(F.MODE_LABELS.get(m, m) for m in modes), r["n_transfers"],
@@ -58,7 +59,7 @@ def render(rows: list, currency: str, fx: dict, now: datetime) -> bytes:
             datetime.fromisoformat(r["departure_at"]), datetime.fromisoformat(r["eta_at"]),
             float(r["delay_h"] or 0), r["priority"].capitalize(),
             "Sin ruta" if r.get("route_status") == "sin_ruta" else "Con ruta", r.get("route_note") or "",
-        ])
+        ]])
     for row in ws.iter_rows(min_row=2):
         row[8].number_format = '#,##0.0'
         row[9].number_format = '#,##0'

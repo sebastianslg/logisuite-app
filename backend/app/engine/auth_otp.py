@@ -135,14 +135,14 @@ def request_otp(email: str) -> dict:
     if u_df.empty or not u_df.iloc[0]["active"]:
         return generic
 
-    # Un código nuevo por correo cada OTP_COOLDOWN_S: frena el reenvío masivo y el reintento de códigos
+    # Un código nuevo por correo cada OTP_COOLDOWN_S (en silencio): frena el reenvío masivo y el reintento de códigos
     cooldown = int(os.getenv("WESTVANE_OTP_COOLDOWN_S", str(OTP_COOLDOWN_S)))
     if cooldown > 0:
         recent = run_query("SELECT created_at FROM auth_codes WHERE email = ? ORDER BY code_id DESC LIMIT 1", (norm_email,))
         if not recent.empty:
             last = datetime.strptime(recent.iloc[0]["created_at"], "%Y-%m-%d %H:%M:%S")
             if (_now() - last).total_seconds() < cooldown:
-                raise OperationError("Espera un minuto antes de pedir otro código.")
+                return generic  # misma respuesta que para un correo sin cuenta: un error aquí delataría quién está registrado
 
     code = f"{secrets.randbelow(1_000_000):06d}"
     code_hash, salt = _hash_code(code)
