@@ -153,8 +153,9 @@ async function Tabla({ searchParams }: { searchParams: Promise<Record<string, st
           <ul className="rule-list">
             {data.items.map((e) => (
               <li key={e.audit_id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 py-3 text-sm">
-                <span className="tabular w-32 shrink-0 text-xs text-muted-foreground">
-                  {e.timestamp.slice(0, 16).replace("T", " ")}
+                <span className="tabular w-36 shrink-0 text-xs text-muted-foreground">
+                  {/* Mismo formato que el resto de la app, no la fecha ISO de la base */}
+                  {new Date(e.timestamp).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }).replace(/\s/g, " ")}
                 </span>
                 <Badge tone={TONE[e.action] ?? "neutral"}>{e.action}</Badge>
                 <span className="min-w-0 flex-1">

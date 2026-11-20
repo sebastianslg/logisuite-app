@@ -102,6 +102,10 @@ espera /configuracion 200 "Configuración"
 espera /auditoria 200 "Auditoría"
 espera /api/today 200 "API del tablero Hoy"
 espera /api/audit?limit=1 200 "API del historial"
+espera /api/tables/vehiculos/export.xlsx 200 "Excel de vehículos"
+espera /api/tables/conductores/template.xlsx 200 "Plantilla de conductores"
+espera /api/tolls 200 "Peajes"
+espera /offline.html 200 "Página sin conexión"
 
 salud=$(cuerpo "${URL}/api/health")
 if printf '%s' "${salud}" | grep -q '"status"'; then ok "La salud devuelve JSON"; else mal "La salud no devuelve JSON: ${salud:0:80}"; fi
@@ -147,6 +151,13 @@ if [ "${SOLO_RED}" = "0" ]; then
   uso=$(df -P / 2>/dev/null | awk 'NR==2{gsub("%","",$5); print $5}')
   if [ -n "${uso:-}" ]; then
     if [ "${uso}" -ge 90 ]; then mal "Disco al ${uso} %: hay que liberar espacio"; elif [ "${uso}" -ge 85 ]; then ojo "Disco al ${uso} %"; else ok "Disco al ${uso} %"; fi
+  fi
+  marca="${APP_DIR}/backend/data/.ultimo-respaldo"
+  if [ -f "${marca}" ]; then
+    horas_marca=$(( ( $(date +%s) - $(stat -c %Y "${marca}") ) / 3600 ))
+    if [ "${horas_marca}" -gt 36 ]; then ojo "La marca del último respaldo tiene ${horas_marca} h"; else ok "Marca del respaldo de hace ${horas_marca} h"; fi
+  else
+    ojo "No existe la marca del último respaldo (.ultimo-respaldo): la app lo mostrará como atrasado"
   fi
   ultimo=$(ls -1t "${APP_DIR}"/backups/logistics-*.db.gz 2>/dev/null | head -1)
   if [ -z "${ultimo}" ]; then
