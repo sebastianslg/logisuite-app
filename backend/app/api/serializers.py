@@ -137,15 +137,18 @@ def shipment(s: dict, state: dict | None = None, detail: bool = False) -> dict:
         current_leg = legs[-1] if s["status"] == "Entregado" else legs[0]
 
     vehicle_summary = _asset_summary(current_leg.get("asset")) if current_leg else None
+    # La lista de vehículos de todos los tramos solo la usa la ficha: armarla en cada fila de la lista costaba un 20 % de la
+    # respuesta (la lista de 400 envíos pasaba de 600 KB) y nadie la leía.
     vehicles_list = []
-    seen = set()
-    for l in legs:
-        a = l.get("asset")
-        if a and a.get("id") and a["id"] not in seen:
-            seen.add(a["id"])
-            summary = _asset_summary(a)
-            if summary:
-                vehicles_list.append({"mode": l["mode"], **summary})
+    if detail:
+        seen = set()
+        for l in legs:
+            a = l.get("asset")
+            if a and a.get("id") and a["id"] not in seen:
+                seen.add(a["id"])
+                summary = _asset_summary(a)
+                if summary:
+                    vehicles_list.append({"mode": l["mode"], **summary})
     eta = datetime.fromisoformat(s["eta_at"])
     out = {
         "code": s["shipment_code"], "origin": s["origin_city"], "destination": s["dest_city"],
@@ -172,8 +175,9 @@ def shipment(s: dict, state: dict | None = None, detail: bool = False) -> dict:
         "updated_by": s.get("updated_by"),
         "actual_cost": _actual(s),
         "vehicle": vehicle_summary,
-        "vehicles": vehicles_list,
     }
+    if detail:
+        out["vehicles"] = vehicles_list
     if detail:
         out["legs"] = [leg(l) for l in route_data["legs"]]
         out["transfers"] = [transfer(t) for t in route_data["transfers"]]
