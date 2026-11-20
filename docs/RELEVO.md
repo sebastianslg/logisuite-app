@@ -43,7 +43,11 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     `deploy/probar-restauracion.sh` (ensayo de restauración en un contenedor aparte, sin tocar producción).
   - **Historial** firmado con la cuenta de la sesión; **estado del servidor** en Configuración; **orden de trabajo en PDF** para
     mantenimientos; **avisos al celular (ntfy)** recuperados (el tema vive solo en el `.env` del servidor).
-  - **Cierre del pulido (sección 55):** aviso sin conexión endurecido (relee al volver a la pestaña), `verificar.sh` con las
+  - **Cierre del pulido (sección 55) — ya desplegado:** pase visual de Flota/Conductores/Bodegas/Configuración en claro y
+    oscuro, escritorio y celular; fechas de `/auditoria` en español; `verificar.sh` con las rutas nuevas (34 comprobaciones);
+    y la lista de envíos **20 % más liviana** (los vehículos de todos los tramos pasaron al detalle; 763 KB → 613 KB en
+    producción). Prueba de carga: páginas mediana 650 ms, API 408 ms, 0 errores.
+  - **Detalle del cierre:** aviso sin conexión endurecido (relee al volver a la pestaña), `verificar.sh` con las
     rutas nuevas y la marca del respaldo, y la lista de pendientes de `AGENTS.md` reescrita.
   - **Lote del 19 de noviembre (sección 54):** respaldo vigilado (marca `.ultimo-respaldo` + aviso a las 36 h), flota/conductores/
     inventario en Excel (exportar y cargar), reporte mensual opcional, protección contra fórmulas en Excel/CSV, Next 16.4.6,
@@ -66,4 +70,5 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
   - Política de privacidad con abogado; secretos de GitHub para el despliegue automático; dominio propio y Cloudflare;
     PostgreSQL cuando haya varios usuarios a la vez.
 - **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **315 pruebas de la API**; **37 de navegador** (incluye
-  accesibilidad). En el servidor, `bash deploy/verificar.sh` (34 comprobaciones).
+  accesibilidad). En el servidor, `bash deploy/verificar.sh` (34 comprobaciones, en verde).
+- **Producción:** `main` y Contabo en el mismo commit; `desarrollo` sin nada pendiente de desplegar.
