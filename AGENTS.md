@@ -58,17 +58,3 @@ respaldos; sale con 1 si algo falla). El despliegue automático ya lo corre. Los
   - **Despliegue automático** (faltan los secretos en GitHub), **dominio propio y Cloudflare**, **PostgreSQL** con varios usuarios.
 - **Vigilar:** el historial ya tiene plazo (`AUDIT_RETENTION_DAYS=730`); la lista de envíos pide hasta 1000 y avisa si hay más
   (reabrir la paginación del servidor al pasar de ~500); las páginas tardan 1,2–1,7 s con 8 personas (sección 53).
-
-## Mapa rápido
-- `backend/app/main.py` rutas; `app/engine/` lógica (rutas, operaciones, bitácora, legal, seguimiento, PDF);
-  `app/api/guard.py` límites de abuso; `app/database/` esquemas.
-- `frontend/src/app/` páginas; `components/` por área; `lib/` tipos, API, preferencias, consentimiento.
-- `frontend/e2e/` pruebas de navegador (el fixture ya acepta los términos); `backend/tests/` pruebas de la API.
-
-## Pendiente (ver también la sección final de la bitácora)
-Mapa: medido en el PC real (60 cuadros/s, sin bloqueos de 250 ms; sección 23 de la bitácora), no hace falta un
-lienzo único; reabrir solo si alguien reporta tirones. Coordenadas: tres distancias corregidas con cifras no oficiales
-(sección 22); validar coordenadas contra INVÍAS, ANI, Aerocivil y Cormagdalena; usuarios y
-empresas con roles (código por correo); PostgreSQL cuando haya varios usuarios; términos y privacidad pendientes de
-datos del responsable y revisión legal; despliegue automático (faltan los secretos en GitHub); dominio propio y
-Cloudflare.
