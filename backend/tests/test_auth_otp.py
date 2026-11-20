@@ -100,9 +100,15 @@ def test_con_correo_configurado_el_codigo_no_viaja_en_la_respuesta(client, monke
 
 def test_un_codigo_nuevo_por_minuto(client, monkeypatch):
     monkeypatch.setenv("WESTVANE_OTP_COOLDOWN_S", "60")
-    assert client.post("/api/auth/otp/request", json={"email": "operador@westvane.invalid"}).status_code == 200
+    antes = len(db.run_query("SELECT 1 FROM auth_codes WHERE email = 'operador@westvane.invalid'"))
+    first = client.post("/api/auth/otp/request", json={"email": "operador@westvane.invalid"})
     again = client.post("/api/auth/otp/request", json={"email": "operador@westvane.invalid"})
-    assert again.status_code == 422 and "Espera" in again.json()["detail"]
+    # La segunda petición responde igual (no delata que la cuenta existe) pero no crea otro código
+    assert first.status_code == 200 and again.status_code == 200 and again.json()["message"] == first.json()["message"]
+    assert len(db.run_query("SELECT 1 FROM auth_codes WHERE email = 'operador@westvane.invalid'")) == antes + 1
+    ghost = client.post("/api/auth/otp/request", json={"email": "no-existe@westvane.invalid"})
+    ghost2 = client.post("/api/auth/otp/request", json={"email": "no-existe@westvane.invalid"})
+    assert ghost.status_code == ghost2.status_code == 200
 
 
 def test_administrar_exige_sesion_de_administrador(client):

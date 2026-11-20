@@ -1138,3 +1138,117 @@ contra una base temporal. **Nada de esto llegó a producción.**
 - **Un error mío corregido en el camino:** la primera versión contaba los envíos con `/api/shipments?limit=1`, que devuelve el
   número de elementos de la página (1), no el total. Ahora cuenta en la base restaurada y compara con producción.
 - Documentado en `docs/DESPLIEGUE_CONTABO.md`, antes del procedimiento manual de restauración.
+
+## 49. Robustez: avisos que no se pierden, plazo del historial y la lista que cortaba en silencio
+
+- **Avisos al celular (ntfy):** `send()` responde antes de publicar, porque el envío va en un hilo aparte. En la API funciona
+  (el proceso sigue vivo), pero en un proceso corto —una prueba, un comando suelto— el aviso se perdía aunque la función dijera
+  que sí. Ahora los hilos pendientes se guardan y `drenar()` los espera al cerrar el proceso (`atexit`). Probado: el aviso sale
+  después de `send` y antes de que el programa termine.
+- **Plazo del historial:** `audit_log` crecía sin límite (una línea por cambio, para siempre). Con `AUDIT_RETENTION_DAYS` se
+  conservan los últimos N días y se borra lo anterior en la tarea diaria; **por defecto 0 = para siempre**, que es lo seguro
+  hasta que el dueño decida. Lo borrado se anota en el registro del servidor, no en el propio historial.
+- **La lista de envíos cortaba en silencio:** la página pedía `/api/shipments` sin límite, y el valor por defecto es 300. Con 410
+  envíos en producción, **se mostraban 300 y nada lo decía**. Ahora la API devuelve `total`, `limit`, `offset` y `truncated`, la
+  página pide el máximo (1000) y, si hay más, la tabla avisa: «Se muestran los N más recientes de M».
+- Pruebas: `tests/test_robustez.py` (4 nuevas), 295 de la API y 31 de navegador.
+
+## 50. Pantalla de auditoría con filtros y foto en la prueba de entrega
+
+- **`/auditoria`** (en «Más» y en `Ctrl K`): todo lo que cambió en la app, con quién, cuándo y qué. Filtros por **texto**
+  (detalle o código), **usuario**, **acción**, **desde** y **hasta**; 50 por página con el total a la vista. Cada línea lleva
+  la acción con su color (crear en verde, borrar o cerrar en rojo) y, si es de un envío, el código enlaza a su ficha.
+  - La API (`/api/audit`) acepta `usuario`, `accion`, `desde`, `hasta`, `q`, `offset` y devuelve `total`; `/api/audit/facets`
+    da los valores para los desplegables con cuántas líneas tiene cada uno.
+  - El filtro por registro (`?record=CODE`) que usa la ficha del envío sigue igual.
+  - Los filtros son un formulario normal (GET): la página se puede compartir por enlace y funciona sin JavaScript.
+- **Foto de la entrega:** en la prueba de entrega hay un botón **«Tomar foto»** que, en el celular, abre la cámara
+  (`capture="environment"`); en el escritorio deja elegir un archivo. Se sube como adjunto del envío, con la **misma
+  declaración de autorización** de las personas que aparezcan (no deja subir sin marcarla) y el mismo límite de 10 MB.
+- Pruebas: 297 de la API (2 nuevas de filtros y paginación del historial) y 33 de navegador (2 nuevas: auditoría y foto).
+
+## 51. Avisar al cliente por correo cuando su envío cambia de estado
+
+- **La dirección:** el envío guarda el nombre del cliente, no su correo. Se agregó **`client_email`** (esquema v14, aditivo),
+  **opcional y por envío**: se pone en la ficha, en «Seguimiento para el cliente», y sin ella no se envía nada. Es un dato
+  personal: se borra con `ATTACHMENT_RETENTION_DAYS` y al borrar el envío, y el historial guarda la dirección enmascarada
+  (`c***@ejemplo.com`).
+- **Qué se avisa:** tres cambios, ni uno más: **salió** (En Ruta), **se retrasó** y **llegó** (Entregado). Los estados
+  intermedios (Transferencia Modal) no generan correo, para no llenar la bandeja. El correo lleva código, origen, destino y el
+  enlace de seguimiento si hay uno activo; **nunca** costos, nombre del cliente, peso ni datos internos.
+- **Cómo se dispara:** el estado de un envío se deriva del reloj, así que no hay un «evento» que escuchar. Cada pasada compara
+  el estado de ahora con el último avisado (`last_notified_status`) y solo escribe cuando cambia. La pasada va dentro de la
+  sincronización, con su propio límite de 5 minutos, y un fallo al avisar no tumba la sincronización.
+- **API:** `PUT /api/shipments/{code}/client-email` con `{"email": "..."}` o `{"email": null}`; exige sesión de operador o
+  administrador.
+- **Privacidad:** el seguimiento público no muestra la dirección (una prueba lo verifica). **Pendiente para el abogado:** la
+  política de privacidad debe mencionar que se guardan correos de clientes y su plazo.
+- Pruebas: 303 de la API (6 nuevas) y 34 de navegador (1 nueva).
+
+## 52. Índices, auditoría en CSV y prueba de carga contra producción
+
+- **Índices (esquema v15, aditivos):** el historial se ordena y se filtra por fecha, persona y registro; la lista de envíos
+  ordena por salida y filtra por estado; los avisos al cliente solo miran los envíos con correo. Sin índices, cada filtro
+  recorría la tabla entera. Con 400 envíos no se nota; con miles, sí.
+- **Auditoría en CSV:** botón «Descargar CSV» en `/auditoria`, con **los filtros puestos** (hasta 1000 líneas). Separador `;` y
+  BOM de UTF-8 para que Excel abra bien las tildes; el detalle con `;` va entre comillas.
+- **`deploy/verificar.sh`** comprueba también `/auditoria` y `/api/audit`.
+- **Prueba de carga contra producción** (`deploy/prueba-carga.py`, 8 personas, 30 s, solo lecturas):
+  - páginas: 96 peticiones, 0 errores, mediana 1.036 ms, p95 2.141 ms, peor 2.209 ms;
+  - API: 96 peticiones, 0 errores, mediana 430 ms, p95 640 ms, peor 666 ms;
+  - 6,4 peticiones por segundo.
+  - En local, la misma prueba daba páginas p95 641 ms y API p95 89 ms: la diferencia es la red y la CPU del VPS, no un error.
+    **Lo lento son las páginas** (renderizado en el servidor), no la API. Si algún día molesta, lo primero es medir cuál tarda.
+- Pruebas: 305 de la API (2 nuevas) y 34 de navegador.
+
+## 53. Dónde está el peso: desglose de la prueba de carga, filtro por tabla y retención a la vista
+
+- **`deploy/prueba-carga.py` dice ahora qué ruta es la lenta** (las tres peores, por mediana). Contra producción, 8 personas y
+  30 s, solo lecturas:
+  - `/` 1.665 ms · `/envios` 1.348 ms · `/flota` 1.185 ms (medianas); 0 errores.
+  - La API, al mismo tiempo: mediana 710 ms, p95 937 ms.
+  - **Conclusión:** el peso está en las **páginas** (renderizado en el servidor), no en la red ni en la base.
+- **Por qué la lista tarda:** la API arma cada envío leyendo y **parseando el recorrido completo** (`route_json`) de los 1000
+  que pide la página. No manda el trazado al navegador (eso solo va en la ficha), pero el trabajo de leerlo y parsearlo se paga
+  igual. **Siguiente paso, si algún día molesta:** guardar en columnas el modo y el vehículo actuales (lo que la lista usa) para
+  no tener que abrir el recorrido en cada petición, o paginar del lado del servidor. No se hizo ahora porque es un cambio de
+  esquema con riesgo y hoy la app la usan una o dos personas.
+- **Auditoría:** filtro por **tabla** además de usuario, acción y fechas.
+- **Estado del servidor:** muestra cuántas líneas tiene el historial y si tiene plazo (`AUDIT_RETENTION_DAYS`) o no.
+- Pruebas: 305 de la API y 34 de navegador.
+
+## 54. Respaldo vigilado, tablas en Excel, avisos mensuales, sin conexión y revisión de seguridad
+
+- **Respaldo vigilado.** `deploy/backup.sh` deja al final `backend/data/.ultimo-respaldo` (hora, tamaños, copias). La app lo lee:
+  *Configuración › Estado del servidor* muestra «Último respaldo: hace N h» y avisa si pasan **36 h**. Una vez al día, mientras siga
+  atrasado, sale un correo (tipo de aviso `respaldo`, apagable) y un aviso al celular (ntfy). Si el script falla, también avisa por
+  ntfy. En producción, no tener marca cuenta como problema. Prueba: `test_respaldo_atrasado_avisa_una_vez_al_dia`.
+- **Plazo del historial:** `AUDIT_RETENTION_DAYS=730` puesto en el `.env` del servidor (el mecanismo ya existía; por defecto era 0 =
+  para siempre).
+- **Flota, conductores e inventario en Excel** (`engine/tables_io.py`, `/api/tables/{vehiculos|conductores|inventario}/…`):
+  exportar a `.xlsx` con los mismos encabezados que acepta la carga, plantilla y **carga masiva en dos pasos** (vista previa sin
+  guardar y luego crear solo las válidas, con la misma función del formulario). Los conductores exigen la declaración de
+  autorización (datos personales). Botones «Excel» y «Cargar» en Flota, Conductores y Bodegas (`components/ui/table-io.tsx`).
+  Pruebas: `backend/tests/test_tablas.py`, `frontend/e2e/tablas.spec.ts`.
+- **Placa duplicada que se colaba:** la base trae placas con mayúsculas y minúsculas mezcladas y `UPPER`/`LOWER` de SQLite solo
+  entienden ASCII, así que `create_vehicle` dejaba crear «CONVOY MAGDALENA 02» junto a «Convoy Magdalena 02». Ahora `fleet.code_taken`
+  compara en Python. Lo mismo para los nombres de conductor al cargar.
+- **Reporte mensual** (tipo de aviso `mensual`, apagado por defecto): el día 1, PDF de los últimos 30 días al buzón de avisos.
+- **Seguridad (revisión):**
+  - **Fórmulas en Excel/CSV:** un texto que empieza con `= + - @` se ejecuta al abrir el archivo (nombre, nota o navegador
+    declarado con `=HYPERLINK(...)`). `common.safe_cell` antepone un apóstrofo; se aplica al Excel de envíos, a los de flota/bodegas,
+    al CSV de auditoría, de peajes y de aceptaciones.
+  - **Enumeración de cuentas:** pedir un segundo código antes del minuto respondía error solo para correos con cuenta. Ahora
+    responde igual que para uno sin cuenta (y no crea otro código).
+  - **Next.js 16.4.3 → 16.4.6** (`npm audit` marcaba siete avisos moderados, entre ellos fugas de caché entre usuarios); queda en 0.
+- **Sin conexión (prudente):** `public/sw.js` solo guarda estáticos con huella (`/_next/static/`, íconos) y la página
+  `/offline.html`; **nunca** la API ni páginas con datos (equipos compartidos). Un aviso «Sin conexión» (transform y opacity)
+  aparece al perder la red. **No** hay cola de firmas sin conexión: se descartó a propósito (una entrega firmada que no llegó al
+  servidor sin que nadie lo note es peor que no poder firmar).
+- **No se hizo, con motivo:**
+  - *Peajes iniciales:* sin tarifa oficial por tramo, cualquier cifra sería inventada y entraría en cotizaciones. Siguen en 0 salvo
+    la estimación ya rotulada de la Vía al Llano.
+  - *Rendimiento de listas:* medido 0,7 ms por envío (40 envíos = 27 ms); con la base real (decenas de envíos) no pesa. Reabrir al
+    pasar de unos 500.
+  - *Búsqueda global:* ya existía (Ctrl K, con envíos, ciudades, vehículos, bodegas y vías). *Límite de intentos del código:* ya
+    existía (5 por código, 1 código por minuto).

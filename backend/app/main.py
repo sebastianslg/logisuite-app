@@ -55,9 +55,9 @@ from app.api import guard
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
-from app.engine import (auth_otp, clients, delivery, mail, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
-                        shipments_io, sustainability as SU, telemetry, tolls, tracking, trends, warehouses, xlsx)
-from app.engine.common import SESSION_USER
+from app.engine import (auth_otp, client_notify, clients, delivery, mail, notify, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
+                        shipments_io, sustainability as SU, tables_io, telemetry, tolls, tracking, trends, warehouses, xlsx)
+from app.engine.common import SESSION_USER, purge_old_audit, safe_cell
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
 
@@ -103,6 +103,23 @@ def _bump_cache() -> None:
 _last_purge_day = ""
 
 
+_last_client_notify = 0.0
+CLIENT_NOTIFY_EVERY_S = 300  # como mucho, una pasada cada 5 minutos
+
+
+def _client_notify(now: datetime) -> None:
+    """Avisos al cliente por cambio de estado. Va dentro de la sincronización, que ya está limitada, y además se limita
+    aquí: mandar correos no debe frenar las peticiones."""
+    global _last_client_notify
+    if time.monotonic() - _last_client_notify < CLIENT_NOTIFY_EVERY_S:
+        return
+    _last_client_notify = time.monotonic()
+    try:
+        client_notify.check(now)
+    except Exception:  # un fallo al avisar no puede tumbar la sincronización
+        pass
+
+
 def _weekly_report_mail(now: datetime) -> None:
     """Los lunes, si el dueño lo activó (Configuración › Avisos por correo), manda a ADMIN_EMAIL el reporte operativo de
     la última semana en PDF. Una sola vez por día, aunque el servidor se reinicie."""
@@ -119,6 +136,21 @@ def _weekly_report_mail(now: datetime) -> None:
                           kind="semanal", attachments=[(pdf_bytes, f"reporte-operativo-{now:%Y%m%d}.pdf", "application/pdf")])
 
 
+def _monthly_report_mail(now: datetime) -> None:
+    """El día 1 de cada mes, si el dueño lo activó, manda el reporte operativo de los últimos 30 días en PDF (una vez por día)."""
+    if now.day != 1 or not mail.configured() or not mail.admin_email() or not mail.alert_enabled("mensual"):
+        return
+    if not mail.once_today("mensual", now):
+        return
+    try:
+        pdf_bytes = report.render(network(), 30, "USD", ops.get_fx(), now)
+    except Exception:  # un fallo del reporte no debe tumbar la sincronización
+        return
+    mail.send_admin_async(f"Reporte operativo del mes ({now:%d/%m/%Y})",
+                          "Adjunto el reporte operativo de los últimos 30 días, con los montos en USD.",
+                          kind="mensual", attachments=[(pdf_bytes, f"reporte-operativo-{now:%Y%m%d}.pdf", "application/pdf")])
+
+
 def _purge_attachments_daily(now: datetime) -> None:
     """Una vez al día aplica el plazo de conservación de adjuntos (ATTACHMENT_RETENTION_DAYS)."""
     global _last_purge_day
@@ -127,11 +159,23 @@ def _purge_attachments_daily(now: datetime) -> None:
         _last_purge_day = day
         journal.purge_expired(now)
         delivery.purge_expired(now, journal.retention_days())
+        client_notify.purge_emails(now, journal.retention_days())
+        purge_old_audit(now)
         fleet.enforce_documents(now)
         # Los avisos salen una vez al día aunque el servidor se reinicie (cada despliegue lo reinicia)
         if mail.once_today("vencimientos", now):
             fleet.notify_due(now)
         _weekly_report_mail(now)
+        _monthly_report_mail(now)
+        _backup_alert(now)
+
+
+def _backup_alert(now: datetime) -> None:
+    """Avisa (correo y celular) una vez al día mientras el respaldo del servidor siga atrasado."""
+    problem = system_status.backup_stale(now)
+    if problem and mail.once_today("respaldo", now):
+        mail.send_admin_async("Westvane: el respaldo del servidor está atrasado", problem, kind="respaldo")
+        notify.send("Respaldo atrasado", problem, tags="floppy_disk", priority="high", path="/configuracion")
 
 
 def _sync() -> datetime:
@@ -146,6 +190,7 @@ def _sync() -> datetime:
         try:
             if time.monotonic() - _last_sync >= SYNC_INTERVAL_S:
                 telemetry.sync(network(), now)
+                _client_notify(now)
                 _last_sync = time.monotonic()
                 _purge_attachments_daily(now)
                 _bump_cache()
@@ -402,15 +447,19 @@ def fleet_live() -> dict:
 
 
 @app.get("/api/shipments")
-def shipments(status: str | None = None, limit: int = 300) -> dict:
+def shipments(status: str | None = None, limit: int = 300, offset: int = 0) -> dict:
+    """Lista de envíos, del más reciente al más antiguo. Devuelve `total` (cuántos hay con ese filtro) para que quien la
+    use sepa si está viendo todo o solo una parte: antes se cortaba en 300 sin decirlo."""
     now = _sync()
-    sql, params = "SELECT * FROM mm_shipments", []
+    where, params = "", []
     if status:
-        sql += " WHERE status = ?"
+        where = " WHERE status = ?"
         params.append(status)
-    sql += " ORDER BY departure_at DESC LIMIT ?"
-    params.append(max(1, min(limit, 1000)))
-    rows = run_query(sql, tuple(params)).to_dict(orient="records")
+    total = int(run_query(f"SELECT COUNT(*) AS n FROM mm_shipments{where}", tuple(params)).iloc[0]["n"])
+    limit = max(1, min(limit, 1000))
+    offset = max(0, offset)
+    rows = run_query(f"SELECT * FROM mm_shipments{where} ORDER BY departure_at DESC LIMIT ? OFFSET ?",
+                     tuple(params) + (limit, offset)).to_dict(orient="records")
     signed = delivery.signed_codes()
     items = []
     for r in rows:
@@ -418,7 +467,8 @@ def shipments(status: str | None = None, limit: int = 300) -> dict:
         # Solo tiene sentido en los entregados: firmada o pendiente de firma
         item["delivery_signed"] = (r["shipment_code"] in signed) if item["status"] == "Entregado" else None
         items.append(item)
-    return {"count": len(items), "items": items}
+    return {"count": len(items), "total": total, "limit": limit, "offset": offset,
+            "truncated": offset + len(items) < total, "items": items}
 
 
 def _detail(r: dict, now: datetime) -> dict:
@@ -426,6 +476,7 @@ def _detail(r: dict, now: datetime) -> dict:
     out = S.shipment(r, status_at(r, now), detail=True)
     out["footprint"] = _footprint(json.loads(r["route_json"])["legs"], r["weight_t"])
     out["delivery_signed"] = (r["shipment_code"] in delivery.signed_codes()) if out["status"] == "Entregado" else None
+    out["client_email"] = r.get("client_email")
     return out
 
 
@@ -558,6 +609,40 @@ def shipments_import_template() -> Response:
     return Response(shipments_io.template(),
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": 'attachment; filename="plantilla-envios-westvane.xlsx"'})
+
+
+_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+@app.get("/api/tables/{kind}/export.xlsx")
+def table_export(kind: str) -> Response:
+    """Flota, conductores o inventario completos en Excel, con los encabezados que acepta la carga masiva."""
+    now = _sync()
+    try:
+        data = tables_io.export_xlsx(kind, now)
+    except ops.OperationError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return Response(data, media_type=_XLSX, headers={"Content-Disposition": f'attachment; filename="{kind}-{now:%Y%m%d-%H%M}.xlsx"'})
+
+
+@app.get("/api/tables/{kind}/template.xlsx")
+def table_template(kind: str) -> Response:
+    try:
+        data = tables_io.template(kind)
+    except ops.OperationError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return Response(data, media_type=_XLSX, headers={"Content-Disposition": f'attachment; filename="plantilla-{kind}-westvane.xlsx"'})
+
+
+@app.post("/api/tables/{kind}/import")
+def table_import(kind: str, body: ImportIn) -> dict:
+    """Sin `commit`: valida cada fila. Con `commit`: crea las válidas. Los conductores son datos personales: exige la declaración."""
+    if kind == "conductores" and body.commit and not body.autorizado:
+        raise HTTPException(status_code=422, detail=_NEEDS_AUTH)
+    try:
+        return tables_io.import_table(kind, body.filename, body.content_b64, body.usuario, _sync(), body.commit)
+    except ops.OperationError as exc:
+        _op_error(exc)
 
 
 EventKind = Literal["nota", "retraso", "derrumbe", "paro", "clima", "mecanica", "otro"]
@@ -861,9 +946,36 @@ def toll_import(body: TollImportIn) -> dict:
 
 
 @app.get("/api/audit")
-def audit_log(limit: int = 200, table: str | None = None, record: str | None = None) -> dict:
-    items = ops.audit_entries(limit, table, record)
-    return {"count": len(items), "items": items}
+def audit_log(limit: int = 200, offset: int = 0, table: str | None = None, record: str | None = None,
+              usuario: str | None = None, accion: str | None = None, desde: str | None = None,
+              hasta: str | None = None, q: str | None = None) -> dict:
+    """Historial de cambios. Con `record` es el de un envío (lo usa su ficha); con los demás filtros, la pantalla de auditoría."""
+    data = ops.audit_search(limit, offset, table, record, usuario, accion, desde, hasta, q)
+    return {"count": len(data["items"]), "total": data["total"], "items": data["items"]}
+
+
+@app.get("/api/audit/export.csv")
+def audit_export(limit: int = 1000, offset: int = 0, table: str | None = None, record: str | None = None,
+                 usuario: str | None = None, accion: str | None = None, desde: str | None = None,
+                 hasta: str | None = None, q: str | None = None) -> Response:
+    """El historial con los mismos filtros de la pantalla, en CSV (para abrirlo en Excel)."""
+    import csv
+    import io as _io
+    data = ops.audit_search(limit, offset, table, record, usuario, accion, desde, hasta, q)
+    buf = _io.StringIO()
+    w = csv.writer(buf, delimiter=";", lineterminator="\r\n")
+    w.writerow(["fecha", "usuario", "accion", "tabla", "registro", "detalle"])
+    for e in data["items"]:
+        w.writerow([safe_cell(x) for x in (e["timestamp"], e["username"], e["action"], e["table_name"], e["record_id"] or "", e["detail"] or "")])
+    nombre = f"auditoria-{datetime.now():%Y%m%d}.csv"
+    return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
+@app.get("/api/audit/facets")
+def audit_facets() -> dict:
+    """Usuarios, acciones y tablas que aparecen en el historial, para los filtros."""
+    return ops.audit_facets()
 
 
 # ---------------------------------------------------------------------------
@@ -975,6 +1087,22 @@ def tracking_list(code: str) -> dict:
     _shipment_row(code)
     items = tracking.links(code)
     return {"count": len(items), "items": [{**i, "path": f"/seguimiento/{i['token']}"} for i in items]}
+
+
+class ClientEmailIn(BaseModel):
+    email: str | None = Field(None, max_length=160)
+
+
+@app.put("/api/shipments/{code}/client-email")
+def shipment_client_email(code: str, body: ClientEmailIn, request: Request) -> dict:
+    """Correo del cliente para avisarle cuando el envío sale, se retrasa o llega. Con `email: null` se borra."""
+    user = _require_operator(request)
+    try:
+        return client_notify.set_client_email(code, body.email, user["username"])
+    except LookupError:
+        _not_found(code)
+    except ops.OperationError as exc:
+        _op_error(exc)
 
 
 class TrackingEmailIn(BaseModel):

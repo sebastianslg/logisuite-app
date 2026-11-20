@@ -19,7 +19,10 @@ interface Status {
   database_bytes: number | null;
   attachments_bytes: number | null;
   counts: { shipments: number; users_active: number; audit: number };
+  backup: { at: string; age_h: number; db_bytes: number; adjuntos_bytes: number; copies: number } | null;
   mail_configured: boolean;
+  /** Días que se conserva el historial; 0 = para siempre. */
+  audit_retention_days: number;
   warnings: string[];
 }
 
@@ -120,8 +123,18 @@ export function ServerStatus() {
                 {status.load && <Fact k="Carga (5 min)" v={`${status.load["5"]} de ${status.load.cores} núcleos`} />}
                 <Fact k="Base de datos" v={fmtBytes(status.database_bytes)} />
                 <Fact k="Adjuntos" v={fmtBytes(status.attachments_bytes)} />
+                <Fact
+                  k="Último respaldo"
+                  v={status.backup ? `hace ${status.backup.age_h < 1 ? "menos de 1" : Math.round(status.backup.age_h)} h · ${status.backup.copies} copias` : "Sin registro"}
+                />
                 <Fact k="Envíos" v={status.counts.shipments.toLocaleString("es-CO")} />
                 <Fact k="Correo" v={status.mail_configured ? "Configurado" : "Sin configurar"} />
+                <Fact
+                  k="Historial"
+                  v={`${status.counts.audit.toLocaleString("es-CO")} líneas · ${
+                    status.audit_retention_days ? `${status.audit_retention_days} días` : "sin plazo"
+                  }`}
+                />
               </dl>
             </>
           )}

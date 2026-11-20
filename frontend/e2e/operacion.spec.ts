@@ -130,3 +130,44 @@ test("flota: la orden de trabajo de un mantenimiento se abre como PDF", async ({
   expect((await res.body()).subarray(0, 5).toString()).toBe("%PDF-");
   w.expectClean();
 });
+
+
+test("prueba de entrega: la foto se adjunta con la declaración de autorización", async ({ page, request }) => {
+  const w = watchErrors(page);
+  const list = await (await request.get("/api/shipments?status=Entregado")).json();
+  let code = "";
+  for (const s of list.items as { code: string }[]) {
+    if ((await (await request.get(`/api/shipments/${s.code}/delivery`)).json()).can_record) {
+      code = s.code;
+      break;
+    }
+  }
+  test.skip(!code, "no hay envíos entregados sin entrega registrada");
+
+  await page.goto(`/envios/${code}`);
+  await page.getByRole("button", { name: "Registrar entrega" }).click();
+  const foto = page.getByLabel("Tomar o elegir la foto de la entrega");
+  await expect(foto).toBeAttached();
+
+  // Un PNG de 1×1, como el que manda la cámara
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const archivo = { name: "foto-entrega.png", mimeType: "image/png", buffer: png };
+
+  // Sin la declaración marcada, no sube
+  await foto.setInputFiles(archivo);
+  await expect(page.getByText("Marca que tienes autorización")).toBeVisible();
+
+  await page.getByLabel("Declaro que tengo autorización de las personas que aparezcan en la foto.").check();
+  await foto.setInputFiles(archivo);
+  await expect(page.getByText("foto-entrega.png")).toBeVisible();
+
+  // Se borra el adjunto de prueba para no dejar basura en la base de las pruebas
+  const adjuntos = await (await request.get(`/api/shipments/${code}/attachments`)).json();
+  for (const a of adjuntos.items as { attachment_id: number; filename: string }[]) {
+    if (a.filename === "foto-entrega.png") await request.delete(`/api/shipments/${code}/attachments/${a.attachment_id}`);
+  }
+  w.expectClean();
+});

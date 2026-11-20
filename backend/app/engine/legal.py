@@ -19,7 +19,7 @@ import re
 import secrets
 
 from app.database.db import run_query, run_write
-from app.engine.common import OperationError, _now_iso, _user, audit, records
+from app.engine.common import OperationError, _now_iso, _user, audit, records, safe_cell
 
 # Documentos y declaraciones que se pueden aceptar, con su versión vigente (fecha del texto)
 VERSIONS: dict[str, str] = {
@@ -133,7 +133,7 @@ def export_csv() -> str:
     w = csv.DictWriter(buf, fieldnames=cols)
     w.writeheader()
     for r in rows:
-        w.writerow({k: r.get(k) for k in cols})
+        w.writerow({k: safe_cell(r.get(k)) for k in cols})
     return buf.getvalue()
 
 

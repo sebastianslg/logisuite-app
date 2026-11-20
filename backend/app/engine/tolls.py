@@ -16,7 +16,7 @@ from datetime import datetime
 import pandas as pd
 
 from app.database.db import run_query, run_write
-from app.engine.common import OperationError, audit
+from app.engine.common import OperationError, audit, safe_cell
 
 COLUMNAS_OBLIGATORIAS = {"link_id", "peaje_cop"}
 COLUMNAS_EXPORTACION = ["link_id", "corredor", "origen", "destino", "distancia_km", "peaje_cop", "nota", "fuente"]
@@ -99,7 +99,8 @@ def export_csv() -> str:
          "nota": t["tolls_note"] or "", "fuente": t["tolls_source"] or ""}
         for t in list_tolls()
     ]
-    return pd.DataFrame(filas, columns=COLUMNAS_EXPORTACION).to_csv(index=False)
+    df = pd.DataFrame(filas, columns=COLUMNAS_EXPORTACION)
+    return df.apply(lambda col: col.map(safe_cell)).to_csv(index=False)
 
 
 def _texto(value) -> str | None:

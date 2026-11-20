@@ -8,6 +8,7 @@ import { Check, LoaderCircle, Pencil, Plus, Trash2, UserRound } from "lucide-rea
 import { useApp } from "@/components/providers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TableIO } from "@/components/ui/table-io";
 import { Sheet } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
 import { api } from "@/lib/client";
@@ -73,7 +74,10 @@ export function DriversBoard({ drivers }: { drivers: Driver[] }) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">{drivers.length} conductores · {drivers.filter((d) => d.license_state !== "Vigente").length} con la licencia por vencer o vencida</p>
-        <Button size="sm" onClick={() => open("new")}><Plus /> Nuevo conductor</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <TableIO kind="conductores" />
+          <Button size="sm" onClick={() => open("new")}><Plus /> Nuevo conductor</Button>
+        </div>
       </div>
       {error && !editing && <ErrorBanner message={error} />}
       <ul className="glass -ml-px grid overflow-hidden rounded-3xl md:grid-cols-2">

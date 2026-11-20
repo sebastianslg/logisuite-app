@@ -14,7 +14,10 @@ KEEP=14
 # Crea un chequeo diario allí y pon su URL en .env como HC_PING_URL=https://hc-ping.com/<uuid>.
 HC_PING_URL=$(grep -E '^HC_PING_URL=' "${APP_DIR}/.env" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"' || true)
 ping_hc() { [ -n "${HC_PING_URL}" ] && curl -fsS -m 10 --retry 2 "${HC_PING_URL}$1" >/dev/null 2>&1 || true; }
-trap 'ping_hc /fail' ERR
+# Si hay NTFY_TOPIC (el mismo del healthcheck), un fallo también llega al celular
+NTFY_TOPIC=$(grep -E '^NTFY_TOPIC=' "${APP_DIR}/.env" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"' || true)
+ntfy_fail() { [ -n "${NTFY_TOPIC}" ] && curl -fsS -m 10 -H "Title: Westvane: fallo el respaldo" -H "Priority: high" -d "$1" "https://ntfy.sh/${NTFY_TOPIC}" >/dev/null 2>&1 || true; }
+trap 'ping_hc /fail; ntfy_fail "El respaldo diario fallo. Revisa el servidor."' ERR
 
 mkdir -p "${DEST}"
 [ -f "${DB}" ] || { echo "No existe ${DB}"; exit 0; }
@@ -48,6 +51,7 @@ if [ "${ok}" != "ok" ]; then
   rm -f "${OUT}"
   echo "[$(date -Is)] ERROR: el respaldo ${STAMP} no pasó la revisión de integridad (${ok:-sin respuesta})" >&2
   ping_hc /fail
+  ntfy_fail "El respaldo ${STAMP} no paso la revision de integridad."
   exit 1
 fi
 gzip -f "${OUT}"
@@ -68,5 +72,12 @@ fi
 { ls -1t "${DEST}"/logistics-*.db.gz 2>/dev/null || true; } | tail -n +$((KEEP + 1)) | xargs -r rm -f
 { ls -1t "${DEST}"/adjuntos-*.tar.gz 2>/dev/null || true; } | tail -n +$((KEEP + 1)) | xargs -r rm -f
 { ls -1t "${DEST}"/env-*.bak 2>/dev/null || true; } | tail -n +$((KEEP + 1)) | xargs -r rm -f
+# 5) Marca del último respaldo bueno: la app la lee para mostrarla en Configuración y avisar si pasan más de 36 h sin otro
+size() { stat -c %s "$1" 2>/dev/null || echo 0; }
+DB_BYTES=$(size "${DEST}/logistics-${STAMP}.db.gz")
+ADJ_BYTES=$(size "${DEST}/adjuntos-${STAMP}.tar.gz")
+COPIAS=$({ ls -1 "${DEST}"/logistics-*.db.gz 2>/dev/null || true; } | wc -l)
+printf '{"at": %s, "db_bytes": %s, "adjuntos_bytes": %s, "copies": %s}\n' "$(date +%s)" "${DB_BYTES}" "${ADJ_BYTES}" "${COPIAS}" > "${DATA}/.ultimo-respaldo.tmp"
+chmod 644 "${DATA}/.ultimo-respaldo.tmp" && mv -f "${DATA}/.ultimo-respaldo.tmp" "${DATA}/.ultimo-respaldo"
 echo "[$(date -Is)] respaldo ${STAMP} listo ($(du -sh "${DEST}" | cut -f1) en ${DEST})"
 ping_hc ""

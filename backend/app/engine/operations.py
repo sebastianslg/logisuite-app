@@ -47,6 +47,50 @@ MODES = ("terrestre", "fluvial", "maritimo", "aereo", "ferreo")
 # ---------------------------------------------------------------------------
 
 
+def audit_search(limit: int = 200, offset: int = 0, table: str | None = None, record: str | None = None,
+                 usuario: str | None = None, accion: str | None = None, desde: str | None = None,
+                 hasta: str | None = None, q: str | None = None) -> dict:
+    """Historial con filtros (usuario, acción, tabla, registro, fechas y texto) y el total de lo que cumple.
+
+    Las fechas van como AAAA-MM-DD y se interpretan en días completos: `desde` incluye ese día y `hasta` también."""
+    where, params = ["1=1"], []
+    if table:
+        where.append("table_name = ?")
+        params.append(table)
+    if record:
+        where.append("record_id = ?")
+        params.append(record)
+    if usuario:
+        where.append("username = ?")
+        params.append(usuario)
+    if accion:
+        where.append("action = ?")
+        params.append(accion)
+    if desde:
+        where.append("timestamp >= ?")
+        params.append(f"{desde}T00:00:00")
+    if hasta:
+        where.append("timestamp <= ?")
+        params.append(f"{hasta}T23:59:59")
+    if q:
+        where.append("(detail LIKE ? OR record_id LIKE ?)")
+        params.extend([f"%{q}%", f"%{q}%"])
+    clause = " AND ".join(where)
+    total = int(run_query(f"SELECT COUNT(*) AS n FROM audit_log WHERE {clause}", tuple(params)).iloc[0]["n"])
+    rows = run_query(f"SELECT * FROM audit_log WHERE {clause} ORDER BY audit_id DESC LIMIT ? OFFSET ?",
+                     tuple(params) + (max(1, min(limit, 1000)), max(0, offset)))
+    return {"total": total, "items": rows.to_dict(orient="records")}
+
+
+def audit_facets() -> dict:
+    """Valores para los filtros: quiénes aparecen, qué acciones y qué tablas, con cuántas líneas cada uno."""
+    def por(columna: str) -> list:
+        rows = run_query(f"SELECT {columna} AS v, COUNT(*) AS n FROM audit_log GROUP BY {columna} ORDER BY n DESC")
+        return [{"value": r["v"], "count": int(r["n"])} for r in rows.to_dict(orient="records") if r["v"]]
+
+    return {"usuarios": por("username"), "acciones": por("action"), "tablas": por("table_name")}
+
+
 def audit_entries(limit: int = 200, table: str | None = None, record: str | None = None) -> list:
     sql, params = "SELECT * FROM audit_log WHERE 1=1", []
     if table:

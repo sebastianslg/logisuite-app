@@ -185,3 +185,34 @@ test("Configuración: el estado del servidor es solo para administradores", asyn
   await expect(page.getByText("Base de datos", { exact: true })).toBeVisible();
   watch.expectClean();
 });
+
+
+test("aviso al cliente: se guarda y se borra el correo desde la ficha del envío", async ({ page, request }) => {
+  const watch = watchErrors(page);
+  const list = await (await request.get("/api/shipments?limit=1")).json();
+  const code = list.items[0].code as string;
+  await page.goto(`/envios/${code}`);
+
+  const campo = page.getByLabel("Avisar al cliente por correo (opcional)");
+  await expect(campo).toBeVisible();
+  await expect(page.getByText("Inicia sesión como operador para guardarlo.")).toBeVisible();
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const moreBtn = page.getByRole("button", { name: "Más", exact: true });
+  await expect(moreBtn).toBeVisible();
+  await moreBtn.click();
+  await page.getByRole("button", { name: /ingresar con código al correo/i }).click();
+  await page.getByLabel("Correo electrónico").fill("admin@westvane.invalid");
+  await page.getByRole("button", { name: /enviar código/i }).click();
+  await page.getByRole("button", { name: /usar código/i }).click();
+  await page.getByRole("button", { name: /^ingresar$/i }).click();
+
+  await campo.fill("cliente.prueba@ejemplo.com");
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(page.getByText("Se le avisará cuando salga, se retrase o llegue.")).toBeVisible();
+
+  await campo.fill("");
+  await page.getByRole("button", { name: "Actualizar" }).click();
+  await expect(page.getByText("Déjalo vacío para no avisarle.")).toBeVisible();
+  watch.expectClean();
+});

@@ -4,12 +4,14 @@ Avisos al celular con ntfy (app gratuita, sin cuenta) cuando pasa algo que pide 
 o el cierre de una vía o de un nodo con envíos afectados.
 
 - Solo si hay NTFY_TOPIC en el entorno (el mismo de deploy/healthcheck.sh). Sin él, no hace nada.
-- Se envía en un hilo aparte: la respuesta de la API no espera a ntfy y un fallo de red no rompe la operación.
+- Se envía en un hilo aparte: la respuesta de la API no espera a ntfy y un fallo de red no rompe la operación. Los hilos
+  pendientes se esperan al cerrar el proceso (`drenar`), para que un aviso no se pierda si el programa es corto.
 - El tema de ntfy es público para quien conozca su nombre: usa uno difícil de adivinar. Los avisos llevan
   códigos de envío y ciudades, nunca datos de personas.
 """
 from __future__ import annotations
 
+import atexit
 import json
 import os
 import threading
@@ -24,6 +26,10 @@ def enabled() -> bool:
 
 _PRIORITY = {"default": 3, "high": 4}
 
+# Hilos de envío en curso: se guardan para poder esperarlos al cerrar el proceso
+_pendientes: set = set()
+_candado = threading.Lock()
+
 
 def _post(topic: str, title: str, message: str, tags: str, priority: str, click: str | None) -> None:
     # Publicación en JSON: admite tildes y eñes en el título (los encabezados HTTP no)
@@ -36,6 +42,9 @@ def _post(topic: str, title: str, message: str, tags: str, priority: str, click:
         urllib.request.urlopen(req, timeout=8).close()
     except Exception:
         pass  # sin red o ntfy caído: el aviso se pierde, la operación sigue
+    finally:
+        with _candado:
+            _pendientes.discard(threading.current_thread())
 
 
 def send(title: str, message: str, tags: str = "warning", priority: str = "default", path: str | None = None) -> bool:
@@ -45,5 +54,23 @@ def send(title: str, message: str, tags: str = "warning", priority: str = "defau
         return False
     domain = os.environ.get("DOMAIN", "").strip()
     click = f"https://{domain}{path}" if domain and path else None
-    threading.Thread(target=_post, args=(topic, title, message[:400], tags, priority, click), daemon=True).start()
+    t = threading.Thread(target=_post, args=(topic, title, message[:400], tags, priority, click), daemon=True)
+    with _candado:
+        _pendientes.add(t)
+    t.start()
     return True
+
+
+def drenar(timeout: float = 5.0) -> int:
+    """Espera a que terminen los envíos en curso (hasta `timeout` segundos). Devuelve cuántos quedaban.
+
+    Se llama sola al cerrar el proceso: sin esto, un programa corto (una prueba, un comando suelto) termina antes de
+    que el hilo alcance a publicar, y el aviso se pierde aunque `send` haya dicho que sí."""
+    with _candado:
+        vivos = [t for t in _pendientes if t.is_alive()]
+    for t in vivos:
+        t.join(timeout)
+    return len(vivos)
+
+
+atexit.register(drenar)
