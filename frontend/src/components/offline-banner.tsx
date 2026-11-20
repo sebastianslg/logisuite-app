@@ -8,9 +8,14 @@ import { cn } from "@/lib/utils";
 function subscribe(cb: () => void) {
   window.addEventListener("online", cb);
   window.addEventListener("offline", cb);
+  // Red de seguridad: al volver a la pestaña se relee el estado. Hay navegadores que pierden el evento tras dormir el equipo.
+  window.addEventListener("focus", cb);
+  document.addEventListener("visibilitychange", cb);
   return () => {
     window.removeEventListener("online", cb);
     window.removeEventListener("offline", cb);
+    window.removeEventListener("focus", cb);
+    document.removeEventListener("visibilitychange", cb);
   };
 }
 

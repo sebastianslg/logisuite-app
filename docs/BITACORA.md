@@ -1252,3 +1252,19 @@ contra una base temporal. **Nada de esto llegó a producción.**
     pasar de unos 500.
   - *Búsqueda global:* ya existía (Ctrl K, con envíos, ciudades, vehículos, bodegas y vías). *Límite de intentos del código:* ya
     existía (5 por código, 1 código por minuto).
+
+## 55. Cierre del pulido: prueba del aviso sin conexión, verificación más estricta y lista de pendientes al día
+
+- **Verificación de todo el lote del 19 de noviembre:** 315 pruebas de la API y 37 de navegador, en verde. `tsc`, `eslint` y
+  build limpios.
+- **Aviso «sin conexión» intermitente en las pruebas:** fallaba 1 de cada varias corridas porque el corte de red llegaba antes de
+  que la página terminara de hidratar, y el evento se perdía. Se corrigió en los dos lados:
+  - el componente también relee el estado al volver a la pestaña (`focus` y `visibilitychange`), que además cubre el caso real de
+    un portátil que se durmió;
+  - la prueba espera a que la app esté hidratada antes de cortar la red.
+- **`deploy/verificar.sh` más estricto:** comprueba también el Excel de vehículos, la plantilla de conductores, `/api/tolls`,
+  `/offline.html` y **la marca del último respaldo** (`.ultimo-respaldo`), que es lo que vigila la app. 34 comprobaciones, todas
+  en verde contra producción.
+- **`AGENTS.md`:** la lista de pendientes decía que faltaban cosas ya hechas (roles, avisos, auditoría). Reescrita: lo hecho, lo
+  que espera datos del dueño y lo que hay que vigilar.
+- Pruebas: 315 de la API y 37 de navegador.

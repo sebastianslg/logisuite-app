@@ -43,6 +43,8 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     `deploy/probar-restauracion.sh` (ensayo de restauración en un contenedor aparte, sin tocar producción).
   - **Historial** firmado con la cuenta de la sesión; **estado del servidor** en Configuración; **orden de trabajo en PDF** para
     mantenimientos; **avisos al celular (ntfy)** recuperados (el tema vive solo en el `.env` del servidor).
+  - **Cierre del pulido (sección 55):** aviso sin conexión endurecido (relee al volver a la pestaña), `verificar.sh` con las
+    rutas nuevas y la marca del respaldo, y la lista de pendientes de `AGENTS.md` reescrita.
   - **Lote del 19 de noviembre (sección 54):** respaldo vigilado (marca `.ultimo-respaldo` + aviso a las 36 h), flota/conductores/
     inventario en Excel (exportar y cargar), reporte mensual opcional, protección contra fórmulas en Excel/CSV, Next 16.4.6,
     modo sin conexión prudente (solo estáticos).
@@ -63,5 +65,5 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
   - Roles que limiten acciones: espera decisión del dueño (obligaría a iniciar sesión a todos).
   - Política de privacidad con abogado; secretos de GitHub para el despliegue automático; dominio propio y Cloudflare;
     PostgreSQL cuando haya varios usuarios a la vez.
-- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **305 pruebas de la API**; **34 de navegador** (incluye
-  accesibilidad). En el servidor, `bash deploy/verificar.sh`.
+- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **315 pruebas de la API**; **37 de navegador** (incluye
+  accesibilidad). En el servidor, `bash deploy/verificar.sh` (34 comprobaciones).

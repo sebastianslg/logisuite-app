@@ -24,6 +24,8 @@ test("bodegas: la exportación del inventario descarga un Excel", async ({ page 
 
 test("sin conexión aparece el aviso y se va al volver la red", async ({ page, context }) => {
   await page.goto("/");
+  // Con la página hidratada: si se corta la red antes, el aviso no alcanza a escuchar el evento
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   const banner = page.getByRole("status").filter({ hasText: /Sin conexión/ });
   await expect(banner).toHaveCount(0);
   await context.setOffline(true);
