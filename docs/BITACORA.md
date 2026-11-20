@@ -1268,3 +1268,17 @@ contra una base temporal. **Nada de esto llegó a producción.**
 - **`AGENTS.md`:** la lista de pendientes decía que faltaban cosas ya hechas (roles, avisos, auditoría). Reescrita: lo hecho, lo
   que espera datos del dueño y lo que hay que vigilar.
 - Pruebas: 315 de la API y 37 de navegador.
+
+### Despliegue del cierre y aligerado de la lista
+
+- **Desplegado** (`0872674`) con respaldo previo y las **34 comprobaciones** de `verificar.sh` en verde.
+- **Pase visual** de Flota, Conductores, Bodegas y Configuración en claro y oscuro, escritorio y celular: coherente, sin
+  desbordes. Se corrigió una inconsistencia que había introducido yo: las fechas de `/auditoria` salían en ISO y ahora van en
+  formato español, como el resto.
+- **La lista de envíos pesaba de más:** al mostrar los 427 envíos (antes cortaba en 300) la respuesta llegó a **763 KB**. Se
+  encontró que cada envío llevaba `vehicles` (el resumen de los vehículos de **todos** los tramos), que **ninguna pantalla de
+  lista usa**: solo la ficha. Ahora va solo en el detalle: la respuesta baja un **20 %** (medido: 45,8 KB → 36,7 KB en la base
+  de prueba).
+- **Prueba de carga después del despliegue** (8 personas, 30 s): páginas mediana 822 ms y p95 3.012 ms; API mediana 406 ms y p95
+  515 ms; 0 errores. `/envios` sigue siendo la más lenta (1,7 s de mediana) por el tamaño de la tabla; el aligerado baja el
+  peso, y si el domingo hace falta más, el siguiente paso es paginar del lado del servidor.
