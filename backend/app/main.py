@@ -55,7 +55,7 @@ from app.api import guard
 from app.api import serializers as S
 from app.database.db import run_query, run_write
 from app.data.colombia_ciudades import category_of
-from app.engine import (auth_otp, client_notify, clients, delivery, mail, notify, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
+from app.engine import (auth_otp, client_notify, clients, delivery, demo, mail, notify, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
                         shipments_io, sustainability as SU, tables_io, telemetry, tolls, tracking, trends, warehouses, xlsx)
 from app.engine.common import SESSION_USER, purge_old_audit, safe_cell
 from app.engine.dispatch import status_at
@@ -90,7 +90,9 @@ _cache_version = 0
 _cache_lock = threading.Lock()
 _inflight: dict[str, "asyncio.Future"] = {}
 # Lecturas que no se cachean: salud, PDF y archivos generados
-_NO_CACHE = ("/api/health", "/api/client-errors", "/api/exports/", "/api/tolls/export", "/api/reports/", "/api/shipments/import/")
+_NO_CACHE = ("/api/health", "/api/client-errors", "/api/exports/", "/api/tolls/export", "/api/reports/", "/api/shipments/import/",
+             # Cuentas, administración y datos personales: la respuesta depende de quién pide y no se comparte nunca
+             "/api/auth/", "/api/admin/", "/api/companies", "/api/system/", "/api/demo-requests", "/api/consents")
 
 
 def _bump_cache() -> None:
@@ -230,7 +232,10 @@ async def read_cache(request: Request, call_next):
         if request.method in ("POST", "PUT", "DELETE"):
             _bump_cache()
         return response
-    if CACHE_TTL_S <= 0 or not path.startswith("/api/") or path.startswith(_NO_CACHE) or path.endswith("/pdf"):
+    # Con sesión (token portador) no se guarda ni se sirve de la caché: la clave es solo la ruta, y lo que ve una cuenta no
+    # puede llegarle a otra persona que pida lo mismo en los segundos siguientes
+    if (CACHE_TTL_S <= 0 or not path.startswith("/api/") or path.startswith(_NO_CACHE) or path.endswith("/pdf")
+            or request.headers.get("authorization")):
         return await call_next(request)
     key = f"{path}?{request.url.query}"
     hit = _cache.get(key)
@@ -1691,6 +1696,67 @@ def _require_admin(request: Request) -> dict:
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Solo un administrador puede administrar usuarios y empresas.")
     return user
+
+
+# ---------------------------------------------------------------------------
+# Solicitudes de demostración (desde la presentación pública en /)
+# ---------------------------------------------------------------------------
+class DemoIn(BaseModel):
+    name: str = Field("", max_length=200)
+    company: str = Field("", max_length=300)
+    email: str = Field("", max_length=300)
+    phone: str | None = Field(None, max_length=60)
+    role: str | None = Field(None, max_length=200)
+    fleet_size: str | None = Field(None, max_length=60)
+    message: str | None = Field(None, max_length=4000)
+    accepted: bool = False
+    # Campo trampa para robots: el formulario lo esconde; si llega con algo, la solicitud se descarta en silencio
+    website: str | None = Field(None, max_length=300)
+
+
+@app.get("/api/demo-requests/form")
+def demo_form() -> dict:
+    """Lo que el formulario necesita: el texto exacto de la autorización y las opciones de tamaño de flota."""
+    return {"consent_text": demo.CONSENT_TEXT, "fleet_sizes": list(demo.FLEET_SIZES)}
+
+
+@app.post("/api/demo-requests", status_code=201)
+def demo_submit(body: DemoIn, request: Request) -> dict:
+    ip = guard.client_key(request.headers.get("x-forwarded-for"), request.client.host if request.client else None)
+    try:
+        return demo.submit(body.model_dump(), ip, datetime.now())
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
+@app.get("/api/demo-requests")
+def demo_list(request: Request) -> dict:
+    _require_admin(request)
+    items = demo.list_requests()
+    return {"count": len(items), "pending": sum(1 for i in items if not i["handled_at"]), "items": items}
+
+
+class DemoHandledIn(BaseModel):
+    handled: bool = True
+
+
+@app.put("/api/demo-requests/{request_id}/handled")
+def demo_handled(request_id: int, body: DemoHandledIn, request: Request) -> dict:
+    admin = _require_admin(request)
+    try:
+        return demo.set_handled(request_id, body.handled, admin["username"], datetime.now())
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+
+
+@app.delete("/api/demo-requests/{request_id}")
+def demo_delete(request_id: int, request: Request) -> dict:
+    admin = _require_admin(request)
+    try:
+        demo.delete(request_id, admin["username"])
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    return {"deleted": request_id}
 
 
 @app.get("/api/companies")

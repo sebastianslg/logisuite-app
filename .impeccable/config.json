@@ -1,0 +1,32 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-11-21T13:24:08.627Z",
+        "reason": "Brand commitment en PRODUCT.md: solo Inter Variable, fuente elegida por el dueño"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/jornada.html"
+        ],
+        "createdAt": "2026-11-21T13:24:08.997Z",
+        "reason": "Boceto de decisión descartado (la jornada no se eligió); no se publica"
+      },
+      {
+        "rule": "repeated-container-text",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/logo/opciones.html"
+        ],
+        "createdAt": "2026-11-21T13:24:09.343Z",
+        "reason": "Hoja de comparación de logos: el nombre se repite a propósito para ver cada tamaño; no se publica"
+      }
+    ]
+  }
+}

@@ -37,6 +37,7 @@ import { rememberCode } from "@/components/shipments/shared-code";
 import { OPEN_SHORTCUTS_EVENT } from "@/components/shell/shortcuts";
 import { useApp } from "@/components/providers";
 import { usePrefs } from "@/lib/prefs";
+import { isPublicPath } from "@/components/shell/shell-only";
 import { cn } from "@/lib/utils";
 
 interface Item {
@@ -84,6 +85,7 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
   // Atajos globales: Ctrl/⌘ + K, y "/" fuera de los campos de texto
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (isPublicPath(window.location.pathname)) return; // la búsqueda es de la app, no de las páginas públicas
       const typing = /INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement)?.tagName ?? "") ||
         (e.target as HTMLElement)?.isContentEditable;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -135,7 +137,7 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
 
   const items = useMemo<Item[]>(() => {
     const base: Item[] = [
-      { id: "p-home", group: "Ir a", label: "Dashboard", icon: LayoutDashboard, run: go("/") },
+      { id: "p-home", group: "Ir a", label: "Resumen", icon: LayoutDashboard, run: go("/panel") },
       { id: "p-env", group: "Ir a", label: "Envíos", icon: Package, run: go("/envios") },
       { id: "p-red", group: "Ir a", label: "Red multimodal", icon: Network, run: go("/red") },
       { id: "p-fuel", group: "Ir a", label: "Combustible", icon: Fuel, run: go("/combustible") },

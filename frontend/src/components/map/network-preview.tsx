@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 
 import { MODES } from "@/lib/modes";
-import type { DepartmentsGeo, FleetLive, NetworkGeo } from "@/lib/types";
+import type { DepartmentsGeo, FleetLive, Mode, NetworkGeo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type Ring = number[][];
@@ -18,11 +18,14 @@ export function NetworkPreview({
   network,
   departments,
   fleet,
+  focus = null,
   className,
 }: {
   network: NetworkGeo;
   departments: DepartmentsGeo;
   fleet?: FleetLive | null;
+  /** Modo resaltado: sus enlaces y nodos quedan plenos y el resto se atenúa (solo opacidad). Lo usa la presentación. */
+  focus?: Mode | null;
   className?: string;
 }) {
   const geo = useMemo(() => {
@@ -67,6 +70,7 @@ export function NetworkPreview({
       x: px(f.geometry.coordinates[0]),
       y: py(f.geometry.coordinates[1]),
       mode: f.properties.modes[0],
+      modes: f.properties.modes,
       name: f.properties.name,
     }));
     return { W, H, depts, links, nodes, px, py };
@@ -76,6 +80,9 @@ export function NetworkPreview({
   // Los vuelos van encima: se dibujan al final
   const order = (m: string) => (m === "aereo" ? 1 : 0);
   const links = [...geo.links].sort((a, b) => order(a.mode) - order(b.mode));
+  // Con un modo resaltado, lo demás baja a un 12 %: se sigue leyendo la red, pero el ojo va al modo
+  const dim = (on: boolean) => ({ opacity: focus && !on ? 0.12 : 1 });
+  const fade = "transition-opacity duration-500 ease-[var(--ease-apple)] motion-reduce:transition-none";
 
   return (
     <svg
@@ -95,6 +102,8 @@ export function NetworkPreview({
           <path
             key={l.id}
             d={l.d}
+            className={fade}
+            style={dim(l.mode === focus)}
             stroke={l.closed ? "var(--danger)" : MODES[l.mode].color}
             strokeWidth={l.mode === "aereo" ? 1 : 1.6}
             strokeOpacity={l.mode === "aereo" ? 0.55 : 0.9}
@@ -108,7 +117,7 @@ export function NetworkPreview({
       {/* Puntos de tamaño fijo en pantalla: un trazo de largo cero con extremo redondo y grosor que no escala */}
       <g strokeLinecap="round">
         {geo.nodes.map((n) => (
-          <g key={n.code}>
+          <g key={n.code} className={fade} style={dim(!!focus && n.modes.includes(focus))}>
             <path d={`M${n.x.toFixed(1)},${n.y.toFixed(1)}h0`} stroke="var(--card)" strokeWidth={7} vectorEffect="non-scaling-stroke" />
             <path d={`M${n.x.toFixed(1)},${n.y.toFixed(1)}h0`} stroke={MODES[n.mode]?.color ?? "var(--muted-foreground)"} strokeWidth={4.5} vectorEffect="non-scaling-stroke">
               <title>{n.name}</title>
@@ -121,7 +130,7 @@ export function NetworkPreview({
         {assets.map((a) => {
           const d = `M${geo.px(a.lon).toFixed(1)},${geo.py(a.lat).toFixed(1)}h0`;
           return (
-            <g key={a.id}>
+            <g key={`${a.id}-${a.shipment_code}`} className={fade} style={dim(a.mode === focus)}>
               <path d={d} stroke={MODES[a.mode].color} strokeOpacity={0.22} strokeWidth={16} vectorEffect="non-scaling-stroke" />
               <path d={d} stroke="var(--card)" strokeWidth={9} vectorEffect="non-scaling-stroke" />
               <path d={d} stroke={MODES[a.mode].color} strokeWidth={6.5} vectorEffect="non-scaling-stroke">

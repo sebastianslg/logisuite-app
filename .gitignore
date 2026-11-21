@@ -13,3 +13,10 @@ graphify-out/
 # Pruebas de navegador (Playwright)
 frontend/test-results/
 frontend/playwright-report/
+
+# Impeccable: bocetos, estado de la página de decisión y capturas de revisión son de trabajo local
+.impeccable/mocks/
+.impeccable/questions/
+.impeccable/review/
+.impeccable/config.local.json
+.impeccable/hook.cache.json

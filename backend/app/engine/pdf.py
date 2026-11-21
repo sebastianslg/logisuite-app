@@ -194,8 +194,42 @@ def shipment_story(s: dict, money: Money, now: datetime, st: dict) -> list:
     return out
 
 
+BRAND_BLUE = colors.HexColor("#0071e3")
+# La W de la marca (frontend/src/app/icon.svg) en su cuadro de 512: ruta, nodos de origen y destino y el de transbordo
+_W_ROUTE = ((122, 172), (194, 344), (256, 226), (318, 344), (390, 172))
+
+
+def _brand(canvas, x: float, top: float, size: float = 5.2 * mm) -> None:
+    """Marca y nombre arriba a la izquierda de cada página, dibujados en vectores (se ven nítidos al imprimir)."""
+    k = size / 512
+    y = top - size
+    canvas.saveState()
+    canvas.setFillColor(BRAND_BLUE)
+    canvas.roundRect(x, y, size, size, 112 * k, stroke=0, fill=1)
+    pt = lambda px, py: (x + px * k, y + size - py * k)  # noqa: E731 (el SVG mide desde arriba; el PDF, desde abajo)
+    canvas.setStrokeColor(colors.white)
+    canvas.setLineWidth(34 * k)
+    canvas.setLineCap(1)
+    canvas.setLineJoin(1)
+    path = canvas.beginPath()
+    path.moveTo(*pt(*_W_ROUTE[0]))
+    for p in _W_ROUTE[1:]:
+        path.lineTo(*pt(*p))
+    canvas.drawPath(path, stroke=1, fill=0)
+    canvas.setFillColor(colors.white)
+    for px, py in (_W_ROUTE[0], _W_ROUTE[-1]):
+        canvas.circle(*pt(px, py), 30 * k, stroke=0, fill=1)
+    canvas.setFillColor(BRAND_BLUE)
+    canvas.circle(*pt(*_W_ROUTE[2]), 14 * k, stroke=0, fill=1)
+    canvas.setFillColor(colors.HexColor("#1d1d1f"))
+    canvas.setFont("Helvetica-Bold", 9)
+    canvas.drawString(x + size + 2 * mm, y + size / 2 - 3.1, "Westvane")
+    canvas.restoreState()
+
+
 def _footer(generated: str):
     def draw(canvas, doc):
+        _brand(canvas, doc.leftMargin, doc.pagesize[1] - 5 * mm)
         canvas.saveState()
         canvas.setFont("Helvetica", 7)
         canvas.setFillColor(MUTED)

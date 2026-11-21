@@ -46,7 +46,7 @@ test("importar envíos: vista previa sin guardar", async ({ page }) => {
 
 test("modo presentación y metodología", async ({ page }) => {
   const w = watchErrors(page);
-  await page.goto("/");
+  await page.goto("/panel");
   await page.getByRole("button", { name: "Presentar" }).click();
   const dialog = page.getByRole("dialog", { name: "Modo presentación" });
   await expect(dialog.getByText("Envíos en ruta")).toBeVisible();

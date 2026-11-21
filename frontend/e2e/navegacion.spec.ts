@@ -11,9 +11,9 @@ test("todas las páginas cargan sin errores", async ({ page }) => {
 
 test("el dock navega, el menú Más se cierra con Escape y Ctrl K abre la búsqueda", async ({ page }) => {
   const w = watchErrors(page);
-  await page.goto("/");
+  await page.goto("/panel");
   const nav = page.getByRole("navigation", { name: "Navegación principal", exact: true });
-  for (const [label, url] of [["Envíos", /\/envios$/], ["Flota", /\/flota$/], ["Resumen", /\/$/]] as const) {
+  for (const [label, url] of [["Envíos", /\/envios$/], ["Flota", /\/flota$/], ["Resumen", /\/panel$/]] as const) {
     await nav.getByRole("link", { name: label, exact: true }).click();
     await expect(page).toHaveURL(url);
   }
@@ -49,7 +49,7 @@ test("volver a una página con el mapa ya montado no congela la página", async 
 
 test("el resumen muestra la red en plano y el mapa 3D solo al pedirlo", async ({ page }) => {
   const w = watchErrors(page);
-  await page.goto("/");
+  await page.goto("/panel");
   await expect(page.locator('svg[aria-label^="Red multimodal"]')).toBeVisible();
   await expect(page.locator(".maplibregl-canvas")).toHaveCount(0);
   await page.getByRole("radiogroup", { name: "Vista del mapa" }).getByRole("radio", { name: "3D" }).click();

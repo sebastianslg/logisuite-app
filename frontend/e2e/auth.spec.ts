@@ -3,7 +3,7 @@ import { expect, test, watchErrors } from "./helpers";
 test.describe("Autenticación sin contraseña por correo (OTP)", () => {
   test("flujo completo: solicitar código, ingresar código y cerrar sesión", async ({ page }) => {
     const watch = watchErrors(page);
-    await page.goto("/");
+    await page.goto("/panel");
     await page.waitForLoadState("domcontentloaded");
 
     // Abrir el popover de "Más" en el dock para ver el acceso de cuenta

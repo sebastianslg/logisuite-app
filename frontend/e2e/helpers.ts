@@ -50,6 +50,7 @@ export async function noHorizontalOverflow(page: Page) {
 
 export const PAGES = [
   "/",
+  "/panel",
   "/envios",
   "/envios/nuevo",
   "/hoy",

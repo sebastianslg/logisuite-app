@@ -549,6 +549,13 @@
   }
 }
 
+/* Páginas públicas sin dock (la presentación en /): el <main> del layout no reserva el espacio del dock. Descendiente y no
+   hijo directo: template.tsx envuelve cada página. */
+main:has([data-public-page]) {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 /* Vista previa de la red (resumen): aparece con un fundido corto al llegar los datos */
 .preview-in {
   animation: fade-in 0.4s var(--ease-apple) both;

@@ -1,122 +1,116 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { ArrowUpRight, FileText } from "lucide-react";
+import type { Metadata } from "next";
 
-import { Attention } from "@/components/dashboard/attention";
-import { BentoCell, BentoGrid } from "@/components/dashboard/bento";
-import { HeroFigures } from "@/components/dashboard/hero-figures";
-import { PresentButton } from "@/components/dashboard/presentation";
-import { Button } from "@/components/ui/button";
-import { CorridorsCell, DispatchCell, ModalSplitCell } from "@/components/dashboard/chart-cells";
-import { LiveFleet } from "@/components/dashboard/live-fleet";
-import { NetworkMapCard } from "@/components/dashboard/network-map-card";
-import { StatusBreakdown } from "@/components/dashboard/status-breakdown";
-import { PageHeader, Skeleton } from "@/components/page-header";
-import { apiGet } from "@/lib/api";
-import type { DashboardSummary, FleetLive, SustainabilitySummary } from "@/lib/types";
+import { DemoForm } from "@/components/landing/demo-form";
+import { NetworkStory, type Closure, type ModeStat } from "@/components/landing/network-story";
+import { RouteTry } from "@/components/landing/route-try";
+import { DemoSection, Faq, Intro, LandingFooter, LandingHeader, Modules, Trust } from "@/components/landing/sections";
+import { apiGet, apiPost } from "@/lib/api";
+import type { DashboardSummary, DepartmentsGeo, FleetLive, Mode, NetworkGeo, SimulateResponse } from "@/lib/types";
 
-export default function DashboardPage() {
+export const metadata: Metadata = {
+  title: { absolute: "Westvane · Gestión de transporte multimodal para Colombia" },
+  description:
+    "Sistema de gestión de transporte para operadores logísticos en Colombia: rutas por carretera, río, mar, aire y tren sobre la red real, flota, bodegas, cierres de vía, entregas firmadas, costos y huella de carbono.",
+};
+
+/**
+ * Presentación comercial (pública, sin dock ni bienvenida de la app): la red real de Colombia como página. El titular y
+ * las acciones salen sin esperar a la API; el mapa, la ruta en vivo y el formulario llegan cada uno en su Suspense.
+ */
+export default function LandingPage() {
   return (
-    <div className="page">
-      <PageHeader
-        title="Torre de control"
-        description="Carretera, río, mar, aire y ferrocarril en una sola vista: fletes en tránsito, transbordos y reparto modal de la red logística de Colombia."
-        actions={
-          <>
-            <Button variant="secondary" asChild className="print:hidden">
-              <a href="/api/reports/operations?days=7" target="_blank" rel="noopener">
-                <FileText />
-                Reporte semanal
-              </a>
-            </Button>
-            <PresentButton />
-          </>
-        }
-      />
-      <div>
-        <Suspense fallback={<DashboardSkeleton />}>
-          <DashboardContent />
+    <div data-public-page>
+      <LandingHeader />
+      <div id="contenido">
+        <Suspense fallback={<StoryFallback />}>
+          <Story />
         </Suspense>
+        <Suspense fallback={<SectionFallback />}>
+          <Route />
+        </Suspense>
+        <Modules />
+        <Trust />
+        <Faq />
+        <DemoSection>
+          <Suspense fallback={<div className="skeleton h-[560px] rounded-3xl" />}>
+            <Demo />
+          </Suspense>
+        </DemoSection>
       </div>
+      <LandingFooter />
     </div>
   );
 }
 
-async function DashboardContent() {
-  const [summary, fleet, green] = await Promise.all([
+interface CorridorsResponse {
+  items: { corridor: string; active: boolean; reason: string | null; distance_fmt: string; modes: Mode[] }[];
+}
+
+async function Story() {
+  const [network, departments, summary, corridors, fleet] = await Promise.all([
+    apiGet<NetworkGeo>("/api/network/multimodal"),
+    apiGet<DepartmentsGeo>("/api/geo/departments"),
     apiGet<DashboardSummary>("/api/dashboard/summary"),
-    apiGet<FleetLive>("/api/fleet/live"),
-    apiGet<SustainabilitySummary>("/api/sustainability/summary"),
+    apiGet<CorridorsResponse>("/api/corridors"),
+    apiGet<FleetLive>("/api/fleet/live").catch(() => null),
   ]);
-  const k = summary.kpis;
-
+  const modes: ModeStat[] = summary.network.modes.map((m) => ({ mode: m.mode, links: m.links, km_fmt: m.km_fmt }));
+  const closures: Closure[] = corridors.items
+    .filter((c) => !c.active)
+    .map((c) => ({ corridor: c.corridor, reason: c.reason, distance_fmt: c.distance_fmt, modes: c.modes }));
   return (
-    <>
-      <HeroFigures
-        inTransit={k.active.value ?? 0}
-        delayed={k.delayed.value ?? 0}
-        cost={k.cost_in_transit.value ?? 0}
-        trends={summary.trends}
-        secondary={[
-          { label: "En transbordo", value: k.in_transfer.fmt, href: "/envios?estado=Transferencia Modal" },
-          { label: "Carga en tránsito", value: k.tons_in_transit.fmt, hint: `${k.scheduled.fmt} programados`, href: "/envios?estado=En Ruta,Transferencia Modal,Retrasado" },
-          { label: "OTIF 30 días", value: k.otif.fmt, hint: `${k.delivered.fmt} entregas`, href: "/envios?estado=Entregado" },
-        ]}
-      />
-      <Attention alerts={summary.alerts} />
-      <BentoGrid>
-      <BentoCell
-        className="min-h-[560px] md:col-span-6 xl:col-span-8 xl:row-span-2"
-        title="Red multimodal"
-        description={`${summary.network.nodes} nodos · ${summary.network.links} enlaces`}
-        action={
-          <Link
-            href="/red"
-            className="press -mr-1 flex h-8 shrink-0 items-center gap-1 rounded-xl px-2.5 text-sm font-medium text-primary outline-none hover:bg-fill focus-visible:ring-[3px] focus-visible:ring-ring/80"
-          >
-            Abrir mapa <ArrowUpRight className="size-3.5" aria-hidden />
-          </Link>
-        }
-      >
-        <NetworkMapCard network={summary.network} />
-      </BentoCell>
-
-      <BentoCell
-        className="md:col-span-6 xl:col-span-4 xl:row-span-2"
-        title="Flota en vivo"
-        description="Activos en tránsito por modo"
-      >
-        <LiveFleet initial={fleet} />
-      </BentoCell>
-
-      <ModalSplitCell className="md:col-span-3 xl:col-span-3" data={summary.modal_split} footprint={green.by_mode} />
-      <CorridorsCell className="md:col-span-3 xl:col-span-3" top={summary.top_corridors} all={summary.all_corridors} />
-      <DispatchCell className="md:col-span-3 xl:col-span-3" data={summary.dispatches_14d} />
-
-      <BentoCell
-        className="md:col-span-3 xl:col-span-3"
-        title="Por estado"
-      >
-        <StatusBreakdown counts={summary.status_counts} />
-      </BentoCell>
-      </BentoGrid>
-    </>
+    <NetworkStory
+      intro={<Intro nodes={summary.network.nodes} links={summary.network.links} />}
+      network={network}
+      departments={departments}
+      fleet={fleet}
+      modes={modes}
+      closures={closures}
+    />
   );
 }
 
-/** Misma forma que la página (cifras, avisos, mapa y flota, cuatro paneles): al cargar nada salta de lugar. */
-function DashboardSkeleton() {
+function StoryFallback() {
   return (
-    <div aria-hidden>
-      <Skeleton className="mb-6 h-[214px] rounded-3xl md:h-[246px]" />
-      <Skeleton className="mb-6 h-36 rounded-3xl" />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-6 xl:grid-cols-12">
-        <Skeleton className="h-[560px] rounded-3xl md:col-span-6 xl:col-span-8" />
-        <Skeleton className="h-[560px] rounded-3xl md:col-span-6 xl:col-span-4" />
-        {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-80 rounded-3xl md:col-span-3" />
-        ))}
+    <section className="grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]" aria-busy>
+      <div className="px-4 pt-10 pb-8 sm:px-8 lg:flex lg:min-h-[calc(100dvh-4rem)] lg:flex-col lg:justify-center lg:py-16 lg:pr-4 lg:pl-14 xl:pl-20">
+        <Intro />
+      </div>
+      <div className="h-[42svh] border-y border-border p-6 lg:h-[calc(100dvh-4rem)] lg:border-y-0 lg:border-l lg:p-10">
+        <div className="skeleton h-full w-full rounded-3xl" />
+      </div>
+    </section>
+  );
+}
+
+const ROUTE_DEFAULT = { origen: "Bogotá", destino: "Leticia", peso: 10, prioridad: "costo" as const };
+
+async function Route() {
+  const [locations, sim] = await Promise.all([
+    apiGet<{ cities: { city: string }[] }>("/api/locations"),
+    apiPost<SimulateResponse>("/api/routes/simulate", {
+      origen: ROUTE_DEFAULT.origen,
+      destino: ROUTE_DEFAULT.destino,
+      peso_t: ROUTE_DEFAULT.peso,
+      prioridad: ROUTE_DEFAULT.prioridad,
+    }),
+  ]);
+  const cities = locations.cities.map((c) => c.city).sort((a, b) => a.localeCompare(b, "es"));
+  return <RouteTry cities={cities} initial={sim.ok ? sim.data : null} initialQuery={ROUTE_DEFAULT} />;
+}
+
+function SectionFallback() {
+  return (
+    <div className="border-t border-border bg-card">
+      <div className="mx-auto max-w-[1280px] px-4 py-20 sm:px-8 lg:py-28">
+        <div className="skeleton h-[520px] rounded-3xl" />
       </div>
     </div>
   );
+}
+
+async function Demo() {
+  const form = await apiGet<{ consent_text: string; fleet_sizes: string[] }>("/api/demo-requests/form");
+  return <DemoForm consentText={form.consent_text} fleetSizes={form.fleet_sizes} />;
 }

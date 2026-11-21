@@ -83,10 +83,11 @@ ALERT_KINDS = {
     "novedades": "Aviso cuando una entrega llega con novedad",
     "semanal": "Reporte operativo de la semana en PDF, los lunes",
     "mensual": "Reporte operativo del mes en PDF, el día 1",
+    "demos": "Aviso cuando alguien pide una demostración desde la presentación",
     "respaldo": "Aviso si el respaldo diario del servidor lleva más de 36 horas sin hacerse",
 }
 # Los avisos que piden atención arrancan encendidos; el reporte semanal es opcional: el dueño decide si lo quiere
-DEFAULT_ON = {"vencimientos": True, "novedades": True, "semanal": False, "mensual": False, "respaldo": True}
+DEFAULT_ON = {"vencimientos": True, "novedades": True, "semanal": False, "mensual": False, "demos": True, "respaldo": True}
 
 
 def alert_enabled(kind: str) -> bool:
