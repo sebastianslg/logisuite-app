@@ -138,7 +138,7 @@ async function Tabla({ searchParams }: { searchParams: Promise<Record<string, st
         </p>
         <a
           href={`/api/audit/export.csv?${new URLSearchParams({ ...Object.fromEntries(query), limit: "1000", offset: "0" }).toString()}`}
-          className="text-xs font-medium text-primary hover:underline"
+          className="pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center text-xs font-medium text-primary hover:underline"
         >
           Descargar CSV
         </a>

@@ -433,7 +433,7 @@ function MobileDock() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group/item press relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[11px]",
+                  "group/item press relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-xs",
                   ring,
                   active ? "font-semibold text-primary" : "text-foreground/70",
                 )}
@@ -451,7 +451,7 @@ function MobileDock() {
             aria-label={alerts.items.length ? `Más secciones y ${alerts.items.length} avisos` : undefined}
             aria-expanded={open}
             className={cn(
-              "group/item press relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[11px]",
+              "group/item press relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-xs",
               ring,
               moreActive ? "font-semibold text-primary" : "text-foreground/70",
             )}

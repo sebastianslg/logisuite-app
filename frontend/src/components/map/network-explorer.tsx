@@ -169,7 +169,7 @@ export function NetworkExplorer() {
 
       {/* Encabezado */}
       <div onPointerDownCapture={markInteraction} className="pointer-events-none absolute top-0 right-0 left-0 z-20 flex flex-wrap items-start justify-between gap-3 p-3 md:gap-4 md:p-6 md:pt-[6.5rem]">
-        <h1 className="glass-float pointer-events-auto rounded-2xl px-4 py-2 text-xl font-bold">Red multimodal</h1>
+        <h1 className="glass-float pointer-events-auto rounded-2xl px-4 py-2 text-xl font-semibold">Red multimodal</h1>
         <div className="pointer-events-auto flex w-full flex-wrap items-center gap-2 md:w-auto">
           <ViewToggle showMap={showMap} setShowMap={setShowMap} />
           {showMap && (

@@ -43,6 +43,8 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     `deploy/probar-restauracion.sh` (ensayo de restauración en un contenedor aparte, sin tocar producción).
   - **Historial** firmado con la cuenta de la sesión; **estado del servidor** en Configuración; **orden de trabajo en PDF** para
     mantenimientos; **avisos al celular (ntfy)** recuperados (el tema vive solo en el `.env` del servidor).
+  - **Lavado de cara 2 (sección 57):** flota y dock móvil sin textos de 11 px (eran ~60 elementos en Flota), título de
+    Red a peso 600, «Descargar CSV» a 44 px en celular. Mobile: cero textos <12 px y cero táctiles deficientes.
   - **Lavado de cara 1 (sección 56):** pie con objetivos táctiles de 44 px en celular, títulos de tarjeta unificados a
     14 px/600, nota del mapa a 12 px, enlace de regreso de la ficha a 44 px, y la prueba de «sin conexión» con localizador
     único (6/6). Pendiente de desplegar.

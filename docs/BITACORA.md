@@ -1306,3 +1306,20 @@ objetivos táctiles, desbordes, jerarquía de encabezados — en escritorio y ce
   del producto.
 - Con el encabezado de Envíos ya pegajoso y las capturas de antes/después tomadas (claro/oscuro × escritorio/celular), la
   superficie superior está bajo un solo estándar tipográfico.
+
+## 57. Lavado de cara (segunda ronda): flota, dock móvil, título de Red y auditoría
+
+Mismo método que la sección 56 (inspección medida del DOM), sobre Hoy, Flota, Auditoría y Red:
+
+- **Flota:** las etiquetas del medidor de mantenimiento compacto y el rótulo «Próximo mantenimiento» estaban a **11 px** —
+  unos 60 elementos por pantalla. Pasan a 12 px (`text-xs`), el mínimo de la escala.
+- **Dock móvil:** las etiquetas de la navegación primaria (Resumen, Envíos, Red, Flota, Más) también estaban a **11 px**;
+  pasan a 12.
+- **Título de `/red`:** era el único texto a peso **700** de toda la app (la escala es 600). El tamaño de 20 px se conserva a
+  propósito: es una etiqueta flotante sobre el mapa, no un título de página normal.
+- **Auditoría:** «Descargar CSV» medía 16 px de alto en el celular; pasa a 44 px en pantallas táctiles.
+- **Confirmado midiendo:** en el celular, cero textos por debajo de 12 px y cero objetivos táctiles deficientes; en escritorio
+  queda solo el chip «Ctrl K» del dock, que es una pista de teclado deliberada.
+- **Se dejan como están:** los enlaces de crédito de OpenFreeMap/OpenStreetMap sobre el mapa (los pone la librería, son
+  diminutos por convención y son su atribución requerida) y el kbd de «Ctrl K».
+- Pruebas: 37 de navegador en entorno limpio (repertorio completo).
