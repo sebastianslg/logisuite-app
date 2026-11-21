@@ -20,3 +20,6 @@ frontend/playwright-report/
 .impeccable/review/
 .impeccable/config.local.json
 .impeccable/hook.cache.json
+
+# Configuración local de herramientas de agentes (rutas absolutas, no es del proyecto)
+.claude/

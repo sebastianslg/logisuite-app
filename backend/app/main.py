@@ -53,7 +53,7 @@ from pydantic import BaseModel, Field
 from app.api import format as F
 from app.api import guard
 from app.api import serializers as S
-from app.database.db import run_query, run_write
+from app.database.db import fetch_all, run_query, run_write
 from app.data.colombia_ciudades import category_of
 from app.engine import (auth_otp, client_notify, clients, delivery, demo, mail, notify, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
                         shipments_io, sustainability as SU, tables_io, telemetry, tolls, tracking, trends, warehouses, xlsx)
@@ -464,8 +464,8 @@ def shipments(status: str | None = None, limit: int = 300, offset: int = 0) -> d
     total = int(run_query(f"SELECT COUNT(*) AS n FROM mm_shipments{where}", tuple(params)).iloc[0]["n"])
     limit = max(1, min(limit, 1000))
     offset = max(0, offset)
-    rows = run_query(f"SELECT * FROM mm_shipments{where} ORDER BY departure_at DESC LIMIT ? OFFSET ?",
-                     tuple(params) + (limit, offset)).to_dict(orient="records")
+    rows = fetch_all(f"SELECT * FROM mm_shipments{where} ORDER BY departure_at DESC LIMIT ? OFFSET ?",
+                     tuple(params) + (limit, offset))
     signed = delivery.signed_codes()
     items = []
     for r in rows:
@@ -487,10 +487,10 @@ def _detail(r: dict, now: datetime) -> dict:
 
 
 def _shipment_row(code: str) -> dict:
-    rows = run_query("SELECT * FROM mm_shipments WHERE shipment_code = ?", (code,))
-    if rows.empty:
+    rows = fetch_all("SELECT * FROM mm_shipments WHERE shipment_code = ?", (code,))
+    if not rows:
         raise HTTPException(status_code=404, detail=f"Envío {code} no encontrado")
-    return rows.to_dict(orient="records")[0]
+    return rows[0]
 
 
 @app.get("/api/shipments/{code}")
@@ -993,9 +993,9 @@ def _pdf_response(codes: list, currency: str, filename: str, download: bool) -> 
     now = _sync()
     rows = []
     for c in codes:
-        r = run_query("SELECT * FROM mm_shipments WHERE shipment_code = ?", (c,))
-        if not r.empty:
-            rows.append(r.to_dict(orient="records")[0])
+        found = fetch_all("SELECT * FROM mm_shipments WHERE shipment_code = ?", (c,))
+        if found:
+            rows.append(found[0])
     if not rows:
         raise HTTPException(status_code=404, detail="Ninguno de los envíos existe")
     try:
@@ -1180,11 +1180,11 @@ def export_xlsx(body: ExportIn) -> Response:
     """Envíos elegidos (por ejemplo, la tabla filtrada) en Excel, con montos en la moneda pedida."""
     now = _sync()
     placeholders = ",".join("?" for _ in body.codes)
-    rows = run_query(f"SELECT * FROM mm_shipments WHERE shipment_code IN ({placeholders})", tuple(body.codes))
-    if rows.empty:
+    rows = fetch_all(f"SELECT * FROM mm_shipments WHERE shipment_code IN ({placeholders})", tuple(body.codes))
+    if not rows:
         raise HTTPException(status_code=404, detail="Ninguno de los envíos existe")
     order = {c: i for i, c in enumerate(body.codes)}
-    records = sorted(rows.to_dict(orient="records"), key=lambda r: order.get(r["shipment_code"], 0))
+    records = sorted(rows, key=lambda r: order.get(r["shipment_code"], 0))
     try:
         data = xlsx.render(records, body.moneda, ops.get_fx(), now)
     except ValueError as exc:
@@ -1220,8 +1220,8 @@ def report_operations(days: int = 7, moneda: Currency = "USD", descargar: bool =
 @app.get("/api/clients")
 def clients_summary() -> dict:
     now = _sync()
-    rows = run_query("SELECT shipment_code, client, origin_city, dest_city, weight_t, total_cost, modes, status, "
-                     "departure_at, total_time_h, delay_h, route_json, actual_cost FROM mm_shipments").to_dict(orient="records")
+    rows = fetch_all("SELECT shipment_code, client, origin_city, dest_city, weight_t, total_cost, modes, status, "
+                     "departure_at, total_time_h, delay_h, route_json, actual_cost FROM mm_shipments")
     items = clients.summary(rows, now)
     return {"count": len(items), "items": items}
 
@@ -1253,7 +1253,7 @@ def export_create(body: ExportIn) -> dict:
 
 @app.get("/api/exports")
 def export_list() -> dict:
-    items = run_query("SELECT * FROM mm_share_links ORDER BY created_at DESC").to_dict(orient="records")
+    items = fetch_all("SELECT * FROM mm_share_links ORDER BY created_at DESC")
     for i in items:
         i["codes"] = i["codes"].split(",")
         i["path"] = f"/api/exports/{i['token']}"
@@ -1261,10 +1261,10 @@ def export_list() -> dict:
 
 
 def _share(token: str) -> dict:
-    rows = run_query("SELECT * FROM mm_share_links WHERE token = ?", (token,))
-    if rows.empty or rows.iloc[0]["revoked_at"]:
+    rows = fetch_all("SELECT * FROM mm_share_links WHERE token = ?", (token,))
+    if not rows or rows[0]["revoked_at"]:
         raise HTTPException(status_code=404, detail="Enlace inexistente o revocado")
-    return rows.to_dict(orient="records")[0]
+    return rows[0]
 
 
 @app.get("/api/exports/{token}")
@@ -1286,8 +1286,7 @@ def export_revoke(token: str, usuario: str | None = None) -> dict:
 
 def _recent_shipments(now: datetime, days: int = 30) -> list:
     since = (now - timedelta(days=days)).isoformat(timespec="minutes")
-    return run_query("SELECT * FROM mm_shipments WHERE departure_at >= ? AND status != 'Programado'",
-                     (since,)).to_dict(orient="records")
+    return fetch_all("SELECT * FROM mm_shipments WHERE departure_at >= ? AND status != 'Programado'", (since,))
 
 
 @app.get("/api/geo/departments")
@@ -1356,9 +1355,9 @@ def _alerts(rows: list, fs: dict, ws: dict, now: datetime | None = None) -> dict
 def alerts() -> dict:
     """Solo las alertas (para el aviso global del dock): más liviano que el resumen completo."""
     now = _sync()
-    rows = run_query(
+    rows = fetch_all(
         "SELECT shipment_code, status, route_status, route_note, origin_city, dest_city, delay_h FROM mm_shipments"
-    ).to_dict(orient="records")
+    )
     data = _alerts(rows, fleet.summary(now), warehouses.summary(), now)
     fl, wh, dc = data["fleet"], data["warehouses"], data["documents"]
     urgent = ((fl["disabled"] + fl["in_shop"] > 0) + bool(data["no_route"]) + bool(data["closed_corridors"])
@@ -1377,7 +1376,7 @@ def today_board() -> dict:
 @app.get("/api/dashboard/summary")
 def dashboard_summary() -> dict:
     now = _sync()
-    rows = run_query("SELECT * FROM mm_shipments").to_dict(orient="records")
+    rows = fetch_all("SELECT * FROM mm_shipments")
     counts = {k: 0 for k in ("Programado", "En Ruta", "Transferencia Modal", "Retrasado", "Entregado")}
     in_transit_t, in_transit_cost = 0.0, 0.0
     tkm_by_mode: dict = {}
@@ -1620,9 +1619,8 @@ def client_error(body: ClientErrorIn, request: Request) -> Response:
 def client_errors(request: Request, limit: int = 50) -> dict:
     """Errores que reportaron los navegadores (con la página y el navegador): solo un administrador los ve."""
     _require_admin(request, "ver los errores del navegador")
-    rows = run_query("SELECT error_id, created_at, path, message, stack, user_agent, release FROM mm_client_errors "
-                     "ORDER BY error_id DESC LIMIT ?", (max(1, min(limit, 200)),))
-    items = rows.astype(object).where(rows.notna(), None).to_dict(orient="records")
+    items = fetch_all("SELECT error_id, created_at, path, message, stack, user_agent, release FROM mm_client_errors "
+                      "ORDER BY error_id DESC LIMIT ?", (max(1, min(limit, 200)),))
     return {"count": len(items), "items": items}
 
 
