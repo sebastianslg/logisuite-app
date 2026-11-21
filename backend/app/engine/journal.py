@@ -21,9 +21,9 @@ import zipfile
 from datetime import datetime, timedelta
 
 import app.database.db as db
-from app.database.db import run_query, run_write
+from app.database.db import fetch_all, run_query, run_write
 from app.engine import notify
-from app.engine.common import OperationError, _now_iso, _user, audit, records
+from app.engine.common import OperationError, _now_iso, _user, audit
 
 KINDS = {
     "nota": "Nota",
@@ -109,19 +109,19 @@ def _event_out(e: dict) -> dict:
 
 def events(code: str) -> list:
     _exists(code)
-    rows = records(run_query("SELECT * FROM mm_shipment_events WHERE shipment_code = ? ORDER BY created_at, event_id",
-                             (code,)))
+    rows = fetch_all("SELECT * FROM mm_shipment_events WHERE shipment_code = ? ORDER BY created_at, event_id",
+                             (code,))
     return [_event_out(e) for e in rows]
 
 
 def recent_incidents(days: int = 7, limit: int = 50) -> list:
     since = datetime.now().timestamp() - days * 86400
     since_iso = datetime.fromtimestamp(since).isoformat(timespec="seconds")
-    rows = records(run_query(
+    rows = fetch_all(
         "SELECT e.*, s.origin_city, s.dest_city FROM mm_shipment_events e "
         "LEFT JOIN mm_shipments s ON s.shipment_code = e.shipment_code "
         "WHERE e.kind != 'nota' AND e.created_at >= ? ORDER BY e.created_at DESC LIMIT ?",
-        (since_iso, max(1, min(limit, 500)))))
+        (since_iso, max(1, min(limit, 500))))
     return [_event_out(e) for e in rows]
 
 
@@ -156,13 +156,13 @@ def add_event(net, code: str, kind: str, body: str, delay_h: float, user: str | 
         notify.send(f"Incidencia en {code}: {KINDS[kind]}",
                     f"{s['origin_city']} -> {s['dest_city']}. {body[:200]}" + (f" (+{delay_h:g} h)" if delay_h else ""),
                     tags="rotating_light", priority="high", path=f"/envios/{code}")
-    row = records(run_query("SELECT * FROM mm_shipment_events WHERE event_id = ?", (event_id,)))[0]
+    row = fetch_all("SELECT * FROM mm_shipment_events WHERE event_id = ?", (event_id,))[0]
     return _event_out(row)
 
 
 def resolve_event(code: str, event_id: int, user: str | None) -> dict:
-    rows = records(run_query("SELECT * FROM mm_shipment_events WHERE event_id = ? AND shipment_code = ?",
-                             (event_id, code)))
+    rows = fetch_all("SELECT * FROM mm_shipment_events WHERE event_id = ? AND shipment_code = ?",
+                             (event_id, code))
     if not rows:
         raise LookupError(event_id)
     e = rows[0]
@@ -172,13 +172,13 @@ def resolve_event(code: str, event_id: int, user: str | None) -> dict:
         run_write("UPDATE mm_shipment_events SET resolved_at = ?, resolved_by = ? WHERE event_id = ?",
                   (_now_iso(), _user(user), event_id))
         audit(user, "UPDATE", "mm_shipment_events", code, f"Incidencia resuelta: {e['body'][:120]}")
-    return _event_out(records(run_query("SELECT * FROM mm_shipment_events WHERE event_id = ?", (event_id,)))[0])
+    return _event_out(fetch_all("SELECT * FROM mm_shipment_events WHERE event_id = ?", (event_id,))[0])
 
 
 def delete_event(code: str, event_id: int, user: str | None) -> None:
     """Borra una nota. Las incidencias no se borran (sumaron retraso y son parte del historial)."""
-    rows = records(run_query("SELECT * FROM mm_shipment_events WHERE event_id = ? AND shipment_code = ?",
-                             (event_id, code)))
+    rows = fetch_all("SELECT * FROM mm_shipment_events WHERE event_id = ? AND shipment_code = ?",
+                             (event_id, code))
     if not rows:
         raise LookupError(event_id)
     if rows[0]["kind"] != "nota":
@@ -198,9 +198,9 @@ def _safe_name(name: str) -> str:
 
 def attachments(code: str) -> list:
     _exists(code)
-    return records(run_query(
+    return fetch_all(
         "SELECT attachment_id, shipment_code, filename, content_type, size_bytes, created_at, created_by "
-        "FROM mm_attachments WHERE shipment_code = ? ORDER BY created_at DESC", (code,)))
+        "FROM mm_attachments WHERE shipment_code = ? ORDER BY created_at DESC", (code,))
 
 
 def add_attachment(code: str, filename: str, content_b64: str, user: str | None) -> dict:
@@ -228,14 +228,14 @@ def add_attachment(code: str, filename: str, content_b64: str, user: str | None)
         "INSERT INTO mm_attachments (shipment_code, filename, content_type, size_bytes, stored_name, created_at, created_by) "
         "VALUES (?,?,?,?,?,?,?)", (code, name, ALLOWED[ext], len(data), stored, _now_iso(), _user(user)))
     audit(user, "INSERT", "mm_attachments", code, f"Adjunto agregado: {name} ({max(1, round(len(data) / 1024))} KB)")
-    return records(run_query(
+    return fetch_all(
         "SELECT attachment_id, shipment_code, filename, content_type, size_bytes, created_at, created_by "
-        "FROM mm_attachments WHERE attachment_id = ?", (att_id,)))[0]
+        "FROM mm_attachments WHERE attachment_id = ?", (att_id,))[0]
 
 
 def attachment_file(code: str, attachment_id: int) -> tuple[bytes, str, str]:
-    rows = records(run_query("SELECT * FROM mm_attachments WHERE attachment_id = ? AND shipment_code = ?",
-                             (attachment_id, code)))
+    rows = fetch_all("SELECT * FROM mm_attachments WHERE attachment_id = ? AND shipment_code = ?",
+                             (attachment_id, code))
     if not rows:
         raise LookupError(attachment_id)
     a = rows[0]
@@ -247,8 +247,8 @@ def attachment_file(code: str, attachment_id: int) -> tuple[bytes, str, str]:
 
 
 def delete_attachment(code: str, attachment_id: int, user: str | None) -> None:
-    rows = records(run_query("SELECT * FROM mm_attachments WHERE attachment_id = ? AND shipment_code = ?",
-                             (attachment_id, code)))
+    rows = fetch_all("SELECT * FROM mm_attachments WHERE attachment_id = ? AND shipment_code = ?",
+                             (attachment_id, code))
     if not rows:
         raise LookupError(attachment_id)
     a = rows[0]
@@ -262,7 +262,7 @@ def delete_attachment(code: str, attachment_id: int, user: str | None) -> None:
 def purge(code: str) -> None:
     """Al borrar un envío: sus notas, incidencias y archivos se van con él (el historial lo conserva)."""
     run_write("DELETE FROM mm_shipment_events WHERE shipment_code = ?", (code,))
-    for a in records(run_query("SELECT stored_name FROM mm_attachments WHERE shipment_code = ?", (code,))):
+    for a in fetch_all("SELECT stored_name FROM mm_attachments WHERE shipment_code = ?", (code,)):
         path = os.path.join(attachments_dir(), re.sub(r"[^\w\-]", "_", code), a["stored_name"])
         if os.path.exists(path):
             os.remove(path)
@@ -286,13 +286,13 @@ def purge_expired(now: datetime) -> int:
     if not days:
         return 0
     cutoff = (now - timedelta(days=days)).isoformat(timespec="seconds")
-    rows = records(run_query(
+    rows = fetch_all(
         "SELECT DISTINCT a.shipment_code FROM mm_attachments a JOIN mm_shipments s ON s.shipment_code = a.shipment_code "
-        "WHERE s.status = 'Entregado' AND s.eta_at < ?", (cutoff,)))
+        "WHERE s.status = 'Entregado' AND s.eta_at < ?", (cutoff,))
     total = 0
     for r in rows:
         code = r["shipment_code"]
-        items = records(run_query("SELECT attachment_id FROM mm_attachments WHERE shipment_code = ?", (code,)))
+        items = fetch_all("SELECT attachment_id FROM mm_attachments WHERE shipment_code = ?", (code,))
         for it in items:
             delete_attachment(code, it["attachment_id"], "sistema")
         total += len(items)

@@ -14,9 +14,9 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta
 
-from app.database.db import run_query, run_write
+from app.database.db import fetch_all, run_query, run_write
 from app.engine import legal, mail
-from app.engine.common import OperationError, audit, records
+from app.engine.common import OperationError, audit
 
 CONSENT_TEXT = ("Autorizo a Westvane a usar estos datos solo para responder mi solicitud y contactarme sobre la "
                 "demostración, según la política de privacidad.")
@@ -87,9 +87,9 @@ def submit(data: dict, ip: str | None, now: datetime) -> dict:
 
 
 def list_requests(limit: int = 200) -> list:
-    return records(run_query("""SELECT request_id, created_at, name, company, email, phone, role, fleet_size, message,
+    return fetch_all("""SELECT request_id, created_at, name, company, email, phone, role, fleet_size, message,
                                        handled_at, handled_by FROM demo_requests ORDER BY request_id DESC LIMIT ?""",
-                             (max(1, min(limit, 1000)),)))
+                             (max(1, min(limit, 1000)),))
 
 
 def set_handled(request_id: int, handled: bool, user: str | None, now: datetime) -> dict:

@@ -41,7 +41,7 @@ from datetime import date, datetime, timedelta
 
 from app.data.colombia_flota import (CATALOG, DRIVER_NAMES, FAULT_CATEGORIES, NAVES, SEED_FLEET, SEVERITIES,
                                      WORKSHOPS)
-from app.database.db import run_query, run_write
+from app.database.db import data_version, fetch_all, run_query, run_write
 from app.engine.common import OperationError, _now_iso, _user, audit, records
 from app.engine.multimodal import haversine_km
 
@@ -115,20 +115,35 @@ def catalog() -> dict:
 # ---------------------------------------------------------------------------
 # Contexto: lo que se necesita para derivar el estado de todos los vehículos
 # ---------------------------------------------------------------------------
+_ctx_cache: dict = {}
+
+
 def _ctx(now: datetime) -> dict:
-    vehicles = records(run_query("""SELECT v.*, w.name AS home_name, w.city AS home_city, w.latitude AS home_lat,
+    """Las tablas de la flota, recordadas mientras la base no cambie (data_version): el tablero, las alertas y «Hoy»
+    las leían completas en cada consulta. Quien las use no debe modificar los registros (se derivan dicts nuevos)."""
+    key = data_version()
+    tables = _ctx_cache.get(key)
+    if tables is None:
+        tables = _ctx_tables()
+        _ctx_cache.clear()
+        _ctx_cache[key] = tables
+    return {"now": now, **tables}
+
+
+def _ctx_tables() -> dict:
+    vehicles = fetch_all("""SELECT v.*, w.name AS home_name, w.city AS home_city, w.latitude AS home_lat,
                             w.longitude AS home_lon, w.code AS home_code
                             FROM fl_vehicles v LEFT JOIN wh_warehouses w ON w.warehouse_id = v.home_warehouse_id
-                            ORDER BY v.vehicle_id"""))
-    drivers = {int(r["driver_id"]): r for r in records(run_query("SELECT * FROM fl_drivers"))}
+                            ORDER BY v.vehicle_id""")
+    drivers = {int(r["driver_id"]): r for r in fetch_all("SELECT * FROM fl_drivers")}
 
     def grouped(sql: str) -> dict:
         out: dict = {}
-        for r in records(run_query(sql)):
+        for r in fetch_all(sql):
             out.setdefault(int(r["vehicle_id"]), []).append(r)
         return out
 
-    return {"now": now, "vehicles": vehicles, "drivers": drivers,
+    return {"vehicles": vehicles, "drivers": drivers,
             "faults": grouped("SELECT * FROM fl_faults ORDER BY fault_id DESC"),
             "maint": grouped("SELECT * FROM fl_maintenance ORDER BY scheduled_start DESC"),
             "assign": grouped("SELECT * FROM fl_assignments ORDER BY start_at")}
@@ -351,11 +366,11 @@ def summary(now: datetime) -> dict:
     active = [v for v in vs if not v["retired"]]
     soon = sorted((v for v in active if v["service"]["state"] in ("Próximo", "Vencido")),
                   key=lambda v: v["service"]["days_left"])
-    faults = records(run_query("""SELECT f.*, v.code, v.vehicle_type FROM fl_faults f JOIN fl_vehicles v ON v.vehicle_id = f.vehicle_id
+    faults = fetch_all("""SELECT f.*, v.code, v.vehicle_type FROM fl_faults f JOIN fl_vehicles v ON v.vehicle_id = f.vehicle_id
                           WHERE f.status != 'Resuelta' ORDER BY CASE f.severity WHEN 'Crítica' THEN 0 WHEN 'Moderada' THEN 1 ELSE 2 END,
-                          f.reported_at DESC"""))
-    upcoming = records(run_query("""SELECT m.*, v.code, v.vehicle_type, v.mode FROM fl_maintenance m JOIN fl_vehicles v ON v.vehicle_id = m.vehicle_id
-                            WHERE m.status IN ('Programado', 'En curso') ORDER BY m.scheduled_start"""))
+                          f.reported_at DESC""")
+    upcoming = fetch_all("""SELECT m.*, v.code, v.vehicle_type, v.mode FROM fl_maintenance m JOIN fl_vehicles v ON v.vehicle_id = m.vehicle_id
+                            WHERE m.status IN ('Programado', 'En curso') ORDER BY m.scheduled_start""")
     drivers_expiring = [v for v in active if v["driver"] and v["driver"]["status"] == "Activo" and v["driver"]["license_days_left"] <= 30]
     docs_due = sorted(({"id": v["id"], "code": v["code"], "label": d["label"], "state": d["state"], "expiry": d["expiry"],
                          "days_left": d["days_left"]} for v in active for d in v["documents"]
@@ -532,8 +547,8 @@ def notify_due(now: datetime) -> bool:
 def enforce_documents(now: datetime) -> int:
     """Una vez al día: ningún vehículo queda en un tramo que termina con el SOAT o la técnico-mecánica vencidos."""
     n = 0
-    for r in records(run_query("SELECT vehicle_id FROM fl_vehicles WHERE mode = 'terrestre' AND retired = 0 "
-                               "AND (soat_expiry IS NOT NULL OR rtm_expiry IS NOT NULL)")):
+    for r in fetch_all("SELECT vehicle_id FROM fl_vehicles WHERE mode = 'terrestre' AND retired = 0 "
+                               "AND (soat_expiry IS NOT NULL OR rtm_expiry IS NOT NULL)"):
         moved = _enforce_documents_for(int(r["vehicle_id"]), now, "sistema")
         if moved:
             n += len(moved["replaced"]) + len(moved["outsourced"])
@@ -573,9 +588,9 @@ def delete_vehicle(vehicle_id: int, user: str | None) -> dict:
 # Conductores
 # ---------------------------------------------------------------------------
 def list_drivers(now: datetime) -> list:
-    rows = records(run_query("""SELECT d.*, v.code AS vehicle_code, v.vehicle_id FROM fl_drivers d
+    rows = fetch_all("""SELECT d.*, v.code AS vehicle_code, v.vehicle_id FROM fl_drivers d
                         LEFT JOIN fl_vehicles v ON v.driver_id = d.driver_id AND v.retired = 0
-                        ORDER BY d.name"""))
+                        ORDER BY d.name""")
     for r in rows:
         days = (_dt(r["license_expiry"]) - now).total_seconds() / 86400
         r["license_days_left"] = round(days, 1)
@@ -730,7 +745,7 @@ def list_maintenance(now: datetime, status: str | None = None, limit: int = 200)
         params.append(status)
     sql += " ORDER BY m.scheduled_start DESC LIMIT ?"
     params.append(max(1, min(limit, 1000)))
-    return records(run_query(sql, tuple(params)))
+    return fetch_all(sql, tuple(params))
 
 
 # ---------------------------------------------------------------------------
@@ -805,7 +820,7 @@ def list_faults(status: str | None = None, limit: int = 200) -> list:
         params.append(status)
     sql += " ORDER BY f.fault_id DESC LIMIT ?"
     params.append(max(1, min(limit, 1000)))
-    return records(run_query(sql, tuple(params)))
+    return fetch_all(sql, tuple(params))
 
 
 # ---------------------------------------------------------------------------
@@ -1106,8 +1121,8 @@ def replace_assignments(vehicle_id: int, now: datetime, window: tuple | None = N
                         user: str | None = None, ends_after: datetime | None = None) -> dict:
     """Saca a un vehículo de sus tramos pendientes (los que no han terminado, o los que caen
     en `window`) y pone otro de su modo; si no hay, el tramo se terceriza. Deja nota en el envío."""
-    rows = records(run_query("SELECT * FROM fl_assignments WHERE vehicle_id = ? AND end_at > ? ORDER BY start_at",
-                             (vehicle_id, _iso(now))))
+    rows = fetch_all("SELECT * FROM fl_assignments WHERE vehicle_id = ? AND end_at > ? ORDER BY start_at",
+                             (vehicle_id, _iso(now)))
     replaced, outsourced = [], []
     veh = _vehicle_row(vehicle_id)
     for a in rows:
@@ -1170,7 +1185,7 @@ def adopt_existing(now: datetime) -> int:
     """Una vez, en bases que ya tenían envíos: pasa los envíos no entregados a la flota real."""
     from app.engine.dispatch import status_at
     done = 0
-    for s in records(run_query("SELECT * FROM mm_shipments WHERE status != 'Entregado'")):
+    for s in fetch_all("SELECT * FROM mm_shipments WHERE status != 'Entregado'"):
         if status_at(s, now)["status"] == "Entregado":
             continue
         route = json.loads(s["route_json"])
@@ -1202,7 +1217,7 @@ def seed_fleet(now: datetime) -> int:
     if not run_query("SELECT 1 FROM fl_vehicles LIMIT 1").empty:
         return 0
     rng = random.Random(2610)
-    wh = {r["code"]: int(r["warehouse_id"]) for r in records(run_query("SELECT warehouse_id, code FROM wh_warehouses"))}
+    wh = {r["code"]: int(r["warehouse_id"]) for r in fetch_all("SELECT warehouse_id, code FROM wh_warehouses")}
     plates: set = set()
 
     names = list(DRIVER_NAMES)

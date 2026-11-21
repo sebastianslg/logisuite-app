@@ -38,15 +38,33 @@ def enable_wal() -> None:
         conn.close()
 
 
+_writes = 0  # escrituras confirmadas en este proceso (ver data_version)
+
+
+def data_version() -> tuple:
+    """Huella de la base: cambia con cada escritura confirmada, en este proceso (contador) o en otro (fecha y tamaño
+    del archivo y de su diario WAL). Sirve de clave para recordar lecturas caras sin servir datos viejos."""
+    sig: list = [DB_PATH, _writes]
+    for suffix in ("", "-wal"):
+        try:
+            st = os.stat(DB_PATH + suffix)
+            sig += [st.st_mtime_ns, st.st_size]
+        except OSError:
+            sig += [None, None]
+    return tuple(sig)
+
+
 @contextmanager
 def db_cursor(commit: bool = False):
     """Context manager que entrega un cursor y opcionalmente confirma la transacción."""
+    global _writes
     conn = get_connection()
     cur = conn.cursor()
     try:
         yield cur
         if commit:
             conn.commit()
+            _writes += 1
     finally:
         conn.close()
 
@@ -59,6 +77,16 @@ def run_query(sql: str, params: tuple = ()) -> pd.DataFrame:
     finally:
         conn.close()
     return df
+
+
+def fetch_all(sql: str, params: tuple = ()) -> list:
+    """Ejecuta un SELECT y devuelve las filas como diccionarios, sin pasar por pandas (cinco a diez veces más rápido
+    para las tablas de la operación). Los vacíos llegan como None y los enteros como int."""
+    conn = get_connection()
+    try:
+        return [dict(r) for r in conn.execute(sql, params).fetchall()]
+    finally:
+        conn.close()
 
 
 def run_write(sql: str, params: tuple = ()) -> int:

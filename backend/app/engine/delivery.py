@@ -16,7 +16,7 @@ import binascii
 import os
 from datetime import datetime, timedelta
 
-from app.database.db import run_query, run_write
+from app.database.db import fetch_all, run_query, run_write
 from app.engine.common import OperationError, _now_iso, _user, audit, records
 from app.engine.dispatch import status_at
 
@@ -134,8 +134,8 @@ def purge_expired(now: datetime, days: int) -> int:
     if not days:
         return 0
     cutoff = (now - timedelta(days=days)).isoformat(timespec="minutes")
-    rows = records(run_query("SELECT shipment_code FROM mm_deliveries WHERE purged_at IS NULL AND received_at < ?",
-                             (cutoff,)))
+    rows = fetch_all("SELECT shipment_code FROM mm_deliveries WHERE purged_at IS NULL AND received_at < ?",
+                             (cutoff,))
     for r in rows:
         run_write("UPDATE mm_deliveries SET received_by = NULL, signature_png = NULL, purged_at = ? WHERE shipment_code = ?",
                   (_now_iso(), r["shipment_code"]))
@@ -154,7 +154,7 @@ def public(code: str) -> dict | None:
 
 def signed_codes() -> set:
     """Envíos con la entrega registrada (para marcar la lista sin una consulta por envío)."""
-    return {r["shipment_code"] for r in records(run_query("SELECT shipment_code FROM mm_deliveries"))}
+    return {r["shipment_code"] for r in fetch_all("SELECT shipment_code FROM mm_deliveries")}
 
 
 def signature_bytes(code: str) -> tuple[dict, bytes | None] | None:

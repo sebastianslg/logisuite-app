@@ -15,10 +15,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from app.database.db import run_query, run_write
+from app.database.db import fetch_all, run_query, run_write
 from app.engine import mail
 from app.engine.auth_otp import normalize_email
-from app.engine.common import OperationError, audit, records
+from app.engine.common import OperationError, audit
 from app.engine.dispatch import status_at
 
 # Estados que sí se avisan, con el asunto y la primera línea del correo
@@ -63,7 +63,7 @@ def check(now: datetime) -> int:
     if not mail.configured():
         return 0
     # Se miran los envíos con correo del cliente; el filtro fino (estado distinto al avisado) se hace abajo.
-    pendientes = records(run_query("SELECT * FROM mm_shipments WHERE client_email IS NOT NULL AND client_email != ''"))
+    pendientes = fetch_all("SELECT * FROM mm_shipments WHERE client_email IS NOT NULL AND client_email != ''")
     enviados = 0
     for s in pendientes:
         estado = status_at(s, now)["status"]
@@ -95,8 +95,8 @@ def purge_emails(now: datetime, days: int) -> int:
     from datetime import timedelta
 
     cutoff = (now - timedelta(days=days)).isoformat(timespec="minutes")
-    rows = records(run_query("SELECT shipment_code FROM mm_shipments WHERE client_email IS NOT NULL AND status = 'Entregado' "
-                             "AND eta_at < ?", (cutoff,)))
+    rows = fetch_all("SELECT shipment_code FROM mm_shipments WHERE client_email IS NOT NULL AND status = 'Entregado' "
+                             "AND eta_at < ?", (cutoff,))
     for r in rows:
         run_write("UPDATE mm_shipments SET client_email = NULL WHERE shipment_code = ?", (r["shipment_code"],))
         audit("sistema", "UPDATE", "mm_shipments", r["shipment_code"],

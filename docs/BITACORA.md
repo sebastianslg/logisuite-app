@@ -1443,3 +1443,19 @@ bodega, seguimiento público y configuración, en escritorio y celular. Lo que s
 - **Cifras que cuentan en todas las franjas:** si la cifra tiene un solo número («US$ 53.193», «90 %», «12.628 km») cuenta
   desde 0 al aparecer, como el resumen; con varios números o fechas se muestra tal cual.
 - Pruebas: 40 de navegador.
+
+## 65. Lecturas más rápidas en la API (mapa, resumen, alertas y «Hoy»)
+
+- **Departamentos del mapa (`/api/geo/departments`):** recalculaba qué departamentos cruza cada ruta en cada consulta
+  (~250–320 ms en Contabo). Ahora se recuerda por el texto de la ruta (`geo._departments_of`, una ruta nueva o cambiada
+  se calcula de nuevo sola): 703 → 19 ms en local.
+- **Tablas de la flota recordadas (`fleet._ctx`):** vehículos, conductores, fallas, mantenimientos y asignaciones se leían
+  completas en el resumen, las alertas (que pide el dock en todas las páginas) y «Hoy». Ahora se guardan mientras la base no
+  cambie: la clave es `db.data_version()`, que cambia con cada escritura confirmada en este proceso (contador en
+  `db_cursor`) o en otro (fecha y tamaño de la base y de su diario WAL). Nunca sirve datos viejos; quien las use no las
+  modifica (se derivan diccionarios nuevos).
+- **Lecturas sin pandas (`db.fetch_all`):** las 46 lecturas que pasaban por pandas solo para volver a diccionarios ahora
+  leen directo de SQLite. Los enteros llegan como enteros (antes un campo con vacíos llegaba como 3.0).
+- **Resultado en local (consulta repetida, sin la memoria de 5 s):** resumen ~150 → 70 ms, alertas ~150 → 62 ms, «Hoy» →
+  40 ms. Pruebas nuevas en `tests/test_memoria_lecturas.py` (una escritura invalida lo recordado; los departamentos
+  recordados son los mismos que los calculados).
