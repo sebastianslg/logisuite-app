@@ -23,7 +23,7 @@ import random
 from datetime import datetime, timedelta
 
 from app.data.colombia_bodegas import BODEGAS, MANAGERS, ROLES, STOCK_PROFILES
-from app.database.db import run_query, run_write
+from app.database.db import fetch_all, run_query, run_write
 from app.engine.common import OperationError, _now_iso, _user, audit, records
 from app.engine.multimodal import haversine_km
 
@@ -110,30 +110,27 @@ def _decorate(w: dict, stock: list, vehicles: int, in_transit: int) -> dict:
 
 
 def _all_stock() -> dict:
-    df = run_query("SELECT * FROM wh_stock")
     out: dict = {}
-    for r in records(df):
+    for r in fetch_all("SELECT * FROM wh_stock"):
         out.setdefault(r["warehouse_id"], []).append(r)
     return out
 
 
 def _vehicle_counts() -> dict:
-    df = run_query("SELECT home_warehouse_id w, COUNT(*) c FROM fl_vehicles "
-                   "WHERE retired = 0 AND home_warehouse_id IS NOT NULL GROUP BY home_warehouse_id")
-    return {int(r["w"]): int(r["c"]) for r in records(df)}
+    return {int(r["w"]): int(r["c"]) for r in fetch_all("SELECT home_warehouse_id w, COUNT(*) c FROM fl_vehicles "
+            "WHERE retired = 0 AND home_warehouse_id IS NOT NULL GROUP BY home_warehouse_id")}
 
 
 def _transit_counts() -> dict:
-    df = run_query("SELECT from_wh, to_wh FROM wh_transfers WHERE status = 'En tránsito'")
     out: dict = {}
-    for r in records(df):
+    for r in fetch_all("SELECT from_wh, to_wh FROM wh_transfers WHERE status = 'En tránsito'"):
         for k in ("from_wh", "to_wh"):
             out[int(r[k])] = out.get(int(r[k]), 0) + 1
     return out
 
 
 def list_warehouses() -> list:
-    ws = records(run_query("SELECT * FROM wh_warehouses ORDER BY city, role, name"))
+    ws = fetch_all("SELECT * FROM wh_warehouses ORDER BY city, role, name")
     stock, veh, tr = _all_stock(), _vehicle_counts(), _transit_counts()
     return [_decorate(w, stock.get(w["warehouse_id"], []), veh.get(w["warehouse_id"], 0),
                       tr.get(w["warehouse_id"], 0)) for w in ws]
@@ -149,19 +146,19 @@ def _get_row(warehouse_id: int) -> dict:
 def get_warehouse(warehouse_id: int, now: datetime) -> dict:
     from app.engine import fleet  # evita el ciclo flota <-> bodegas
     w = _get_row(warehouse_id)
-    stock = records(run_query("SELECT * FROM wh_stock WHERE warehouse_id = ? ORDER BY category, name",
-                      (warehouse_id,)))
+    stock = fetch_all("SELECT * FROM wh_stock WHERE warehouse_id = ? ORDER BY category, name",
+                      (warehouse_id,))
     for s in stock:
         s["state"] = _stock_state(s)
         s["volume_total_m3"] = round(s["qty"] * s["volume_m3"], 2)
         s["value_usd"] = round(s["qty"] * s["unit_cost_usd"], 2)
-    moves = records(run_query("SELECT * FROM wh_movements WHERE warehouse_id = ? ORDER BY move_id DESC LIMIT 80",
-                      (warehouse_id,)))
-    transfers = records(run_query("""SELECT t.*, a.name from_name, a.city from_city, b.name to_name, b.city to_city
+    moves = fetch_all("SELECT * FROM wh_movements WHERE warehouse_id = ? ORDER BY move_id DESC LIMIT 80",
+                      (warehouse_id,))
+    transfers = fetch_all("""SELECT t.*, a.name from_name, a.city from_city, b.name to_name, b.city to_city
                              FROM wh_transfers t JOIN wh_warehouses a ON a.warehouse_id = t.from_wh
                              JOIN wh_warehouses b ON b.warehouse_id = t.to_wh
                              WHERE t.from_wh = ? OR t.to_wh = ? ORDER BY t.transfer_id DESC LIMIT 40""",
-                          (warehouse_id, warehouse_id)))
+                          (warehouse_id, warehouse_id))
     vehicles = fleet.list_vehicles(now, warehouse_id=warehouse_id)
     out = _decorate(w, stock, len(vehicles), sum(1 for t in transfers if t["status"] == "En tránsito"))
     out.update(stock=stock, movements=moves, transfers=transfers, vehicles_list=vehicles)
@@ -315,8 +312,8 @@ def update_warehouse(net, warehouse_id: int, data: dict, user: str | None, now: 
         v["node_code"] = node
         if v["city"] != cur["city"] and lat is not None:
             v["latitude"], v["longitude"] = lat, lon
-    used = _used_m3(records(run_query("SELECT qty, volume_m3 FROM wh_stock WHERE warehouse_id = ?",
-                              (warehouse_id,))))
+    used = _used_m3(fetch_all("SELECT qty, volume_m3 FROM wh_stock WHERE warehouse_id = ?",
+                              (warehouse_id,)))
     if v["capacity_m3"] < used:
         raise OperationError(f"La capacidad no puede ser menor que lo almacenado ({used:.0f} m³).")
     run_write("""UPDATE wh_warehouses SET name=?, city=?, node_code=?, role=?, capacity_m3=?, capacity_pallets=?,
@@ -414,8 +411,8 @@ def remove_item(warehouse_id: int, sku: str, user: str | None, now: datetime) ->
 def _check_space(w: dict, extra_m3: float) -> None:
     if w["status"] == "Cerrada":
         raise OperationError("La bodega está cerrada: no recibe mercancía.")
-    used = _used_m3(records(run_query("SELECT qty, volume_m3 FROM wh_stock WHERE warehouse_id = ?",
-                              (w["warehouse_id"],))))
+    used = _used_m3(fetch_all("SELECT qty, volume_m3 FROM wh_stock WHERE warehouse_id = ?",
+                              (w["warehouse_id"],)))
     free = w["capacity_m3"] - used - _incoming_m3(w["warehouse_id"])
     if extra_m3 > free + 1e-9:
         raise OperationError(f"La bodega no tiene espacio: faltan {extra_m3 - max(free, 0):.1f} m³ "
@@ -514,7 +511,7 @@ def create_transfer(net, data: dict, user: str | None, now: datetime) -> dict:
 
 
 def _receive(transfer_id: int, now: datetime) -> None:
-    t = records(run_query("SELECT * FROM wh_transfers WHERE transfer_id = ?", (transfer_id,)))[0]
+    t = fetch_all("SELECT * FROM wh_transfers WHERE transfer_id = ?", (transfer_id,))[0]
     src = _stock_row(t["from_wh"], t["sku"]) if not run_query(
         "SELECT 1 FROM wh_stock WHERE warehouse_id = ? AND sku = ?", (t["from_wh"], t["sku"])).empty else None
     if src is None:  # el producto se quitó del origen mientras viajaba: se recrea con lo que se sabe
@@ -536,7 +533,7 @@ def _receive(transfer_id: int, now: datetime) -> None:
 
 def settle_transfers(now: datetime) -> int:
     """Recibe los traslados cuyo envío ya llegó y devuelve al origen los de envíos borrados."""
-    pend = records(run_query("SELECT * FROM wh_transfers WHERE status = 'En tránsito'"))
+    pend = fetch_all("SELECT * FROM wh_transfers WHERE status = 'En tránsito'")
     done = 0
     for t in pend:
         if not t["shipment_code"]:
@@ -560,11 +557,11 @@ def settle_transfers(now: datetime) -> int:
 
 
 def list_transfers(limit: int = 100) -> list:
-    return records(run_query("""SELECT t.*, a.name from_name, a.city from_city, a.code from_code,
+    return fetch_all("""SELECT t.*, a.name from_name, a.city from_city, a.code from_code,
                         b.name to_name, b.city to_city, b.code to_code
                         FROM wh_transfers t JOIN wh_warehouses a ON a.warehouse_id = t.from_wh
                         JOIN wh_warehouses b ON b.warehouse_id = t.to_wh
-                        ORDER BY t.transfer_id DESC LIMIT ?""", (max(1, min(limit, 500)),)))
+                        ORDER BY t.transfer_id DESC LIMIT ?""", (max(1, min(limit, 500)),))
 
 
 # ---------------------------------------------------------------------------
@@ -615,8 +612,8 @@ def _seed_stock_alerts() -> None:
     if not run_query("SELECT 1 FROM wh_movements WHERE by_user = 'semilla' AND note LIKE 'Alerta%' LIMIT 1").empty:
         return
     caps = {int(r["warehouse_id"]): float(r["capacity_m3"]) for r in
-            records(run_query("SELECT warehouse_id, capacity_m3 FROM wh_warehouses"))}
-    rows = records(run_query("SELECT stock_id, warehouse_id, sku, qty, min_qty, max_qty, volume_m3 FROM wh_stock ORDER BY stock_id"))
+            fetch_all("SELECT warehouse_id, capacity_m3 FROM wh_warehouses")}
+    rows = fetch_all("SELECT stock_id, warehouse_id, sku, qty, min_qty, max_qty, volume_m3 FROM wh_stock ORDER BY stock_id")
     used: dict = {}
     for r in rows:
         used[r["warehouse_id"]] = used.get(r["warehouse_id"], 0.0) + r["qty"] * r["volume_m3"]

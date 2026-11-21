@@ -90,11 +90,20 @@ def departments_on_route(route: dict) -> set:
     return codes
 
 
+@lru_cache(maxsize=8192)
+def _departments_of(route_json: str) -> frozenset:
+    """Departamentos de una ruta guardada. Recordado por el texto de la ruta: cruzar cada punto con los polígonos del país
+    costaba ~250 ms por lectura del mapa con unos cientos de envíos, y una ruta guardada casi nunca cambia (si cambia, su
+    texto cambia y se calcula de nuevo)."""
+    return frozenset(departments_on_route(json.loads(route_json)))
+
+
 def department_traffic(shipments: list) -> dict:
     """{código DANE: toneladas} a partir de envíos con route_json."""
     traffic: dict = {}
     for s in shipments:
-        route = json.loads(s["route_json"]) if isinstance(s["route_json"], str) else s["route_json"]
-        for code in departments_on_route(route):
+        raw = s["route_json"]
+        codes = _departments_of(raw) if isinstance(raw, str) else departments_on_route(raw)
+        for code in codes:
             traffic[code] = traffic.get(code, 0.0) + float(s["weight_t"])
     return traffic

@@ -18,8 +18,8 @@ import os
 import re
 import secrets
 
-from app.database.db import run_query, run_write
-from app.engine.common import OperationError, _now_iso, _user, audit, records, safe_cell
+from app.database.db import fetch_all, run_query, run_write
+from app.engine.common import OperationError, _now_iso, _user, audit, safe_cell
 
 # Documentos y declaraciones que se pueden aceptar, con su versión vigente (fecha del texto)
 VERSIONS: dict[str, str] = {
@@ -112,10 +112,10 @@ def record(browser_id: str, subject: str | None, context: str, items: list[dict]
 def status(browser_id: str) -> dict:
     """Lo último que este navegador aceptó o revocó de cada documento, y si falta aceptar algo vigente."""
     browser_id = _check_browser(browser_id)
-    rows = records(run_query(
+    rows = fetch_all(
         "SELECT document, version, accepted, created_at, subject, context FROM mm_consents c "
         "WHERE browser_id = ? AND consent_id = (SELECT MAX(consent_id) FROM mm_consents "
-        "WHERE browser_id = c.browser_id AND document = c.document) ORDER BY document", (browser_id,)))
+        "WHERE browser_id = c.browser_id AND document = c.document) ORDER BY document", (browser_id,))
     latest = {r["document"]: r for r in rows}
     pending = [d for d in REQUIRED
                if not (d in latest and latest[d]["accepted"] == 1 and latest[d]["version"] == VERSIONS[d])]
@@ -124,9 +124,9 @@ def status(browser_id: str) -> dict:
 
 def export_csv() -> str:
     """Todo el registro para entregarlo ante una consulta o reclamo (sin IP: solo su resumen)."""
-    rows = records(run_query(
+    rows = fetch_all(
         "SELECT consent_id, created_at, subject, browser_id, document, version, accepted, context, checkbox_text, "
-        "ip_hash, user_agent FROM mm_consents ORDER BY consent_id"))
+        "ip_hash, user_agent FROM mm_consents ORDER BY consent_id")
     buf = io.StringIO()
     cols = ["consent_id", "created_at", "subject", "browser_id", "document", "version", "accepted", "context",
             "checkbox_text", "ip_hash", "user_agent"]

@@ -13,8 +13,8 @@ import secrets
 from datetime import datetime
 
 from app.api import format as F
-from app.database.db import run_query, run_write
-from app.engine.common import OperationError, _now_iso, _user, audit, records
+from app.database.db import fetch_all, run_query, run_write
+from app.engine.common import OperationError, _now_iso, _user, audit
 from app.engine import delivery
 from app.engine.dispatch import status_at
 
@@ -35,9 +35,9 @@ def create(code: str, user: str | None) -> dict:
 
 
 def links(code: str) -> list:
-    return records(run_query(
+    return fetch_all(
         "SELECT token, created_at, created_by FROM mm_tracking_links WHERE shipment_code = ? AND revoked_at IS NULL "
-        "ORDER BY created_at DESC", (code,)))
+        "ORDER BY created_at DESC", (code,))
 
 
 MAX_EMAILS_PER_SHIPMENT_DAY = 5

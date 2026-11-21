@@ -16,9 +16,8 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 
-from app.database.db import run_query
+from app.database.db import fetch_all
 from app.engine import fleet, journal
-from app.engine.common import records
 from app.engine.dispatch import status_at
 
 WINDOW_H = 24
@@ -43,8 +42,8 @@ def _brief(s: dict, at: datetime, now: datetime) -> dict:
 def board(now: datetime) -> dict:
     horizon = now + timedelta(hours=WINDOW_H)
     since = now - timedelta(days=SIGN_DAYS)
-    signed = {r["shipment_code"] for r in records(run_query("SELECT shipment_code FROM mm_deliveries"))}
-    ships = records(run_query("SELECT * FROM mm_shipments WHERE departure_at <= ?", (horizon.isoformat(timespec="minutes"),)))
+    signed = {r["shipment_code"] for r in fetch_all("SELECT shipment_code FROM mm_deliveries")}
+    ships = fetch_all("SELECT * FROM mm_shipments WHERE departure_at <= ?", (horizon.isoformat(timespec="minutes"),))
     departures, arrivals, to_sign = [], [], []
     for s in ships:
         dep = datetime.fromisoformat(s["departure_at"])
