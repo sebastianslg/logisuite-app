@@ -160,7 +160,7 @@ export function RouteCompare({
                   );
                 })}
               </div>
-              <p className="mt-1.5 text-[11px] text-muted-foreground">{s.modes.length ? "Solo los modos marcados." : "Todos los modos permitidos."}</p>
+              <p className="mt-1.5 text-xs text-muted-foreground">{s.modes.length ? "Solo los modos marcados." : "Todos los modos permitidos."}</p>
 
               <div className="mt-4 border-t border-border pt-4">
                 {!r ? (
@@ -215,7 +215,7 @@ export function RouteCompare({
                     <li key={x.s.id} className="flex items-center justify-between gap-3">
                       <span className="truncate">{x.s.name}</span>
                       <span className="tabular flex items-center gap-2">
-                        {unique && vals[i] === best && <span className="rounded-full bg-success/12 px-1.5 py-px text-[11px] font-medium text-success">Mejor</span>}
+                        {unique && vals[i] === best && <span className="rounded-full bg-success/12 px-1.5 py-px text-xs font-medium text-success">Mejor</span>}
                         <span className={cn(unique && vals[i] === best && "font-semibold")}>{m.show(x.r.data, (n) => money(n))}</span>
                       </span>
                     </li>
@@ -259,7 +259,7 @@ export function RouteCompare({
                       return (
                         <td key={x.s.id} className="px-5 py-3 text-right">
                           <div className="tabular flex items-center justify-end gap-2">
-                            {isBest && <span className="rounded-full bg-success/12 px-1.5 py-px text-[11px] font-medium text-success">Mejor</span>}
+                            {isBest && <span className="rounded-full bg-success/12 px-1.5 py-px text-xs font-medium text-success">Mejor</span>}
                             <span className={cn(isBest && "font-semibold")}>{m.show(x.r.data, (n) => money(n))}</span>
                           </div>
                           <div className="mt-1.5 ml-auto h-1 w-28 overflow-hidden rounded-full bg-fill" aria-hidden>

@@ -174,7 +174,7 @@ export function ShipmentJournal({ shipment: s, initial }: { shipment: Shipment; 
 function NowMarker() {
   return (
     <div className="grid grid-cols-[5.5rem_1.25rem_minmax(0,1fr)] items-center gap-x-3 pb-4" aria-label="Ahora">
-      <span className="text-right text-[11px] font-semibold tracking-wide text-primary uppercase">Ahora</span>
+      <span className="text-right text-xs font-semibold tracking-wide text-primary uppercase">Ahora</span>
       <span className="mx-auto size-2 rounded-full bg-primary" aria-hidden />
       <span className="h-px bg-primary/40" aria-hidden />
     </div>
@@ -300,7 +300,7 @@ function EventForm({ code, delivered, operator, onAdded }: { code: string; deliv
           aria-describedby="journal-privacy"
           className="field w-full resize-y px-3 py-2 text-sm"
         />
-        <span id="journal-privacy" className="mt-1 block text-[11px] text-muted-foreground">
+        <span id="journal-privacy" className="mt-1 block text-xs text-muted-foreground">
           No escribas cédulas, teléfonos ni datos de salud o sensibles de personas: la nota queda en el historial.
         </span>
       </label>

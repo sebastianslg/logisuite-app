@@ -154,7 +154,7 @@ const columns = helper.columns([
         return (
           <Link
             href={`/flota/${v.vehicle_ids[0]}`}
-            className="font-mono text-xs text-accent hover:underline"
+            className="font-mono text-xs text-primary hover:underline"
             title={`${v.type ?? "Vehículo"} propio (${v.carrier ?? "Flota propia"})`}
             onClick={(e) => e.stopPropagation()}
           >
@@ -163,11 +163,9 @@ const columns = helper.columns([
         );
       }
       return (
-        <span
-          className="max-w-28 truncate text-xs text-muted-foreground"
-          title={`${v.type ?? ""} ${v.id} · ${v.carrier ?? "Tercero"}`}
-        >
-          {v.id}
+        // Tercero: misma letra que los propios, sin enlace (no es de la flota) y dicho en texto, no solo con el color
+        <span className="block max-w-32 truncate text-xs text-muted-foreground" title={`${v.type ?? ""} ${v.id} · ${v.carrier ?? "Tercero"}`}>
+          <span className="font-mono">{v.id}</span> · tercero
         </span>
       );
     },
@@ -811,9 +809,9 @@ export function ShipmentsTable({ data, total, initial }: { data: Shipment[]; tot
                     {sh.vehicle?.id && (
                       <span
                         className={cn(
-                          "rounded px-1.5 py-0.5 font-mono text-[11px]",
+                          "rounded px-1.5 py-0.5 font-mono text-xs",
                           sh.vehicle.own
-                            ? "bg-accent/10 font-medium text-accent"
+                            ? "bg-primary/10 font-medium text-primary"
                             : "bg-fill text-muted-foreground",
                         )}
                         title={sh.vehicle.carrier ?? undefined}

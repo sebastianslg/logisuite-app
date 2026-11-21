@@ -64,14 +64,15 @@ function StatCell({ label, value, hint, tone, href, onClick, active }: Stat) {
           />
         )}
       </span>
-      <span className={cn("tabular mt-2 block text-[1.75rem] leading-none font-semibold tracking-[-0.03em]", tone && TONE[tone])}>
+      {/* La cifra no se parte («US$» / «53.193» en dos líneas): escala con el ancho de su celda, hasta 28 px */}
+      <span className={cn("tabular mt-2 block text-[clamp(1.125rem,13cqw,1.75rem)] leading-none font-semibold tracking-[-0.03em] whitespace-nowrap", tone && TONE[tone])}>
         {value}
       </span>
       {hint && <div className="mt-2 line-clamp-2 text-[13px] text-muted-foreground">{hint}</div>}
     </>
   );
   const cls = cn(
-    "group/stat relative block min-w-0 border-t border-l border-border bg-card px-5 py-4 text-left outline-none md:px-6 md:py-5",
+    "group/stat @container relative block min-w-0 border-t border-l border-border bg-card px-5 py-4 text-left outline-none md:px-6 md:py-5",
     interactive &&
       "cursor-pointer transition-colors duration-200 hover:bg-[color-mix(in_srgb,var(--card)_96%,var(--foreground))] focus-visible:z-10 focus-visible:ring-[3px] focus-visible:ring-ring/80 focus-visible:ring-inset",
     active && "bg-primary/[0.06] shadow-[inset_0_-2px_0_var(--accent)]",

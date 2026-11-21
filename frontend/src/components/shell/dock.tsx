@@ -674,16 +674,16 @@ function OperatorField({ onNavigate }: { onNavigate?: () => void }) {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-foreground truncate">{user.full_name || user.username}</span>
-              <span className="text-[10px] rounded px-1.5 py-0.5 bg-primary/15 text-primary font-medium">{user.role_label}</span>
+              <span className="text-xs rounded px-1.5 py-0.5 bg-primary/15 text-primary font-medium">{user.role_label}</span>
             </div>
             {user.company && (
-              <span className="text-[11px] text-muted-foreground block truncate">{user.company.name}</span>
+              <span className="text-xs text-muted-foreground block truncate">{user.company.name}</span>
             )}
           </div>
           <button
             type="button"
             onClick={openAccount}
-            className="text-[11px] text-primary hover:underline shrink-0 font-medium"
+            className="text-xs text-primary hover:underline shrink-0 font-medium"
           >
             Cuenta
           </button>

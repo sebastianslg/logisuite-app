@@ -276,7 +276,7 @@ frente a carretera = mismas t-km por camión, para comparar`}
         <li>El estado de algunas líneas férreas (Pacífico, Bogotá–Belencito) está por verificar con la ANI.</li>
         <li>Capacidades de aeropuertos regionales y de los ríos Meta, Orinoco y Atrato son supuestos de modelado.</li>
         <li>Impuestos y peajes son provisionales hasta cargar tarifas oficiales.</li>
-        <li>No hay usuarios con contraseña: quien firma cada cambio es el nombre declarado en el menú «Más».</li>
+        <li>No hay contraseñas: se ingresa con un código de un solo uso que llega al correo. Cada cambio se firma con esa cuenta o, sin sesión, con el nombre declarado en el menú «Más».</li>
       </ul>
 
       <H2 id="glosario" n={10}>

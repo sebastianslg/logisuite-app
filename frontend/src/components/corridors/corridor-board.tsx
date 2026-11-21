@@ -242,7 +242,7 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
           </ul>
         )}
         <p className="mt-4 text-xs text-muted-foreground">
-          El nombre es el que se declara en el menú «Más» (campo Operador); no hay autenticación.
+          Cada cierre queda firmado con la cuenta de quien inició sesión; sin sesión, con el nombre que se declara en el menú «Más» (campo Operador).
         </p>
       </aside>
     </div>
