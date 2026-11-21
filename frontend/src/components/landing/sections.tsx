@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { Wordmark } from "@/components/brand/logo";
+import { Reveal } from "@/components/reveal";
 import { Button } from "@/components/ui/button";
 
 /** Barra de la presentación: la marca, las anclas de la página y las dos salidas (la app y la demostración). */
@@ -136,8 +137,8 @@ export function Modules() {
           </p>
         </div>
         <div className="flex flex-col gap-10">
-          {MODULE_GROUPS.map((g) => (
-            <div key={g.name}>
+          {MODULE_GROUPS.map((g, i) => (
+            <Reveal key={g.name} index={i}>
               <h3 className="text-[1.0625rem] font-semibold tracking-tight">{g.name}</h3>
               <ul className="mt-3 rule-list border-y border-border">
                 {g.items.map(({ icon: Icon, name, text, href }) => (
@@ -159,7 +160,7 @@ export function Modules() {
                   </li>
                 ))}
               </ul>
-            </div>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -187,6 +188,7 @@ export function Trust() {
             Un sistema que guarda la operación de su empresa tiene que dejar rastro de todo, no perder nada y no encerrar sus datos.
           </p>
         </div>
+        <Reveal>
         <ul className="rule-list border-y border-border">
           {TRUST.map(({ icon: Icon, name, text }) => (
             <li key={name} className="flex gap-4 py-5">
@@ -198,6 +200,7 @@ export function Trust() {
             </li>
           ))}
         </ul>
+        </Reveal>
       </div>
     </section>
   );
@@ -237,7 +240,7 @@ export function Faq() {
         <h2 id="preguntas-titulo" className="text-[2rem] leading-[1.05] font-semibold tracking-[-0.035em] text-balance sm:text-[2.75rem]">
           Preguntas de quien lo evalúa.
         </h2>
-        <div className="rule-list border-y border-border">
+        <Reveal className="rule-list border-y border-border">
           {FAQ.map(({ q, a }) => (
             <details key={q} className="group">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 text-[1.0625rem] font-semibold tracking-tight outline-none focus-visible:ring-[3px] focus-visible:ring-ring/60 [&::-webkit-details-marker]:hidden">
@@ -250,7 +253,7 @@ export function Faq() {
               <p className="max-w-[60ch] pb-5 text-[0.9375rem] leading-relaxed text-muted-foreground">{a}</p>
             </details>
           ))}
-        </div>
+        </Reveal>
       </div>
     </section>
   );
@@ -275,7 +278,7 @@ export function DemoSection({ children }: { children: React.ReactNode }) {
             .
           </p>
         </div>
-        {children}
+        <Reveal>{children}</Reveal>
       </div>
     </section>
   );

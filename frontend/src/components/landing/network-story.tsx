@@ -112,7 +112,7 @@ export function NetworkStory({
       <div className="sticky top-16 z-10 h-[42svh] border-y border-border bg-background lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:h-[calc(100dvh-4rem)] lg:self-start lg:border-y-0 lg:border-l">
         <div className="relative flex h-full flex-col">
           <div className="relative min-h-0 flex-1 px-3 pt-3 lg:px-8 lg:pt-8">
-            <NetworkPreview network={network} departments={departments} fleet={fleet} focus={focus} closureLabels />
+            <NetworkPreview network={network} departments={departments} fleet={fleet} focus={focus} closureLabels intro />
             <div className="pointer-events-none absolute top-3 right-3 hidden max-w-64 rounded-2xl border border-border bg-card px-4 py-3 text-sm lg:top-8 lg:right-8 lg:block">
               <p className="flex items-center gap-2 font-medium">
                 <span className="size-2 rounded-full bg-success" aria-hidden />

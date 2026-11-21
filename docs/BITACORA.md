@@ -1411,3 +1411,13 @@ bodega, seguimiento público y configuración, en escritorio y celular. Lo que s
 - **Calendario en celular:** el retraso ya no se parte en dos líneas.
 - Sin cambios necesarios: clientes, comparar, combustible, huella, nuevo envío, ficha de bodega y administración.
 - Pruebas: 40 de navegador; el backend no cambió.
+
+## 62. Más movimiento en toda la app (solo transform y opacidad)
+
+- **Listas (`list-in`, CSS puro):** las filas entran en cascada corta (30 ms por fila, tope 360 ms) en resumen («Requiere
+  atención»), hoy, lista de envíos, flota, fallas, mantenimientos, vías, clientes, auditoría, solicitudes de demostración y en
+  todas las franjas de cifras.
+- **Presentación:** al cargar, la red se enciende modo por modo (carretera, río, mar, aire, tren; 150 ms entre modos) y los
+  nodos llegan al final; solo opacidad y una vez, así que el mapa queda quieto en reposo. Módulos, seguridad, preguntas y el
+  formulario entran al aparecer en pantalla. En la ruta en vivo, los tramos crecen de izquierda a derecha con cada resultado.
+- Todo se apaga con «reducir movimiento». Pruebas: 40 de navegador (incluida accesibilidad).

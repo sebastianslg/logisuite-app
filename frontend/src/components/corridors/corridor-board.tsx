@@ -132,7 +132,7 @@ export function CorridorBoard({ corridors, history }: { corridors: Corridor[]; h
         {error && <p className="rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
         {result && <ChangeSummary result={result} name={result.corridor} />}
 
-        <ul className="flex flex-col gap-2">
+        <ul className="list-in flex flex-col gap-2">
           {list.length === 0 && (
             <li className="glass flex flex-col items-center gap-3 rounded-3xl p-8 text-center text-sm text-muted-foreground">
               Ninguna vía coincide con la búsqueda y los filtros.

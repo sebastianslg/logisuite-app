@@ -125,7 +125,7 @@ export function FleetBoard({ vehicles, summary }: { vehicles: Vehicle[]; summary
         {list.length} de {vehicles.length} vehículos
       </p>
 
-      <ul className="glass rule-list overflow-hidden rounded-3xl">
+      <ul className="list-in glass rule-list overflow-hidden rounded-3xl">
         {list.length === 0 && (
           <li>
             <EmptyState

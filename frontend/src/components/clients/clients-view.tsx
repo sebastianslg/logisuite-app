@@ -97,7 +97,7 @@ export function ClientsView({ items }: { items: ClientSummary[] }) {
           <EmptyState figure="0" title="Ningún cliente coincide" description="Cambia la búsqueda." />
         </div>
       ) : (
-        <ul className="rows overflow-hidden rounded-3xl">
+        <ul className="list-in rows overflow-hidden rounded-3xl">
           <li className="hidden grid-cols-[minmax(0,2fr)_6rem_7rem_7rem_8rem_7rem_6rem_2rem] gap-4 px-5 py-2.5 text-xs font-medium text-muted-foreground lg:grid" aria-hidden>
             <span>Cliente</span>
             <span className="text-right">Envíos</span>

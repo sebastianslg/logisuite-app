@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils";
 
 type Ring = number[][];
 
+/** Orden en que se enciende la red en la presentación: de lo que más mueve a lo que menos. */
+const INTRO_ORDER: Mode[] = ["terrestre", "fluvial", "maritimo", "aereo", "ferreo"];
+
 /**
  * Vista previa de la red en SVG: departamentos, enlaces por modo, nodos y la flota en su posición actual. Es
  * plana, sin WebGL ni reloj de animación: se dibuja una vez y solo cambia cuando llega la flota (cada 20 s).
@@ -20,6 +23,7 @@ export function NetworkPreview({
   fleet,
   focus = null,
   closureLabels = false,
+  intro = false,
   className,
 }: {
   network: NetworkGeo;
@@ -29,6 +33,8 @@ export function NetworkPreview({
   focus?: Mode | null;
   /** Rotula cada corredor cerrado en su punto medio (solo en pantallas anchas, donde el texto se lee). */
   closureLabels?: boolean;
+  /** Entrada de la presentación: la red se enciende modo por modo y luego los nodos (solo opacidad, una vez). */
+  intro?: boolean;
   className?: string;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -144,8 +150,8 @@ export function NetworkPreview({
           <path
             key={l.id}
             d={l.d}
-            className={fade}
-            style={dim(l.mode === focus)}
+            className={cn(fade, intro && "mode-in")}
+            style={{ ...dim(l.mode === focus), "--k": INTRO_ORDER.indexOf(l.mode) } as React.CSSProperties}
             stroke={l.closed ? "var(--danger)" : MODES[l.mode].color}
             strokeWidth={l.mode === "aereo" ? 1 : 1.6}
             strokeOpacity={l.mode === "aereo" ? 0.55 : 0.9}
@@ -157,7 +163,7 @@ export function NetworkPreview({
         ))}
       </g>
       {/* Puntos de tamaño fijo en pantalla: un trazo de largo cero con extremo redondo y grosor que no escala */}
-      <g strokeLinecap="round">
+      <g strokeLinecap="round" className={intro ? "nodes-in" : undefined}>
         {geo.nodes.map((n) => (
           <g key={n.code} className={fade} style={dim(!!focus && n.modes.includes(focus))}>
             <path d={`M${n.x.toFixed(1)},${n.y.toFixed(1)}h0`} stroke="var(--card)" strokeWidth={7} vectorEffect="non-scaling-stroke" />

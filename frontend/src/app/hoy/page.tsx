@@ -135,7 +135,7 @@ function Column({ index, id, title, icon, empty, children }: { index: number; id
           {title}
           <span className="tabular ml-auto text-xs font-normal text-muted-foreground">{items.length}</span>
         </h2>
-        {items.length ? <ul className="rule-list border-t border-border">{children}</ul> : <p className="px-5 pb-5 text-sm text-muted-foreground">{empty}</p>}
+        {items.length ? <ul className="list-in rule-list border-t border-border">{children}</ul> : <p className="px-5 pb-5 text-sm text-muted-foreground">{empty}</p>}
       </section>
     </Reveal>
   );

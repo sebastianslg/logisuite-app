@@ -90,7 +90,7 @@ export function DemoRequests() {
         </p>
       )}
       {items && items.length === 0 && <p className="border-t border-border px-5 py-5 text-sm text-muted-foreground">Todavía no hay solicitudes.</p>}
-      <ul className="rule-list border-t border-border">
+      <ul className="list-in rule-list border-t border-border">
         {(items ?? []).map((r) => (
           <li key={r.request_id} className={cn("grid gap-3 px-5 py-4 md:grid-cols-[minmax(0,1fr)_auto]", r.handled_at && "opacity-70")}>
             <div className="min-w-0">

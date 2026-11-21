@@ -124,7 +124,7 @@ function lastSpan(n: number) {
 export function AlertRows({ items, columns = false, onNavigate }: { items: AlertItem[]; columns?: boolean; onNavigate?: () => void }) {
   const n = items.length;
   return (
-    <ul className={cn("-mt-px -ml-px grid grid-cols-[minmax(0,1fr)]", columns && n > 1 && "md:grid-cols-2", columns && XL_COLS[n <= 4 ? n : 3])}>
+    <ul className={cn("list-in -mt-px -ml-px grid grid-cols-[minmax(0,1fr)]", columns && n > 1 && "md:grid-cols-2", columns && XL_COLS[n <= 4 ? n : 3])}>
       {items.map((it, i) => (
         <li key={it.key} className={cn("min-w-0 border-t border-l border-border", columns && i === n - 1 && lastSpan(n))}>
           <Link

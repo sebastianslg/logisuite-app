@@ -675,7 +675,7 @@ export function ShipmentsTable({ data, total, initial }: { data: Shipment[]; tot
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
+          <TableBody className="list-in">
             <AnimatePresence initial={false} mode="popLayout">
               {table.getRowModel().rows.map((row) => (
                 <motion.tr
