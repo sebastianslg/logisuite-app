@@ -10,6 +10,9 @@ Autenticación sin contraseñas (Passwordless OTP por correo electrónico) y ges
 - El primer administrador sale de ADMIN_EMAIL (y ADMIN_NAME) en el .env; administrar usuarios y empresas exige
   sesión de administrador.
 - Jerarquía de roles: admin (3), operador (2), lector (1).
+- Además del código, una cuenta puede tener contraseña (PBKDF2-SHA256): se ingresa con el usuario o el correo. Se le pone
+  desde la consola del servidor (`python -m app.crear_acceso`), nunca desde la web. Tras 5 fallos seguidos la cuenta no
+  acepta contraseña por 15 minutos.
 """
 import hashlib
 import hmac
@@ -22,7 +25,7 @@ from datetime import datetime, timedelta
 from email.message import EmailMessage
 from typing import Optional
 
-from app.database.db import run_query, run_write
+from app.database.db import fetch_all, run_query, run_write
 from app.engine.common import OperationError, audit
 
 logger = logging.getLogger("westvane.auth")
@@ -34,6 +37,12 @@ SESSION_TTL_DAYS = 30
 MAX_ATTEMPTS = 5
 
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+PASSWORD_PREFIX = "pbkdf2$"
+PASSWORD_ITERATIONS = 310_000
+PASSWORD_MIN_LEN = 10
+MAX_PASSWORD_FAILURES = 5
+LOCK_MINUTES = 15
 
 OTP_COOLDOWN_S = 60  # segundos mínimos entre dos códigos pedidos para el mismo correo
 
@@ -209,31 +218,40 @@ def verify_otp(email: str, code: str) -> dict:
         raise OperationError("Usuario inactivo o no encontrado.")
 
     user = user_rows.iloc[0].to_dict()
+    return _open_session(user, f"Inicio de sesión con código por correo ({norm_email})")
 
-    # Generar sesión
+
+def _open_session(user: dict, how: str) -> dict:
+    """Crea la sesión (token de 32 bytes, SESSION_TTL_DAYS días) y la deja en el historial."""
+    now_str = _now_str()
     session_id = secrets.token_urlsafe(32)
     session_exp = (_now() + timedelta(days=SESSION_TTL_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
     run_write(
         "INSERT INTO user_sessions (session_id, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
-        (session_id, user["user_id"], session_exp, now_str),
+        (session_id, int(user["user_id"]), session_exp, now_str),
     )
+    audit(user["username"], "LOGIN", "users", str(user["user_id"]), how)
 
-    audit(user["username"], "LOGIN", "users", str(user["user_id"]), f"Inicio de sesión con código por correo ({norm_email})")
+    return {"token": session_id, "user": _public_user(user)}
 
+
+def _clean(v):
+    """None para los vacíos que pandas entrega como NaN (romperían el JSON) y enteros de Python para los de numpy."""
+    if v is None or (isinstance(v, float) and v != v):
+        return None
+    return v.item() if hasattr(v, "item") else v
+
+
+def _public_user(r: dict) -> dict:
+    cid = _clean(r.get("company_id"))
     return {
-        "token": session_id,
-        "user": {
-            "user_id": user["user_id"],
-            "username": user["username"],
-            "full_name": user["full_name"],
-            "email": user["email"],
-            "role": user["role"],
-            "company": {
-                "company_id": user["company_id"],
-                "name": user["company_name"],
-                "nit": user["company_nit"],
-            } if user["company_id"] else None,
-        },
+        "user_id": int(r["user_id"]),
+        "username": r["username"],
+        "full_name": r["full_name"],
+        "email": _clean(r.get("email")),
+        "role": r["role"],
+        "company": {"company_id": int(cid), "name": _clean(r.get("company_name")), "nit": _clean(r.get("company_nit"))}
+        if cid is not None else None,
     }
 
 
@@ -243,7 +261,7 @@ def get_user_by_session(session_id: str | None) -> Optional[dict]:
         return None
 
     now_str = _now_str()
-    rows = run_query(
+    rows = fetch_all(
         """SELECT u.user_id, u.username, u.full_name, u.email, u.role, u.active,
                   c.company_id, c.name as company_name, c.nit as company_nit,
                   s.expires_at
@@ -253,26 +271,15 @@ def get_user_by_session(session_id: str | None) -> Optional[dict]:
            WHERE s.session_id = ? AND u.active = 1""",
         (session_id.strip(),),
     )
-    if rows.empty:
+    if not rows:
         return None
 
-    r = rows.iloc[0].to_dict()
+    r = rows[0]
     if r["expires_at"] < now_str:
         run_write("DELETE FROM user_sessions WHERE session_id = ?", (session_id,))
         return None
 
-    return {
-        "user_id": r["user_id"],
-        "username": r["username"],
-        "full_name": r["full_name"],
-        "email": r["email"],
-        "role": r["role"],
-        "company": {
-            "company_id": r["company_id"],
-            "name": r["company_name"],
-            "nit": r["company_nit"],
-        } if r["company_id"] else None,
-    }
+    return _public_user(r)
 
 
 def logout(session_id: str | None, current_user: str | None = None) -> None:
@@ -310,14 +317,13 @@ def create_company(name: str, nit: str | None = None, operator: str | None = Non
 
 
 def list_users() -> list[dict]:
-    rows = run_query(
+    return fetch_all(
         """SELECT u.user_id, u.username, u.full_name, u.email, u.role, u.active, u.created_at,
                   c.company_id, c.name as company_name
            FROM users u
            LEFT JOIN companies c ON u.company_id = c.company_id
            ORDER BY u.user_id ASC"""
     )
-    return rows.to_dict(orient="records")
 
 
 def create_user_record(
@@ -424,3 +430,110 @@ def update_user_role(user_id: int, role: str, operator: str | None = None) -> di
     run_write("UPDATE users SET role = ? WHERE user_id = ?", (role, user_id))
     audit(operator, "UPDATE", "users", str(user_id), f"Cambio de rol de {old_role} a {role}")
     return {"user_id": user_id, "role": role}
+
+
+# ---------------------------------------------------------------------------
+# Contraseña (usuario o correo + contraseña)
+# ---------------------------------------------------------------------------
+
+def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
+    salt = salt or secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt), PASSWORD_ITERATIONS).hex()
+    return f"{PASSWORD_PREFIX}{PASSWORD_ITERATIONS}${digest}", salt
+
+
+def _password_matches(password: str, stored: str | None, salt: str | None) -> bool:
+    """Solo valen los hash con el prefijo pbkdf2$: el relleno de las cuentas sin contraseña nunca coincide."""
+    if not stored or not salt or not stored.startswith(PASSWORD_PREFIX):
+        return False
+    try:
+        _, iterations, digest = stored.split("$")
+        candidate = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt), int(iterations)).hex()
+    except (ValueError, TypeError):
+        return False
+    return hmac.compare_digest(candidate, digest)
+
+
+USERNAME_REGEX = re.compile(r"^[a-z0-9][a-z0-9._-]{2,39}$")
+WRONG = "Usuario, correo o contraseña incorrectos."
+
+
+def login_password(identifier: str, password: str) -> dict:
+    """Ingreso con el usuario o el correo y la contraseña. El mensaje de error es el mismo si la cuenta no existe, no tiene
+    contraseña o la contraseña no coincide (no deja averiguar quién tiene cuenta)."""
+    ident = (identifier or "").strip().lower()
+    if not ident or not password:
+        raise OperationError("Escribe tu usuario o correo y tu contraseña.")
+    found = fetch_all(
+        """SELECT u.user_id, u.username, u.full_name, u.email, u.role, u.active, u.password_hash, u.salt,
+                  u.failed_logins, u.locked_until,
+                  c.company_id, c.name AS company_name, c.nit AS company_nit
+           FROM users u LEFT JOIN companies c ON u.company_id = c.company_id
+           WHERE LOWER(u.username) = ? OR LOWER(u.email) = ?
+           ORDER BY (LOWER(u.username) = ?) DESC LIMIT 1""",
+        (ident, ident, ident),
+    )
+    if not found:
+        hash_password(password)  # mismo tiempo de respuesta que con una cuenta real
+        raise OperationError(WRONG)
+    user = found[0]
+    now = _now()
+    locked = user.get("locked_until")
+    if isinstance(locked, str) and locked > now.strftime("%Y-%m-%d %H:%M:%S"):
+        raise OperationError(f"Demasiados intentos fallidos. Espera {LOCK_MINUTES} minutos o ingresa con el código al correo.")
+    if not _password_matches(password, user["password_hash"], user["salt"]) or not user["active"]:
+        fails = int(user["failed_logins"] or 0) + 1
+        lock = (now + timedelta(minutes=LOCK_MINUTES)).strftime("%Y-%m-%d %H:%M:%S") if fails >= MAX_PASSWORD_FAILURES else None
+        run_write("UPDATE users SET failed_logins = ?, locked_until = ? WHERE user_id = ?",
+                  (0 if lock else fails, lock, int(user["user_id"])))
+        if lock:
+            audit("sistema", "UPDATE", "users", str(int(user["user_id"])),
+                  f"Contraseña bloqueada {LOCK_MINUTES} min por {MAX_PASSWORD_FAILURES} intentos fallidos")
+        raise OperationError(WRONG)
+    run_write("UPDATE users SET failed_logins = 0, locked_until = NULL WHERE user_id = ?", (int(user["user_id"]),))
+    return _open_session(user, "Inicio de sesión con contraseña")
+
+
+def set_password_account(username: str, password: str, full_name: str, role: str = "admin",
+                         email: str | None = None, operator: str = "consola") -> dict:
+    """Crea la cuenta (o le cambia la contraseña si ya existe) desde la consola del servidor. Al cambiar la contraseña se
+    cierran sus sesiones abiertas: quien la tenía antes deja de entrar."""
+    user = (username or "").strip().lower()
+    if not USERNAME_REGEX.match(user):
+        raise OperationError("El usuario debe tener de 3 a 40 letras minúsculas, números, punto, guion o guion bajo.")
+    if len(password or "") < PASSWORD_MIN_LEN:
+        raise OperationError(f"La contraseña debe tener al menos {PASSWORD_MIN_LEN} caracteres.")
+    if role not in ROLE_LEVEL:
+        raise OperationError(f"Rol no válido: '{role}'.")
+    mail = normalize_email(email) if email else None
+    if mail:
+        other = run_query("SELECT user_id FROM users WHERE LOWER(email) = ? AND LOWER(username) != ?", (mail, user))
+        if not other.empty:
+            raise OperationError(f"El correo {mail} ya es de otra cuenta.")
+    pw_hash, salt = hash_password(password)
+    existing = run_query("SELECT user_id FROM users WHERE LOWER(username) = ?", (user,))
+    if existing.empty:
+        uid = run_write(
+            """INSERT INTO users (username, full_name, email, role, company_id, password_hash, salt, active, created_at)
+               VALUES (?, ?, ?, ?, NULL, ?, ?, 1, ?)""",
+            (user, (full_name or user).strip(), mail, role, pw_hash, salt, _now_str()),
+        )
+        audit(operator, "INSERT", "users", str(uid), f"Cuenta con contraseña creada: {user} ({role})")
+    else:
+        uid = int(existing.iloc[0]["user_id"])
+        run_write("""UPDATE users SET password_hash = ?, salt = ?, role = ?, active = 1, failed_logins = 0, locked_until = NULL,
+                     full_name = COALESCE(NULLIF(?, ''), full_name), email = COALESCE(?, email) WHERE user_id = ?""",
+                  (pw_hash, salt, role, (full_name or "").strip(), mail, uid))
+        run_write("DELETE FROM user_sessions WHERE user_id = ?", (uid,))
+        audit(operator, "UPDATE", "users", str(uid), f"Contraseña cambiada: {user} ({role})")
+    return {"user_id": uid, "username": user, "role": role, "email": mail}
+
+
+def ensure_dev_password_user() -> None:
+    """Solo en desarrollo y pruebas (WESTVANE_DEV_OTP=1): cuenta «pruebas» con contraseña conocida para el navegador de
+    pruebas. En producción esa variable no existe y no se crea nada."""
+    if not dev_otp_enabled():
+        return
+    if run_query("SELECT user_id FROM users WHERE username = 'pruebas'").empty:
+        set_password_account("pruebas", "pruebas-e2e-local", "Cuenta de pruebas", "lector",
+                             "pruebas@westvane.invalid", operator="sistema")

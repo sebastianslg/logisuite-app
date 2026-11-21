@@ -18,7 +18,9 @@ terminar.** Se trabaja en la rama `desarrollo` (nunca directo en `main`), con co
 - Animaciones solo con `transform` y `opacity`; todo componente nuevo respeta «reducir movimiento». Nada de animar
   `width`, `height`, `top` ni `box-shadow` en listas, tablas o mapa.
 - El mapa está quieto en reposo: no agregar trabajo por cuadro.
-- No agregar contraseña de la aplicación (aplazado por decisión del dueño).
+- La app pide sesión (decisión del dueño, 21/11/2026): `/ingresar` con usuario o correo y contraseña, o código al correo.
+  Las contraseñas solo se ponen desde la consola del servidor (`python -m app.crear_acceso`, la clave por la entrada
+  estándar); la web no tiene ruta para crearlas. Lo público (/, /seguimiento, lo legal) sigue abierto.
 - Solo Inter Variable; sin fuentes propietarias ni fotos de terceros. Paleta de modos validada (ver DESIGN.md).
 - No subir `.env`, `backend/data/`, `.venv`, `node_modules` ni claves; sin `git push --force` ni `git reset --hard`.
 - Nunca `docker compose down -v`; nunca claves, `.env` ni contraseñas en commits o chats; no `git reset --hard` en
@@ -52,7 +54,8 @@ respaldos; sale con 1 si algo falla). El despliegue automático ya lo corre. Los
     no se inventan porque entran en las cotizaciones.
   - **Coordenadas:** validar contra INVÍAS, ANI, Aerocivil y Cormagdalena (hacen falta los PDF de Aerocivil). Tres distancias
     siguen con cifra no oficial (sección 22).
-  - **Roles que limiten acciones:** hoy el rol se muestra y no restringe nada; aplicarlo obligaría a iniciar sesión a todos.
+  - **Roles que limiten acciones:** las páginas ya piden sesión, pero el rol todavía no restringe nada y la API sigue
+    respondiendo sin sesión (solo administración y exportaciones con datos personales la exigen).
   - **Términos y privacidad:** esperan los datos del responsable (`LEGAL_*`) y la revisión de un abogado; ahora se guardan
     correos de usuarios y de clientes.
   - **Despliegue automático** (faltan los secretos en GitHub), **dominio propio y Cloudflare**, **PostgreSQL** con varios usuarios.

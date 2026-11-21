@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-import { watchErrors } from "./helpers";
+import { watchErrors, withSession } from "./helpers";
 
 // Navegador nuevo, sin aceptaciones: aquí se prueba la bienvenida en sí
-test("la primera visita pide aceptar términos y datos en dos casillas separadas, y queda registrado", async ({ page }) => {
+test("la primera visita pide aceptar términos y datos en dos casillas separadas, y queda registrado", async ({ page, baseURL }) => {
   const w = watchErrors(page);
+  await withSession(page, baseURL!); // la app pide sesión; la bienvenida sale igual en un navegador nuevo
   // Los documentos se leen sin haber aceptado
   await page.goto("/privacidad");
   await expect(page.getByRole("heading", { name: "Política de tratamiento de datos", level: 1 })).toBeVisible();

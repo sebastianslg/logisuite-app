@@ -40,6 +40,21 @@ export interface VerifyOtpResponse {
 
 const TOKEN_KEY = "westvane.session_token";
 const AUTH_EVENT = "westvane:auth";
+/** Cookie con el mismo token: la lee el proxy de Next para dejar pasar a la app (las páginas piden sesión). */
+export const SESSION_COOKIE = "westvane_session";
+const SESSION_DAYS = 30;
+
+function writeSessionCookie(token: string | null) {
+  if (typeof document === "undefined") return;
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = token
+    ? `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; SameSite=Lax${secure}`
+    : `${SESSION_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+}
+
+function hasSessionCookie(): boolean {
+  return typeof document !== "undefined" && document.cookie.split("; ").some((c) => c.startsWith(`${SESSION_COOKIE}=`));
+}
 
 let currentUser: AuthUser | null = null;
 const userListeners = new Set<() => void>();
@@ -68,6 +83,7 @@ export function setAuthToken(token: string | null) {
   } catch {
     /* almacenamiento no disponible */
   }
+  writeSessionCookie(token);
   if (!token) {
     currentUser = null;
     notifyUserListeners();
@@ -141,6 +157,9 @@ export async function refreshUser(): Promise<AuthUser | null> {
 }
 
 if (typeof window !== "undefined") {
+  // Sesiones abiertas antes de que la app pidiera ingresar: el token estaba solo en el navegador; se copia a la cookie
+  const saved = getAuthToken();
+  if (saved && !hasSessionCookie()) writeSessionCookie(saved);
   if (getAuthToken() && !currentUser) {
     void refreshUser();
   }
@@ -171,6 +190,19 @@ export function useAuth() {
       method: "POST",
       body: { email, code },
     });
+    return openSession(res);
+  };
+
+  /** Usuario o correo + contraseña (cuentas a las que se les puso contraseña desde el servidor). */
+  const loginPassword = async (identifier: string, password: string) => {
+    const res = await api<VerifyOtpResponse>("/api/auth/password", {
+      method: "POST",
+      body: { identifier, password },
+    });
+    return openSession(res);
+  };
+
+  const openSession = (res: VerifyOtpResponse) => {
     currentUser = res.user;
     notifyUserListeners();
     setAuthToken(res.token);
@@ -195,6 +227,10 @@ export function useAuth() {
       currentUser = null;
       notifyUserListeners();
       setAuthToken(null);
+      // Sin sesión la app no se puede usar: vuelve a la pantalla de ingreso con una carga completa (borra lo que la app
+      // tenía en memoria y el proxy ya no ve la cookie)
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign("/ingresar");
     }
   };
 
@@ -203,6 +239,7 @@ export function useAuth() {
     user,
     requestOtp,
     verifyOtp,
+    loginPassword,
     logout,
     refreshUser,
   };

@@ -81,6 +81,7 @@ test("prueba de entrega: firmar en pantalla, ver el comprobante y anular", async
   // El formulario entra con un desplazamiento corto: se firma cuando el lienzo ya está quieto (si el trazo cae
   // durante la entrada, se repite)
   await expect(async () => {
+    await pad.scrollIntoViewIfNeeded(); // el aviso de «Falta la firma» puede dejar el lienzo fuera de la pantalla
     const a = (await pad.boundingBox())!;
     await page.waitForTimeout(120);
     const box = (await pad.boundingBox())!;

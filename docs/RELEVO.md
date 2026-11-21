@@ -69,7 +69,9 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     (solo transform/opacidad); imagen para compartir, robots y sitemap, 404 con la marca; Red con la leyenda como control
     abajo; y la API más rápida (departamentos recordados, tablas de la flota recordadas por `db.data_version()`, lecturas
     sin pandas con `db.fetch_all`).
-- **En curso / a medias:** nada. Producción al día con `main` (sección 65, verificado con `deploy/verificar.sh`).
+  - **Sección 66:** la app pide ingreso (`/ingresar`: usuario o correo + contraseña, o código al correo); cuenta
+    `profesor` (admin) creada en Contabo con `python -m app.crear_acceso`.
+- **En curso / a medias:** nada. Producción al día con `main` (sección 66, verificado con `deploy/verificar.sh`).
 - **Pendiente de decisión del dueño:** exigir sesión para todo lo que escribe (roles reales; hoy `/api/audit` y las pantallas
   siguen abiertas como demostración); rotar la contraseña de aplicación de Gmail y el tema de ntfy tras el aviso de Contabo;
   dominio propio; una instalación por empresa o separar datos por empresa; revisión legal.
