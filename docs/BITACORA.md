@@ -1459,3 +1459,27 @@ bodega, seguimiento público y configuración, en escritorio y celular. Lo que s
 - **Resultado en local (consulta repetida, sin la memoria de 5 s):** resumen ~150 → 70 ms, alertas ~150 → 62 ms, «Hoy» →
   40 ms. Pruebas nuevas en `tests/test_memoria_lecturas.py` (una escritura invalida lo recordado; los departamentos
   recordados son los mismos que los calculados).
+
+## 66. Ingreso a la app con usuario o correo y contraseña
+
+- **Pedido del dueño:** al pasar de la presentación a la app, pedir ingreso; algo simple (usuario o correo + contraseña)
+  para darle a un profesor una cuenta de administrador con la que pueda probar todo. Reemplaza la regla anterior de «no
+  agregar contraseña».
+- **Pantalla `/ingresar`:** usuario o correo y contraseña (con «mostrar contraseña»); quien tiene cuenta solo con correo
+  pide el código como antes. Al entrar vuelve a la página que quería abrir (`next`, solo rutas de la app). Cerrar sesión
+  lleva de vuelta a `/ingresar`.
+- **La app pide sesión (`src/proxy.ts`):** las páginas de la app exigen la cookie `westvane_session` (el mismo token de la
+  sesión, la escribe `lib/auth.ts`) y la validan contra `/api/auth/me`, recordando cada token válido un minuto. Siguen
+  abiertas la presentación, el seguimiento para clientes, lo legal, `/metodologia` y `/creditos`. Las sesiones abiertas
+  antes con código pasan solas a la cookie. La API no cambió: sigue respondiendo sin sesión (pendiente: roles reales).
+- **Contraseñas (`auth_otp.login_password`):** PBKDF2-SHA256 con 310.000 vueltas y el prefijo `pbkdf2$` en las columnas
+  que ya existían; el relleno de las cuentas por correo nunca coincide. Mismo mensaje si la cuenta no existe o la clave no
+  coincide. Cinco fallos seguidos bloquean la contraseña de esa cuenta 15 minutos (`schema_v17`: `failed_logins`,
+  `locked_until`). Las cuentas sin correo ni empresa ya no rompen el JSON (lecturas con `fetch_all`).
+- **Crear o cambiar una cuenta:** solo en el servidor, con la contraseña por la entrada estándar:
+  `docker exec -i westvane-api python -m app.crear_acceso --usuario profesor --nombre "Profesor" --rol admin < clave.txt`
+  (o `--generar`). Cambiar la contraseña cierra las sesiones abiertas de esa cuenta.
+- **Pruebas:** con `WESTVANE_DEV_OTP=1` existe la cuenta `pruebas` (lector, contraseña conocida de pruebas); el fixture
+  del navegador entra con ella. Nuevas: `tests/test_acceso_contrasena.py` y `e2e/ingreso.spec.ts`.
+- **Cuenta del profesor:** `profesor`, administrador, creada en Contabo. La contraseña no va en git ni en el chat: el
+  dueño la tiene en `backend/data/acceso-profesor.txt` (ignorado por git) en su PC.

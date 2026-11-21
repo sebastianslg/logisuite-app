@@ -17,9 +17,20 @@ export const test = base.extend({
       },
     });
     await page.addInitScript((id) => localStorage.setItem("westvane.browser-id", id), E2E_BROWSER);
+    // La app pide sesión. Solo la cookie, sin el token en el navegador: el dock sigue «sin sesión» y las pruebas de ingreso por código valen igual.
+    if (!base.info().annotations.some((a) => a.type === "sin-sesion")) await withSession(page, baseURL!);
     await provide(page);
   },
 });
+
+/** Abre las páginas de la app con la cookie de la cuenta «pruebas» (lector; solo existe con WESTVANE_DEV_OTP=1). */
+export async function withSession(page: Page, baseURL: string) {
+  const login = await page.request.post(`${baseURL}/api/auth/password`, {
+    data: { identifier: "pruebas", password: "pruebas-e2e-local" },
+  });
+  expect(login.ok(), await login.text()).toBe(true);
+  await page.context().addCookies([{ name: "westvane_session", value: (await login.json()).token, url: baseURL }]);
+}
 
 /** Registra errores de página y de consola (salvo los conocidos del entorno sin GPU) para fallar al final. */
 export function watchErrors(page: Page) {
@@ -50,6 +61,7 @@ export async function noHorizontalOverflow(page: Page) {
 
 export const PAGES = [
   "/",
+  "/ingresar",
   "/panel",
   "/envios",
   "/envios/nuevo",

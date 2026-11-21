@@ -66,11 +66,9 @@ test.describe("Autenticación sin contraseña por correo (OTP)", () => {
     await expect(logoutBtn).toBeVisible();
     await logoutBtn.click();
 
-    // Tras cerrar sesión, debe volver a mostrar el botón para ingresar
-    if (await moreBtn.isVisible()) {
-      await moreBtn.click();
-    }
-    await expect(page.getByRole("button", { name: /ingresar con código al correo/i })).toBeVisible();
+    // Tras cerrar sesión la app ya no se puede usar: vuelve a la pantalla de ingreso
+    await expect(page).toHaveURL(/\/ingresar/);
+    await expect(page.getByRole("heading", { name: "Ingresar a Westvane" })).toBeVisible();
 
     watch.expectClean();
   });

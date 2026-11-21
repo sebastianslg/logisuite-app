@@ -208,6 +208,7 @@ async def lifespan(_app: FastAPI):
     init_database(reset=False)
     enable_wal()
     auth_otp.ensure_bootstrap_admin()
+    auth_otp.ensure_dev_password_user()
     yield
 
 
@@ -1638,6 +1639,11 @@ class OtpVerifyIn(BaseModel):
     code: str = Field(..., min_length=6, max_length=6)
 
 
+class PasswordLoginIn(BaseModel):
+    identifier: str = Field(..., max_length=200)
+    password: str = Field(..., max_length=200)
+
+
 class CompanyIn(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     nit: str | None = Field(None, max_length=50)
@@ -1670,6 +1676,15 @@ def auth_otp_request(body: OtpRequestIn) -> dict:
 def auth_otp_verify(body: OtpVerifyIn) -> dict:
     try:
         return auth_otp.verify_otp(body.email, body.code)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
+@app.post("/api/auth/password")
+def auth_password(body: PasswordLoginIn) -> dict:
+    """Ingreso con el usuario o el correo y la contraseña (cuentas a las que se les puso desde la consola)."""
+    try:
+        return auth_otp.login_password(body.identifier, body.password)
     except ops.OperationError as exc:
         _op_error(exc)
 
