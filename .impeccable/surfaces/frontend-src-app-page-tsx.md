@@ -5,13 +5,6 @@ primary_target: "frontend/src/app/page.tsx"
 related_targets: []
 ---
 
----
-version: 1
-slug: "frontend-src-app-page-tsx"
-primary_target: "frontend/src/app/page.tsx"
-related_targets: []
----
-
 # Presentación comercial (/)
 
 Modo: Persuade. Público: gerentes de operación, tecnología o generales de operadores logísticos (3PL) en Colombia que llegan por un enlace del dueño. Acción: «Pedir demostración» (formulario que llega a NOTIFY_EMAIL) y, en segundo lugar, «Ver la app en vivo» (/panel con datos de ejemplo). Prueba disponible: la red real (87 nodos, 148 enlaces, cinco modos con sus kilómetros), cierres reales y envíos simulados marcados como ejemplo. Sin clientes, testimonios, precios ni métricas comerciales: no se inventan.

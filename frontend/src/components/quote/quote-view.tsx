@@ -61,7 +61,7 @@ export function QuoteView({ data, issuedAt, number }: { data: SimulateResponse; 
           <span className="mb-1 block text-muted-foreground">Condiciones</span>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} className="field w-full resize-y px-3 py-2 text-sm" />
         </label>
-        <p className="text-xs text-muted-foreground">Moneda: {currency}{currency === "COP" && fx?.rate ? ` (TRM ${fx.rate.toLocaleString("es-CO")})` : ""}. Cámbiala en el dock.</p>
+        <p className="text-xs text-muted-foreground">Moneda: {currency}{currency === "COP" && fx?.rate ? ` (TRM ${fx.rate.toLocaleString("es-CO")})` : ""}. Cámbiala en el menú «Más» de la barra.</p>
         <div className="flex flex-wrap gap-2 pt-1">
           <Button onClick={() => window.print()}>
             <Printer /> Imprimir o guardar PDF

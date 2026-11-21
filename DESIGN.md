@@ -43,6 +43,23 @@ typography:
     fontWeight: 600
     lineHeight: 0.95
     letterSpacing: "-0.045em"
+  display-public:
+    fontFamily: "'Inter Variable', Inter, system-ui, sans-serif"
+    fontSize: "3.875rem"
+    fontWeight: 600
+    lineHeight: 1.02
+    letterSpacing: "-0.04em"
+  headline-public:
+    fontFamily: "'Inter Variable', Inter, system-ui, sans-serif"
+    fontSize: "2.75rem"
+    fontWeight: 600
+    lineHeight: 1.05
+    letterSpacing: "-0.035em"
+  lead:
+    fontFamily: "'Inter Variable', Inter, system-ui, sans-serif"
+    fontSize: "1.0625rem"
+    fontWeight: 400
+    lineHeight: 1.625
   body:
     fontFamily: "'Inter Variable', Inter, system-ui, sans-serif"
     fontSize: "0.9375rem"
@@ -70,6 +87,10 @@ spacing:
   md: "16px"
   lg: "24px"
   xl: "40px"
+  gutter-lg: "56px"
+  gutter-xl: "80px"
+  section: "80px"
+  section-lg: "112px"
 components:
   button-primary:
     backgroundColor: "{colors.accent-solid-light}"
@@ -88,6 +109,16 @@ components:
     rounded: "{rounded.3xl}"
   dock:
     rounded: "{rounded.pill}"
+    height: "56px"
+  logo-mark:
+    backgroundColor: "{colors.accent-solid-light}"
+    textColor: "#ffffff"
+    size: "32px"
+  public-header:
+    backgroundColor: "{colors.background-light}"
+    height: "64px"
+  mode-strip-cell:
+    backgroundColor: "{colors.card-light}"
     height: "56px"
 ---
 
@@ -123,12 +154,16 @@ Westvane es una herramienta de operación para despachadores y planificadores de
 
 Una sola familia: Inter Variable, empaquetada (sin fuentes propietarias). Título de página 2 rem en celular y 2,5 rem en escritorio, a peso 600 con interletraje negativo; las tres cifras principales del resumen escalan hasta 3,75 rem. Cuerpo 0,9375 rem, etiquetas 0,8125 rem. Las cifras usan numerales tabulares (`.tabular`) y van alineadas a la derecha en tablas. Código de envío e identificadores en monoespaciada. Un texto sin espacios se parte (`overflow-wrap: anywhere`) en lugar de ensanchar la página.
 
+Las páginas públicas usan la misma familia y el mismo peso con una escala mayor, porque se leen una vez y no a diario: titular de portada `display-public` (2,5 rem en celular, 3,25 rem desde `sm`, 3,875 rem desde `xl`, con `text-balance`), títulos de sección `headline-public` (2 rem en celular, 2,75 rem desde `sm`; los capítulos de modo se quedan en 2,5 rem y 18 caracteres de ancho) y párrafo de entrada `lead` en gris secundario a 52–60 caracteres de ancho.
+
 ## Layout
 
-- **Dock** como única navegación. Escritorio: píldora flotante centrada arriba (radio 999 px) con logo y estado del sistema, cinco destinos (Resumen, Envíos, Red, Flota, Más), avisos, búsqueda `Ctrl K`, moneda y tema. Celular: barra inferior con los mismos destinos; "Más" abre una hoja inferior con el resto de páginas, los avisos y los ajustes.
+- **Dock** como única navegación. Escritorio: píldora flotante centrada arriba (radio 999 px) con logo y estado del sistema, cinco destinos (Resumen, Envíos, Red, Flota, Más), avisos y búsqueda `Ctrl K`; moneda y apariencia viven dentro del menú «Más», no en la barra. Celular: barra inferior con los mismos destinos; "Más" abre una hoja inferior con el resto de páginas, los avisos y los ajustes (moneda y apariencia incluidas).
 - **Páginas** con ancho máximo (`page`, y `page-narrow` en las fichas para que el mapa no crezca sin límite). El resumen abre con las tres cifras principales en una sola superficie, sigue con "Requiere atención" y después el detalle.
 - Listas largas (vías, nodos) en secciones plegables con encabezado fijo y recuento; lo cerrado va primero.
 - Objetivos táctiles de al menos 44 px en pantallas táctiles; sin desborde horizontal desde 360 px.
+- **Páginas públicas sin dock.** La presentación en `/` y el seguimiento (`/seguimiento/…`) no llevan dock, avisos ni bienvenida de la app (`isPublicPath`, `ShellOnly`); la página marca `data-public-page` y el `<main>` deja de reservar el espacio del dock. La presentación lleva su propia barra: 64 px, fija arriba, opaca sobre el fondo con línea inferior, marca a la izquierda, anclas al centro y a la derecha «Entrar a la app» (enlace) y la acción principal.
+- **Un solo borde izquierdo en la presentación.** Todas las secciones y la barra comparten el mismo margen (16 px, 32 px desde `sm`, 56 px desde `lg`, 80 px desde `xl`) y un ancho máximo de 1440 px alineado a la izquierda, sin centrar. En escritorio cada sección es una rejilla de 5/12 y 7/12: título y entrada a la izquierda, contenido a la derecha. Las secciones se separan por una línea fina, con 80 px de aire vertical (112 px en escritorio), y alternan fondo y tarjeta.
 
 ## Elevation & Depth
 
@@ -163,6 +198,9 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 - **Mapa de calor de retrasos (`DelayHeatmap`):** tabla de vías por día, un tono del acento en cinco pasos por quintiles sin repetir cortes; el paso más oscuro es el acento pleno con texto blanco. Detalle al pasar el puntero y con el foco.
 - **Bienvenida (`ConsentGate`):** diálogo con dos casillas separadas y sin marcar (términos y datos) y el aviso de privacidad corto; los documentos legales se leen sin aceptar y llevan aviso de borrador mientras falten datos del responsable.
 - **Vista plana de la red (`NetworkPreview`):** SVG con departamentos, enlaces por modo, nodos y flota de tamaño fijo en pantalla; es lo que muestra el Resumen y lo que se ve mientras carga el mapa 3D.
+- **Marca (`LogoMark`, `Wordmark`):** cuadro de esquinas suaves (radio de 112 sobre 512) en el azul de los botones con la W trazada en blanco como una ruta: trazo grueso de extremos y uniones redondos, origen y destino en círculos blancos y un transbordo calado en el vértice central. Es el mismo dibujo que `app/icon.svg` (favicon e íconos de instalación): si cambia uno, cambia el otro. En el dock va sola a 32 px; en la barra y el pie públicos va a 28 px junto al nombre en Inter 600 a 1,0625 rem. El nombre nunca va en otra fuente ni como imagen.
+- **Red como página (`NetworkStory`):** la vista plana de la red queda fija mientras se baja (a la derecha a toda la altura bajo la barra en escritorio; arriba, a 42 % de la pantalla, en el celular) y los capítulos pasan a su lado, cada uno de al menos 80 % de la altura y separados por líneas finas. El capítulo que cruza la franja central de lectura enciende su modo; la introducción y el cierre no resaltan nada. Al pie del mapa, la **franja de modos**: cinco celdas separadas por líneas, ícono y nombre del modo con sus kilómetros; la activa toma el fondo elevado y una barra de 2 px del color del modo que crece con `scaleX`; un clic lleva al capítulo. Es un patrón de presentación, no de la app de trabajo.
+- **Resalte de modo (`NetworkPreview`, prop `focus`):** con un modo resaltado, enlaces, nodos y flota de los demás bajan a 12 % de opacidad en 500 ms; la red se sigue leyendo y el ojo va al modo. Solo cambia la opacidad: no se redibuja ni corre reloj. Con `closureLabels`, cada corredor cerrado lleva un punto rojo y el rótulo «… · cerrado» en rojo con halo del fondo, solo en pantallas anchas.
 - **Seguimiento público:** columna de 42 rem sin menú: código en mono, estado, avance, llegada estimada y recorrido por tramos con ícono de modo (hecho, en curso, pendiente); nada interno.
 - **Atajos:** `Ctrl K` o `/` buscar (envíos, ciudades, vehículos, bodegas, vías y páginas), `n` nuevo envío, `g` y una letra para navegar, `?` ayuda.
 
@@ -173,6 +211,7 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 - **Solo `transform` y `opacity`.** Barras y líneas de tiempo crecen con `scaleX`/`scaleY`; nada anima `width`, `height`, `top` ni `box-shadow` en listas, tablas o mapa.
 - **El mapa está quieto en reposo.** Su reloj solo corre mientras se arrastra, se hace zoom o está en pantalla completa con animación activa; se monta cuando entra en pantalla y en tiempo ocioso, por capas.
 - **Medidores (`meter-fill`):** relleno a todo el ancho escalado con `--v`; crece al aparecer y se desliza al cambiar. **Sparklines** se dibujan con una máscara que crece; **calendario** crece por filas (20 ms); **mapa por departamento** se llena por intensidad; lo **recién creado** entra con `.enter`.
+- **Presentación:** el mapa entra una sola vez con un fundido de 0,4 s al llegar los datos; después solo cambia la opacidad al cambiar de capítulo. El salto desde la franja de modos se desplaza suave salvo con «reducir movimiento».
 - **Apariencia:** cambiar de tema funde la página en 250 ms (View Transitions); lo usado a diario (Ctrl K, atajos) no anima.
 - Todo componente respeta "reducir movimiento" (`MotionConfig reducedMotion="user"` y `motion-reduce:` en CSS).
 
@@ -181,5 +220,7 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 - Sí: jerarquía por tamaño y valor, filas y líneas finas, una cifra grande donde importa.
 - Sí: marcar lo aproximado como aproximado; no inventar vías ni municipios sin trazado real.
 - Sí: que lo que no se ve no trabaje: sondeos en pausa con la pestaña oculta o fuera de pantalla.
+- Sí: resaltar un modo bajando lo demás a 12 % de opacidad, y acompañar el color del modo con su ícono y su nombre.
+- Sí: en las páginas públicas, un solo borde izquierdo para todas las secciones y ningún elemento del armazón de la app (dock, avisos, bienvenida).
 - No: tarjetas idénticas como estructura de página, íconos en círculos sobre cada cifra, tarjetas dentro de tarjetas, vidrio decorativo.
 - No: color como único portador de significado, `transition: all`, nuevas curvas de movimiento, fuentes propietarias o fotos de terceros.

@@ -60,9 +60,14 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
   - **Lote del 21 de noviembre (sección 58):** presentación comercial pública en `/` y la app en `/panel`; logo W en todo (app,
     íconos y PDF); solicitudes de demostración (Administración); arreglo de la caché de lecturas que podía servir a cualquiera
     lo que leía un administrador; moneda y apariencia al menú «Más» del dock.
-- **En curso / a medias:** nada. Siguiente acordado con el dueño: exigir administrador en `/api/consents/export`,
-  `/api/audit/export.csv` y `/api/client-errors`; auditar dependencias de Python; que la portada no caiga entera si falla una
-  lectura de la API. Pendiente de decisión del dueño: exigir sesión para todo lo que escribe (roles reales).
+  - **Sección 59:** exportaciones con datos personales solo para administradores (`/api/consents/export`,
+    `/api/audit/export.csv`, `/api/client-errors`), `pip-audit` limpio en producción, portada resistente a fallos de la API y
+    los arreglos de la revisión final de diseño. `DESIGN.md` documenta la marca, la escala pública y las reglas nuevas.
+- **En curso / a medias:** nada. Producción en `63671ea` (todo lo anterior). En `desarrollo` queda solo documentación y un
+  texto de la cotización («Cámbiala en el menú «Más»»), que sube con el próximo despliegue.
+- **Pendiente de decisión del dueño:** exigir sesión para todo lo que escribe (roles reales; hoy `/api/audit` y las pantallas
+  siguen abiertas como demostración); rotar la contraseña de aplicación de Gmail y el tema de ntfy tras el aviso de Contabo;
+  dominio propio; una instalación por empresa o separar datos por empresa; revisión legal.
 - **Importante para quien siga:**
   - **Nunca** devolver el código OTP en la respuesta fuera de pruebas (`WESTVANE_DEV_OTP=1`).
   - **No pegar sobre el contenido del `.env` en `nano`**: agregar líneas al final (o con `printf ... >> .env`). Ya pasó una vez y
