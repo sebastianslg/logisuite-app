@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { Check, CircleCheck, CircleDot, Clock, MapPin } from "lucide-react";
 
+import { Wordmark } from "@/components/brand/logo";
 import { AutoRefresh } from "@/components/tracking/auto-refresh";
 import { Skeleton } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
@@ -20,7 +21,11 @@ export const metadata = {
 export default function SeguimientoPage({ params }: PageProps<"/seguimiento/[token]">) {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 md:py-14">
-      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Westvane · seguimiento de envío</p>
+      {/* La marca y qué es esta página, en una línea: el cliente final llega aquí por un enlace y debe reconocer quién le escribe */}
+      <header className="flex items-center justify-between gap-3 border-b border-border pb-4">
+        <Wordmark />
+        <span className="text-sm text-muted-foreground">Seguimiento de envío</span>
+      </header>
       <Suspense fallback={<Skeleton className="mt-6 h-[420px]" />}>
         <Body params={params} />
       </Suspense>
@@ -75,7 +80,8 @@ async function Body({ params }: { params: PageProps<"/seguimiento/[token]">["par
         <h2 id="ruta" className="text-sm font-semibold">Recorrido</h2>
         <ol className="mt-3 flex flex-col">
           {t.legs.map((l, i) => {
-            const state = t.route_h >= l.end_h || done ? "hecho" : t.route_h >= l.start_h ? "en curso" : "pendiente";
+            // Estrictamente mayor: con el envío aún sin salir (avance 0), el primer tramo empieza en 0 y no está «en curso»
+            const state = t.route_h >= l.end_h || done ? "hecho" : t.route_h > l.start_h ? "en curso" : "pendiente";
             const Icon = MODES[l.mode].icon;
             return (
               <li key={i} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 pb-4 last:pb-0">

@@ -63,8 +63,9 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
   - **Sección 59:** exportaciones con datos personales solo para administradores (`/api/consents/export`,
     `/api/audit/export.csv`, `/api/client-errors`), `pip-audit` limpio en producción, portada resistente a fallos de la API y
     los arreglos de la revisión final de diseño. `DESIGN.md` documenta la marca, la escala pública y las reglas nuevas.
-- **En curso / a medias:** nada. Producción en `63671ea` (todo lo anterior). En `desarrollo` queda solo documentación y un
-  texto de la cotización («Cámbiala en el menú «Más»»), que sube con el próximo despliegue.
+  - **Sección 60:** pulido de la app (mapa sin la paleta vieja y sin nombres encimados, ficha del envío en celular, placas de
+    terceros, letra mínima de 12 px, textos sobre la firma de los cambios).
+- **En curso / a medias:** nada. Producción en `c90d23f` (todo lo anterior, verificado con `deploy/verificar.sh`).
 - **Pendiente de decisión del dueño:** exigir sesión para todo lo que escribe (roles reales; hoy `/api/audit` y las pantallas
   siguen abiertas como demostración); rotar la contraseña de aplicación de Gmail y el tema de ntfy tras el aviso de Contabo;
   dominio propio; una instalación por empresa o separar datos por empresa; revisión legal.

@@ -1396,3 +1396,18 @@ red, hoy, bodegas, vías, configuración, historial y huella, sobre el build de 
 - **Textos al día:** Vías, Metodología y Configuración decían «no hay autenticación»; ahora explican que cada cambio se firma
   con la cuenta de la sesión o, sin ella, con el nombre declarado. El texto de la bienvenida no se tocó: es legal y versionado.
 - Pruebas: 40 de navegador (incluida accesibilidad en claro y oscuro); el backend no cambió.
+
+## 61. Pulido de las demás pantallas: seguimiento, auditoría, cotización y calendario
+
+Recorrido de calendario, clientes, comparar, combustible, huella, auditoría, administración, cotización, nuevo envío, ficha de
+bodega, seguimiento público y configuración, en escritorio y celular. Lo que se corrigió:
+
+- **Seguimiento público (lo ve el cliente final):** decía «en curso» en el primer tramo de un envío aún «Programado» con avance
+  0 % (comparaba con `>=` y el primer tramo empieza en 0). Ahora queda «pendiente» hasta que sale. Lleva la marca arriba en vez
+  de una etiqueta en mayúsculas sobre el código.
+- **Auditoría:** acciones y tablas en español («Creación», «Enlace creado», «Envíos»…) en las insignias y en los filtros, en vez
+  de los códigos de la base (INSERT, mm_shipments). Los nombres viven en `lib/audit-labels.ts` y Configuración usa los mismos.
+- **Cotización:** el documento para el cliente lleva el logo en lugar del texto «Westvane TMS».
+- **Calendario en celular:** el retraso ya no se parte en dos líneas.
+- Sin cambios necesarios: clientes, comparar, combustible, huella, nuevo envío, ficha de bodega y administración.
+- Pruebas: 40 de navegador; el backend no cambió.

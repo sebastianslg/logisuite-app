@@ -224,8 +224,10 @@ export function ShipmentCalendar({ shipments }: { shipments: Shipment[] }) {
                         </span>
                         <span className="tabular flex items-center gap-2 text-xs text-muted-foreground">
                           <ModeChain modes={s.modes} />
-                          {when(new Date(dep))} → {when(new Date(arr))}
-                          {s.delay_fmt && <span className="text-destructive">+{s.delay_fmt}</span>}
+                          <span className="min-w-0">
+                            {when(new Date(dep))} → {when(new Date(arr))}
+                          </span>
+                          {s.delay_fmt && <span className="ml-auto shrink-0 whitespace-nowrap text-destructive">+{s.delay_fmt}</span>}
                         </span>
                       </Link>
                     </li>
