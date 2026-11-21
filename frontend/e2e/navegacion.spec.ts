@@ -62,7 +62,7 @@ test("el resumen muestra la red en plano y el mapa 3D solo al pedirlo", async ({
 test("un envío que no existe responde 404", async ({ page }) => {
   const r = await page.goto("/envios/LS-0000-0000");
   expect(r?.status()).toBe(404);
-  await expect(page.getByText("No encontramos lo que buscas")).toBeVisible();
+  await expect(page.getByText("No encontramos esta página")).toBeVisible();
   for (const path of ["/flota/999999", "/bodegas/999999"]) expect((await page.goto(path))?.status()).toBe(404);
 });
 

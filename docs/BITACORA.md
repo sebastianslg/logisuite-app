@@ -1421,3 +1421,14 @@ bodega, seguimiento público y configuración, en escritorio y celular. Lo que s
   nodos llegan al final; solo opacidad y una vez, así que el mapa queda quieto en reposo. Módulos, seguridad, preguntas y el
   formulario entran al aparecer en pantalla. En la ruta en vivo, los tramos crecen de izquierda a derecha con cada resultado.
 - Todo se apaga con «reducir movimiento». Pruebas: 40 de navegador (incluida accesibilidad).
+
+## 63. Enlace que se ve bien al compartirlo, buscadores listos y página de «no encontrado»
+
+- **Imagen al compartir (WhatsApp, LinkedIn, correo):** `app/opengraph-image.png` nueva, con la marca W, el titular y los
+  kilómetros reales por modo; se genera con `frontend/scripts/og-image.mjs` (`BRAND_CHANNEL=msedge node scripts/og-image.mjs`).
+  La presentación declara su título y descripción para Open Graph y tarjeta grande para X/Twitter.
+- **Buscadores:** siguen sin indexar nada (decisión pendiente del dueño). Con `ALLOW_INDEXING=1`, `robots.ts` deja indexar solo
+  la presentación y lo legal (la app y el seguimiento quedan fuera) y hay `sitemap.xml`.
+- **404:** con la marca y tres salidas (resumen, envíos, presentación).
+- **Tema oscuro de la presentación:** revisado (mapa, rótulos de cierre, ruta en vivo); sin cambios necesarios.
+- Pruebas: 40 de navegador.
