@@ -8,10 +8,15 @@ import { DemoSection, Faq, Intro, LandingFooter, LandingHeader, Modules, Trust }
 import { apiGet, apiPost } from "@/lib/api";
 import type { DashboardSummary, DepartmentsGeo, FleetLive, Mode, NetworkGeo, SimulateResponse } from "@/lib/types";
 
+const DESCRIPTION =
+  "Sistema de gestión de transporte para operadores logísticos en Colombia: rutas por carretera, río, mar, aire y tren sobre la red real, flota, bodegas, cierres de vía, entregas firmadas, costos y huella de carbono.";
+
 export const metadata: Metadata = {
   title: { absolute: "Westvane · Gestión de transporte multimodal para Colombia" },
-  description:
-    "Sistema de gestión de transporte para operadores logísticos en Colombia: rutas por carretera, río, mar, aire y tren sobre la red real, flota, bodegas, cierres de vía, entregas firmadas, costos y huella de carbono.",
+  description: DESCRIPTION,
+  // Lo que muestra WhatsApp, LinkedIn o el correo al compartir el enlace (la imagen sale de app/opengraph-image.png)
+  openGraph: { title: "Westvane · Su operación multimodal, sobre la red real de Colombia", description: DESCRIPTION, url: "/" },
+  twitter: { card: "summary_large_image", title: "Westvane · Gestión de transporte multimodal", description: DESCRIPTION },
 };
 
 /**
