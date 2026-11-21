@@ -119,7 +119,7 @@ export function ShipmentCalendar({ shipments }: { shipments: Shipment[] }) {
                   i % step === 0 ? (
                     <span
                       key={i}
-                      className="absolute bottom-2 text-[11px] whitespace-nowrap text-muted-foreground"
+                      className="absolute bottom-2 text-xs whitespace-nowrap text-muted-foreground"
                       style={{ left: `calc(${pct(t.getTime())}% + 4px)` }}
                     >
                       {dayLabel(t)}
@@ -127,7 +127,7 @@ export function ShipmentCalendar({ shipments }: { shipments: Shipment[] }) {
                   ) : null,
                 )}
                 <span className="absolute -top-0 bottom-0 w-px bg-primary" style={{ left: `${nowPct}%` }} aria-hidden />
-                <span className="absolute top-1 -translate-x-1/2 rounded-full bg-solid px-1.5 text-[10px] leading-4 font-semibold text-primary-foreground" style={{ left: `${nowPct}%` }}>
+                <span className="absolute top-1 -translate-x-1/2 rounded-full bg-solid px-1.5 text-xs leading-4 font-semibold text-primary-foreground" style={{ left: `${nowPct}%` }}>
                   Ahora
                 </span>
               </div>

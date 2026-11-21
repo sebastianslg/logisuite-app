@@ -27,7 +27,7 @@ import {
 } from "@deck.gl/core";
 import { ArcLayer, PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import { TripsLayer } from "@deck.gl/geo-layers";
-import { PathStyleExtension, type PathStyleExtensionProps } from "@deck.gl/extensions";
+import { CollisionFilterExtension, PathStyleExtension, type CollisionFilterExtensionProps, type PathStyleExtensionProps } from "@deck.gl/extensions";
 import { Map as BaseMap } from "react-map-gl/maplibre";
 import { setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -71,18 +71,23 @@ export const COLOMBIA_VIEW: MapViewState = {
 };
 
 type RGBA = [number, number, number, number];
+const ACCENT_LIGHT: [number, number, number] = [0, 113, 227];
+const ACCENT_DARK: [number, number, number] = [41, 151, 255];
+/** Qué nombre de ciudad gana cuando dos se tocan en el mapa. */
+const LABEL_PRIORITY: Record<string, number> = { cedi: 100, puerto_maritimo: 80, aeropuerto: 60, puerto_fluvial: 40, terminal_ferrea: 20 };
+
 const rgba = (mode: Mode, a = 255, dark = false): RGBA => [...(dark ? MODES[mode].rgbDark : MODES[mode].rgb), a];
-const CYAN: RGBA = [34, 211, 238, 255];
-const VIOLET: RGBA = [198, 57, 156, 255];
-const AMBER: RGBA = [245, 158, 11, 255];
-const ROSE: RGBA = [251, 113, 133, 255];
+// Estado (DESIGN.md): rojo = cierre, naranja = transbordo. Variantes de Apple para claro y oscuro.
+const DANGER_LIGHT: [number, number, number] = [194, 0, 19];
+const DANGER_DARK: [number, number, number] = [255, 105, 97];
+const ORANGE: [number, number, number] = [255, 149, 0];
 
 const NODE_STYLE: Record<string, { color: [number, number, number]; mode?: Mode; radius: number }> = {
   aeropuerto: { color: MODES.aereo.rgb, mode: "aereo", radius: 6 },
   puerto_maritimo: { color: MODES.maritimo.rgb, mode: "maritimo", radius: 7 },
   puerto_fluvial: { color: MODES.fluvial.rgb, mode: "fluvial", radius: 5.5 },
   terminal_ferrea: { color: MODES.ferreo.rgb, mode: "ferreo", radius: 5.5 },
-  cedi: { color: [34, 211, 238], radius: 6 },
+  cedi: { color: [0, 113, 227], radius: 6 },
   ciudad: { color: [148, 163, 184], radius: 3 },
 };
 
@@ -547,16 +552,18 @@ export default function Map3D({
         id: "departamentos",
         data: deptData,
         getPolygon: (d) => d.polygon,
-        extruded: !lite,
-        getElevation: (d) => 1500 + d.intensity * 42000,
-        getFillColor: (d) => [34, 211, 238, Math.round(10 + d.intensity * 22)],
+        // Un solo tono del acento por intensidad, como el mapa por departamento. Con una ruta (ficha del envío) van planos y
+        // tenues: la ruta es lo que se mira, no el relieve del país.
+        extruded: !lite && !route,
+        getElevation: (d) => 800 + d.intensity * 18000,
+        getFillColor: (d) => [...(dark ? ACCENT_DARK : ACCENT_LIGHT), Math.round((route ? 4 : 8) + d.intensity * (route ? 10 : 24))] as RGBA,
         material: false,
         pickable: true,
         autoHighlight: true,
-        highlightColor: [34, 211, 238, 50],
+        highlightColor: [...(dark ? ACCENT_DARK : ACCENT_LIGHT), 40] as RGBA,
         // Translúcido: no escribe profundidad para no ocultar las rutas
         parameters: { depthWriteEnabled: false },
-        updateTriggers: { getFillColor: deptData },
+        updateTriggers: { getFillColor: [deptData, dark, !!route] },
       }),
 
     showDepartments &&
@@ -601,7 +608,7 @@ export default function Map3D({
       id: "ferreo",
       data: groundLinks.filter((f) => f.properties.mode === "ferreo"),
       getPath: (f) => f.geometry.coordinates as [number, number][],
-      getColor: [...AMBER.slice(0, 3), Math.round(240 * dim)] as RGBA,
+      getColor: tone("ferreo", Math.round(240 * dim)),
       getWidth: 2.4,
       widthUnits: "pixels",
       getDashArray: () => [5, 3],
@@ -618,14 +625,14 @@ export default function Map3D({
       getSourcePosition: (f) => f.geometry.coordinates[0] as [number, number],
       getTargetPosition: (f) =>
         f.geometry.coordinates[f.geometry.coordinates.length - 1] as [number, number],
-      getSourceColor: [...VIOLET.slice(0, 3), Math.round(120 * dim)] as RGBA,
-      getTargetColor: [...CYAN.slice(0, 3), Math.round(120 * dim)] as RGBA,
+      getSourceColor: tone("aereo", Math.round(150 * dim)),
+      getTargetColor: tone("aereo", Math.round(90 * dim)),
       getHeight: 0.42,
       getWidth: 1.2,
       widthUnits: "pixels",
       pickable: true,
       autoHighlight: true,
-      updateTriggers: { getSourceColor: dim, getTargetColor: dim },
+      updateTriggers: { getSourceColor: [dim, dark], getTargetColor: [dim, dark] },
     }),
     closedLinks.length > 0 &&
       stage >= 2 &&
@@ -633,7 +640,7 @@ export default function Map3D({
         id: "cerrados",
         data: closedLinks,
         getPath: (f) => f.geometry.coordinates as [number, number][],
-        getColor: [...ROSE.slice(0, 3), Math.round(230 * dim)] as RGBA,
+        getColor: [...(dark ? DANGER_DARK : DANGER_LIGHT), Math.round(230 * dim)] as RGBA,
         getWidth: 2.6,
         widthUnits: "pixels",
         getDashArray: () => [3, 3],
@@ -725,21 +732,29 @@ export default function Map3D({
     }),
     !compact &&
       stage >= 3 &&
-      new TextLayer<NodeDatum>({
+      new TextLayer<NodeDatum, CollisionFilterExtensionProps<NodeDatum>>({
         id: "nodos-etiquetas",
         data: cityLabels,
         getPosition: (n) => n.geometry.coordinates as [number, number],
         getText: (n) => n.properties.city,
-        getSize: 11,
-        getColor: [226, 232, 240, 210],
+        getSize: 12,
+        // Tinta del tema sobre un halo del fondo del mapa: se lee en claro y en oscuro
+        getColor: dark ? [235, 235, 245, 235] : [29, 29, 31, 235],
         getPixelOffset: [0, -16],
-        fontFamily: "system-ui, -apple-system, sans-serif",
+        fontFamily: "'Inter Variable', Inter, system-ui, -apple-system, sans-serif",
         fontWeight: 600,
         characterSet: "auto",
         fontSettings: { sdf: true },
-        outlineWidth: 3,
-        outlineColor: [3, 7, 18, 255],
+        outlineWidth: 4,
+        outlineColor: dark ? [0, 0, 0, 230] : [255, 255, 255, 235],
         parameters: { depthCompare: "always" },
+        // Sin choques: si dos nombres se tocan, queda el del nodo más importante (centro de distribución, luego puerto…).
+        // Se recalcula al mover el mapa; en reposo no trabaja.
+        extensions: [new CollisionFilterExtension()],
+        collisionEnabled: true,
+        getCollisionPriority: (n) => LABEL_PRIORITY[n.properties.kind] ?? 0,
+        collisionTestProps: { sizeScale: 1.15 },
+        updateTriggers: { getColor: dark, outlineColor: dark },
       }),
 
     // Ruta simulada
@@ -798,8 +813,8 @@ export default function Map3D({
         id: "ruta-transbordos",
         data: route.transfers,
         getPosition: (t) => [t.node.lon, t.node.lat],
-        getFillColor: AMBER,
-        getLineColor: [3, 7, 18, 255],
+        getFillColor: [...ORANGE, 255] as RGBA,
+        getLineColor: dark ? [0, 0, 0, 255] : [255, 255, 255, 255],
         stroked: true,
         lineWidthMinPixels: 2,
         getRadius: 9,

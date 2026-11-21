@@ -1372,3 +1372,27 @@ Mismo método que la sección 56 (inspección medida del DOM), sobre Hoy, Flota,
   alternativas iguales unidas («Más rápido y balanceado»); campos con relleno y 16 px; franja de modos apilada en celular.
   Las adaptaciones al contrato quedaron escritas en `.impeccable/surfaces/frontend-src-app-page-tsx.md`.
 - Pruebas: 329 de la API y 40 de navegador.
+
+## 60. Pulido de la app: mapa sin restos de la paleta vieja, ficha del envío en celular y textos al día
+
+Recorrido con capturas de escritorio (1440) y celular (390) de resumen, envíos, ficha del envío, flota, ficha de vehículo,
+red, hoy, bodegas, vías, configuración, historial y huella, sobre el build de producción. Lo que se corrigió:
+
+- **Mapa 3D (`Map3D.tsx`):** quedaban colores de la paleta anterior al cambio a Apple (cian en departamentos, nodos CEDI y
+  vuelos; violeta, ámbar y rosa sueltos). Departamentos en un solo tono del acento por intensidad (como el mapa por
+  departamento), relieve más bajo y, con una ruta (ficha del envío), planos y tenues; tren con su color de modo, vuelos en el
+  color aéreo, cierres en el rojo de peligro y transbordos en el naranja, cada uno con variante clara y oscura.
+- **Nombres de ciudades en el mapa:** ya no se montan unos sobre otros (`CollisionFilterExtension` de deck.gl, con prioridad
+  por tipo de nodo: CEDI, puerto, aeropuerto…). Tinta del tema con halo del fondo (antes, texto claro con borde negro pensado
+  para un mapa oscuro). Solo se recalcula al mover el mapa.
+- **Ficha del envío en celular:** las cifras no se parten («US$» / «53.193»: la celda es contenedor y la cifra escala con su
+  ancho, `clamp` en `cqw`); la cadena de tramos cabe con dos o tres tramos (mínimo de 112 px por tramo en pantallas
+  pequeñas); Imprimir, Remesa, Duplicar y Borrar quedan en ícono en el celular (el nombre sigue para lectores de pantalla) y
+  las acciones caben en una fila.
+- **Lista de envíos:** las placas propias usaban `text-accent`, clase que no existe en el tema: ahora son el enlace azul a su
+  ficha; las de terceros, misma letra y «· tercero» escrito (antes solo se distinguían por el color).
+- **Texto de 10–11 px → 12 px** en calendario, comparar rutas, atención del resumen, adjuntos, bitácora, ficha y menú de
+  cuenta. Se dejan compactos a propósito: pistas de teclado, número de la campana y etiqueta flotante de las gráficas.
+- **Textos al día:** Vías, Metodología y Configuración decían «no hay autenticación»; ahora explican que cada cambio se firma
+  con la cuenta de la sesión o, sin ella, con el nombre declarado. El texto de la bienvenida no se tocó: es legal y versionado.
+- Pruebas: 40 de navegador (incluida accesibilidad en claro y oscuro); el backend no cambió.

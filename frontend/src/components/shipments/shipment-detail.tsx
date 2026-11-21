@@ -129,12 +129,13 @@ export function ShipmentDetail({
           <div className="flex flex-wrap gap-2 print:hidden">
             <Button variant="secondary" size="sm" onClick={() => window.print()}>
               <Printer />
-              Imprimir
+              {/* En el celular, los secundarios quedan en ícono (el nombre sigue para lectores de pantalla): una sola fila */}
+              <span className="max-sm:sr-only">Imprimir</span>
             </Button>
             <Button variant="secondary" size="sm" asChild>
               <a href={`/api/shipments/${encodeURIComponent(s.code)}/remesa`} target="_blank" rel="noopener" title="Remesa de carga para imprimir y firmar en el cargue">
                 <FileSignature />
-                Remesa
+                <span className="max-sm:sr-only">Remesa</span>
               </a>
             </Button>
             <Button variant="secondary" size="sm" asChild>
@@ -142,7 +143,7 @@ export function ShipmentDetail({
                 href={`/envios/nuevo?origin=${encodeURIComponent(s.origin)}&destination=${encodeURIComponent(s.destination)}&priority=${s.priority}&weight=${s.weight_t}`}
               >
                 <CopyPlus />
-                Duplicar
+                <span className="max-sm:sr-only">Duplicar</span>
               </Link>
             </Button>
             <Button variant="secondary" size="sm" asChild>
@@ -153,7 +154,7 @@ export function ShipmentDetail({
             </Button>
             <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={remove} disabled={deleting}>
               {deleting ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
-              Borrar
+              <span className="max-sm:sr-only">Borrar</span>
             </Button>
           </div>
         </div>
@@ -384,7 +385,7 @@ export function ShipmentDetail({
                     />
                     <div className="text-muted-foreground">
                       {dt(h.timestamp)} · <span className="text-foreground">{h.username}</span>
-                      <span className="ml-1.5 rounded-full bg-muted px-1.5 py-px text-[10px] uppercase tracking-wide">
+                      <span className="ml-1.5 rounded-full bg-muted px-1.5 py-px text-xs uppercase tracking-wide">
                         {ACTION_LABEL[h.action] ?? h.action}
                       </span>
                     </div>

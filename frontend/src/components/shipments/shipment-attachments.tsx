@@ -128,7 +128,7 @@ export function ShipmentAttachments({ code, initial }: { code: string; initial: 
             elige archivos
           </button>
         </span>
-        <span className="text-[11px]">PDF, imagen, Excel, Word, CSV o texto · hasta 10 MB</span>
+        <span className="text-xs">PDF, imagen, Excel, Word, CSV o texto · hasta 10 MB</span>
         <input ref={input} type="file" multiple accept={ACCEPT} className="sr-only" onChange={(e) => e.target.files && upload(e.target.files)} aria-label="Adjuntar documentos" />
       </div>
 

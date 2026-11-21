@@ -249,7 +249,7 @@ export function LoginDialog() {
                         <button
                           type="button"
                           onClick={() => setCode(devCode)}
-                          className="text-[11px] underline font-medium hover:opacity-80"
+                          className="text-xs underline font-medium hover:opacity-80"
                         >
                           Usar código
                         </button>

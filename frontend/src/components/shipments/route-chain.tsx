@@ -37,7 +37,7 @@ export function RouteChain({
           const weight = (100 * Math.max(l.end_h - l.start_h, totalH * 0.1)) / totalH;
           const here = fill > 0 && fill < 1;
           return (
-            <li key={i} className="min-w-36" style={{ flexGrow: weight, flexBasis: 0 }}>
+            <li key={i} className="min-w-28 sm:min-w-36" style={{ flexGrow: weight, flexBasis: 0 }}>
               <div className="flex items-center">
                 <span
                   className="relative z-10 size-3 shrink-0 rounded-full border-2 bg-background"
@@ -85,7 +85,7 @@ export function RouteChain({
             </li>
           );
         })}
-        <li className="min-w-20 shrink-0 text-right" style={{ flexBasis: "5rem" }}>
+        <li className="min-w-16 shrink-0 text-right sm:min-w-20" style={{ flexBasis: "4.5rem" }}>
           <div className="h-3.5" />
           <div className="mt-2.5 truncate text-sm font-medium">{legs[legs.length - 1].to.city || legs[legs.length - 1].to.name}</div>
           <div className="mt-1.5 text-xs text-muted-foreground">Destino</div>
