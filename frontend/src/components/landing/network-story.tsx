@@ -112,7 +112,7 @@ export function NetworkStory({
       <div className="sticky top-16 z-10 h-[42svh] border-y border-border bg-background lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:h-[calc(100dvh-4rem)] lg:self-start lg:border-y-0 lg:border-l">
         <div className="relative flex h-full flex-col">
           <div className="relative min-h-0 flex-1 px-3 pt-3 lg:px-8 lg:pt-8">
-            <NetworkPreview network={network} departments={departments} fleet={fleet} focus={focus} />
+            <NetworkPreview network={network} departments={departments} fleet={fleet} focus={focus} closureLabels />
             <div className="pointer-events-none absolute top-3 right-3 hidden max-w-64 rounded-2xl border border-border bg-card px-4 py-3 text-sm lg:top-8 lg:right-8 lg:block">
               <p className="flex items-center gap-2 font-medium">
                 <span className="size-2 rounded-full bg-success" aria-hidden />
@@ -120,12 +120,12 @@ export function NetworkStory({
               </p>
               <p className="tabular mt-1 text-muted-foreground">
                 {network.nodes.features.length} nodos · {network.links.features.length} enlaces
-                {inTransit > 0 && ` · ${inTransit} vehículos en tránsito`}
+                {inTransit > 0 && ` · ${inTransit} vehículos de ejemplo en tránsito`}
               </p>
               {closures.length > 0 && (
                 <p className="mt-2 flex items-start gap-1.5 text-destructive">
                   <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                  {closures.length === 1 ? "1 tramo cerrado" : `${closures.length} tramos cerrados`} hoy
+                  {closures.length === 1 ? "1 corredor cerrado" : `${closures.length} corredores cerrados`}
                 </p>
               )}
             </div>
@@ -141,13 +141,14 @@ export function NetworkStory({
                   aria-pressed={on}
                   onClick={() => goTo(m)}
                   className={cn(
-                    "group relative flex min-h-14 flex-col items-start justify-center gap-0.5 border-l border-border px-2 py-2 text-left outline-none transition-colors first:border-l-0 focus-visible:ring-[3px] focus-visible:ring-ring/60 focus-visible:ring-inset sm:px-4 lg:py-3",
+                    "group relative flex min-h-14 flex-col items-center justify-center gap-0.5 border-l border-border px-1 py-2 text-center outline-none transition-colors first:border-l-0 focus-visible:ring-[3px] focus-visible:ring-ring/60 focus-visible:ring-inset sm:items-start sm:px-4 sm:text-left lg:py-3",
                     on ? "bg-raised" : "hover:bg-fill",
                   )}
                 >
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground sm:text-[0.8125rem]">
-                    <Icon className="size-3.5 shrink-0" style={{ color }} aria-hidden />
-                    <span className="truncate">{label}</span>
+                  {/* En el celular, ícono encima del nombre: cinco celdas de 78 px no caben en fila */}
+                  <span className="flex flex-col items-center gap-1 text-xs font-medium text-muted-foreground sm:flex-row sm:gap-1.5 sm:text-[0.8125rem]">
+                    <Icon className="size-4 shrink-0 sm:size-3.5" style={{ color }} aria-hidden />
+                    <span className="max-w-full truncate">{label}</span>
                   </span>
                   <span className="tabular hidden text-lg font-semibold tracking-tight sm:block lg:text-xl">{byMode.get(m)?.km_fmt ?? "—"}</span>
                   <span
@@ -214,7 +215,7 @@ export function NetworkStory({
           </p>
           {closures.length > 0 && (
             <div className="mt-6 max-w-[52ch]">
-              <p className="text-[0.8125rem] font-medium text-muted-foreground">Cerrados hoy en la red</p>
+              <p className="text-[0.8125rem] font-medium text-muted-foreground">Cerrados ahora en la red</p>
               <ul className="mt-2 rule-list border-y border-border text-[0.9375rem]">
                 {closures.map((c) => (
                   <li key={c.corridor} className="py-2.5">

@@ -115,6 +115,10 @@ espera_sin_sesion GET /api/admin/users "" 401 "Listar usuarios sin sesión"
 espera_sin_sesion POST /api/companies '{"name":"Empresa de verificacion"}' 401 "Crear empresa sin sesión"
 espera_sin_sesion PUT /api/settings/mail-alerts '{"kind":"novedades","enabled":false}' 401 "Cambiar avisos sin sesión"
 espera_sin_sesion POST /api/shipments/LS-0000-0000/tracking/token-falso/email '{"email":"a@b.co"}' 401 "Enviar correo sin sesión"
+espera_sin_sesion GET /api/consents/export "" 401 "Registro de aceptaciones sin sesión"
+espera_sin_sesion GET /api/audit/export.csv "" 401 "Historial en CSV sin sesión"
+espera_sin_sesion GET /api/client-errors "" 401 "Errores del navegador sin sesión"
+espera_sin_sesion GET /api/demo-requests "" 401 "Solicitudes de demostración sin sesión"
 
 titulo "Ingreso por código"
 pedido=$(curl -s -m 20 -X POST -H 'content-type: application/json' \

@@ -960,10 +960,12 @@ def audit_log(limit: int = 200, offset: int = 0, table: str | None = None, recor
 
 
 @app.get("/api/audit/export.csv")
-def audit_export(limit: int = 1000, offset: int = 0, table: str | None = None, record: str | None = None,
+def audit_export(request: Request, limit: int = 1000, offset: int = 0, table: str | None = None, record: str | None = None,
                  usuario: str | None = None, accion: str | None = None, desde: str | None = None,
                  hasta: str | None = None, q: str | None = None) -> Response:
-    """El historial con los mismos filtros de la pantalla, en CSV (para abrirlo en Excel)."""
+    """El historial con los mismos filtros de la pantalla, en CSV (para abrirlo en Excel). Solo un administrador lo
+    descarga: mil líneas con nombres y detalles de una vez no pueden quedar al alcance de cualquiera."""
+    _require_admin(request, "descargar el historial")
     import csv
     import io as _io
     data = ops.audit_search(limit, offset, table, record, usuario, accion, desde, hasta, q)
@@ -1585,8 +1587,10 @@ def consents_record(body: ConsentIn, request: Request) -> dict:
 
 
 @app.get("/api/consents/export")
-def consents_export() -> Response:
-    """Registro completo en CSV (para atender una consulta o un reclamo del titular)."""
+def consents_export(request: Request) -> Response:
+    """Registro completo en CSV (para atender una consulta o un reclamo del titular). Tiene nombres y navegadores de
+    personas: solo un administrador lo descarga."""
+    _require_admin(request, "descargar el registro de aceptaciones")
     return Response(legal.export_csv(), media_type="text/csv; charset=utf-8", headers={
         "Content-Disposition": f"attachment; filename=registro-aceptaciones-{datetime.now():%Y%m%d}.csv"})
 
@@ -1612,7 +1616,9 @@ def client_error(body: ClientErrorIn, request: Request) -> Response:
 
 
 @app.get("/api/client-errors")
-def client_errors(limit: int = 50) -> dict:
+def client_errors(request: Request, limit: int = 50) -> dict:
+    """Errores que reportaron los navegadores (con la página y el navegador): solo un administrador los ve."""
+    _require_admin(request, "ver los errores del navegador")
     rows = run_query("SELECT error_id, created_at, path, message, stack, user_agent, release FROM mm_client_errors "
                      "ORDER BY error_id DESC LIMIT ?", (max(1, min(limit, 200)),))
     items = rows.astype(object).where(rows.notna(), None).to_dict(orient="records")
@@ -1687,14 +1693,14 @@ def auth_logout(request: Request) -> Response:
     return Response(status_code=204)
 
 
-def _require_admin(request: Request) -> dict:
+def _require_admin(request: Request, what: str = "administrar usuarios y empresas") -> dict:
     """Sesión de administrador (token portador). 401 sin sesión válida, 403 si el rol no alcanza."""
     header = request.headers.get("Authorization", "")
     user = auth_otp.get_user_by_session(header[7:].strip() if header.startswith("Bearer ") else None)
     if user is None:
-        raise HTTPException(status_code=401, detail="Inicia sesión para administrar usuarios y empresas.")
+        raise HTTPException(status_code=401, detail=f"Inicia sesión como administrador para {what}.")
     if user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Solo un administrador puede administrar usuarios y empresas.")
+        raise HTTPException(status_code=403, detail=f"Solo un administrador puede {what}.")
     return user
 
 

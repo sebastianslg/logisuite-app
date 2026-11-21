@@ -12,6 +12,7 @@ import app.database.db as db
 import app.init_db as init_db
 from app.engine import notify
 from app.engine.common import purge_old_audit
+from conftest import admin_headers
 
 
 @pytest.fixture(scope="module")
@@ -143,7 +144,7 @@ def test_el_historial_de_un_envio_sigue_funcionando(client):
 def test_el_historial_se_descarga_en_csv(client):
     db.run_write("INSERT INTO audit_log (username, action, table_name, record_id, detail, timestamp) VALUES (?,?,?,?,?,?)",
                  ("ana", "UPDATE", "mm_shipments", "LS-9", "detalle con ; punto y coma", "2026-04-01T09:00:00"))
-    r = client.get("/api/audit/export.csv", params={"usuario": "ana", "desde": "2026-04-01", "hasta": "2026-04-01"})
+    r = client.get("/api/audit/export.csv", headers=admin_headers(), params={"usuario": "ana", "desde": "2026-04-01", "hasta": "2026-04-01"})
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/csv")
     assert "attachment" in r.headers["content-disposition"] and "auditoria-" in r.headers["content-disposition"]

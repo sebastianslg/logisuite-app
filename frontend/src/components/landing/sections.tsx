@@ -23,13 +23,12 @@ import {
 
 import { Wordmark } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 /** Barra de la presentación: la marca, las anclas de la página y las dos salidas (la app y la demostración). */
 export function LandingHeader() {
   return (
     <header className="sticky top-0 z-30 h-16 border-b border-border bg-background">
-      <div className="mx-auto flex h-full max-w-[1760px] items-center justify-between gap-4 px-4 sm:px-8 lg:px-14 xl:px-20">
+      <div className="flex h-full items-center justify-between gap-4 px-4 sm:px-8 lg:px-14 xl:px-20">
         <Link href="/" aria-label="Westvane, inicio" className="rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/60">
           <Wordmark />
         </Link>
@@ -88,48 +87,81 @@ export function Intro({ nodes, links }: { nodes?: number; links?: number }) {
   );
 }
 
-const MODULES: { icon: LucideIcon; name: string; text: string; href: string }[] = [
-  { icon: Package, name: "Envíos", text: "Crear uno o cientos desde Excel y seguir cada envío con su cadena de modos, su bitácora y sus documentos.", href: "/envios" },
-  { icon: Network, name: "Red y rutas", text: "Rutas por tiempo, costo o huella sobre la red nacional, y alternativas comparadas antes de despachar.", href: "/red" },
-  { icon: TrafficCone, name: "Vías y cierres", text: "Cierre vías, puertos o aeropuertos y vea qué envíos se redirigieron y cuáles quedaron sin ruta.", href: "/vias" },
-  { icon: Truck, name: "Flota y conductores", text: "Vehículos, licencias, fallas y mantenimientos; un vehículo con documentos vencidos sale solo de la asignación.", href: "/flota" },
-  { icon: Warehouse, name: "Bodegas", text: "Inventario por bodega, traslados entre ciudades y los vehículos que cada una aloja.", href: "/bodegas" },
-  { icon: PenLine, name: "Prueba de entrega", text: "Firma y foto en el celular; una entrega con novedad avisa al administrador.", href: "/envios" },
-  { icon: Link2, name: "Seguimiento para su cliente", text: "Un enlace por envío, sin datos internos, y aviso por correo cuando sale, se retrasa o llega.", href: "/envios" },
-  { icon: CalendarClock, name: "Hoy y calendario", text: "Lo que sale, llega y vence hoy, y la semana de despachos en un calendario.", href: "/hoy" },
-  { icon: Receipt, name: "Costos y cotizaciones", text: "Costo por tramo con peajes, transbordos e impuestos; cotización en PDF y costo real contra el estimado.", href: "/comparar" },
-  { icon: Leaf, name: "Huella de carbono", text: "CO₂e y combustible por tramo y por modo, frente a mover todo por carretera.", href: "/huella" },
-  { icon: ChartColumn, name: "Reportes", text: "Historial por ciudad, departamento y corredor; reporte operativo en PDF, semanal o mensual al correo.", href: "/historial" },
-  { icon: ScrollText, name: "Auditoría", text: "Quién cambió qué y cuándo, con filtros y exportación a CSV.", href: "/auditoria" },
+const MODULE_GROUPS: { name: string; items: { icon: LucideIcon; name: string; text: string; href: string }[] }[] = [
+  {
+    name: "Planear",
+    items: [
+      { icon: Network, name: "Red y rutas", text: "Rutas por tiempo, costo o huella sobre la red nacional, con las alternativas comparadas antes de despachar.", href: "/red" },
+      { icon: TrafficCone, name: "Vías y cierres", text: "Cierre vías, puertos o aeropuertos y vea qué envíos se redirigieron y cuáles quedaron sin ruta.", href: "/vias" },
+      { icon: Receipt, name: "Costos y cotizaciones", text: "Costo por tramo con peajes, transbordos e impuestos; cotización en PDF y costo real contra el estimado.", href: "/comparar" },
+    ],
+  },
+  {
+    name: "Mover",
+    items: [
+      { icon: Package, name: "Envíos", text: "Crear uno o cientos desde Excel y seguir cada uno con su cadena de modos, su bitácora y sus documentos.", href: "/envios" },
+      { icon: Truck, name: "Flota y conductores", text: "Vehículos, licencias, fallas y mantenimientos; uno con documentos vencidos sale solo de la asignación.", href: "/flota" },
+      { icon: Warehouse, name: "Bodegas", text: "Inventario por bodega, traslados entre ciudades y los vehículos que cada una aloja.", href: "/bodegas" },
+      { icon: CalendarClock, name: "Hoy y calendario", text: "Lo que sale, llega y vence hoy, y la semana de despachos en un calendario.", href: "/hoy" },
+    ],
+  },
+  {
+    name: "Entregar",
+    items: [
+      { icon: PenLine, name: "Prueba de entrega", text: "Firma y foto en el celular; una entrega con novedad avisa al administrador.", href: "/envios" },
+      { icon: Link2, name: "Seguimiento para su cliente", text: "Un enlace por envío, sin datos internos, y aviso por correo cuando sale, se retrasa o llega.", href: "/envios" },
+    ],
+  },
+  {
+    name: "Controlar",
+    items: [
+      { icon: ChartColumn, name: "Reportes", text: "Historial por ciudad, departamento y corredor; reporte operativo en PDF, semanal o mensual al correo.", href: "/historial" },
+      { icon: Leaf, name: "Huella de carbono", text: "CO₂e y combustible por tramo y por modo, frente a mover todo por carretera.", href: "/huella" },
+      { icon: ScrollText, name: "Auditoría", text: "Quién cambió qué y cuándo, con filtros y exportación.", href: "/auditoria" },
+    ],
+  },
 ];
 
 export function Modules() {
   return (
     <section id="modulos" aria-labelledby="modulos-titulo" className="scroll-mt-16 border-t border-border">
-      <div className="mx-auto max-w-[1280px] px-4 py-20 sm:px-8 lg:py-28">
-        <div className="max-w-[46rem]">
+      <div className="grid max-w-[1440px] gap-12 py-20 px-4 sm:px-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:px-14 lg:py-28 xl:px-20">
+        <div className="lg:sticky lg:top-24 lg:self-start">
           <h2 id="modulos-titulo" className="text-[2rem] leading-[1.05] font-semibold tracking-[-0.035em] text-balance sm:text-[2.75rem]">
             Un sistema completo, no una herramienta más.
           </h2>
-          <p className="mt-4 text-[1.0625rem] leading-relaxed text-muted-foreground">
+          <p className="mt-4 max-w-[34rem] text-[1.0625rem] leading-relaxed text-muted-foreground">
             Lo que un operador mueve en un día vive en la misma base de datos, con el mismo historial y las mismas cifras en todas las
-            pantallas. Cada módulo se puede abrir ahora con los datos de ejemplo.
+            pantallas. Cada módulo se abre ahora con los datos de ejemplo.
           </p>
         </div>
-        <ul className="mt-12 grid overflow-hidden rounded-3xl glass md:grid-cols-2">
-          {MODULES.map(({ icon: Icon, name, text, href }, i) => (
-            <li key={name} className={cn("border-border", i > 0 && "border-t", i === 1 && "md:border-t-0", i % 2 === 0 && "md:border-r")}>
-              <Link href={href} className="row-link group h-full items-start gap-4 px-5 py-5 sm:px-7">
-                <Icon className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
-                <span className="min-w-0 flex-1">
-                  <span className="block font-semibold tracking-tight">{name}</span>
-                  <span className="mt-1 block text-[0.9375rem] leading-relaxed text-muted-foreground">{text}</span>
-                </span>
-                <ArrowRight className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform duration-300 ease-[var(--ease-apple)] group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden />
-              </Link>
-            </li>
+        <div className="flex flex-col gap-10">
+          {MODULE_GROUPS.map((g) => (
+            <div key={g.name}>
+              <h3 className="text-[1.0625rem] font-semibold tracking-tight">{g.name}</h3>
+              <ul className="mt-3 rule-list border-y border-border">
+                {g.items.map(({ icon: Icon, name, text, href }) => (
+                  <li key={name}>
+                    <Link
+                      href={href}
+                      className="group flex items-start gap-4 rounded-lg py-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/60"
+                    >
+                      <Icon className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold tracking-tight group-hover:text-primary">{name}</span>
+                        <span className="mt-1 block text-[0.9375rem] leading-relaxed text-muted-foreground">{text}</span>
+                      </span>
+                      <ArrowRight
+                        className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform duration-300 ease-[var(--ease-apple)] group-hover:translate-x-0.5 motion-reduce:transition-none"
+                        aria-hidden
+                      />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       </div>
     </section>
   );
@@ -146,7 +178,7 @@ const TRUST: { icon: LucideIcon; name: string; text: string }[] = [
 export function Trust() {
   return (
     <section id="seguridad" aria-labelledby="seguridad-titulo" className="scroll-mt-16 border-t border-border bg-card">
-      <div className="mx-auto grid max-w-[1280px] gap-12 px-4 py-20 sm:px-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-28">
+      <div className="grid max-w-[1440px] gap-12 py-20 px-4 sm:px-8 lg:px-14 xl:px-20 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-28">
         <div>
           <h2 id="seguridad-titulo" className="text-[2rem] leading-[1.05] font-semibold tracking-[-0.035em] text-balance sm:text-[2.75rem]">
             Control de la operación, de punta a punta.
@@ -201,7 +233,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
 export function Faq() {
   return (
     <section id="preguntas" aria-labelledby="preguntas-titulo" className="scroll-mt-16 border-t border-border">
-      <div className="mx-auto grid max-w-[1280px] gap-12 px-4 py-20 sm:px-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-28">
+      <div className="grid max-w-[1440px] gap-12 py-20 px-4 sm:px-8 lg:px-14 xl:px-20 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-28">
         <h2 id="preguntas-titulo" className="text-[2rem] leading-[1.05] font-semibold tracking-[-0.035em] text-balance sm:text-[2.75rem]">
           Preguntas de quien lo evalúa.
         </h2>
@@ -227,7 +259,7 @@ export function Faq() {
 export function DemoSection({ children }: { children: React.ReactNode }) {
   return (
     <section id="demostracion" aria-labelledby="demostracion-titulo" className="scroll-mt-16 border-t border-border bg-card">
-      <div className="mx-auto grid max-w-[1280px] gap-12 px-4 py-20 sm:px-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-28">
+      <div className="grid max-w-[1440px] gap-12 py-20 px-4 sm:px-8 lg:px-14 xl:px-20 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-28">
         <div>
           <h2 id="demostracion-titulo" className="text-[2rem] leading-[1.05] font-semibold tracking-[-0.035em] text-balance sm:text-[2.75rem]">
             Véalo con su propia operación.
@@ -252,7 +284,7 @@ export function DemoSection({ children }: { children: React.ReactNode }) {
 export function LandingFooter() {
   return (
     <footer className="border-t border-border">
-      <div className="mx-auto flex max-w-[1280px] flex-col gap-8 px-4 py-12 sm:px-8 md:flex-row md:items-start md:justify-between">
+      <div className="flex max-w-[1440px] flex-col gap-8 py-12 px-4 sm:px-8 lg:px-14 xl:px-20 md:flex-row md:items-start md:justify-between">
         <div className="max-w-[28rem]">
           <Wordmark />
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">

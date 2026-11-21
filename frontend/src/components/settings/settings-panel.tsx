@@ -17,6 +17,7 @@ import { CollapsiblePanel } from "@/components/ui/collapsible-panel";
 import { Segmented } from "@/components/ui/segmented";
 import { SaveIcon, useSavedFlash } from "@/components/ui/save-icon";
 import { toast } from "@/components/ui/toast";
+import { useAuth } from "@/lib/auth";
 import { api, saveBlob } from "@/lib/client";
 import { recordConsent, useConsent, type ConsentDoc } from "@/lib/consent";
 import type { AuditEntry, Settings, ShareLink } from "@/lib/types";
@@ -331,7 +332,7 @@ function PrivacySection() {
   return (
     <Section
       title="Privacidad y aceptaciones"
-      description="Lo que aceptaste en este navegador. Puedes revocar tu autorización de datos o descargar el registro completo para atender una solicitud."
+      description="Lo que aceptaste en este navegador. Puedes revocar tu autorización de datos; un administrador puede descargar el registro completo para atender una solicitud."
     >
       {docs.length > 0 ? (
         <ul className="rule-list text-sm">
@@ -367,16 +368,35 @@ type ClientError = { error_id: number; created_at: string; path: string; message
 
 /** Errores de JavaScript que reportaron los navegadores (ErrorReporter): para enterarse de un fallo sin que nadie avise. */
 function ClientErrors() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [items, setItems] = useState<ClientError[] | null>(null);
+  const [denied, setDenied] = useState<string | null>(null);
   useEffect(() => {
+    // Solo un administrador los ve (traen la página y el navegador de cada persona): sin esa sesión ni se piden
+    if (!isAdmin) return;
     api<{ items: ClientError[] }>("/api/client-errors?limit=20")
       .then((r) => setItems(r.items))
-      .catch(() => setItems([]));
-  }, []);
+      .catch((e: Error) => {
+        setDenied(e.message);
+        setItems([]);
+      });
+  }, [isAdmin]);
+  if (!isAdmin)
+    return (
+      <Section title="Errores recientes del navegador" description="Fallos de la app que ocurrieron en algún navegador, con la página donde pasaron.">
+        <p className="text-sm text-muted-foreground">
+          Solo un administrador los ve: traen la página y el navegador de cada persona. Ingrese como administrador desde «Estado del
+          servidor».
+        </p>
+      </Section>
+    );
   return (
     <Section title="Errores recientes del navegador" description="Fallos de la app que ocurrieron en algún navegador, con la página donde pasaron. Vacío es buena señal.">
       {items === null ? (
         <p className="text-sm text-muted-foreground">Cargando…</p>
+      ) : denied ? (
+        <p className="text-sm text-muted-foreground">{denied}</p>
       ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground">Sin errores registrados.</p>
       ) : (

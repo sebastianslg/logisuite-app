@@ -79,22 +79,22 @@ export function DemoForm({ consentText, fleetSizes }: { consentText: string; fle
     <form onSubmit={submit} className="rounded-3xl glass p-5 sm:p-8" noValidate={false}>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Nombre" required>
-          <input className="field h-11" name="name" autoComplete="name" required minLength={2} maxLength={80} value={f.name} onChange={set("name")} />
+          <input className="field h-11 px-3 text-base" name="name" autoComplete="name" required minLength={2} maxLength={80} value={f.name} onChange={set("name")} />
         </Field>
         <Field label="Empresa" required>
-          <input className="field h-11" name="company" autoComplete="organization" required minLength={2} maxLength={120} value={f.company} onChange={set("company")} />
+          <input className="field h-11 px-3 text-base" name="company" autoComplete="organization" required minLength={2} maxLength={120} value={f.company} onChange={set("company")} />
         </Field>
         <Field label="Correo de trabajo" required>
-          <input className="field h-11" type="email" name="email" autoComplete="email" required maxLength={254} value={f.email} onChange={set("email")} />
+          <input className="field h-11 px-3 text-base" type="email" name="email" autoComplete="email" required maxLength={254} value={f.email} onChange={set("email")} />
         </Field>
         <Field label="Teléfono" hint="Opcional">
-          <input className="field h-11" type="tel" name="phone" autoComplete="tel" maxLength={20} value={f.phone} onChange={set("phone")} />
+          <input className="field h-11 px-3 text-base" type="tel" name="phone" autoComplete="tel" maxLength={20} value={f.phone} onChange={set("phone")} />
         </Field>
         <Field label="Cargo" hint="Opcional">
-          <input className="field h-11" name="role" autoComplete="organization-title" maxLength={80} value={f.role} onChange={set("role")} />
+          <input className="field h-11 px-3 text-base" name="role" autoComplete="organization-title" maxLength={80} value={f.role} onChange={set("role")} />
         </Field>
         <Field label="Tamaño de la flota" hint="Opcional">
-          <select className="field h-11" name="fleet_size" value={f.fleet_size} onChange={set("fleet_size")}>
+          <select className="field h-11 px-3 text-base" name="fleet_size" value={f.fleet_size} onChange={set("fleet_size")}>
             <option value="">Sin indicar</option>
             {fleetSizes.map((s) => (
               <option key={s}>{s}</option>
@@ -102,7 +102,7 @@ export function DemoForm({ consentText, fleetSizes }: { consentText: string; fle
           </select>
         </Field>
         <Field label="¿Qué quiere ver en la demostración?" hint="Opcional" wide>
-          <textarea className="field min-h-28 py-2.5" name="message" maxLength={1500} value={f.message} onChange={set("message")} />
+          <textarea className="field min-h-28 px-3 py-2.5 text-base" name="message" maxLength={1500} value={f.message} onChange={set("message")} />
         </Field>
       </div>
 

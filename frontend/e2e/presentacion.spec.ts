@@ -24,10 +24,11 @@ test("presentación: sin dock ni bienvenida, con el mapa real y las dos acciones
 test("presentación: la ruta en vivo recalcula con el motor real", async ({ page }) => {
   await page.goto("/#ruta");
   const section = page.locator("#ruta");
-  await expect(section.getByText("Bogotá → Leticia", { exact: true })).toBeVisible();
+  await expect(section.getByText("Bogotá → Leticia", { exact: true }).first()).toBeVisible();
   await section.getByLabel("Destino").selectOption("Cartagena");
   await section.getByRole("button", { name: "Calcular" }).click();
-  await expect(section.getByText("Bogotá → Cartagena", { exact: true })).toBeVisible();
+  // El encabezado del resultado (con un solo tramo, la lista de tramos repite el mismo texto)
+  await expect(section.getByText("Bogotá → Cartagena", { exact: true }).first()).toBeVisible();
   await expect(section.getByRole("link", { name: /Abrir como cotización/ })).toHaveAttribute("href", /destino=Cartagena/);
 });
 

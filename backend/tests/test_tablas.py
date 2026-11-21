@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 import app.database.db as db
 import app.init_db as init_db
+from conftest import admin_headers
 
 
 @pytest.fixture(scope="module")
@@ -115,5 +116,5 @@ def test_exportaciones_no_ejecutan_formulas_de_excel(client):
     post(client, "vehiculos", "placa,modo,tipo,notas\nFRM001,Terrestre,Tractomula 3S3,=1+1\n", commit=True)
     df = pd.read_excel(io.BytesIO(client.get("/api/tables/vehiculos/export.xlsx").content))
     assert df.loc[df["placa"] == "FRM001", "notas"].iloc[0] == "'=1+1"
-    audit = client.get("/api/audit/export.csv").content.decode("utf-8-sig")
+    audit = client.get("/api/audit/export.csv", headers=admin_headers()).content.decode("utf-8-sig")
     assert not any(line.split(";")[-1].startswith(("=", "@")) for line in audit.splitlines())

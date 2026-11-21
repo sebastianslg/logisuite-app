@@ -1352,3 +1352,23 @@ Mismo método que la sección 56 (inspección medida del DOM), sobre Hoy, Flota,
   opcionales del formulario.
 - Pruebas nuevas: `backend/tests/test_demos.py` (13) y `frontend/e2e/presentacion.spec.ts` (3); las pruebas de navegador que
   entraban a `/` esperando la app ahora entran a `/panel`.
+
+## 59. Datos personales solo para administradores, portada que no se cae y revisión final de la presentación
+
+- **Rutas que entregaban datos personales a cualquiera** (comprobado en producción): `/api/consents/export` (registro de
+  aceptaciones con nombres y navegadores), `/api/audit/export.csv` (historial) y `/api/client-errors` (errores con página y
+  navegador). Ahora exigen sesión de administrador (401/403 con el motivo). La descarga CSV de Auditoría pasó de enlace a
+  botón (un enlace no lleva la sesión) y Configuración no pide la lista de errores sin sesión de administrador.
+  `deploy/verificar.sh` comprueba las tres y `/api/demo-requests`. Prueba:
+  `test_exportaciones_con_datos_personales_solo_para_administradores`; utilidad `admin_headers()` en `tests/conftest.py`.
+- **Dependencias de Python:** `pip-audit` sobre las 31 versiones exactas del contenedor de producción: sin vulnerabilidades
+  conocidas.
+- **La portada no cae entera si falla una lectura:** cada lectura de la API es opcional; sin la red, sale el titular con las
+  acciones y un aviso en lugar del mapa; sin ciudades, se omite la ruta en vivo; sin el formulario, un aviso.
+- **Revisión final de diseño (revisor independiente, dos pasadas):** módulos rehechos como filas por tarea (planear, mover,
+  entregar, controlar) en lugar de tarjetas; un solo borde izquierdo en toda la página; rótulos anclados en los corredores
+  cerrados (13 px reales, medidos con la escala del mapa); textos honestos («corredores cerrados», «vehículos de ejemplo»,
+  sin «hoy»); arcos aéreos ya no se recortan arriba (mínimo exacto de la curva); tramos de la ruta en una lista legible;
+  alternativas iguales unidas («Más rápido y balanceado»); campos con relleno y 16 px; franja de modos apilada en celular.
+  Las adaptaciones al contrato quedaron escritas en `.impeccable/surfaces/frontend-src-app-page-tsx.md`.
+- Pruebas: 329 de la API y 40 de navegador.

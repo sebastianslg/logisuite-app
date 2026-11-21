@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 import app.database.db as db
 import app.init_db as init_db
 from app.engine import legal
+from conftest import admin_headers
 
 BID = "nav-0123456789abcdef"
 
@@ -60,13 +61,13 @@ def test_sin_aceptar_queda_pendiente(client):
 def test_aceptar_guarda_la_prueba_sin_la_ip(client):
     st = _accept(client)
     assert st.status_code == 201 and st.json()["pending"] == []
-    rows = list(csv.DictReader(io.StringIO(client.get("/api/consents/export").text)))
+    rows = list(csv.DictReader(io.StringIO(client.get("/api/consents/export", headers=admin_headers()).text)))
     mine = [r for r in rows if r["browser_id"] == BID]
     assert {r["document"] for r in mine} == {"terminos", "privacidad"}
     r = mine[0]
     assert r["subject"] == "Ana Pérez" and r["context"] == "primer_uso" and r["checkbox_text"].startswith("Acepto")
     assert r["user_agent"] == "Prueba/1.0" and r["accepted"] == "1"
-    assert r["ip_hash"] and "203.0.113.9" not in client.get("/api/consents/export").text
+    assert r["ip_hash"] and "203.0.113.9" not in client.get("/api/consents/export", headers=admin_headers()).text
     # La misma IP da el mismo resumen (sirve como prueba) y otra IP, otro distinto
     assert legal.ip_hash("203.0.113.9") == r["ip_hash"] != legal.ip_hash("198.51.100.1")
 
