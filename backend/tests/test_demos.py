@@ -128,3 +128,13 @@ def test_la_cache_nunca_comparte_respuestas_con_sesion(client, monkeypatch):
     assert client.get("/api/settings", headers=h).headers.get("x-cache") is None
     assert client.get("/api/settings").headers.get("x-cache") == "miss"
     assert client.get("/api/settings").headers.get("x-cache") == "hit"
+
+
+def test_exportaciones_con_datos_personales_solo_para_administradores(client):
+    """El registro de aceptaciones, el historial en CSV y los errores del navegador tienen nombres, navegadores y detalles
+    de personas: sin sesión de administrador no se entregan (antes los podía descargar cualquiera)."""
+    from conftest import admin_headers
+    for path in ("/api/consents/export", "/api/audit/export.csv", "/api/client-errors"):
+        res = client.get(path)
+        assert res.status_code == 401 and "administrador" in res.json()["detail"], path
+        assert client.get(path, headers=admin_headers()).status_code == 200, path

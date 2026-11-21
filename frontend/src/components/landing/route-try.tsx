@@ -18,6 +18,24 @@ const PRIORITIES: { value: Priority; label: string }[] = [
 ];
 const PRIORITY_LABEL: Record<Priority, string> = { balanceado: "Balanceado", tiempo: "Más rápido", costo: "Más barato" };
 
+type Alt = SimulateResponse["alternatives"][number];
+
+function groupAlternatives(list: Alt[]): (Alt & { key: string; priorities: Priority[] })[] {
+  const out: (Alt & { key: string; priorities: Priority[] })[] = [];
+  for (const a of list) {
+    const key = a.found ? `${(a.modes ?? []).join(",")}|${a.time_fmt}|${a.cost_fmt}` : `sin-ruta-${a.priority}`;
+    const same = out.find((o) => o.key === key);
+    if (same) same.priorities.push(a.priority);
+    else out.push({ ...a, key, priorities: [a.priority] });
+  }
+  return out;
+}
+
+function joinLabels(ps: Priority[]): string {
+  const labels = ps.map((p, i) => (i === 0 ? PRIORITY_LABEL[p] : PRIORITY_LABEL[p].toLowerCase()));
+  return labels.length > 1 ? `${labels.slice(0, -1).join(", ")} y ${labels[labels.length - 1]}` : labels[0];
+}
+
 /**
  * Ruta en vivo para la presentación: el mismo motor de la app sobre la red real. Arranca con un cálculo hecho en el
  * servidor (la prueba se ve sin tocar nada) y cada cambio vuelve a pedirlo. Lleva a la cotización completa de la app.
@@ -59,12 +77,14 @@ export function RouteTry({
   }
 
   const r = data?.route;
+  // Prioridades que dan la misma ruta se muestran en una sola fila («Más rápido y balanceado»), no repetidas
+  const alternatives = groupAlternatives(data?.alternatives ?? []);
   const total = r?.legs.length ? r.legs[r.legs.length - 1].end_h || 1 : 1;
   const quote = `/cotizacion?${new URLSearchParams({ origen: q.origen, destino: q.destino, peso: String(q.peso), prioridad: q.prioridad })}`;
 
   return (
     <section id="ruta" aria-labelledby="ruta-titulo" className="scroll-mt-16 border-t border-border bg-card">
-      <div className="mx-auto max-w-[1280px] px-4 py-20 sm:px-8 lg:py-28">
+      <div className="max-w-[1440px] py-20 px-4 sm:px-8 lg:px-14 xl:px-20 lg:py-28">
         <div className="max-w-[46rem]">
           <h2 id="ruta-titulo" className="text-[2rem] leading-[1.05] font-semibold tracking-[-0.035em] text-balance sm:text-[2.75rem]">
             Calcule una ruta ahora, con la red real.
@@ -84,7 +104,7 @@ export function RouteTry({
         >
           <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium">
             Origen
-            <select className="field h-11" value={q.origen} onChange={(e) => setQ({ ...q, origen: e.target.value })}>
+            <select className="field h-11 px-3 text-base font-normal" value={q.origen} onChange={(e) => setQ({ ...q, origen: e.target.value })}>
               {cities.map((c) => (
                 <option key={c}>{c}</option>
               ))}
@@ -92,7 +112,7 @@ export function RouteTry({
           </label>
           <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium">
             Destino
-            <select className="field h-11" value={q.destino} onChange={(e) => setQ({ ...q, destino: e.target.value })}>
+            <select className="field h-11 px-3 text-base font-normal" value={q.destino} onChange={(e) => setQ({ ...q, destino: e.target.value })}>
               {cities.map((c) => (
                 <option key={c}>{c}</option>
               ))}
@@ -111,7 +131,7 @@ export function RouteTry({
           <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium">
             Peso (t)
             <input
-              className="field tabular h-11"
+              className="field tabular h-11 px-3 text-base font-normal"
               type="number"
               inputMode="decimal"
               min={0.1}
@@ -143,19 +163,26 @@ export function RouteTry({
               </p>
             </div>
 
-            {/* La cadena de modos: un tramo por barra, largo proporcional al tiempo */}
-            <ol className="flex gap-1 px-5 pt-5 sm:px-7" aria-label="Tramos de la ruta">
+            {/* La cadena de modos: una barra por tramo, largo proporcional al tiempo; los rótulos van en lista debajo para
+                que un tramo corto no los corte */}
+            <div className="flex gap-1 px-5 pt-5 sm:px-7" aria-hidden>
+              {r.legs.map((l, i) => (
+                <span
+                  key={i}
+                  className="block h-2.5 rounded-full"
+                  style={{ flex: `${Math.max(l.end_h - l.start_h, total * 0.04)} 1 0`, backgroundColor: MODES[l.mode].color }}
+                />
+              ))}
+            </div>
+            <ol className="mt-3 flex flex-col gap-1.5 px-5 sm:px-7" aria-label="Tramos de la ruta">
               {r.legs.map((l, i) => {
                 const { label, icon: Icon, color } = MODES[l.mode];
                 return (
-                  <li key={i} className="min-w-0" style={{ flex: `${Math.max(l.end_h - l.start_h, total * 0.06)} 1 0` }}>
-                    <span className="block h-2.5 rounded-full" style={{ backgroundColor: color }} aria-hidden />
-                    <span className="mt-2 flex items-center gap-1 truncate text-xs font-medium">
-                      <Icon className="size-3.5 shrink-0" style={{ color }} aria-hidden />
-                      <span className="truncate">{label}</span>
-                    </span>
-                    <span className="tabular block truncate text-xs text-muted-foreground">
-                      {l.from.city} → {l.to.city} · {l.time_fmt}
+                  <li key={i} className="grid grid-cols-[1rem_5.5rem_minmax(0,1fr)] items-start gap-x-2 text-sm leading-5">
+                    <Icon className="mt-0.5 size-4" style={{ color }} aria-hidden />
+                    <span className="font-medium">{label}</span>
+                    <span className="text-muted-foreground">
+                      {l.from.city} → {l.to.city} <span className="tabular">· {l.time_fmt}</span>
                     </span>
                   </li>
                 );
@@ -177,11 +204,13 @@ export function RouteTry({
             </dl>
 
             <div className="border-t border-border">
-              <p className="px-5 pt-4 text-[0.8125rem] font-medium text-muted-foreground sm:px-7">Las tres maneras de mover esta carga</p>
+              <p className="px-5 pt-4 text-[0.8125rem] font-medium text-muted-foreground sm:px-7">
+                {alternatives.length === 1 ? "La misma ruta gana con cualquier prioridad" : "Según lo que priorice"}
+              </p>
               <ul className="rule-list mt-2 text-sm">
-                {data.alternatives.map((a) => (
-                  <li key={a.priority} className={cn("grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-5 py-3 sm:grid-cols-[10rem_minmax(0,1fr)_7rem_7rem_8rem] sm:px-7", a.priority === r.priority && "bg-raised")}>
-                    <span className="font-medium">{PRIORITY_LABEL[a.priority]}</span>
+                {alternatives.map((a) => (
+                  <li key={a.key} className={cn("grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)_7rem_7rem_8rem] sm:px-7", a.priorities.includes(r.priority) && "bg-raised")}>
+                    <span className="font-medium">{joinLabels(a.priorities)}</span>
                     {a.found ? (
                       <>
                         <span role="img" className="flex items-center gap-1" aria-label={(a.modes ?? []).map((m) => MODES[m].label).join(", ")}>

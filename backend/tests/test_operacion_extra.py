@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 import app.database.db as db
 import app.init_db as init_db
+from conftest import admin_headers
 
 
 @pytest.fixture(scope="module")
@@ -47,7 +48,7 @@ def test_errores_del_navegador(client):
                                                 "stack": "at f (a.js:1:2)", "release": "abc123"},
                     headers={"user-agent": "Prueba/2"})
     assert r.status_code == 204
-    items = client.get("/api/client-errors").json()["items"]
+    items = client.get("/api/client-errors", headers=admin_headers()).json()["items"]
     assert items[0]["path"] == "/envios" and items[0]["message"].startswith("TypeError")
     assert items[0]["user_agent"] == "Prueba/2"
     assert client.post("/api/client-errors", json={"path": "/", "message": ""}).status_code == 422

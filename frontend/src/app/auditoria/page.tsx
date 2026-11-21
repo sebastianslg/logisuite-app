@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, History } from "lucide-react";
 
+import { AuditExportButton } from "@/components/audit/export-button";
 import { PageHeader, Skeleton } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { apiGet } from "@/lib/api";
@@ -136,12 +137,7 @@ async function Tabla({ searchParams }: { searchParams: Promise<Record<string, st
           {data.total.toLocaleString("es-CO")} {data.total === 1 ? "cambio" : "cambios"}
           {paginas > 1 && ` · página ${f.pagina} de ${paginas}`}
         </p>
-        <a
-          href={`/api/audit/export.csv?${new URLSearchParams({ ...Object.fromEntries(query), limit: "1000", offset: "0" }).toString()}`}
-          className="pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center text-xs font-medium text-primary hover:underline"
-        >
-          Descargar CSV
-        </a>
+        <AuditExportButton query={new URLSearchParams({ ...Object.fromEntries(query), limit: "1000", offset: "0" }).toString()} />
       </div>
 
       <section className="glass overflow-hidden rounded-3xl" aria-label="Cambios">
