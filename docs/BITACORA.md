@@ -1432,3 +1432,14 @@ bodega, seguimiento público y configuración, en escritorio y celular. Lo que s
 - **404:** con la marca y tres salidas (resumen, envíos, presentación).
 - **Tema oscuro de la presentación:** revisado (mapa, rótulos de cierre, ruta en vivo); sin cambios necesarios.
 - Pruebas: 40 de navegador.
+
+## 64. Red con los controles en su lugar y cifras que cuentan en toda la app
+
+- **Red:** había piezas flotando en cuatro lugares (título y simulador a la izquierda, dos barras arriba a la derecha y la
+  leyenda abajo); parecía un error de ubicación. Ahora el título va junto al selector Mapa/Datos arriba a la izquierda, y la
+  leyenda es también el control: cada modo se enciende o apaga tocando su línea (muestra, ícono y nombre; en pantallas
+  medianas solo línea e ícono, con el nombre en la ayuda), y al lado van Departamentos, Flota, Animación y pantalla completa,
+  en una sola barra abajo a la derecha. Arriba a la derecha el mapa queda libre. En celular sigue el botón «Capas».
+- **Cifras que cuentan en todas las franjas:** si la cifra tiene un solo número («US$ 53.193», «90 %», «12.628 km») cuenta
+  desde 0 al aparecer, como el resumen; con varios números o fechas se muestra tal cual.
+- Pruebas: 40 de navegador.

@@ -6,13 +6,13 @@ import Link from "next/link";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
   FileText,
-  Scale, ArrowDownUp, ArrowRightLeft, Check, ChevronDown, Clock, Maximize2, Minimize2, Pause, Play, Rows3, CircleDollarSign, Cloud, Fuel, Layers, ListFilter, LoaderCircle, Map as MapIcon, PackagePlus, Radio, Route, Weight, X } from "lucide-react";
+  Scale, ArrowDownUp, ArrowRightLeft, Check, ChevronDown, Clock, Maximize2, Minimize2, Pause, Play, Rows3, CircleDollarSign, Cloud, Fuel, Layers, ListFilter, LoaderCircle, Map as MapIcon, PackagePlus, Radio, Route, TrafficCone, Weight, X } from "lucide-react";
 
 import { CityCombobox } from "./city-combobox";
 import { CategoryFilter, CityDirectory, CityInspector } from "./city-explorer";
 import { Map3DLazy, MapLoading } from "./map-3d-lazy";
 import { MapFrame } from "./map-frame";
-import { MapLegend } from "./map-legend";
+import { LEGEND_LABEL, LineSample } from "./map-legend";
 import { useMapAnimation } from "./use-map-animation";
 import { useMapData } from "./use-map-data";
 import { ModeChain, ModeIcon } from "@/components/status-badge";
@@ -168,34 +168,12 @@ export function NetworkExplorer() {
       </MapFrame>
 
       {/* Encabezado */}
-      <div onPointerDownCapture={markInteraction} className="pointer-events-none absolute top-0 right-0 left-0 z-20 flex flex-wrap items-start justify-between gap-3 p-3 md:gap-4 md:p-6 md:pt-[6.5rem]">
-        <h1 className="glass-float pointer-events-auto rounded-2xl px-4 py-2 text-xl font-semibold">Red multimodal</h1>
-        <div className="pointer-events-auto flex w-full flex-wrap items-center gap-2 md:w-auto">
+      {/* Encabezado: título y vista (mapa o datos) juntos arriba a la izquierda. Los controles del mapa viven abajo, con la
+          leyenda: arriba a la derecha el mapa queda libre */}
+      <div onPointerDownCapture={markInteraction} className="pointer-events-none absolute top-0 right-0 left-0 z-20 flex flex-wrap items-start gap-3 p-3 md:gap-4 md:p-6 md:pt-[6.5rem]">
+        <div className="pointer-events-auto flex flex-wrap items-center gap-2">
+          <h1 className="glass-float rounded-2xl px-4 py-2 text-xl font-semibold">Red multimodal</h1>
           <ViewToggle showMap={showMap} setShowMap={setShowMap} />
-          {showMap && (
-            <Button
-              variant="secondary"
-              size="icon"
-              aria-label="Mapa a pantalla completa"
-              title="Pantalla completa"
-              onClick={() => setMapFull(true)}
-            >
-              <Maximize2 />
-            </Button>
-          )}
-          {showMap && (
-            <div className="hidden md:block">
-              <LayerPanel
-                modes={modes}
-                toggleMode={toggleMode}
-                showDepartments={showDepartments}
-                setShowDepartments={setShowDepartments}
-                showFleet={showFleet}
-                setShowFleet={setShowFleet}
-                fleetCount={fleet?.count ?? 0}
-              />
-            </div>
-          )}
           {showMap && (
             <Button variant="secondary" className="md:hidden" onClick={() => setLayersOpen(true)} aria-haspopup="dialog">
               <Layers />
@@ -392,8 +370,17 @@ export function NetworkExplorer() {
       )}
 
       {showMap && (
-        <div className="glass-float pointer-events-none absolute right-6 bottom-6 hidden rounded-2xl px-4 py-3 md:block">
-          <MapLegend />
+        <div onPointerDownCapture={markInteraction} className="absolute right-6 bottom-6 z-10 hidden max-w-[calc(100%-29rem)] md:block">
+          <MapToolbar
+            modes={modes}
+            toggleMode={toggleMode}
+            showDepartments={showDepartments}
+            setShowDepartments={setShowDepartments}
+            showFleet={showFleet}
+            setShowFleet={setShowFleet}
+            fleetCount={fleet?.count ?? 0}
+            onFullscreen={() => setMapFull(true)}
+          />
         </div>
       )}
 
@@ -658,7 +645,11 @@ function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; 
   );
 }
 
-function LayerPanel({
+/**
+ * Leyenda y controles del mapa en una sola barra, abajo a la derecha: cada modo se enciende o apaga tocando su línea de la
+ * leyenda (muestra, ícono y nombre: nunca solo color), y al lado van las capas, la animación y la pantalla completa.
+ */
+function MapToolbar({
   modes,
   toggleMode,
   showDepartments,
@@ -666,6 +657,7 @@ function LayerPanel({
   showFleet,
   setShowFleet,
   fleetCount,
+  onFullscreen,
 }: {
   modes: Set<Mode>;
   toggleMode: (m: Mode) => void;
@@ -674,32 +666,52 @@ function LayerPanel({
   showFleet: boolean;
   setShowFleet: (v: boolean) => void;
   fleetCount: number;
+  onFullscreen: () => void;
 }) {
   const { animate, setAnimate } = useMapAnimation();
   return (
-    <div className="glass-float pointer-events-auto flex flex-wrap items-center gap-1 rounded-2xl p-1">
+    <div className="glass-float ml-auto flex w-fit flex-wrap items-center justify-end gap-1 rounded-2xl p-1.5" role="toolbar" aria-label="Leyenda y capas del mapa">
       {MODE_ORDER.map((m) => {
         const { icon: Icon, color, label } = MODES[m];
         const on = modes.has(m);
         return (
-          <motion.button
+          <button
             key={m}
             type="button"
             onClick={() => toggleMode(m)}
             aria-pressed={on}
-            title={label}
+            title={on ? `Ocultar ${label.toLowerCase()}` : `Mostrar ${label.toLowerCase()}`}
             aria-label={label}
-            className={cn("flex size-8 items-center justify-center rounded-md outline-none press focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:size-11", !on && "opacity-50")}
-            style={on ? { backgroundColor: tint(color, 14) } : undefined}
+            className={cn(
+              "press flex h-8 items-center gap-1.5 rounded-md px-2 text-xs outline-none transition-opacity focus-visible:ring-[3px] focus-visible:ring-ring/80 pointer-coarse:h-11",
+              on ? "text-foreground hover:bg-fill" : "text-muted-foreground opacity-55 hover:opacity-80",
+            )}
           >
-            <Icon className="size-4" style={{ color }} />
-          </motion.button>
+            <LineSample mode={m} />
+            <Icon className="size-3.5 shrink-0" style={{ color }} aria-hidden />
+            {/* En pantallas medianas, solo línea e ícono: la barra cabe en una fila; el nombre queda en la ayuda */}
+            <span className="hidden 2xl:inline">{LEGEND_LABEL[m]}</span>
+          </button>
         );
       })}
-      <span className="mx-1 h-5 w-px bg-border-strong" />
+      <span className="flex h-8 items-center gap-1.5 px-2 text-xs text-muted-foreground" title="Tramo cerrado">
+        <span aria-hidden className="h-0.5 w-5 rounded-full" style={{ backgroundImage: "repeating-linear-gradient(90deg, var(--danger) 0 3px, transparent 3px 6px)" }} />
+        <TrafficCone className="size-3.5 text-destructive" aria-hidden />
+        <span className="sr-only 2xl:not-sr-only">Cerrada</span>
+      </span>
+      <span className="mx-1 h-5 w-px bg-border-strong" aria-hidden />
       <ToggleChip on={showDepartments} onClick={() => setShowDepartments(!showDepartments)} icon={<Layers />} label="Departamentos" />
       <ToggleChip on={showFleet} onClick={() => setShowFleet(!showFleet)} icon={<Radio />} label={`Flota ${fleetCount}`} />
       <ToggleChip on={animate} onClick={() => setAnimate(!animate)} icon={animate ? <Pause /> : <Play />} label="Animación" />
+      <button
+        type="button"
+        onClick={onFullscreen}
+        aria-label="Mapa a pantalla completa"
+        title="Pantalla completa"
+        className="press flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-fill hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/80 [&_svg]:size-4"
+      >
+        <Maximize2 />
+      </button>
     </div>
   );
 }

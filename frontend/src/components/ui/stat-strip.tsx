@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
+import { CountUp } from "@/components/ui/count-up";
 import { cn } from "@/lib/utils";
 
 export type Stat = {
@@ -51,6 +52,32 @@ export function StatStrip({ items, className }: { items: Stat[]; className?: str
   );
 }
 
+/** Un número en formato es-CO (miles con punto, decimales con coma). */
+const NUMBER = /-?\d{1,3}(?:\.\d{3})+(?:,\d+)?|-?\d+(?:,\d+)?/g;
+
+/**
+ * La cifra cuenta desde 0 al montarse, como en el resumen, si es un texto con un solo número («US$ 53.193», «90 %»). Con
+ * varios números («3 d 21 h», «1 / 0») o algo que no es texto, se muestra tal cual: contar uno de ellos se vería raro.
+ */
+function Figure({ value }: { value: React.ReactNode }) {
+  const text = typeof value === "number" ? value.toLocaleString("es-CO") : value;
+  if (typeof text !== "string") return <>{value}</>;
+  const found = text.match(NUMBER);
+  if (!found || found.length !== 1) return <>{text}</>;
+  const raw = found[0];
+  const at = text.indexOf(raw);
+  const [prefix, suffix] = [text.slice(0, at), text.slice(at + raw.length)];
+  const decimals = raw.includes(",") ? raw.split(",")[1].length : 0;
+  const n = Number(raw.replace(/\./g, "").replace(",", "."));
+  if (!Number.isFinite(n)) return <>{text}</>;
+  return (
+    <CountUp
+      value={n}
+      format={(v) => prefix + v.toLocaleString("es-CO", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + suffix}
+    />
+  );
+}
+
 function StatCell({ label, value, hint, tone, href, onClick, active }: Stat) {
   const interactive = !!(href || onClick);
   const body = (
@@ -66,7 +93,7 @@ function StatCell({ label, value, hint, tone, href, onClick, active }: Stat) {
       </span>
       {/* La cifra no se parte («US$» / «53.193» en dos líneas): escala con el ancho de su celda, hasta 28 px */}
       <span className={cn("tabular mt-2 block text-[clamp(1.125rem,13cqw,1.75rem)] leading-none font-semibold tracking-[-0.03em] whitespace-nowrap", tone && TONE[tone])}>
-        {value}
+        <Figure value={value} />
       </span>
       {hint && <div className="mt-2 line-clamp-2 text-[13px] text-muted-foreground">{hint}</div>}
     </>
