@@ -8,7 +8,7 @@ export default function AdministracionPage() {
     <div className="page">
       <PageHeader
         title="Administración"
-        description="Usuarios, roles y empresas. Solo para administradores: cada persona ingresa con un código que le llega a su correo."
+        description="Solicitudes de demostración, usuarios, roles y empresas. Solo para administradores: cada persona ingresa con un código que le llega a su correo."
       />
       <AdminPanel />
     </div>

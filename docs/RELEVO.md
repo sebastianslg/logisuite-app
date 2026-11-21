@@ -27,7 +27,7 @@ git checkout desarrollo
 Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las verificaciones antes de subir.
 
 ## Estado actual  (reescríbelo al terminar cada sesión)
-- **Última herramienta:** Claude (PC) · **Fecha:** 2026-11-19
+- **Última herramienta:** Claude (PC) · **Fecha:** 2026-11-21
 - **Hecho:** ver secciones 40 a 48 de `docs/BITACORA.md`. Resumen:
   - **Usuarios:** activar/desactivar con protecciones (no a uno mismo, no al último administrador). Pantalla `/administracion`
     con alta de usuarios y empresas.
@@ -57,7 +57,12 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
   - **Lote del 19 de noviembre (sección 54):** respaldo vigilado (marca `.ultimo-respaldo` + aviso a las 36 h), flota/conductores/
     inventario en Excel (exportar y cargar), reporte mensual opcional, protección contra fórmulas en Excel/CSV, Next 16.4.6,
     modo sin conexión prudente (solo estáticos).
-- **En curso / a medias:** nada.
+  - **Lote del 21 de noviembre (sección 58):** presentación comercial pública en `/` y la app en `/panel`; logo W en todo (app,
+    íconos y PDF); solicitudes de demostración (Administración); arreglo de la caché de lecturas que podía servir a cualquiera
+    lo que leía un administrador; moneda y apariencia al menú «Más» del dock.
+- **En curso / a medias:** nada. Siguiente acordado con el dueño: exigir administrador en `/api/consents/export`,
+  `/api/audit/export.csv` y `/api/client-errors`; auditar dependencias de Python; que la portada no caiga entera si falla una
+  lectura de la API. Pendiente de decisión del dueño: exigir sesión para todo lo que escribe (roles reales).
 - **Importante para quien siga:**
   - **Nunca** devolver el código OTP en la respuesta fuera de pruebas (`WESTVANE_DEV_OTP=1`).
   - **No pegar sobre el contenido del `.env` en `nano`**: agregar líneas al final (o con `printf ... >> .env`). Ya pasó una vez y

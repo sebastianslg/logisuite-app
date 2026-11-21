@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Sheet } from "@/components/ui/sheet";
+import { isPublicPath } from "@/components/shell/shell-only";
 
 export const OPEN_SHORTCUTS_EVENT = "westvane:shortcuts";
 
 /** Teclas de navegación: "g" y luego una letra, como en las apps de escritorio. */
 const GO: { key: string; href: string; label: string }[] = [
-  { key: "d", href: "/", label: "Ir al dashboard" },
+  { key: "d", href: "/panel", label: "Ir al resumen" },
   { key: "e", href: "/envios", label: "Ir a envíos" },
   { key: "r", href: "/red", label: "Ir a la red multimodal" },
   { key: "v", href: "/vias", label: "Ir a vías y cierres" },
@@ -47,7 +48,8 @@ export function Shortcuts() {
       pending.current = null;
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return;
+      // En la presentación y el seguimiento públicos no hay atajos: un visitante no debe caer en «Nuevo envío» por error
+      if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target) || isPublicPath(window.location.pathname)) return;
       if (e.key === "?") {
         e.preventDefault();
         setOpen(true);

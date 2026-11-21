@@ -8,11 +8,12 @@ web
 
 ## Users
 
-Despachadores y planificadores de carga en Colombia. Operan envíos multimodales durante toda la jornada: crean y editan envíos, comparan rutas por costo, tiempo y huella de carbono, cierran vías, aeropuertos y puertos, y revisan qué envíos quedaron sin ruta. Sesiones largas, en escritorio (Windows) y también en celular (Android). Español de Colombia.
+- **Quien opera:** despachadores y planificadores de carga en Colombia. Operan envíos multimodales durante toda la jornada: crean y editan envíos, comparan rutas por costo, tiempo y huella de carbono, cierran vías, aeropuertos y puertos, y revisan qué envíos quedaron sin ruta. Sesiones largas, en escritorio (Windows) y también en celular (Android). Español de Colombia.
+- **Quien compra:** gerentes de operaciones, de tecnología o generales de operadores logísticos (3PL) en Colombia que evalúan adoptar un sistema de gestión de transporte completo para su empresa. Llegan por un enlace que les comparte el dueño, leen la presentación en `/` en pocos minutos y deciden si piden una demostración o entran a la app con datos de ejemplo.
 
 ## Product Purpose
 
-Westvane TMS (antes LogiSuite) es un sistema de gestión de transporte multimodal para Colombia: carretera, río, mar, aire y ferrocarril. Calcula la ruta óptima entre ciudades, sigue la flota en un mapa, estima costo (USD, visible en COP con TRM editable) y huella de carbono, y redirige los envíos cuando se cierra una vía o un nodo. Éxito: el planificador decide más rápido y con menos errores, y ve de inmediato qué cambió y qué envíos se afectan.
+Westvane TMS (antes LogiSuite) es un sistema de gestión de transporte multimodal para Colombia: carretera, río, mar, aire y ferrocarril. Calcula la ruta óptima entre ciudades, sigue la flota en un mapa, estima costo (USD, visible en COP con TRM editable) y huella de carbono, y redirige los envíos cuando se cierra una vía o un nodo. Éxito: el planificador decide más rápido y con menos errores, y ve de inmediato qué cambió y qué envíos se afectan. Objetivo comercial: que un operador logístico lo adopte como el sistema de su empresa.
 
 ## Positioning
 
@@ -20,7 +21,7 @@ Planificación multimodal real sobre la red colombiana (vías nacionales, ríos 
 
 ## Operating Context
 
-Datos simulados: clientes, transportistas y telemetría son ficticios y la flota se mueve por una simulación determinista. La red mezcla datos verificados y aproximados, y la interfaz marca los aproximados. Desplegado en un VPS de Contabo con Docker Compose (Caddy + Next.js + API FastAPI/SQLite en un volumen persistente, con respaldo antes de cada actualización). GitHub Actions corre las pruebas en cada push a main y, si pasan, despliega solo. Hoy la usan el autor y, de vez en cuando, su profesor: no hay cuentas ni contraseña, a propósito.
+Datos simulados: clientes, transportistas y telemetría son ficticios y la flota se mueve por una simulación determinista. La red mezcla datos verificados y aproximados, y la interfaz marca los aproximados. Desplegado en un VPS de Contabo con Docker Compose (Caddy + Next.js + API FastAPI/SQLite en un volumen persistente, con respaldo antes de cada actualización). La presentación comercial vive en `/` (pública, sin la bienvenida de la app) y la app en `/panel` y sus secciones. Hay cuentas por código al correo con roles (administrador, operador, lector) que hoy se muestran pero no restringen; la app se puede recorrer sin iniciar sesión, a propósito, como demostración. Las solicitudes de demostración llegan al buzón de Westvane (`NOTIFY_EMAIL`).
 
 ## Capabilities and Constraints
 

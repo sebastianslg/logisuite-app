@@ -150,7 +150,7 @@ def test_avisos_al_administrador_se_apagan_por_tipo(client, outbox, monkeypatch)
 
     estado = client.get("/api/settings/mail-alerts").json()
     assert estado["configured"] is True and estado["admin_email"] == "d***@ejemplo.com"   # la dirección no se muestra completa
-    assert {a["kind"]: a["enabled"] for a in estado["alerts"]} == {"vencimientos": True, "novedades": True, "semanal": False, "mensual": False, "respaldo": True}  # los de atención, encendidos; el reporte semanal, opcional
+    assert {a["kind"]: a["enabled"] for a in estado["alerts"]} == {"vencimientos": True, "novedades": True, "semanal": False, "mensual": False, "demos": True, "respaldo": True}  # los de atención, encendidos; el reporte semanal, opcional
 
     # Cambiarlos exige sesión de administrador
     assert client.put("/api/settings/mail-alerts", json={"kind": "novedades", "enabled": False}).status_code == 401

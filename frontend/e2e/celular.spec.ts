@@ -15,7 +15,7 @@ test("en celular no hay desborde horizontal y el dock inferior funciona", async 
     await noHorizontalOverflow(page);
   }
   await page.setViewportSize({ width: 412, height: 839 });
-  await page.goto("/");
+  await page.goto("/panel");
   const nav = page.getByRole("navigation", { name: "Navegación principal (celular)" });
   await nav.getByRole("button", { name: /Más/ }).tap();
   const sheet = page.getByRole("dialog", { name: "Más secciones" });

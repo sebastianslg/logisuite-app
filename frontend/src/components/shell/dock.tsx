@@ -25,7 +25,6 @@ import {
   Truck,
   UserRound,
   Warehouse,
-  Waypoints,
   type LucideIcon,
 } from "lucide-react";
 
@@ -40,12 +39,13 @@ import { Mail } from "lucide-react";
 import { EASE, SPRING, stagger } from "@/lib/motion";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
+import { LogoMark } from "@/components/brand/logo";
 
 type NavItem = { href: string; label: string; short?: string; icon: LucideIcon };
 
 /** Los cinco destinos del dock (el quinto es "Más"). */
 const PRIMARY: NavItem[] = [
-  { href: "/", label: "Resumen", icon: LayoutDashboard },
+  { href: "/panel", label: "Resumen", icon: LayoutDashboard },
   { href: "/envios", label: "Envíos", icon: Package },
   { href: "/red", label: "Red", icon: Network },
   { href: "/flota", label: "Flota", icon: Truck },
@@ -75,7 +75,7 @@ const ring = "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80";
 function useIsActive() {
   const pathname = usePathname();
   const hydrated = useHydrated();
-  return (href: string) => hydrated && (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  return (href: string) => hydrated && (href === "/panel" ? pathname === "/panel" : pathname.startsWith(href));
 }
 
 /**
@@ -156,7 +156,7 @@ function DesktopDock() {
         style={{ borderRadius: 999 }}
       >
         <motion.div layout="position" transition={SPRING} className="flex items-center">
-          <Link href="/" aria-label="Westvane, resumen" className={cn("press relative flex items-center gap-2 rounded-full py-1 pr-2 pl-1", ring)}>
+          <Link href="/panel" aria-label="Westvane, resumen" className={cn("press relative flex items-center gap-2 rounded-full py-1 pr-2 pl-1", ring)}>
             <Logo />
             <AnimatePresence initial={false} mode="popLayout">
               {showLabels && (
@@ -202,8 +202,6 @@ function DesktopDock() {
             {showLabels && <span className="hidden xl:inline">Buscar</span>}
             <kbd className="hidden rounded-full border border-border-strong px-1.5 text-[11px] font-medium lg:inline">{shortcut}</kbd>
           </button>
-          <CurrencyControl />
-          <ThemeControl />
         </motion.div>
       </motion.header>
     </div>
@@ -355,6 +353,15 @@ function MoreMenu({
                 );
               })}
             </ul>
+            {/* Moneda y apariencia viven aquí, como en la hoja «Más» del celular: la barra queda en navegación, avisos y búsqueda */}
+            <div className="mt-2 flex items-center justify-between gap-3 border-t border-border px-3 pt-3">
+              <span className="text-sm text-muted-foreground">Moneda</span>
+              <CurrencyControl />
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-3 px-3">
+              <span className="text-sm text-muted-foreground">Apariencia</span>
+              <ThemeControl segmented />
+            </div>
             <div className="mt-2 border-t border-border pt-2">
               <OperatorField onNavigate={() => setOpen(false)} />
               <button
@@ -578,11 +585,7 @@ function MobilePill() {
 /* ------------------------------------------------------------------ */
 
 function Logo() {
-  return (
-    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-solid text-primary-foreground">
-      <Waypoints className="size-4" aria-hidden />
-    </span>
-  );
+  return <LogoMark className="size-8 rounded-[9px]" />;
 }
 
 /**

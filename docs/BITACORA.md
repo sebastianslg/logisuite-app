@@ -1323,3 +1323,32 @@ Mismo método que la sección 56 (inspección medida del DOM), sobre Hoy, Flota,
 - **Se dejan como están:** los enlaces de crédito de OpenFreeMap/OpenStreetMap sobre el mapa (los pone la librería, son
   diminutos por convención y son su atribución requerida) y el kbd de «Ctrl K».
 - Pruebas: 37 de navegador en entorno limpio (repertorio completo).
+
+## 58. Presentación comercial en `/`, logo W, solicitudes de demostración y un arreglo de seguridad en la caché
+
+- **Objetivo nuevo (PRODUCT.md):** venderlo a operadores logísticos (3PL) para que una empresa lo adopte. `/` es ahora una
+  **presentación pública** y la app pasó a **`/panel`** (dock, búsqueda, atajos `g d`, avisos, 404 y el ícono instalado apuntan
+  ahí). Las páginas públicas (`/` y `/seguimiento`) no tienen dock, bienvenida ni atajos de teclado.
+- **Estructura elegida por el dueño: «Colombia como página»** (contrato en `.impeccable/surfaces/frontend-src-app-page-tsx.md`).
+  El mapa real de la red (`NetworkPreview`, el mismo del resumen) queda fijo mientras se baja por cinco capítulos, uno por modo;
+  cada capítulo resalta su modo en el mapa (solo opacidad, sin reloj de animación) y la franja de modos con sus kilómetros
+  reales hace lo mismo a mano. Siguen: **ruta en vivo** con el motor real (Bogotá → Leticia por costo: camión + barcaza), módulos
+  en filas, seguridad, preguntas, formulario de demostración y pie. Todo lo que afirma es verdad hoy: no hay clientes, precios ni
+  métricas inventadas, y se dice que los envíos de la app son de ejemplo.
+- **Logo:** la **W trazada como ruta** (origen, transbordo, destino) en el azul de los botones. `components/brand/logo.tsx`,
+  `app/icon.svg`, favicon, íconos de instalación (con versión adaptable para Android, `icon-maskable-512.png`), apple-icon y el
+  encabezado de todos los PDF (dibujado en vectores con reportlab). Los PNG salen de `frontend/scripts/brand-assets.mjs`
+  (`BRAND_CHANNEL=msedge node scripts/brand-assets.mjs`) y el `.ico` con Pillow.
+- **Solicitudes de demostración** (`schema_v16`, `engine/demo.py`, `/api/demo-requests`): validación, campo trampa para robots,
+  tope de 5 por conexión al día, texto exacto de la autorización y resumen de IP (no la IP). Avisan al buzón (`NOTIFY_EMAIL`,
+  tipo de aviso «demos», apagable). A quien la envía no se le escribe (sería un relevo de spam). Solo un administrador las ve,
+  las marca atendidas o las borra, en **Administración › Solicitudes de demostración**.
+- **Seguridad, caché de lecturas (ya existía el problema):** la caché guardaba por ruta sin mirar quién pedía. Durante 5 s, lo
+  que un administrador leía (`/api/admin/users` con correos, `/api/auth/me`) se le podía servir a cualquiera que pidiera la misma
+  ruta. Ahora lo pedido con sesión no se guarda ni se sirve de la caché, y cuentas, administración, estado, consentimientos y
+  solicitudes no entran nunca. Prueba: `test_la_cache_nunca_comparte_respuestas_con_sesion`.
+- **Dock más limpio:** moneda y apariencia pasan al menú «Más» de escritorio (como ya estaban en la hoja «Más» del celular).
+- **Arreglos de paso:** clave duplicada en el mapa cuando un mismo buque lleva dos envíos; nombre accesible de los campos
+  opcionales del formulario.
+- Pruebas nuevas: `backend/tests/test_demos.py` (13) y `frontend/e2e/presentacion.spec.ts` (3); las pruebas de navegador que
+  entraban a `/` esperando la app ahora entran a `/panel`.

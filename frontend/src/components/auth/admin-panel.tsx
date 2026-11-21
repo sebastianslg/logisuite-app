@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/components/ui/toast";
+import { DemoRequests } from "@/components/auth/demo-requests";
 import { useAuth, type UserRole } from "@/lib/auth";
 import { api } from "@/lib/client";
 import { inputClass } from "@/components/fleet/form-bits";
@@ -93,7 +94,9 @@ export function AdminPanel() {
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+    <div className="flex flex-col gap-6">
+      <DemoRequests />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
       <section className="glass overflow-hidden rounded-3xl" aria-labelledby="usuarios-t">
         <h2 id="usuarios-t" className="px-5 pt-5 pb-3 text-sm font-semibold">
           Usuarios {users && <span className="tabular font-normal text-muted-foreground">· {users.length}</span>}
@@ -110,6 +113,7 @@ export function AdminPanel() {
       <div className="flex flex-col gap-6">
         <NewUser companies={companies} onCreated={load} />
         <Companies companies={companies} onCreated={load} />
+      </div>
       </div>
     </div>
   );
