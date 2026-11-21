@@ -1282,3 +1282,44 @@ contra una base temporal. **Nada de esto llegó a producción.**
 - **Prueba de carga después del despliegue** (8 personas, 30 s): páginas mediana 822 ms y p95 3.012 ms; API mediana 406 ms y p95
   515 ms; 0 errores. `/envios` sigue siendo la más lenta (1,7 s de mediana) por el tamaño de la tabla; el aligerado baja el
   peso, y si el domingo hace falta más, el siguiente paso es paginar del lado del servidor.
+
+## 56. Lavado de cara (primera ronda): pie, títulos, nota del mapa y prueba de «sin conexión» sin falsos
+
+Inspección medida del bloque Resumen + Envíos + ficha (escala tipográfica analizada en el DOM renderizado, spacing,
+objetivos táctiles, desbordes, jerarquía de encabezados — en escritorio y celular), bajo las reglas de la skill impeccable
+(modo «operar», refinamiento). Correcciones:
+
+- **Objetivos táctiles del pie (celular):** los enlaces legales (Metodología, Créditos, Términos, Privacidad, Cookies) medían
+  **16 px de alto**; el mínimo es 44. Ahora hacen 44 px solo en pantallas táctiles (`pointer-coarse:min-h-11`), sin tocar el
+  escritorio. Verificado midiendo el DOM: de 5 deficientes a **cero**.
+- **Títulos de tarjeta a tres estilos:** Resumen usaba 15 px/600, la ficha 14 px/500 y «Hoy» 14 px/600 — la misma función, tres
+  estilos. Unificados a **14 px/600** (`text-sm font-semibold`): `CollapsiblePanel`, `Bento` y «Requiere atención». Confirmado
+  midiendo: los H2 de las tres superficies salen a 14 px/600 en claro y oscuro.
+- **Nota del mapa:** «Trazado aproximado» estaba a 11 px, fuera de la escala; pasa a 12 px.
+- **Enlace «Envíos» de regreso (ficha):** 16 px de alto en el celular; ahora 44 con `pointer-coarse:min-h-11`.
+- **Prueba de «sin conexión»: los falsos positivos tenían dueño.** Localizaba por rol (
+  `getByRole("status").filter(/Sin conexión/)`) y hay **dos** regiones `role=status` que dicen «Sin conexión»: el aviso y el
+  punto del dock (que anuncia lo mismo cuando la API falla, para lectores de pantalla). Con dos coincidencias el localizador se
+  volvía ambiguo según el momento en que el punto cambiara de texto. Ahora la prueba usa el texto completo del aviso, único, y
+  despacha un `focus` tras cortar la red (como despertar la pestaña, que además es la red de seguridad real del componente).
+  **6 de 6 en verde.** Los fallos intermedios eran de mi entorno de depuración (un web sin conexión a la API respondía 502), no
+  del producto.
+- Con el encabezado de Envíos ya pegajoso y las capturas de antes/después tomadas (claro/oscuro × escritorio/celular), la
+  superficie superior está bajo un solo estándar tipográfico.
+
+## 57. Lavado de cara (segunda ronda): flota, dock móvil, título de Red y auditoría
+
+Mismo método que la sección 56 (inspección medida del DOM), sobre Hoy, Flota, Auditoría y Red:
+
+- **Flota:** las etiquetas del medidor de mantenimiento compacto y el rótulo «Próximo mantenimiento» estaban a **11 px** —
+  unos 60 elementos por pantalla. Pasan a 12 px (`text-xs`), el mínimo de la escala.
+- **Dock móvil:** las etiquetas de la navegación primaria (Resumen, Envíos, Red, Flota, Más) también estaban a **11 px**;
+  pasan a 12.
+- **Título de `/red`:** era el único texto a peso **700** de toda la app (la escala es 600). El tamaño de 20 px se conserva a
+  propósito: es una etiqueta flotante sobre el mapa, no un título de página normal.
+- **Auditoría:** «Descargar CSV» medía 16 px de alto en el celular; pasa a 44 px en pantallas táctiles.
+- **Confirmado midiendo:** en el celular, cero textos por debajo de 12 px y cero objetivos táctiles deficientes; en escritorio
+  queda solo el chip «Ctrl K» del dock, que es una pista de teclado deliberada.
+- **Se dejan como están:** los enlaces de crédito de OpenFreeMap/OpenStreetMap sobre el mapa (los pone la librería, son
+  diminutos por convención y son su atribución requerida) y el kbd de «Ctrl K».
+- Pruebas: 37 de navegador en entorno limpio (repertorio completo).

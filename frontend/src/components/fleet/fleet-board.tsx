@@ -183,7 +183,7 @@ export function FleetBoard({ vehicles, summary }: { vehicles: Vehicle[]; summary
                   <span className="text-xs text-muted-foreground">Fuera de la flota</span>
                 ) : (
                   <>
-                    <div className="mb-1 text-[0.6875rem] font-medium text-muted-foreground">Próximo mantenimiento</div>
+                    <div className="mb-1 text-xs font-medium text-muted-foreground">Próximo mantenimiento</div>
                     <ServiceMeter service={v.service} compact />
                   </>
                 )}

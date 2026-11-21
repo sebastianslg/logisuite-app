@@ -53,10 +53,10 @@ export function CollapsiblePanel({
               )}
               aria-hidden
             />
-            <h2 className="truncate text-sm font-medium">{title}</h2>
+            <h2 className="truncate text-sm font-semibold">{title}</h2>
           </button>
         ) : (
-          <h2 className="text-sm font-medium">{title}</h2>
+          <h2 className="text-sm font-semibold">{title}</h2>
         )}
         {icon}
       </motion.header>

@@ -96,7 +96,7 @@ export function ServiceMeter({ service, compact = false, className }: { service:
       >
         <div className="h-full w-full origin-left rounded-full transition-transform duration-500 ease-apple" style={{ transform: `scaleX(${pct / 100})`, backgroundColor: color }} />
       </div>
-      <div className={cn("tabular mt-1 flex flex-wrap gap-x-2 text-muted-foreground", compact ? "text-[0.6875rem]" : "text-xs")}>
+      <div className={cn("tabular mt-1 flex flex-wrap gap-x-2 text-muted-foreground", "text-xs")}>
         <span className={cn(byDays && "font-semibold text-foreground")} style={service.state === "Vencido" && byDays ? { color } : undefined}>
           {daysText(service.days_left)}
         </span>

@@ -10,19 +10,19 @@ export function SiteFooter() {
   return (
     <footer className="mx-auto flex w-full max-w-[1760px] flex-wrap items-center gap-x-4 gap-y-1 px-4 pb-8 text-xs text-muted-foreground md:px-8 lg:px-10 print:hidden">
       <span>Westvane · datos de operación simulados</span>
-      <Link href="/metodologia" className="hover:text-foreground hover:underline">
+      <Link href="/metodologia" className="hover:text-foreground hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">
         Metodología
       </Link>
-      <Link href="/creditos" className="hover:text-foreground hover:underline">
+      <Link href="/creditos" className="hover:text-foreground hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">
         Créditos y licencias
       </Link>
-      <Link href="/terminos" className="hover:text-foreground hover:underline">
+      <Link href="/terminos" className="hover:text-foreground hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">
         Términos
       </Link>
-      <Link href="/privacidad" className="hover:text-foreground hover:underline">
+      <Link href="/privacidad" className="hover:text-foreground hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">
         Privacidad
       </Link>
-      <Link href="/cookies" className="hover:text-foreground hover:underline">
+      <Link href="/cookies" className="hover:text-foreground hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">
         Cookies
       </Link>
     </footer>
