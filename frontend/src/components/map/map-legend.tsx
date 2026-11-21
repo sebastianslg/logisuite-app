@@ -1,6 +1,7 @@
 import { TrafficCone } from "lucide-react";
 
 import { MODE_ORDER, MODES } from "@/lib/modes";
+import type { Mode } from "@/lib/types";
 
 const STYLE: Record<string, string> = {
   terrestre: "Carretera",
@@ -9,6 +10,24 @@ const STYLE: Record<string, string> = {
   aereo: "Vuelo",
   ferreo: "Ferrocarril",
 };
+
+/** Muestra de la línea de un modo, como se dibuja en el mapa (punteado el tren). */
+export function LineSample({ mode }: { mode: Mode }) {
+  return (
+    <span
+      aria-hidden
+      className="h-0.5 w-5 shrink-0 rounded-full"
+      style={
+        mode === "ferreo"
+          ? { backgroundImage: `repeating-linear-gradient(90deg, ${MODES[mode].color} 0 5px, transparent 5px 8px)` }
+          : { backgroundColor: MODES[mode].color }
+      }
+    />
+  );
+}
+
+/** Nombre corto del modo en la leyenda (como se lee sobre el mapa). */
+export const LEGEND_LABEL = STYLE;
 
 /** Leyenda de capas: muestra de línea + ícono + texto (identidad nunca solo color). */
 export function MapLegend() {
