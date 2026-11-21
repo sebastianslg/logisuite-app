@@ -169,7 +169,7 @@ export function Attention({ alerts }: { alerts: DashboardSummary["alerts"] }) {
   return (
     <section aria-labelledby="atencion" className="mb-6">
       <div className="mb-3 flex items-baseline gap-2 px-1">
-        <h2 id="atencion" className="text-[0.9375rem] font-semibold">
+        <h2 id="atencion" className="text-sm font-semibold">
           Requiere atención
         </h2>
         <span className="tabular text-[13px] text-muted-foreground">

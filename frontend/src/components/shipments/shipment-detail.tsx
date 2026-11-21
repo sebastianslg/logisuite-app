@@ -103,7 +103,7 @@ export function ShipmentDetail({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href="/envios" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <Link href="/envios" className="pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-3.5" /> Envíos
         </Link>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">

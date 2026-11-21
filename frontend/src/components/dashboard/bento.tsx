@@ -70,7 +70,7 @@ export function BentoCell({
         <header className="flex items-start justify-between gap-3 px-5 pt-5 pb-4">
           {/* El título habla solo: sin ícono en recuadro (el ícono decorativo convierte cada panel en una plantilla) */}
           <div className="min-w-0">
-            <h2 className="truncate text-[0.9375rem] font-semibold tracking-[-0.01em]">{title}</h2>
+            <h2 className="truncate text-sm font-semibold tracking-[-0.01em]">{title}</h2>
             {description && <p className="mt-0.5 truncate text-[13px] text-muted-foreground">{description}</p>}
           </div>
           {action}

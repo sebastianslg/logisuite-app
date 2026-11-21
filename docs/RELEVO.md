@@ -43,6 +43,9 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     `deploy/probar-restauracion.sh` (ensayo de restauración en un contenedor aparte, sin tocar producción).
   - **Historial** firmado con la cuenta de la sesión; **estado del servidor** en Configuración; **orden de trabajo en PDF** para
     mantenimientos; **avisos al celular (ntfy)** recuperados (el tema vive solo en el `.env` del servidor).
+  - **Lavado de cara 1 (sección 56):** pie con objetivos táctiles de 44 px en celular, títulos de tarjeta unificados a
+    14 px/600, nota del mapa a 12 px, enlace de regreso de la ficha a 44 px, y la prueba de «sin conexión» con localizador
+    único (6/6). Pendiente de desplegar.
   - **Cierre del pulido (sección 55) — ya desplegado:** pase visual de Flota/Conductores/Bodegas/Configuración en claro y
     oscuro, escritorio y celular; fechas de `/auditoria` en español; `verificar.sh` con las rutas nuevas (34 comprobaciones);
     y la lista de envíos **20 % más liviana** (los vehículos de todos los tramos pasaron al detalle; 763 KB → 613 KB en

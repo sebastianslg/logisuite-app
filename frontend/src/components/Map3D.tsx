@@ -866,7 +866,7 @@ export default function Map3D({
           <Row k="Distancia" v={p.distance_fmt} />
           <Row k="Tiempo" v={p.time_fmt} />
           <Row k="Capacidad por despacho" v={p.capacity_fmt} />
-          {p.approximate && <div className="mt-1 text-[11px] text-muted-foreground">Trazado y distancia aproximados</div>}
+          {p.approximate && <div className="mt-1 text-xs text-muted-foreground">Trazado y distancia aproximados</div>}
         </TooltipBody>
       );
     } else if (id === "flota") {
