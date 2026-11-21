@@ -36,7 +36,7 @@ export function StatStrip({ items, className }: { items: Stat[]; className?: str
       {/* Cada celda dibuja su línea izquierda y superior; el margen negativo esconde las del borde exterior */}
       <div
         className={cn(
-          "-mt-px -ml-px grid grid-cols-2",
+          "list-in -mt-px -ml-px grid grid-cols-2",
           cols >= 3 && "md:grid-cols-3",
           cols === 4 && "xl:grid-cols-4",
           cols === 5 && "xl:grid-cols-5",

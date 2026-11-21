@@ -62,7 +62,7 @@ export function MaintenanceBoard({ items, due }: { items: Maintenance[]; due: Fl
         <section aria-labelledby="m-curso">
           <h2 id="m-curso" className="mb-2 flex items-center gap-2 px-1 text-sm font-semibold"><Wrench className="size-4 text-warning" aria-hidden /> En el taller ahora ({ongoing.length})</h2>
           {ongoing.length === 0 ? <p className="glass rounded-3xl px-5 py-4 text-sm text-muted-foreground">Ningún vehículo está en el taller en este momento.</p>
-            : <ul className="glass rule-list overflow-hidden rounded-3xl">{ongoing.map((m) => <Row key={m.maint_id} m={m} />)}</ul>}
+            : <ul className="list-in glass rule-list overflow-hidden rounded-3xl">{ongoing.map((m) => <Row key={m.maint_id} m={m} />)}</ul>}
         </section>
         <section aria-labelledby="m-prog">
           <h2 id="m-prog" className="mb-2 flex items-center gap-2 px-1 text-sm font-semibold"><CalendarClock className="size-4 text-primary" aria-hidden /> Programados ({planned.length})</h2>
@@ -71,7 +71,7 @@ export function MaintenanceBoard({ items, due }: { items: Maintenance[]; due: Fl
               {Object.entries(byDay).map(([day, list]) => (
                 <div key={day}>
                   <h3 className="mb-1.5 px-1 text-xs font-semibold text-muted-foreground capitalize">{dayLabel(day)}</h3>
-                  <ul className="glass rule-list overflow-hidden rounded-3xl">{list.map((m) => <Row key={m.maint_id} m={m} />)}</ul>
+                  <ul className="list-in glass rule-list overflow-hidden rounded-3xl">{list.map((m) => <Row key={m.maint_id} m={m} />)}</ul>
                 </div>
               ))}
             </div>
@@ -80,7 +80,7 @@ export function MaintenanceBoard({ items, due }: { items: Maintenance[]; due: Fl
         {done.length > 0 && (
           <section aria-labelledby="m-hist">
             <h2 id="m-hist" className="mb-2 px-1 text-sm font-semibold">Terminados recientemente</h2>
-            <ul className="glass rule-list overflow-hidden rounded-3xl">{done.map((m) => <Row key={m.maint_id} m={m} />)}</ul>
+            <ul className="list-in glass rule-list overflow-hidden rounded-3xl">{done.map((m) => <Row key={m.maint_id} m={m} />)}</ul>
           </section>
         )}
       </div>

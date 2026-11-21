@@ -165,12 +165,13 @@ export function RouteTry({
 
             {/* La cadena de modos: una barra por tramo, largo proporcional al tiempo; los rótulos van en lista debajo para
                 que un tramo corto no los corte */}
-            <div className="flex gap-1 px-5 pt-5 sm:px-7" aria-hidden>
+            {/* La clave cambia con cada resultado: la barra se vuelve a montar y sus tramos crecen en orden */}
+            <div key={`${r.origin}-${r.destination}-${r.priority}-${r.weight_t}`} className="flex gap-1 px-5 pt-5 sm:px-7" aria-hidden>
               {r.legs.map((l, i) => (
                 <span
                   key={i}
-                  className="block h-2.5 rounded-full"
-                  style={{ flex: `${Math.max(l.end_h - l.start_h, total * 0.04)} 1 0`, backgroundColor: MODES[l.mode].color }}
+                  className="leg-in block h-2.5 rounded-full"
+                  style={{ flex: `${Math.max(l.end_h - l.start_h, total * 0.04)} 1 0`, backgroundColor: MODES[l.mode].color, "--k": i } as React.CSSProperties}
                 />
               ))}
             </div>

@@ -34,7 +34,7 @@ export function FaultsBoard({ faults }: { faults: Fault[] }) {
           { value: "todas", label: "Todas" },
         ]}
       />
-      <ul className="glass rule-list overflow-hidden rounded-3xl">
+      <ul className="list-in glass rule-list overflow-hidden rounded-3xl">
         {list.length === 0 && <li><EmptyState figure="0" title="Sin fallas abiertas" description="Cuando alguien reporte una desde la ficha de un vehículo, aparecerá aquí." /></li>}
         {list.map((f) => (
           <li key={f.fault_id}>

@@ -147,7 +147,7 @@ async function Tabla({ searchParams }: { searchParams: Promise<Record<string, st
             <History className="size-4" aria-hidden /> No hay cambios con esos filtros.
           </p>
         ) : (
-          <ul className="rule-list">
+          <ul className="list-in rule-list">
             {data.items.map((e) => (
               <li key={e.audit_id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 py-3 text-sm">
                 <span className="tabular w-36 shrink-0 text-xs text-muted-foreground">

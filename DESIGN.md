@@ -212,6 +212,8 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 - **El mapa está quieto en reposo.** Su reloj solo corre mientras se arrastra, se hace zoom o está en pantalla completa con animación activa; se monta cuando entra en pantalla y en tiempo ocioso, por capas.
 - **Medidores (`meter-fill`):** relleno a todo el ancho escalado con `--v`; crece al aparecer y se desliza al cambiar. **Sparklines** se dibujan con una máscara que crece; **calendario** crece por filas (20 ms); **mapa por departamento** se llena por intensidad; lo **recién creado** entra con `.enter`.
 - **Presentación:** el mapa entra una sola vez con un fundido de 0,4 s al llegar los datos; después solo cambia la opacidad al cambiar de capítulo. El salto desde la franja de modos se desplaza suave salvo con «reducir movimiento».
+- **Listas que llegan (`list-in`):** cada fila sube 6 px y aparece, en cascada de 30 ms con tope de 360 ms; solo al montarse (resumen, hoy, envíos, flota, fallas, mantenimientos, vías, clientes, auditoría, solicitudes y franjas de cifras).
+- **Presentación:** la red se enciende modo por modo al cargar (`mode-in`, 150 ms entre modos) y los nodos llegan al final (`nodes-in`); cada sección entra una vez al aparecer (`Reveal`); los tramos de la ruta en vivo crecen en orden con cada resultado (`leg-in`).
 - **Apariencia:** cambiar de tema funde la página en 250 ms (View Transitions); lo usado a diario (Ctrl K, atajos) no anima.
 - Todo componente respeta "reducir movimiento" (`MotionConfig reducedMotion="user"` y `motion-reduce:` en CSS).
 
