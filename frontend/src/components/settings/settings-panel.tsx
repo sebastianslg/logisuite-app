@@ -17,6 +17,7 @@ import { CollapsiblePanel } from "@/components/ui/collapsible-panel";
 import { Segmented } from "@/components/ui/segmented";
 import { SaveIcon, useSavedFlash } from "@/components/ui/save-icon";
 import { toast } from "@/components/ui/toast";
+import { actionLabel, tableLabel } from "@/lib/audit-labels";
 import { useAuth } from "@/lib/auth";
 import { api, saveBlob } from "@/lib/client";
 import { recordConsent, useConsent, type ConsentDoc } from "@/lib/consent";
@@ -24,30 +25,13 @@ import type { AuditEntry, Settings, ShareLink } from "@/lib/types";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 
-const ACTIONS: Record<string, string> = {
-  INSERT: "Creación",
-  UPDATE: "Edición",
-  DELETE: "Borrado",
-  CLOSE: "Cierre de vía",
-  REOPEN: "Reapertura",
-  EXPORT: "Enlace creado",
-  REVOKE: "Enlace revocado",
-  LOGIN: "Inicio de sesión",
-  IMPORT: "Carga masiva",
-};
-
 /** Registros cuyo `record_id` es el código de un envío. */
 const SHIPMENT_TABLES = new Set(["mm_shipments", "mm_shipment_events", "mm_attachments"]);
 
-const TABLES: Record<string, string> = {
-  mm_shipments: "Envíos",
-  mm_corridor_status: "Vías",
-  system_params: "Parámetros",
-  mm_share_links: "Enlaces",
-  mm_shipment_events: "Bitácora",
-  mm_attachments: "Adjuntos",
-  mm_consents: "Aceptaciones",
-};
+// La lista de la caja de filtro: solo las tablas que este historial resumido muestra
+const TABLES: Record<string, string> = Object.fromEntries(
+  ["mm_shipments", "mm_corridor_status", "system_params", "mm_share_links", "mm_shipment_events", "mm_attachments", "mm_consents"].map((t) => [t, tableLabel(t)]),
+);
 
 function dt(iso: string | null) {
   return iso ? new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }).replace(/\s/g, " ") : "—";
@@ -540,7 +524,7 @@ function AuditLog({ history }: { history: AuditEntry[] }) {
           <li key={h.audit_id} className="border-l border-border-strong pl-3">
             <div className="flex flex-wrap items-center gap-x-2 text-muted-foreground">
               <span>{dt(h.timestamp)}</span>·<span className="text-foreground">{h.username}</span>·
-              <span>{ACTIONS[h.action] ?? h.action}</span>
+              <span>{actionLabel(h.action)}</span>
               {h.record_id && SHIPMENT_TABLES.has(h.table_name) && !deleted.has(h.record_id) ? (
                 <Link href={`/envios/${h.record_id}`} prefetch={false} className="font-mono text-foreground/80 hover:text-primary">{h.record_id}</Link>
               ) : h.record_id && deleted.has(h.record_id) ? (

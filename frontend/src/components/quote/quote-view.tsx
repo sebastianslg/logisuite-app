@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { PackagePlus, Printer } from "lucide-react";
 
+import { Wordmark } from "@/components/brand/logo";
 import { useApp } from "@/components/providers";
 import { ModeChain } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -77,7 +78,7 @@ export function QuoteView({ data, issuedAt, number }: { data: SimulateResponse; 
       <article aria-label="Cotización" className="glass rounded-3xl p-8 md:p-10 print:rounded-none print:border-0 print:p-0">
         <header className="flex flex-wrap items-start justify-between gap-6 border-b border-border pb-6">
           <div>
-            <div className="text-sm font-semibold tracking-[-0.01em]">Westvane TMS</div>
+            <Wordmark />
             <h2 className="mt-3 text-[1.75rem] leading-none font-semibold tracking-[-0.03em]">Cotización</h2>
             <div className="mt-1 font-mono text-xs text-muted-foreground">{number}</div>
           </div>

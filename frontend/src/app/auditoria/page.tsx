@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, History } from "lucide-react";
 import { AuditExportButton } from "@/components/audit/export-button";
 import { PageHeader, Skeleton } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
+import { actionLabel, tableLabel } from "@/lib/audit-labels";
 import { apiGet } from "@/lib/api";
 import type { AuditEntry } from "@/lib/types";
 
@@ -89,7 +90,7 @@ async function Tabla({ searchParams }: { searchParams: Promise<Record<string, st
             <option value="">Todas</option>
             {facets.tablas.map((t) => (
               <option key={t.value} value={t.value}>
-                {t.value} ({t.count})
+                {tableLabel(t.value)} ({t.count})
               </option>
             ))}
           </select>
@@ -111,7 +112,7 @@ async function Tabla({ searchParams }: { searchParams: Promise<Record<string, st
             <option value="">Todas</option>
             {facets.acciones.map((a) => (
               <option key={a.value} value={a.value}>
-                {a.value} ({a.count})
+                {actionLabel(a.value)} ({a.count})
               </option>
             ))}
           </select>
@@ -153,7 +154,7 @@ async function Tabla({ searchParams }: { searchParams: Promise<Record<string, st
                   {/* Mismo formato que el resto de la app, no la fecha ISO de la base */}
                   {new Date(e.timestamp).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }).replace(/\s/g, " ")}
                 </span>
-                <Badge tone={TONE[e.action] ?? "neutral"}>{e.action}</Badge>
+                <Badge tone={TONE[e.action] ?? "neutral"}>{actionLabel(e.action)}</Badge>
                 <span className="min-w-0 flex-1">
                   <span className="font-medium">{e.username}</span>{" "}
                   <span className="text-muted-foreground">{e.detail ?? "sin detalle"}</span>
