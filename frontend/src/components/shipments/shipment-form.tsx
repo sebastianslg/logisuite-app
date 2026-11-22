@@ -1,12 +1,13 @@
 "use client";
 
-import { cloneElement, useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
+import { cloneElement, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactElement } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRightLeft, Check, CircleDollarSign, Clock, Cloud, Fuel, Leaf, LoaderCircle, Route, Sparkles, X } from "lucide-react";
 
 import { useApp } from "@/components/providers";
+import { useAuth } from "@/lib/auth";
 import { ModeChain, ModeIcon } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { SaveIcon, useSavedFlash } from "@/components/ui/save-icon";
@@ -61,6 +62,110 @@ function localInput(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/* --- Borrador del envío nuevo en este navegador --------------------------------------------------------------
+ * Se guarda medio segundo después de la última tecla, solo con los campos del formulario (nunca archivos), y jamás
+ * viaja al servidor. Toda lectura y escritura van dentro de try/catch: el almacenamiento puede estar lleno o
+ * bloqueado y nada de eso puede romper el formulario. Se lee con useSyncExternalStore para que el HTML del
+ * servidor siga siendo el mismo en la hidratación.
+ */
+const DRAFT_KEY = "westvane.borrador-envio";
+const DRAFT_VERSION = 1;
+const DRAFT_SAVE_MS = 500;
+const DRAFT_EVENT = "westvane:borrador-envio";
+
+interface StoredDraft {
+  savedAt: number;
+  values: ShipmentDraft;
+}
+
+function readDraftRaw(): string | null {
+  try {
+    return window.localStorage.getItem(DRAFT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function subscribeDraft(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener(DRAFT_EVENT, onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(DRAFT_EVENT, onChange);
+  };
+}
+
+function writeDraftRaw(raw: string | null) {
+  try {
+    if (raw === null) window.localStorage.removeItem(DRAFT_KEY);
+    else window.localStorage.setItem(DRAFT_KEY, raw);
+  } catch {
+    /* sin espacio o sin permiso: el borrador es solo una ayuda */
+  }
+  window.dispatchEvent(new Event(DRAFT_EVENT));
+}
+
+/** Deja el borrador en este navegador; con null lo borra de verdad. Lleva la cuenta que lo escribió:
+ * en un PC compartido, el borrador de una cuenta no se le ofrece a otra. */
+function saveDraft(d: ShipmentDraft | null, usuario: string | null) {
+  writeDraftRaw(d ? JSON.stringify({ v: DRAFT_VERSION, u: usuario, saved_at: Date.now(), values: d }) : null);
+}
+
+/** Lectura defensiva: si hay otra versión o datos rotos, se abre como siempre. */
+function parseDraft(raw: string | null, fallback: ShipmentDraft, cuenta: string | null): StoredDraft | null {
+  if (!raw) return null;
+  try {
+    const data = JSON.parse(raw) as { v?: unknown; u?: unknown; saved_at?: unknown; values?: unknown } | null;
+    if (!data || typeof data !== "object" || data.v !== DRAFT_VERSION) return null;
+    // El borrador es de quien lo escribió: de otra cuenta (o sin saber la cuenta) no se ofrece
+    if ((typeof data.u === "string" ? data.u : null) !== cuenta) return null;
+    const values = data.values as Partial<Record<keyof ShipmentDraft, unknown>>;
+    if (!values || typeof values !== "object") return null;
+    const text = (x: unknown) => (typeof x === "string" ? x : "");
+    const priority = text(values.priority);
+    return {
+      savedAt: Number.isFinite(data.saved_at) ? (data.saved_at as number) : Date.now(),
+      values: {
+        origin: text(values.origin) || fallback.origin,
+        destination: text(values.destination) || fallback.destination,
+        cargo: text(values.cargo).slice(0, 120),
+        weight_t: text(values.weight_t) || fallback.weight_t,
+        priority: Object.prototype.hasOwnProperty.call(PRIORITIES, priority) ? (priority as Priority) : fallback.priority,
+        client: text(values.client).slice(0, 120),
+        departure_at: text(values.departure_at) || fallback.departure_at,
+        delay_h: text(values.delay_h) || fallback.delay_h,
+        forced_modes: Array.isArray(values.forced_modes)
+          ? values.forced_modes.filter((m): m is Mode => typeof m === "string" && MODE_ORDER.includes(m as Mode))
+          : [],
+        forced_corridors: Array.isArray(values.forced_corridors)
+          ? values.forced_corridors.filter((c): c is string => typeof c === "string").slice(0, MAX_CORRIDORS)
+          : [],
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** El servidor no tiene almacenamiento: la hidratación empieza sin borrador y el navegador lo ofrece después. */
+const noStoredDraft = () => null;
+
+/** ¿Hay algo propio que valga la pena recuperar? Se compara con el formulario tal como se abrió. */
+function hasContent(d: ShipmentDraft, base: ShipmentDraft): boolean {
+  return (
+    d.cargo.trim() !== "" ||
+    d.client.trim() !== "" ||
+    d.origin !== base.origin ||
+    d.destination !== base.destination ||
+    d.weight_t.trim() !== base.weight_t.trim() ||
+    d.priority !== base.priority ||
+    d.departure_at !== base.departure_at ||
+    d.delay_h.trim() !== base.delay_h.trim() ||
+    d.forced_modes.join("|") !== base.forced_modes.join("|") ||
+    d.forced_corridors.join("|") !== base.forced_corridors.join("|")
+  );
+}
+
 export function draftFrom(s?: Shipment, prefill: Partial<ShipmentDraft> = {}): ShipmentDraft {
   if (s) {
     return {
@@ -96,7 +201,14 @@ export function draftFrom(s?: Shipment, prefill: Partial<ShipmentDraft> = {}): S
 export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefill?: Partial<ShipmentDraft> }) {
   const router = useRouter();
   const { operator, money } = useApp();
+  // Cuenta de la sesión: marca el borrador como suyo (solo escribe/lee al crear, no al editar)
+  const { user } = useAuth();
+  const draftUser = user?.username ?? null;
+  const draftUserRef = useRef<string | null>(null);
   const [draft, setDraft] = useState<ShipmentDraft>(() => draftFrom(shipment, prefill));
+  // El formulario tal como se abrió: sirve para saber si el borrador guardado tiene algo propio.
+  const [baseline] = useState<ShipmentDraft>(draft);
+  const [offerHidden, setOfferHidden] = useState(false);
   const [cities, setCities] = useState<CityOption[]>([]);
   const [corridors, setCorridors] = useState<Corridor[]>([]);
   const [preview, setPreview] = useState<RouteResult | null>(null);
@@ -107,6 +219,58 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
   const [corridorQuery, setCorridorQuery] = useState("");
   const [errors, setErrors] = useState<Errors>({});
   const formRef = useRef<HTMLFormElement>(null);
+  const originRef = useRef<HTMLSelectElement>(null);
+  const cargoRef = useRef<HTMLInputElement>(null);
+  const draftRef = useRef<ShipmentDraft>(draft);
+  const touchedRef = useRef(false); // hubo cambios propios: ya vale la pena guardar
+  const doneRef = useRef(false); // ya se guardó el envío: el borrador no vuelve
+
+  // Borrador guardado en este navegador (al editar un envío nunca se usa).
+  const draftRaw = useSyncExternalStore(subscribeDraft, readDraftRaw, noStoredDraft);
+  useEffect(() => { draftUserRef.current = draftUser; }, [draftUser]);
+  const stored = useMemo(() => (shipment ? null : parseDraft(draftRaw, baseline, draftUser)), [shipment, draftRaw, baseline, draftUser]);
+  const recover = !offerHidden && stored && hasContent(stored.values, baseline) ? stored : null;
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  // Guardado con retraso: no escribe en cada tecla. Si el aviso sigue sin responder, el borrador viejo no se toca.
+  useEffect(() => {
+    if (shipment || !touchedRef.current || doneRef.current) return;
+    const t = setTimeout(() => {
+      if (!touchedRef.current || doneRef.current) return;
+      saveDraft(hasContent(draft, baseline) ? draft : null, draftUserRef.current);
+    }, DRAFT_SAVE_MS);
+    return () => clearTimeout(t);
+  }, [draft, shipment, baseline]);
+
+  // Lo tecleado en los últimos 500 ms también se guarda al cerrar o esconder la pestaña.
+  useEffect(() => {
+    if (shipment) return;
+    const flush = () => {
+      if (!touchedRef.current || doneRef.current) return;
+      saveDraft(hasContent(draftRef.current, baseline) ? draftRef.current : null, draftUserRef.current);
+    };
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [shipment, baseline]);
+
+  // Y al navegar dentro de la app (Cancelar, el dock): el desmonte vuelca lo último tecleado.
+  useEffect(() => {
+    if (shipment) return;
+    return () => {
+      if (doneRef.current || !touchedRef.current) return;
+      saveDraft(hasContent(draftRef.current, baseline) ? draftRef.current : null, draftUserRef.current);
+    };
+  }, [shipment, baseline]);
 
   useEffect(() => {
     api<{ cities: CityOption[] }>("/api/locations").then((d) => setCities(d.cities)).catch(() => undefined);
@@ -118,6 +282,9 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
     setErrors((er) => (er[k] ? { ...er, [k]: undefined } : er));
     setPreview(null);
     setFootprint(null);
+    touchedRef.current = true;
+    // Si alguien escribe mientras el aviso sigue abierto, se entiende que empieza de cero.
+    setOfferHidden(true);
   };
 
   const body = () => ({
@@ -171,6 +338,10 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
         ? await api<Shipment>(`/api/shipments/${encodeURIComponent(shipment.code)}`, { method: "PUT", body: body() })
         : await api<Shipment>("/api/shipments", { method: "POST", body: body() });
       flashSaved();
+      if (!shipment) {
+        doneRef.current = true;
+        saveDraft(null, null);
+      }
       toast({ title: shipment ? `Envío ${saved.code} guardado` : `Envío ${saved.code} creado` });
       router.push(`/envios/${saved.code}`);
       router.refresh();
@@ -178,6 +349,26 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
       setError((err as Error).message);
       setBusy(null);
     }
+  }
+
+  /** Vuelca el borrador guardado en el formulario. */
+  function resumeDraft() {
+    if (!recover) return;
+    setDraft(recover.values);
+    setErrors({});
+    setPreview(null);
+    setFootprint(null);
+    touchedRef.current = true; // el borrador recuperado se sigue guardando mientras se edita
+    setOfferHidden(true);
+    cargoRef.current?.focus();
+  }
+
+  /** Descarta el borrador de este navegador; el formulario sigue como recién abierto. */
+  function discardDraft() {
+    saveDraft(null, null);
+    touchedRef.current = false;
+    setOfferHidden(true);
+    originRef.current?.focus();
   }
 
   const toggleMode = (m: Mode) =>
@@ -204,9 +395,29 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
   return (
     <form ref={formRef} onSubmit={save} noValidate className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="flex flex-col gap-5 glass rounded-3xl p-5">
+        {recover && (
+          <div role="status" className="rounded-2xl bg-fill/60 p-4 text-sm">
+            <p>
+              Quedó un envío a medias del{" "}
+              <span className="tabular">
+                {new Date(recover.savedAt).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }).replace(/\s/g, " ")}
+              </span>
+              . ¿Lo retomas donde quedó o empiezas de nuevo?
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">El borrador vive solo en este navegador; nada se envió al servidor.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" onClick={resumeDraft}>
+                Retomar
+              </Button>
+              <Button type="button" variant="secondary" onClick={discardDraft}>
+                Empezar de nuevo
+              </Button>
+            </div>
+          </div>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Origen" error={errors.origin}>
-            <select className={input} value={draft.origin} onChange={(e) => set("origin", e.target.value)}>
+            <select ref={originRef} className={input} value={draft.origin} onChange={(e) => set("origin", e.target.value)}>
               {!cities.some((c) => c.city === draft.origin) && <option value={draft.origin}>{draft.origin}</option>}
               {cities.map((c) => (
                 <option key={c.city} value={c.city}>
@@ -228,7 +439,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
             </select>
           </Field>
           <Field label="Carga" error={errors.cargo}>
-            <input className={input} value={draft.cargo} onChange={(e) => set("cargo", e.target.value)} maxLength={120}
+            <input ref={cargoRef} className={input} value={draft.cargo} onChange={(e) => set("cargo", e.target.value)} maxLength={120}
               placeholder="Ej. Café excelso en sacos" />
           </Field>
           <Field label="Cliente" error={errors.client}>

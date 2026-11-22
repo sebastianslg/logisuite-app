@@ -229,6 +229,8 @@ export function useAuth() {
       currentUser = null;
       notifyUserListeners();
       setAuthToken(null);
+      // El borrador del envío nuevo puede traer datos del cliente: no le sobrevive al cierre de sesión
+      try { window.localStorage.removeItem("westvane.borrador-envio"); } catch { /* sin permiso */ }
       // Sin sesión la app no se puede usar: vuelve a la pantalla de ingreso con una carga completa (borra lo que la app
       // tenía en memoria y el proxy ya no ve la cookie)
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
