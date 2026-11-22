@@ -196,7 +196,7 @@ export function ClientsView({ items }: { items: ClientSummary[] }) {
                             </span>
                           </p>
                         )}
-                        <Link href={`/envios?q=${encodeURIComponent(c.client)}`} className="mt-3 inline-block text-sm font-medium text-primary hover:underline">
+                        <Link href={`/envios?q=${encodeURIComponent(c.client)}`} className="link-draw mt-3 inline-block text-sm font-medium text-primary">
                           Ver todos sus envíos
                         </Link>
                       </div>

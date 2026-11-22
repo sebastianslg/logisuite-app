@@ -103,7 +103,7 @@ export function ShipmentDetail({
     <div className="flex flex-col gap-6">
       <div>
         <Link href="/envios" className="pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="size-3.5" /> Envíos
+          <ArrowLeft className="size-3.5" /> <span className="link-draw">Envíos</span>
         </Link>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -221,7 +221,7 @@ export function ShipmentDetail({
                                 {l.asset.vehicle_ids.map((vid, k) => (
                                   <span key={vid}>
                                     {k > 0 && ", "}
-                                    <Link href={`/flota/${vid}`} className="font-mono text-foreground hover:text-primary">
+                                    <Link href={`/flota/${vid}`} className="link-draw font-mono text-foreground hover:text-primary">
                                       {l.asset?.plates?.[k] ?? vid}
                                     </Link>
                                   </span>

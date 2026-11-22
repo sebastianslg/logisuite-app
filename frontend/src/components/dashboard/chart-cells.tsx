@@ -88,7 +88,7 @@ export function ModalSplitCell({
               key: "go",
               label: "",
               render: (r) => (
-                <Link href={`/envios?modo=${r.mode}`} className="text-primary hover:underline">
+                <Link href={`/envios?modo=${r.mode}`} className="link-draw text-primary">
                   Ver envíos
                 </Link>
               ),
@@ -136,7 +136,7 @@ export function DispatchCell({ data, className }: { data: DashboardSummary["disp
         />
         <div className="mt-4 flex justify-end">
           <Button asChild>
-            <Link href="/envios">Ver todos los envíos</Link>
+            <Link href="/envios"><span className="link-draw">Ver todos los envíos</span></Link>
           </Button>
         </div>
       </Sheet>

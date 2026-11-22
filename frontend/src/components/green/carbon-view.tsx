@@ -201,7 +201,7 @@ export function CarbonView({ summary }: { summary: SustainabilitySummary }) {
           La referencia mueve las mismas toneladas-kilómetro por camión (80 g CO₂e/t-km). El porcentaje positivo indica cuánto
           evita la mezcla de modos actual.
         </p>
-        <Link href="/envios" className="mt-3 inline-block text-sm text-primary hover:underline">Ver los envíos que componen la huella</Link>
+        <Link href="/envios" className="link-draw mt-3 inline-block text-sm text-primary">Ver los envíos que componen la huella</Link>
       </Sheet>
     </BentoGrid>
   );

@@ -80,7 +80,7 @@ export function AlertsList({ onNavigate, limit }: { onNavigate?: () => void; lim
       <AlertRows items={shown} onNavigate={onNavigate} />
       {shown.length < items.length && (
         <Link href="/panel" onClick={onNavigate} className="block border-t border-border px-5 py-3 text-[13px] font-medium text-primary">
-          Ver {items.length - shown.length} más en el resumen
+          <span className="link-draw">Ver {items.length - shown.length} más en el resumen</span>
         </Link>
       )}
     </>
@@ -167,7 +167,7 @@ export function AlertsMenu() {
               onClick={() => setOpen(false)}
               className="block border-t border-border px-5 py-3 text-[13px] font-medium text-primary outline-none hover:bg-fill/50 focus-visible:ring-[3px] focus-visible:ring-ring/80 focus-visible:ring-inset"
             >
-              Ver el resumen completo
+              <span className="link-draw">Ver el resumen completo</span>
             </Link>
           </motion.div>
         )}
