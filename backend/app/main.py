@@ -452,19 +452,61 @@ def fleet_live() -> dict:
             "by_mode": by_mode, "assets": assets}
 
 
+# Orden de los estados en la lista (el operativo: primero lo que está en movimiento)
+_ORDEN_ESTADO = "CASE status WHEN 'En Ruta' THEN 0 WHEN 'Retrasado' THEN 1 WHEN 'Transferencia Modal' THEN 2 " \
+                "WHEN 'Programado' THEN 3 ELSE 4 END"
+
+
+def _filtros_envios(status: str | None, modes: str | None, q: str | None, firmar: bool = False) -> tuple[str, list]:
+    """Cláusula WHERE de la lista, compartida por el conteo, los recuentos por estado y la página."""
+    where, params = [], []
+    estados = [s.strip() for s in (status or "").split(",") if s.strip()]
+    if estados:
+        where.append(f"status IN ({','.join('?' * len(estados))})")
+        params.extend(estados)
+    modos = [m.strip() for m in (modes or "").split(",") if m.strip()]
+    for m in modos:
+        where.append("modes LIKE ?")
+        params.append(f"%{m}%")
+    if firmar:
+        # Entregados que aún no tienen prueba de entrega (el chip «Por firmar»)
+        where.append("status = 'Entregado' AND shipment_code NOT IN (SELECT shipment_code FROM mm_deliveries)")
+    texto = (q or "").strip()
+    if texto:
+        like = f"%{texto}%"
+        where.append("(shipment_code LIKE ? OR origin_city LIKE ? OR dest_city LIKE ? OR cargo LIKE ? OR client LIKE ?)")
+        params.extend([like] * 5)
+    return (" WHERE " + " AND ".join(where)) if where else "", params
+
+
 @app.get("/api/shipments")
-def shipments(status: str | None = None, limit: int = 300, offset: int = 0) -> dict:
-    """Lista de envíos, del más reciente al más antiguo. Devuelve `total` (cuántos hay con ese filtro) para que quien la
-    use sepa si está viendo todo o solo una parte: antes se cortaba en 300 sin decirlo."""
+def shipments(status: str | None = None, modes: str | None = None, q: str | None = None, firmar: bool = False,
+              limit: int = 300, offset: int = 0, sort: str = "estado") -> dict:
+    """Página de la lista de envíos, filtrada y ordenada en el servidor.
+
+    `status` y `modes` aceptan varios separados por coma; `q` busca en código, ciudades, carga y cliente. Devuelve `total`
+    (cuántos hay con los filtros) y `counts` (recuentos por estado y por modo con esos filtros, para los chips). Así la
+    página puede pedir 50 y los filtros siguen funcionando sobre todos los envíos, no solo sobre lo cargado."""
     now = _sync()
-    where, params = "", []
-    if status:
-        where = " WHERE status = ?"
-        params.append(status)
+    where, params = _filtros_envios(status, modes, q, firmar)
     total = int(run_query(f"SELECT COUNT(*) AS n FROM mm_shipments{where}", tuple(params)).iloc[0]["n"])
+    # Recuentos de los chips: respetan la búsqueda y el modo, no el filtro de estado (si no, al elegir uno los demás irían a 0)
+    where_sin_estado, params_sin_estado = _filtros_envios(None, modes, q, firmar)
+    counts = {"status": {}, "modes": {}}
+    for fila in fetch_all(f"SELECT status, COUNT(*) AS n FROM mm_shipments{where_sin_estado} GROUP BY status",
+                          tuple(params_sin_estado)):
+        counts["status"][fila["status"]] = int(fila["n"])
+    for fila in fetch_all(f"SELECT modes, COUNT(*) AS n FROM mm_shipments{where}{(' AND' if where else ' WHERE')} modes != ''",
+                          tuple(params)):
+        # set(): un envío con dos tramos del mismo modo no debe contar dos veces
+        for m in set((fila["modes"] or "").split(",")):
+            if m:
+                counts["modes"][m] = counts["modes"].get(m, 0) + int(fila["n"])
+    orden = {"estado": f"{_ORDEN_ESTADO}, departure_at DESC", "salida": "departure_at DESC",
+             "codigo": "shipment_code", "costo": "total_cost DESC", "eta": "eta_at"}.get(sort, f"{_ORDEN_ESTADO}, departure_at DESC")
     limit = max(1, min(limit, 1000))
     offset = max(0, offset)
-    rows = fetch_all(f"SELECT * FROM mm_shipments{where} ORDER BY departure_at DESC LIMIT ? OFFSET ?",
+    rows = fetch_all(f"SELECT * FROM mm_shipments{where} ORDER BY {orden} LIMIT ? OFFSET ?",
                      tuple(params) + (limit, offset))
     signed = delivery.signed_codes()
     items = []
@@ -474,7 +516,7 @@ def shipments(status: str | None = None, limit: int = 300, offset: int = 0) -> d
         item["delivery_signed"] = (r["shipment_code"] in signed) if item["status"] == "Entregado" else None
         items.append(item)
     return {"count": len(items), "total": total, "limit": limit, "offset": offset,
-            "truncated": offset + len(items) < total, "items": items}
+            "truncated": offset + len(items) < total, "counts": counts, "items": items}
 
 
 def _detail(r: dict, now: datetime) -> dict:
