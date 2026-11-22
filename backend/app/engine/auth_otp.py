@@ -45,6 +45,7 @@ MAX_PASSWORD_FAILURES = 5
 LOCK_MINUTES = 15
 
 OTP_COOLDOWN_S = 60  # segundos mínimos entre dos códigos pedidos para el mismo correo
+AUTH_CODE_RETENTION_DAYS = 7  # días que se conservan los códigos ya usados o vencidos antes de borrarlos
 
 
 def dev_otp_enabled() -> bool:
@@ -289,6 +290,27 @@ def logout(session_id: str | None, current_user: str | None = None) -> None:
         run_write("DELETE FROM user_sessions WHERE session_id = ?", (session_id.strip(),))
         if current_user:
             audit(current_user, "LOGOUT", "users", None, "Cierre de sesión")
+
+
+def purge_expired_auth(now: datetime | None = None) -> dict:
+    """Borra lo que ya no sirve para entrar: las sesiones vencidas y los códigos de ingreso usados o vencidos hace
+    más de AUTH_CODE_RETENTION_DAYS días. Devuelve cuántos borró de cada uno.
+
+    Las sesiones vigentes y los códigos recientes se quedan: un código se guarda unos días por si hay que revisar un
+    intento fallido, y una sesión se borra solo cuando ya no vale (get_user_by_session la rechaza igual). Las fechas
+    son texto «AAAA-MM-DD HH:MM:SS», que ordena como el tiempo, igual que en el resto del módulo. No se registra en
+    el log ningún código ni token: solo se cuenta."""
+    now = now or _now()
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    cutoff = (now - timedelta(days=AUTH_CODE_RETENTION_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
+
+    sesiones = run_write("DELETE FROM user_sessions WHERE expires_at < ?", (now_str,))
+    codigos = run_write(
+        """DELETE FROM auth_codes
+           WHERE (used_at IS NOT NULL AND used_at < ?) OR expires_at < ?""",
+        (cutoff, cutoff),
+    )
+    return {"sesiones": int(sesiones or 0), "codigos": int(codigos or 0)}
 
 
 # ---------------------------------------------------------------------------

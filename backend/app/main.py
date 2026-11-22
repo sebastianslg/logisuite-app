@@ -36,7 +36,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
+import re
 import secrets
 import threading
 import time
@@ -162,6 +164,7 @@ def _purge_attachments_daily(now: datetime) -> None:
         journal.purge_expired(now)
         delivery.purge_expired(now, journal.retention_days())
         client_notify.purge_emails(now, journal.retention_days())
+        auth_otp.purge_expired_auth(now)
         purge_old_audit(now)
         fleet.enforce_documents(now)
         # Los avisos salen una vez al día aunque el servidor se reinicie (cada despliegue lo reinicia)
@@ -331,6 +334,68 @@ async def api_v1_alias(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-API-Version"] = "1"
     return response
+
+
+# ---------------------------------------------------------------------------
+# Peticiones lentas. Un WARNING por cada una deja rastro de lo que se atasca (la página tarda 1,2–1,7 s con 8 personas,
+# sección 53 de la bitácora). La ruta va SIN datos personales: sin query string y con lo que identifica a alguien
+# (códigos de envío, ids, correos, tokens, textos largos) cambiado por marcadores. Nunca se registran cabeceras, cuerpo
+# ni cookies. WESTVANE_SLOW_MS fija el umbral en milisegundos (por defecto 1000) y 0 lo apaga.
+_lento = logging.getLogger("westvane.lento")
+
+_UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+_CODIGO = re.compile(r"[A-Za-z]{1,6}[-_]?\d{2,}(?:[-_]\d+)*")   # LS-2611-0031, HK-4821, SKU-0097
+_TOKEN = re.compile(r"[A-Za-z0-9_-]+")                          # tokens de sesión, enlaces de exportación
+_FIJA = re.compile(r"[a-z0-9._~-]+")                            # segmentos fijos de la API: minúsculas, sin espacios
+SEGMENTO_LARGO = 24  # más largo que eso es un texto libre (nombre, dirección…), no una ruta
+
+
+def ruta_anonima(path: str) -> str:
+    """Ruta de una petición lista para el registro: sin query string (ni fragmento) y con los segmentos que identifican
+    a una persona o un recurso cambiados por marcadores (`/api/shipments/{id}`, `/api/admin/users/{correo}`…)."""
+    path = path.split("?", 1)[0].split("#", 1)[0]
+    return "/".join(_segmento_anonimo(seg) for seg in path.split("/"))
+
+
+def _segmento_anonimo(seg: str) -> str:
+    if not seg:
+        return seg
+    if "@" in seg:
+        return "{correo}"
+    if seg.isdigit() or _UUID.fullmatch(seg) or _CODIGO.fullmatch(seg):
+        return "{id}"
+    if len(seg) >= 20 and _TOKEN.fullmatch(seg):
+        return "{token}"
+    if len(seg) > SEGMENTO_LARGO or not _FIJA.fullmatch(seg):
+        return "{texto}"
+    return seg
+
+
+def umbral_lento_ms() -> int:
+    """Milisegundos a partir de los cuales se registra una petición; 0 lo apaga. Se lee en cada petición, así que se
+    puede cambiar sin reiniciar (las pruebas lo hacen)."""
+    try:
+        return max(0, int(os.environ.get("WESTVANE_SLOW_MS", "1000")))
+    except ValueError:
+        return 1000
+
+
+@app.middleware("http")
+async def slow_requests(request: Request, call_next):
+    """Registra (WARNING) las peticiones a /api/ que tardan más de la cuenta: método, ruta anónima y milisegundos.
+
+    Se declara al final, así que corre primero y mide la petición completa, sin cambiar el comportamiento de los demás
+    middlewares (429 y 413 siguen igual). Medir con perf_counter cuesta microsegundos."""
+    umbral = umbral_lento_ms()
+    if not umbral or not request.url.path.startswith("/api/"):
+        return await call_next(request)
+    start = time.perf_counter()
+    try:
+        return await call_next(request)
+    finally:
+        ms = (time.perf_counter() - start) * 1000
+        if ms > umbral:
+            _lento.warning("Petición lenta: %s %s en %d ms", request.method, ruta_anonima(request.url.path), round(ms))
 
 
 # Flota de vehículos y red de bodegas (endpoints en api/fleet_wh.py)
