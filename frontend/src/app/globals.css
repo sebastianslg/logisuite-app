@@ -12,8 +12,8 @@
  * - Movimiento: curva de salida fuerte (--ease-apple), presión (.press) y solo transform/opacity.
  */
 :root {
-  --background: #f6f7f9;
-  --foreground: #161920;
+  --background: #f2f2f7;
+  --foreground: #1d1d1f;
   --card: #ffffff;
   --raised: #f0f1f4;
   --muted-foreground: #5e626a; /* 5,2:1 también sobre los tintes de estado */
@@ -33,20 +33,20 @@
   --backdrop: none;
 
   /* Estados para relleno y gráficos (los mismos tonos que el texto de estado) */
-  --sys-blue: #2a669f;
-  --sys-green: #227240;
+  --sys-blue: #007aff;
+  --sys-green: #34c759;
   --sys-red: #b82e30;
   --sys-orange: #944300;
 
-  --accent: #161920; /* la interfaz es tinta: enlaces, foco y activo en grafito */
-  --accent-solid: #161920; /* botón principal grafito con texto blanco: 17,6:1 */
+  --accent: #0062cc; /* énfasis #007aff, un punto más oscuro para texto (4,9:1) */
+  --accent-solid: #007aff; /* énfasis de la paleta del dueño (22/11/2026) */
   --accent-foreground: #ffffff;
   --success: #227240; /* 5,0:1 sobre su tinte */
   --warning: #944300; /* 5:1 sobre su tinte y sobre el resaltado de los textos legales */
   --danger: #b82e30; /* 5,0:1 sobre su tinte */
   --on-danger: #ffffff; /* 6:1 */
   --on-warning: #ffffff;
-  --info: #2a669f; /* «en curso»: azul acero, 5,1:1 sobre su tinte */
+  --info: #0062cc; /* «en curso»: azul acero, 5,1:1 sobre su tinte */
 
   /* Modos de transporte: solo identifican el modo (siempre con ícono y texto). Validados para daltonismo en todas las
      parejas (peor 9,9 con protanopía; 18,5 con visión normal): ver lib/modes.ts */
@@ -88,9 +88,9 @@
     --sys-red: #f47a79;
     --sys-orange: #f6a65d;
 
-    --accent: #eeeff2; /* la interfaz es tinta: en oscuro, gris claro */
-    --accent-solid: #eeeff2; /* botón principal claro con texto grafito: 14,8:1 */
-    --accent-foreground: #111316;
+    --accent: #5ac8fa;
+    --accent-solid: #0a84ff;
+    --accent-foreground: #ffffff;
     --success: #6bc987;
     --warning: #f6a65d;
     --danger: #f47a79;
@@ -134,9 +134,9 @@
       --sys-red: #f47a79;
       --sys-orange: #f6a65d;
 
-      --accent: #eeeff2; /* la interfaz es tinta: en oscuro, gris claro */
-      --accent-solid: #eeeff2; /* botón principal claro con texto grafito: 14,8:1 */
-      --accent-foreground: #111316;
+      --accent: #5ac8fa;
+      --accent-solid: #0a84ff;
+      --accent-foreground: #ffffff;
       --success: #6bc987;
       --warning: #f6a65d;
       --danger: #f47a79;
