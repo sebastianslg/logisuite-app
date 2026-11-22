@@ -60,7 +60,7 @@ from app.api import serializers as S
 from app.database.db import fetch_all, run_query, run_write
 from app.data.colombia_ciudades import category_of
 from app.engine import (auth_otp, client_notify, clients, delivery, demo, mail, notify, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
-                        search, shipments_io, sustainability as SU, tables_io, telemetry, tolls, tracking, trends, warehouses, xlsx)
+                        otif as otif_engine, search, shipments_io, sustainability as SU, tables_io, telemetry, tolls, tracking, trends, warehouses, xlsx)
 from app.engine.common import SESSION_USER, purge_old_audit, safe_cell
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
@@ -1549,18 +1549,15 @@ def dashboard_summary() -> dict:
     now = _sync()
     # Conteos y totales en una sola pasada de SQL (antes se leía la tabla entera para contarla en Python).
     counts = {k: 0 for k in ("Programado", "En Ruta", "Transferencia Modal", "Retrasado", "Entregado")}
-    in_transit_t, in_transit_cost, delivered, on_time = 0.0, 0.0, 0, 0
+    in_transit_t, in_transit_cost = 0.0, 0.0
     for fila in fetch_all("SELECT status, COUNT(*) AS n, COALESCE(SUM(weight_t), 0) AS t, "
-                          "COALESCE(SUM(total_cost), 0) AS c, "
-                          "COALESCE(SUM(CASE WHEN delay_h = 0 THEN 1 ELSE 0 END), 0) AS a_tiempo "
+                          "COALESCE(SUM(total_cost), 0) AS c "
                           "FROM mm_shipments GROUP BY status"):
         estado, n = fila["status"], int(fila["n"])
         counts[estado] = counts.get(estado, 0) + n
         if estado in telemetry.ACTIVE_STATUSES:
             in_transit_t += float(fila["t"])
             in_transit_cost += float(fila["c"])
-        if estado == "Entregado":
-            delivered, on_time = n, int(fila["a_tiempo"])
 
     # Para lo que sí necesita el recorrido (t-km, corredores, tendencias y alertas): solo las columnas que se usan,
     # no `SELECT *` (36 columnas, de las que se leen 12).
@@ -1586,6 +1583,11 @@ def dashboard_summary() -> dict:
                      for c, t in sorted(corridor_t.items(), key=lambda kv: -kv[1])]
     top_corridors = all_corridors[:6]
     active = counts["En Ruta"] + counts["Transferencia Modal"] + counts["Retrasado"]
+    # «OTIF 30 días»: las entregas de los últimos 30 días (por fecha de entrega), con la regla de siempre (entregado sin
+    # retraso). Antes contaba toda la base de entregados aunque el rótulo dijera 30 días.
+    entregadas = otif_engine.delivered_in_window(rows, now)
+    delivered = len(entregadas)
+    on_time = sum(1 for r in entregadas if otif_engine.on_time(r))
     otif = 100 * on_time / delivered if delivered else None
 
     # Serie de despachos de los últimos 14 días (para el sparkline)

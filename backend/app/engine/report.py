@@ -11,6 +11,7 @@ from __future__ import annotations
 import io
 import json
 from datetime import datetime, timedelta
+from xml.sax.saxutils import escape
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
@@ -18,7 +19,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
 from app.api import format as F
 from app.database.db import fetch_all
-from app.engine import history as H, journal, sustainability as SU
+from app.engine import history as H, journal, otif, sustainability as SU
 from app.engine.dispatch import status_at
 from app.engine.pdf import Money, _footer, _styles, _table
 
@@ -96,6 +97,42 @@ def render(net, days: int, currency: str, fx: dict, now: datetime) -> bytes:
         ] if hist["by_city"] else [["Sin movimientos en el período"]],
             [w * mm for w in (40, 40, 18, 18, 30, 38)] if hist["by_city"] else [184 * mm], st),
     ]
+
+    # Cumplimiento: la misma definición del tablero (entregado con delay_h en cero) sobre las entregas cuya llegada
+    # real cae en el período. Se filtra por fecha de entrega y no por salida, igual que «Hoy»: un envío que salió
+    # antes del período y llegó dentro sí cuenta. Se rotula «entregas a tiempo» porque el «completo» no se puede
+    # medir: no hay cantidad pedida.
+    cumplimiento = otif.summarize(otif.delivered_in_window(rows, now, days, states))
+    story.append(Paragraph("Cumplimiento (entregas a tiempo)", st["h2"]))
+    if cumplimiento["entregas"]:
+        story.append(Paragraph(
+            f"{F.number(cumplimiento['entregas'])} entregas del período, por fecha de entrega; "
+            f"{F.number(cumplimiento['a_tiempo'])} a tiempo ({F.pct_fmt(cumplimiento['pct'])}).", st["body"]))
+        story.append(Paragraph(
+            "Un envío cuenta como a tiempo cuando no tiene retraso registrado. La plataforma no registra cantidad "
+            "entregada frente a la pedida, así que no mide el «completo».", st["muted"]))
+        # Los nombres de cliente y de modo vienen de la base y la tabla del PDF arma un Paragraph con ellos: sin
+        # escapar, un «&» o un «<» rompen el parser de reportlab y se pierde el reporte (y el correo mensual).
+        # Se escapa aquí y no en `pdf._table` porque otras secciones llevan marcado deliberado (CO<sub>2</sub>).
+        widths = [w * mm for w in (86, 30, 30, 38)]
+        story.append(Paragraph("Por modo", st["body"]))
+        story.append(_table(
+            [["Modo", "Entregas", "A tiempo", "Cumplimiento"]] + [
+                [escape(x["label"]), F.number(x["entregas"]), F.number(x["a_tiempo"]),
+                 F.pct_fmt(x["pct"]) if x["pct"] is not None else "—"]
+                for x in cumplimiento["by_mode"]
+            ], widths, st))
+        story.append(Paragraph(
+            "El modo es el del tramo más largo del envío; no es el reparto por tonelada-kilómetro.", st["muted"]))
+        story += [Spacer(1, 4), Paragraph("Por cliente", st["body"])]
+        story.append(_table(
+            [["Cliente", "Entregas", "A tiempo", "Cumplimiento"]] + [
+                [escape(x["client"]), F.number(x["entregas"]), F.number(x["a_tiempo"]),
+                 F.pct_fmt(x["pct"]) if x["pct"] is not None else "—"]
+                for x in cumplimiento["by_client"]
+            ], widths, st))
+    else:
+        story.append(Paragraph("Sin entregas en el período.", st["body"]))
 
     incidents = [e for e in journal.recent_incidents(days, 200)]
     story.append(Paragraph("Incidencias registradas", st["h2"]))
