@@ -22,6 +22,8 @@ async function forward(req: NextRequest, path: string[]) {
       ...(req.headers.get("x-forwarded-for") ? { "x-forwarded-for": req.headers.get("x-forwarded-for")! } : {}),
       // La cookie de sesión: el navegador la manda y la API la acepta en /api/auth/me y el cambio de contraseña
       ...(req.headers.get("cookie") ? { cookie: req.headers.get("cookie")! } : {}),
+      // El navegador de quien entra: la API lo resume («Edge en Windows») en «Mis sesiones»; sin esto vería el de Node
+      ...(req.headers.get("user-agent") ? { "user-agent": req.headers.get("user-agent")! } : {}),
       // Revalidación con ETag (red multimodal y departamentos): el navegador manda If-None-Match y la API responde 304
       ...(req.headers.get("if-none-match") ? { "if-none-match": req.headers.get("if-none-match")! } : {}),
     },

@@ -23,6 +23,19 @@ interface AdminUser {
   created_at: string;
   company_id: number | null;
   company_name: string | null;
+  /** "AAAA-MM-DD HH:MM:SS" del último ingreso con contraseña o código; null si nunca entró. */
+  last_login_at?: string | null;
+  /** Intentos fallidos seguidos con contraseña (0 o ausente: ninguno). */
+  failed_logins?: number;
+  /** La contraseña está bloqueada ahora por demasiados intentos fallidos. */
+  locked?: boolean;
+}
+
+/** "AAAA-MM-DD HH:MM:SS" (hora local del servidor) como "22/11/26, 4:18 p. m."; si no se puede leer, el texto tal cual. */
+function ultimoIngreso(raw: string): string {
+  const fecha = new Date(raw.replace(" ", "T"));
+  if (Number.isNaN(fecha.getTime())) return raw;
+  return fecha.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }).replace(/[\u00a0\u202f]/g, " ");
 }
 interface AdminCompany {
   company_id: number;
@@ -150,6 +163,17 @@ function UserRow({ u, me, onChanged }: { u: AdminUser; me: boolean; onChanged: (
     }
   }
 
+  // Tolerante con servidores que aún no mandan estos campos: si `last_login_at` no viene, no se afirma nada
+  const ingreso =
+    u.last_login_at === undefined
+      ? null
+      : u.last_login_at
+        ? `Último ingreso: ${ultimoIngreso(u.last_login_at)}`
+        : "Nunca ha entrado";
+  const fallos = (u.failed_logins ?? 0) > 0
+    ? `${u.failed_logins} ${u.failed_logins === 1 ? "intento fallido" : "intentos fallidos"}`
+    : null;
+
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 text-sm">
       <span className="min-w-0 flex-1">
@@ -157,11 +181,19 @@ function UserRow({ u, me, onChanged }: { u: AdminUser; me: boolean; onChanged: (
           <span className="truncate font-medium">{u.full_name}</span>
           {me && <Badge tone="accent">Tú</Badge>}
           {!u.active && <Badge tone="neutral">Inactivo</Badge>}
+          {u.locked && <Badge tone="warning">Bloqueada</Badge>}
         </span>
         <span className="block truncate text-xs text-muted-foreground">
           {u.email ?? "sin correo: no puede ingresar"}
           {u.company_name ? ` · ${u.company_name}` : ""}
         </span>
+        {(ingreso || fallos) && (
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+            {ingreso && <span>{ingreso}</span>}
+            {ingreso && fallos && <span aria-hidden>·</span>}
+            {fallos && <span className="text-warning">{fallos}</span>}
+          </span>
+        )}
       </span>
       <select
         aria-label={`Rol de ${u.full_name}`}

@@ -11,6 +11,7 @@ import { useApp } from "@/components/providers";
 import { OPEN_SHORTCUTS_EVENT } from "@/components/shell/shortcuts";
 import { MailAlerts } from "@/components/settings/mail-alerts";
 import { MyPassword } from "@/components/settings/my-password";
+import { MySessions } from "@/components/settings/my-sessions";
 import { ServerStatus } from "@/components/settings/server-status";
 import { Badge } from "@/components/ui/badge";
 
@@ -63,6 +64,7 @@ export function SettingsPanel({ settings, links, history }: { settings: Settings
           <MailAlerts />
           <ServerStatus />
           <MyPassword />
+          <MySessions />
           <MapQualitySection />
           <ShortcutsSection />
           <PrivacySection />

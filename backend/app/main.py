@@ -60,7 +60,7 @@ from app.api import serializers as S
 from app.database.db import fetch_all, run_query, run_write
 from app.data.colombia_ciudades import category_of
 from app.engine import (auth_otp, client_notify, clients, delivery, demo, mail, notify, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
-                        shipments_io, sustainability as SU, tables_io, telemetry, tolls, tracking, trends, warehouses, xlsx)
+                        search, shipments_io, sustainability as SU, tables_io, telemetry, tolls, tracking, trends, warehouses, xlsx)
 from app.engine.common import SESSION_USER, purge_old_audit, safe_cell
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
@@ -413,6 +413,13 @@ fleet_wh.register(app, sync=lambda: _sync(), network=lambda: network())
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/api/search")
+def buscar_global(q: str = Query("", max_length=100), limit: int = Query(5, ge=1, le=10)) -> dict:
+    """Búsqueda global de la paleta (Ctrl K): envíos, vehículos, bodegas y clientes, con tope por tipo.
+    Menos de 2 caracteres devuelve la lista vacía sin consultar la base."""
+    return search.search(q, limit)
 
 
 @app.get("/api/locations")
@@ -1843,18 +1850,19 @@ def auth_otp_request(body: OtpRequestIn) -> dict:
 
 
 @app.post("/api/auth/otp/verify")
-def auth_otp_verify(body: OtpVerifyIn) -> dict:
+def auth_otp_verify(body: OtpVerifyIn, request: Request) -> dict:
     try:
-        return auth_otp.verify_otp(body.email, body.code)
+        # El navegador de la petición se guarda resumido con la sesión («Mis sesiones»); nunca la IP
+        return auth_otp.verify_otp(body.email, body.code, request.headers.get("user-agent"))
     except ops.OperationError as exc:
         _op_error(exc)
 
 
 @app.post("/api/auth/password")
-def auth_password(body: PasswordLoginIn) -> dict:
+def auth_password(body: PasswordLoginIn, request: Request) -> dict:
     """Ingreso con el usuario o el correo y la contraseña (cuentas a las que se les puso desde la consola)."""
     try:
-        return auth_otp.login_password(body.identifier, body.password)
+        return auth_otp.login_password(body.identifier, body.password, request.headers.get("user-agent"))
     except ops.OperationError as exc:
         _op_error(exc)
 
@@ -1893,11 +1901,35 @@ def auth_me(request: Request) -> dict:
 
 @app.post("/api/auth/logout", status_code=204)
 def auth_logout(request: Request) -> Response:
-    auth_header = request.headers.get("Authorization", "")
-    token = auth_header[7:].strip() if auth_header.startswith("Bearer ") else None
+    token = _token_de_sesion(request)       # por cabecera o por la cookie: con solo cookie también cierra la sesión de la base
     user = auth_otp.get_user_by_session(token)
     auth_otp.logout(token, user["username"] if user else None)
     return Response(status_code=204)
+
+
+def _token_de_sesion(request: Request) -> str | None:
+    """Token de la sesión de la petición: por cabecera (Bearer) o por la cookie `westvane_session` del navegador."""
+    header = request.headers.get("Authorization", "")
+    token = header[7:].strip() if header.startswith("Bearer ") else None
+    return token or request.cookies.get("westvane_session")
+
+
+@app.get("/api/auth/sessions")
+def auth_sessions(request: Request) -> dict:
+    """Mis sesiones abiertas (la actual primero), con el navegador resumido y un id opaco: ni tokens ni IP. Sin sesión, 401."""
+    try:
+        return {"items": auth_otp.list_sessions(_token_de_sesion(request))}
+    except ops.OperationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+
+@app.post("/api/auth/sessions/close-others")
+def auth_sessions_close_others(request: Request) -> dict:
+    """Cierra las demás sesiones de mi cuenta (la actual sigue) y lo deja en el historial, sin tokens. Sin sesión, 401."""
+    try:
+        return auth_otp.close_other_sessions(_token_de_sesion(request))
+    except ops.OperationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
 def _require_admin(request: Request, what: str = "administrar usuarios y empresas") -> dict:

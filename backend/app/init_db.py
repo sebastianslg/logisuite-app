@@ -33,6 +33,7 @@ from app.database.schema_v15 import apply_v15_migration
 from app.database.schema_v16 import apply_v16_migration
 from app.database.schema_v17 import apply_v17_migration
 from app.database.schema_v18 import apply_v18_migration
+from app.database.schema_v19 import apply_v19_migration
 from app.database.schema_v5 import SCHEMA_V5_SQL
 from app.database.db import DB_PATH
 
@@ -55,6 +56,7 @@ MIGRACIONES = [
     apply_v16_migration,
     apply_v17_migration,
     apply_v18_migration,
+    apply_v19_migration,
 ]
 
 
