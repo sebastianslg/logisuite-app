@@ -926,4 +926,59 @@ p {
   [style*="transform"]:not([style*="scale"]) {
     transform: none !important;
   }
+  /*
+   * Listas de envíos, flota y bodegas: el papel lleva el encabezado de impresión (marca, título y fecha) y la
+   * lista, sin la cabecera de pantalla con sus botones ni las pestañas de sección. Nada queda fijo al
+   * desplazar, no hay vidrio que desenfocar, las filas no se cortan y el encabezado de la tabla se repite.
+   */
+  .page:has([data-print-header]) > div > header {
+    display: none !important;
+  }
+  .page nav[aria-label^="Secciones de"] {
+    display: none !important;
+  }
+  [class~="sticky"],
+  [class~="xl:sticky"] {
+    position: static !important;
+  }
+  * {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  thead {
+    display: table-header-group;
+  }
+  /* Una lista o tabla más alta que una página se reparte entre páginas en vez de recortarse (y el vidrio que
+     la envuelve no queda fijo) */
+  .rule-list {
+    overflow: visible !important;
+    break-inside: auto !important;
+  }
+  .glass:has(table) {
+    overflow: visible !important;
+    break-inside: auto !important;
+  }
+  /* El contenedor de la tabla recorta su desborde y eso la haría una caja que no se reparte entre páginas: con
+     25 filas se perderían las de la segunda página y las columnas que no caben a lo ancho */
+  [data-slot="table-container"] {
+    overflow: visible !important;
+  }
+  table {
+    width: 100% !important;
+    table-layout: auto !important;
+  }
+  td,
+  th {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+  tr,
+  .rule-list > * {
+    break-inside: avoid;
+  }
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
 }

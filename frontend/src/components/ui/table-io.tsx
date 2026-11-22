@@ -134,6 +134,7 @@ export function TableIO({ kind }: { kind: TableKind }) {
       <Button
         variant="secondary"
         size="sm"
+        data-action="cargar-tabla"
         onClick={() => {
           reset();
           setOpen(true);

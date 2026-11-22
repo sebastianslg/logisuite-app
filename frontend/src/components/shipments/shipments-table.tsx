@@ -20,6 +20,7 @@ import {
   ChevronsRight,
   Search,
   X,
+  Plus,
   Bookmark,
   BookmarkPlus,
   PenLine,
@@ -49,6 +50,8 @@ import { Money } from "@/components/money";
 import { useApp } from "@/components/providers";
 import { rememberCode, rememberCodeIn } from "@/components/shipments/shared-code";
 import { CountUp } from "@/components/ui/count-up";
+import { EmptyStart } from "@/components/empty-start";
+import { PrintHeader } from "@/components/print-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/components/ui/toast";
 import { ExportActions } from "@/components/shipments/export-actions";
@@ -60,6 +63,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, openBlob, saveBlob } from "@/lib/client";
+import { filtersActive, isStartEmpty } from "@/lib/empty";
 import { MODE_ORDER, MODES, PRIORITIES, STATUSES, STATUS_ORDER, tint } from "@/lib/modes";
 import { EASE } from "@/lib/motion";
 import type { Mode, Shipment, ShipmentStatus } from "@/lib/types";
@@ -480,6 +484,12 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
   }
   const { pageIndex, pageSize } = table.state.pagination;
   const hasFilters = statusFilter.length > 0 || modeFilter.length > 0 || globalFilter.length > 0 || unsigned;
+  // Sin filtros, el total filtrado es el del sistema: si es 0, todavía no hay envíos y la lista dice qué hacer.
+  // Con filtros puestos, ese mismo 0 se explica con «ningún envío coincide» y el botón de quitarlos.
+  const inicioVacio = isStartEmpty(
+    filteredCount,
+    filtersActive(statusFilter.length, modeFilter.length, globalFilter, unsigned),
+  );
 
   const same = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
   const activeView = views.find((v) => same(v.status, statusFilter) && same(v.modes, modeFilter) && v.q === globalFilter);
@@ -497,9 +507,10 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 print:block">
+      <PrintHeader title="Envíos multimodales" />
       {/* Filtros en una sola fila sobre la tabla */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 print:hidden">
         <label className="relative flex h-10 w-full max-w-xs items-center">
           <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" />
           <input
@@ -623,7 +634,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
       </div>
 
       {(views.length > 0 || hasFilters) && (
-        <div className="chip-scroll -mt-1 flex flex-wrap items-center gap-1.5" role="group" aria-label="Vistas guardadas">
+        <div className="chip-scroll -mt-1 flex flex-wrap items-center gap-1.5 print:hidden" role="group" aria-label="Vistas guardadas">
           <Bookmark className="mr-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
           {views.map((v) => (
             <span key={v.name} className="group/view inline-flex items-center">
@@ -666,7 +677,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className="flex flex-wrap items-start gap-3 rounded-lg border border-primary/20 bg-primary/[0.04] px-4 py-3"
+            className="flex flex-wrap items-start gap-3 rounded-lg border border-primary/20 bg-primary/[0.04] px-4 py-3 print:hidden"
           >
             <span className="pt-1.5 text-sm">
               <span className="tabular font-medium">{selectedCodes.length}</span> seleccionados
@@ -700,13 +711,13 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
       {/* overflow-clip (no auto): la tabla no se desplaza de lado desde 1024 px y así el encabezado puede quedar fijo */}
       <div
         data-density={density}
-        className="glass hidden overflow-clip rounded-3xl lg:block data-[density=compacta]:[&_td]:py-2"
+        className="glass hidden overflow-clip rounded-3xl lg:block print:block print:overflow-visible print:rounded-none data-[density=compacta]:[&_td]:py-2"
       >
         <Table>
-          <TableHeader className="sticky top-[5.25rem] z-10 bg-card shadow-[0_1px_0_var(--separator)]">
+          <TableHeader className="sticky top-[5.25rem] z-10 bg-card shadow-[0_1px_0_var(--separator)] print:static print:shadow-none">
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id} className="hover:bg-transparent">
-                <TableHead className="w-10">
+                <TableHead className="w-10 print:hidden">
                   <input
                     type="checkbox"
                     checked={allPageSelected}
@@ -743,7 +754,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
                     </TableHead>
                   );
                 })}
-                <TableHead className="text-right">Acciones</TableHead>
+                <TableHead className="text-right print:hidden">Acciones</TableHead>
               </TableRow>
             ))}
           </TableHeader>
@@ -765,9 +776,9 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
                     router.push(`/envios/${row.original.code}`);
                   }}
                   data-state={selected.has(row.original.code) ? "selected" : undefined}
-                  className="cursor-pointer border-b border-border transition-colors duration-200 ease-apple hover:bg-[color-mix(in_srgb,var(--card)_96%,var(--foreground))] data-[state=selected]:bg-primary/[0.05] data-[state=selected]:shadow-[inset_2px_0_0_var(--accent)]"
+                  className="cursor-pointer border-b border-border transition-colors duration-200 ease-apple hover:bg-[color-mix(in_srgb,var(--card)_96%,var(--foreground))] data-[state=selected]:bg-primary/[0.05] data-[state=selected]:shadow-[inset_2px_0_0_var(--accent)] print:break-inside-avoid"
                 >
-                  <TableCell>
+                  <TableCell className="print:hidden">
                     <input
                       type="checkbox"
                       checked={selected.has(row.original.code)}
@@ -780,7 +791,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
                       <table.FlexRender cell={cell} />
                     </TableCell>
                   ))}
-                  <TableCell className="pr-3">
+                  <TableCell className="pr-3 print:hidden">
                     <div className="flex justify-end">
                       <Button
                         variant="ghost"
@@ -818,7 +829,20 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
                 </motion.tr>
               ))}
             </AnimatePresence>
-            {filteredCount === 0 && (
+            {inicioVacio ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={columns.length + 2} className="p-0">
+                  <EmptyStart
+                    title="Aún no hay envíos"
+                    description="Crea el primero a mano o cárgalo desde un Excel: queda con su cadena de modos, su vehículo y su seguimiento."
+                    actions={[
+                      { label: "Crear el primer envío", href: "/envios/nuevo", icon: Plus },
+                      { label: "Importar desde Excel", onClick: () => setImporting(true), icon: FileUp },
+                    ]}
+                  />
+                </TableCell>
+              </TableRow>
+            ) : filteredCount === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={columns.length + 2} className="p-0">
                   <EmptyState
@@ -835,7 +859,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
                   />
                 </TableCell>
               </TableRow>
-            )}
+            ) : null}
           </TableBody>
         </Table>
       </div>
@@ -847,7 +871,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2, ease: EASE }}
-        className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:hidden"
+        className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:hidden print:hidden"
         aria-label="Envíos"
       >
         {table.getRowModel().rows.map((row) => {
@@ -906,7 +930,18 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
             </li>
           );
         })}
-        {filteredCount === 0 && (
+        {inicioVacio ? (
+          <li className="glass rounded-3xl">
+            <EmptyStart
+              title="Aún no hay envíos"
+              description="Crea el primero a mano o cárgalo desde un Excel: queda con su cadena de modos, su vehículo y su seguimiento."
+              actions={[
+                { label: "Crear el primer envío", href: "/envios/nuevo", icon: Plus },
+                { label: "Importar desde Excel", onClick: () => setImporting(true), icon: FileUp },
+              ]}
+            />
+          </li>
+        ) : filteredCount === 0 ? (
           <li className="glass rounded-3xl">
             <EmptyState
               figure="0"
@@ -921,12 +956,12 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
                     }}
             />
           </li>
-        )}
+        ) : null}
       </motion.ul>
 
       {/* Paginación: en modo servidor mueve la página de la API (los filtros valen para todos los envíos) */}
-      {servidor ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+      {!inicioVacio && (servidor ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground print:hidden">
           <span className="tabular">
             {servidor.total === 0
               ? "0 envíos"
@@ -955,7 +990,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
           </div>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground print:hidden">
           <span className="tabular">
             {filteredCount === 0
               ? "0 envíos"
@@ -1006,7 +1041,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
             </Button>
           </div>
         </div>
-      )}
+      ))}
     </div>
   );
 }

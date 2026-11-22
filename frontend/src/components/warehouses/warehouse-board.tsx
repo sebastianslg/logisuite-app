@@ -3,11 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, MapPin, Search, Truck } from "lucide-react";
+import { ChevronRight, MapPin, Plus, Search, Truck } from "lucide-react";
 
 import { GroupBlock } from "@/components/corridors/group-block";
+import { EmptyStart } from "@/components/empty-start";
+import { PrintHeader } from "@/components/print-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatStrip } from "@/components/ui/stat-strip";
+import { filtersActive, isStartEmpty } from "@/lib/empty";
 import type { Warehouse, WarehouseRole, WarehouseSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +50,22 @@ export function WarehouseBoard({ warehouses, summary, roles, initial }: { wareho
   const [role, setRole] = useState<string | null>(roles.some((r) => r.key === initial.role) ? initial.role : null);
   const [alertsOnly, setAlertsOnly] = useState(initial.alerts);
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  // En papel no hay listas plegadas: la impresión abre todas las ciudades para que no falte ninguna bodega
+  const [printing, setPrinting] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("print");
+    const sync = () => setPrinting(mq.matches);
+    const before = () => setPrinting(true);
+    sync();
+    mq.addEventListener("change", sync);
+    window.addEventListener("beforeprint", before);
+    window.addEventListener("afterprint", sync);
+    return () => {
+      mq.removeEventListener("change", sync);
+      window.removeEventListener("beforeprint", before);
+      window.removeEventListener("afterprint", sync);
+    };
+  }, []);
 
   const inicialKey = warehouseKey(initial);
   const confirmada = useRef(inicialKey);
@@ -109,7 +128,9 @@ export function WarehouseBoard({ warehouses, summary, roles, initial }: { wareho
   }, [warehouses, query, role, alertsOnly]);
 
   const ids = useMemo(() => new Set(list.map((w) => w.code)), [list]);
-  const filtering = !!(query || role || alertsOnly);
+  const filtering = filtersActive(query, role, alertsOnly);
+  // La red se ve vacía porque todavía no hay bodegas (no porque un filtro las esconda)
+  const inicioVacio = isStartEmpty(warehouses.length, filtering);
 
   const groups = useMemo(() => {
     const by: Record<string, Warehouse[]> = {};
@@ -128,8 +149,10 @@ export function WarehouseBoard({ warehouses, summary, roles, initial }: { wareho
   }, [warehouses]);
 
   return (
-    <div className="flex flex-col gap-5">
-      <StatStrip
+    <div className="flex flex-col gap-5 print:block">
+      <PrintHeader title="Bodegas y centros de distribución" />
+      <div className="print:hidden">
+        <StatStrip
         items={[
           { label: "Bodegas", value: summary.warehouses, hint: `en ${summary.cities} ciudades · ${summary.operating} operativas` },
           { label: "Ocupación", value: `${summary.occupancy_pct.toLocaleString("es-CO")} %`, hint: `${n0(summary.used_m3)} de ${n0(summary.capacity_m3)} m³`, tone: summary.occupancy_pct >= 90 ? "danger" : summary.occupancy_pct >= 75 ? "warning" : undefined },
@@ -137,11 +160,12 @@ export function WarehouseBoard({ warehouses, summary, roles, initial }: { wareho
           { label: "En exceso", value: summary.over_stock_lines, hint: `${summary.full_warehouses.length} ${summary.full_warehouses.length === 1 ? "bodega casi llena" : "bodegas casi llenas"}`, tone: summary.over_stock_lines ? "warning" : undefined },
           { label: "Traslados en tránsito", value: summary.in_transit, hint: "entre bodegas", href: "/bodegas?ver=traslados" },
         ]}
-      />
+        />
+      </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-3">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] print:block">
+        <div className="flex min-w-0 flex-col gap-4 print:block">
+          <div className="flex flex-wrap items-center gap-3 print:hidden">
             <label className="relative flex h-10 w-full max-w-xs items-center">
               <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" aria-hidden />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar bodega, ciudad o responsable" aria-label="Buscar bodegas"
@@ -157,7 +181,7 @@ export function WarehouseBoard({ warehouses, summary, roles, initial }: { wareho
               </button>
             )}
           </div>
-          <div className="chip-scroll flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por rol">
+          <div className="chip-scroll flex flex-wrap gap-1.5 print:hidden" role="group" aria-label="Filtrar por rol">
             {roles.map((r) => {
               const on = role === r.key;
               return (
@@ -170,14 +194,30 @@ export function WarehouseBoard({ warehouses, summary, roles, initial }: { wareho
               );
             })}
           </div>
-          {role && <p className="rounded-2xl border border-border bg-card px-4 py-3 text-[13px]"><strong>{roles.find((r) => r.key === role)?.label}:</strong> {roles.find((r) => r.key === role)?.description} Almacena: {roles.find((r) => r.key === role)?.stores.toLowerCase()}.</p>}
+          {role && <p className="rounded-2xl border border-border bg-card px-4 py-3 text-[13px] print:hidden"><strong>{roles.find((r) => r.key === role)?.label}:</strong> {roles.find((r) => r.key === role)?.description} Almacena: {roles.find((r) => r.key === role)?.stores.toLowerCase()}.</p>}
 
-          <p className="tabular text-xs text-muted-foreground" aria-live="polite">{list.length} de {warehouses.length} bodegas en {groups.length} ciudades</p>
+          {!inicioVacio && (
+            <p className="tabular text-xs text-muted-foreground print:mb-2" aria-live="polite">{list.length} de {warehouses.length} bodegas en {groups.length} ciudades</p>
+          )}
           <ul className="flex flex-col gap-1">
-            {groups.length === 0 && <li className="glass rounded-3xl"><EmptyState title="Ninguna bodega coincide" description="Prueba con otra ciudad o quita los filtros." action={{ label: "Quitar filtros", onClick: quitarFiltros }} /></li>}
+            {inicioVacio ? (
+              <li className="glass rounded-3xl">
+                <EmptyStart
+                  title="Aún no hay bodegas"
+                  description="Crea la primera con su ciudad y su función en la red. El inventario se carga desde un Excel cuando la bodega ya existe."
+                  actions={[
+                    { label: "Crear la primera bodega", href: "/bodegas/nueva", icon: Plus },
+                  ]}
+                />
+              </li>
+            ) : groups.length === 0 ? (
+              <li className="glass rounded-3xl">
+                <EmptyState title="Ninguna bodega coincide" description="Prueba con otra ciudad o quita los filtros." action={{ label: "Quitar filtros", onClick: quitarFiltros }} />
+              </li>
+            ) : null}
             {groups.map((g, i) => (
               <GroupBlock key={g.city} title={g.city} count={g.items.length} icon={<MapPin className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
-                open={open[g.city] ?? (filtering || i < 4)} onToggle={() => setOpen((o) => ({ ...o, [g.city]: !(o[g.city] ?? (filtering || i < 4)) }))}>
+                open={printing || (open[g.city] ?? (filtering || i < 4))} onToggle={() => setOpen((o) => ({ ...o, [g.city]: !(printing || (o[g.city] ?? (filtering || i < 4))) }))}>
                 {g.items.map((w) => (
                   <li key={w.warehouse_id}>
                     <Link href={`/bodegas/${w.warehouse_id}`} data-ripple className="row-link block px-5 py-4">
@@ -211,7 +251,7 @@ export function WarehouseBoard({ warehouses, summary, roles, initial }: { wareho
           </ul>
         </div>
 
-        <aside className="min-w-0 xl:sticky xl:top-24 xl:h-fit">
+        <aside className="min-w-0 xl:sticky xl:top-24 xl:h-fit print:hidden">
           <div className="glass rounded-3xl p-4">
             <h2 className="px-1 text-sm font-semibold">Cómo fluye la carga</h2>
             <p className="mt-1 px-1 text-xs text-muted-foreground">
