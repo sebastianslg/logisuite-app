@@ -1599,3 +1599,45 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
   páginas (el contenedor con `overflow` la dejaba como una caja que recortaba filas y columnas, lo encontró la revisión).
 - **Revisión:** además de lo anterior, la paleta abría otra fila que la resaltada cuando llegaba el servidor y repetía resultados.
 - **Verificación:** tsc, eslint y build limpios; 543 pruebas de la API; 68 de navegador.
+
+## 73. Tanda 2, ronda 3: cumplimiento, accesibilidad, rendimiento medido y dependencias
+
+- **B5 cumplimiento (entregas a tiempo):** `engine/otif.py` con la misma regla del tablero (entregado sin retraso), por modo (el del
+  tramo más largo del envío, no el reparto por t-km) y por cliente (top 10 y «Otros»); sin entregas es «N/D», nunca 0 %. Va en el
+  reporte mensual (sección «Cumplimiento», por fecha de entrega) y en una tarjeta de «Hoy» (últimos 30 días, sin consultas nuevas).
+  El «completo» de OTIF **no se puede medir**: no hay cantidad entregada frente a la pedida; por eso se rotula «entregas a tiempo».
+  La revisión encontró que un `&` o `<` en el nombre de un cliente rompía el PDF (422 y correo mensual perdido): se escapan las celdas.
+- **«OTIF 30 días» del tablero:** rotulaba 30 días pero contaba toda la base de entregados. Ahora cuenta los últimos 30 días por
+  fecha de entrega, igual que Hoy y el reporte (en la base de ejemplo sigue en 83,3 %: las 12 entregas son recientes). Decisión del
+  dueño el día de la entrega («cambia lo que necesites»).
+- **`/api/search` ahora pide sesión** (ruta nueva; no toca ninguna lectura existente ni los roles) y sale de la caché de lecturas de
+  5 s: por cookie la caché no distingue personas y habría servido la respuesta de quien entró a quien no.
+- **F5 accesibilidad con lector de pantalla y teclado** en ingresar, crear envío y registrar entrega: errores (role=alert) y
+  cargas/éxitos (role=status) anunciados una sola vez, `aria-invalid`/`aria-describedby`, grupos de botones con nombre, foco que no se
+  pierde al fallar y diálogo de entrega que cierra con Esc. **Hallazgo de seguridad:** el ingreso aceptaba redirecciones a otro sitio
+  con `?next=/\evil.com` (el parser trata la barra invertida como `/`); ahora solo vuelve al mismo origen, con e2e. Limitación
+  conocida: el lienzo de la firma solo se opera con puntero.
+- **F6 rendimiento medido** (Edge, CPU x4 y 4G lenta, mediana de 5, build de producción):
+
+  | Página | LCP antes | LCP después | INP antes | INP después |
+  |---|---|---|---|---|
+  | portada | 2.820 ms | 1.976 ms | — | — |
+  | panel | 2.836 ms | 1.556 ms | 184 ms | 200 ms |
+  | lista de envíos | 3.056 ms | 1.128 ms | 160 ms | 192 ms |
+  | ficha de envío | 2.244 ms | 1.008 ms | **1.080 ms** | **192 ms** |
+
+  CLS ≤ 0,025 en todas (límite «bueno»: 0,1). Causas: el **LCP** era el párrafo del encabezado, que `Reveal` y `template.tsx`
+  (framer-motion) renderizaban con `opacity: 0` hasta hidratar; ahora son animaciones CSS (`.reveal-up` y `.view-in`, solo
+  transform/opacity, quietas con «reducir movimiento», con `fill-mode: backwards` para no dejar un transform residual que rompa lo
+  `position: fixed`). El **INP de la ficha** era la creación del mapa 3D: una tarea de 1,4 s (6 s de tareas largas en total) que
+  competía con Ctrl K; ahora se crea tras 1,5 s sin actividad (tope de 15 s), no con la pestaña oculta ni con un modal abierto, y
+  mientras tanto se ve la red plana. La ficha baja además de 574 a 434 KB transferidos en la ventana medida.
+- **B6 dependencias:** `npm audit` y `pip-audit` sin vulnerabilidades conocidas. Solo parches: `deck.gl` 9.4.1, Tailwind 4.3.5 y
+  `tailwind-merge` 3.7.1. Quedan sin tocar los menores con riesgo visual (`framer-motion` 14.14, `lucide-react` 1.77, `maplibre-gl`
+  6.19, `@tanstack/react-table` 9.3) porque sin motivo de seguridad no compensan; Playwright 1.65 y React 19.3.1 también están
+  disponibles.
+- **Pendientes que quedan:** `import-shipments` (22 KB gzip) se carga siempre en `/envios`; el JSON de la red y los departamentos se
+  serializa dos veces por el ETag; la firma no se opera con teclado; `Date.now()` en el estado inicial del formulario de envío puede
+  desajustar la hidratación si el navegador está en otra zona horaria que el servidor.
+- **Verificación:** tsc, eslint y build limpios; **553 pruebas de la API**; **74 de navegador** (73 en la corrida completa y la que
+  falló, `ingreso.spec.ts`, por un corte de red del equipo —`net::ERR_NETWORK_CHANGED`—, pasó al repetirla).

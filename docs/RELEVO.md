@@ -83,10 +83,11 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     real (v18), httpx2 sin advertencia, y cobertura al 84 % con fx/tolls/shipments_io probados a fondo; importar peajes ilegible
     ya no da 500. 495 pruebas de la API, 47 e2e × 2. Falta: ronda 4 (F6 filtros de Flota/Bodegas en la URL, F7 borrador del envío
     nuevo, F8 errores por sección en la ficha).
-- **En curso / a medias:** tanda 2 de mejoras, rondas 1 y 2 cerradas en `desarrollo` (secciones 71 y 72, sin desplegar): ETag/304 de
-  la red, atajos y contraste (71); mis sesiones, último ingreso, búsqueda global, inicio vacío e impresión (72, con la migración v19).
-  Falta la ronda 3 (B5 OTIF en el reporte mensual y en Hoy, B6 dependencias, F5 lector de pantalla, F6 Web Vitals). Producción sigue
-  en la sección 70. Decisión del dueño pendiente: `/api/search` no exige sesión (como el resto de las lecturas).
+- **En curso / a medias:** nada. Tanda 2 completa en `desarrollo` (secciones 71 a 73), **sin desplegar ni subida a `main`**: ETag/304 de la
+  red, atajos y contraste (71); mis sesiones, último ingreso, búsqueda global, inicio vacío e impresión, con la migración v19 (72);
+  cumplimiento, accesibilidad, rendimiento medido y parches de dependencias (73). Producción sigue en la sección 70. Para subir:
+  `git log origin/main..desarrollo`, las verificaciones de `AGENTS.md` y el procedimiento de «Subir a main». Ojo al desplegar: hay
+  una migración (v19, aditiva) y el tablero cambió «OTIF 30 días» a 30 días reales.
 - **Pendiente de decisión del dueño:** exigir sesión para todo lo que escribe (roles reales; hoy `/api/audit` y las pantallas
   siguen abiertas como demostración); rotar la contraseña de aplicación de Gmail y el tema de ntfy tras el aviso de Contabo;
   dominio propio; una instalación por empresa o separar datos por empresa; revisión legal.
@@ -106,6 +107,6 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
   - Roles que limiten acciones: espera decisión del dueño (obligaría a iniciar sesión a todos).
   - Política de privacidad con abogado; secretos de GitHub para el despliegue automático; dominio propio y Cloudflare;
     PostgreSQL cuando haya varios usuarios a la vez.
-- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **543 pruebas de la API**; **68 de navegador** (incluye
+- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **553 pruebas de la API**; **74 de navegador** (incluye
   accesibilidad). En el servidor, `bash deploy/verificar.sh` (34 comprobaciones, en verde).
 - **Producción:** `main` y Contabo en el mismo commit; `desarrollo` sin nada pendiente de desplegar.
