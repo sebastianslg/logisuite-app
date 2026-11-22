@@ -21,7 +21,8 @@ terminar.** Se trabaja en la rama `desarrollo` (nunca directo en `main`), con co
 - La app pide sesión (decisión del dueño, 21/11/2026): `/ingresar` con usuario o correo y contraseña, o código al correo.
   Las contraseñas solo se ponen desde la consola del servidor (`python -m app.crear_acceso`, la clave por la entrada
   estándar); la web no tiene ruta para crearlas. Lo público (/, /seguimiento, lo legal) sigue abierto.
-- Solo Inter Variable; sin fuentes propietarias ni fotos de terceros. Paleta de modos validada (ver DESIGN.md).
+- Solo Inter Variable; sin fuentes propietarias ni fotos de terceros. La interfaz es tinta (grafito) y el color es solo
+  para datos: paleta de modos y de estados validada del 22/11/2026 (ver DESIGN.md, Colors); no volver a los colores de Apple.
 - No subir `.env`, `backend/data/`, `.venv`, `node_modules` ni claves; sin `git push --force` ni `git reset --hard`.
 - Nunca `docker compose down -v`; nunca claves, `.env` ni contraseñas en commits o chats; no `git reset --hard` en
   `/opt/logisuite` sin revisar `git status`.

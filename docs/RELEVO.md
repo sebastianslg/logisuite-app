@@ -83,9 +83,8 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     real (v18), httpx2 sin advertencia, y cobertura al 84 % con fx/tolls/shipments_io probados a fondo; importar peajes ilegible
     ya no da 500. 495 pruebas de la API, 47 e2e × 2. Falta: ronda 4 (F6 filtros de Flota/Bodegas en la URL, F7 borrador del envío
     nuevo, F8 errores por sección en la ficha).
-- **En curso / a medias:** nada. Tanda 3, ronda 1 cerrada en `desarrollo` (sección 75: tarjetas que suben, subrayado que se
-  dibuja, esqueleto con la firma y lista de envíos recordada), **sin desplegar**. Producción sigue en la sección 74. Ronda 2
-  pendiente: `RouteProgress` en la lista, cifras del panel, PDF de la ficha del vehículo y mensajes de error de la API.
+- **En curso / a medias:** nada. Rediseño de color (sección 76) y tanda 3 en producción. Pendientes de la tanda 3: B4 (carga con 8 personas) y B5 (cobertura).
+  La interfaz es tinta y el color es solo para datos (DESIGN.md, Colors): no reintroducir los colores de Apple.
 - **Pendiente de decisión del dueño:** exigir sesión para todo lo que escribe (roles reales; hoy `/api/audit` y las pantallas
   siguen abiertas como demostración); rotar la contraseña de aplicación de Gmail y el tema de ntfy tras el aviso de Contabo;
   dominio propio; una instalación por empresa o separar datos por empresa; revisión legal.

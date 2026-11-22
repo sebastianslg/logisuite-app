@@ -73,6 +73,7 @@ export function HeroFigures({
             <CountUp
               value={it.value}
               format={it.money ? (n) => money(n, true) : undefined}
+              unitClassName="text-[0.5em] font-medium tracking-[-0.02em] text-muted-foreground"
               className={cn(
                 "tabular mt-3 block text-[2.5rem] leading-[0.95] font-semibold tracking-[-0.045em] md:text-[clamp(2.25rem,3.6vw,3.75rem)]",
                 it.danger && "text-destructive",

@@ -1,145 +1,154 @@
 @import "tailwindcss";
 
 /*
- * Sistema de diseño de Westvane (detalle en DESIGN.md): herramienta profesional que se lee como un documento.
+ * Sistema de diseño de Westvane (detalle en DESIGN.md), rediseño del 22/11/2026.
  *
- * - Tema claro por defecto; oscuro elegido a mano o "Sistema" (atributo data-theme en <html>).
- * - Un color significa una sola cosa: azul = interactivo; verde/naranja/rojo = estado;
- *   los colores de modo de transporte solo identifican el modo.
+ * - La interfaz es TINTA: grafito frío para texto, botones, foco y navegación. El color queda solo para datos:
+ *   los cinco modos de transporte (paleta propia validada para daltonismo en todas las parejas) y los estados
+ *   (éxito, aviso, peligro, en curso). Así los colores no compiten entre sí.
+ * - Tema claro por defecto; oscuro elegido a mano o "Sistema" (atributo data-theme en <html>), con su propia escala.
  * - Superficies opacas con línea fina (.glass, .rows); sombra solo en lo que flota (.floating, .dock) y
  *   vidrio real solo sobre el mapa (.glass-float). Con "reducir transparencia" todo es opaco.
- * - Movimiento: una curva base (--ease-apple), presión con rebote (.press) y solo transform/opacity.
+ * - Movimiento: curva de salida fuerte (--ease-apple), presión (.press) y solo transform/opacity.
  */
 :root {
-  --background: #f5f5f7;
-  --foreground: #1d1d1f;
+  --background: #f6f7f9;
+  --foreground: #161920;
   --card: #ffffff;
-  --raised: #f0f0f3;
-  --muted-foreground: #5f5f64; /* ≥ 4,7:1 también sobre los fondos tintados de alertas y rellenos */
-  --separator: rgb(0 0 0 / 0.08);
-  --separator-strong: rgb(0 0 0 / 0.16);
-  --fill: rgb(120 120 128 / 0.1);
-  --sidebar: rgb(250 250 252 / 0.78);
+  --raised: #f0f1f4;
+  --muted-foreground: #5e626a; /* 5,2:1 también sobre los tintes de estado */
+  --separator: rgb(22 25 32 / 0.08);
+  --separator-strong: rgb(22 25 32 / 0.16);
+  --fill: rgb(22 25 32 / 0.05);
+  --sidebar: rgb(250 251 252 / 0.82);
+  --card-edge: 0 1px 2px rgb(22 25 32 / 0.04);
 
   /* Materiales de vidrio */
-  --glass: rgb(255 255 255 / 0.72);
-  --glass-border: rgb(0 0 0 / 0.06);
-  --glass-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.04);
-  --glass-shadow-lift: 0 16px 48px rgb(0 0 0 / 0.12), 0 2px 8px rgb(0 0 0 / 0.05), 0 0 0 0.5px rgb(0 0 0 / 0.06);
+  --glass: rgb(255 255 255 / 0.76);
+  --glass-border: rgb(22 25 32 / 0.07);
+  --glass-shadow: 0 0 0 0.5px rgb(22 25 32 / 0.05);
+  --glass-shadow-lift: 0 16px 48px rgb(22 25 32 / 0.12), 0 2px 8px rgb(22 25 32 / 0.05), 0 0 0 0.5px rgb(22 25 32 / 0.08);
   /* Sombra solo para lo que flota (dock, menús, paneles sobre el mapa) */
-  --float-shadow: 0 10px 40px rgb(0 0 0 / 0.1), 0 2px 6px rgb(0 0 0 / 0.04), 0 0 0 0.5px rgb(0 0 0 / 0.08);
+  --float-shadow: 0 12px 40px rgb(22 25 32 / 0.1), 0 2px 6px rgb(22 25 32 / 0.05), 0 0 0 0.5px rgb(22 25 32 / 0.1);
   --backdrop: none;
 
-  /* Colores del sistema de Apple, para relleno y gráficos (no para texto pequeño sobre claro) */
-  --sys-blue: #007aff;
-  --sys-green: #34c759;
-  --sys-red: #ff3b30;
-  --sys-orange: #ff9500;
+  /* Estados para relleno y gráficos (los mismos tonos que el texto de estado) */
+  --sys-blue: #2a669f;
+  --sys-green: #227240;
+  --sys-red: #b82e30;
+  --sys-orange: #944300;
 
-  --accent: #0064c8; /* texto/íconos interactivos (enlace de apple.com, un punto más oscuro): 5,7:1 sobre blanco, 4,6:1 sobre su tinte */
-  --accent-solid: #0071e3; /* relleno de botones (el de apple.com) con texto blanco: 4,7:1 */
+  --accent: #161920; /* la interfaz es tinta: enlaces, foco y activo en grafito */
+  --accent-solid: #161920; /* botón principal grafito con texto blanco: 17,6:1 */
   --accent-foreground: #ffffff;
-  --success: #1f7835; /* verde accesible de Apple, ajustado a 4,5:1 sobre su tinte */
-  --warning: #b52f00; /* naranja accesible de Apple: 4,5:1 sobre su tinte */
-  --danger: #c20013; /* rojo accesible de Apple: 4,5:1 sobre su tinte */
-  --on-danger: #ffffff; /* texto sobre el rojo: blanco 6,4:1 en claro */
-  --on-warning: #ffffff; /* texto sobre el naranja: blanco 6,2:1 en claro */
-  --info: #3634a3;
+  --success: #227240; /* 5,0:1 sobre su tinte */
+  --warning: #944300; /* 5:1 sobre su tinte y sobre el resaltado de los textos legales */
+  --danger: #b82e30; /* 5,0:1 sobre su tinte */
+  --on-danger: #ffffff; /* 6:1 */
+  --on-warning: #ffffff;
+  --info: #2a669f; /* «en curso»: azul acero, 5,1:1 sobre su tinte */
 
-  /* Modos de transporte: solo identifican el modo (siempre con ícono y texto). Validados para daltonismo: ver lib/modes.ts */
-  --mode-maritimo: #5856d6;
-  --mode-terrestre: #248a3d;
-  --mode-aereo: #ff2d55;
-  --mode-ferreo: #ff9500;
-  --mode-fluvial: #32ade6;
+  /* Modos de transporte: solo identifican el modo (siempre con ícono y texto). Validados para daltonismo en todas las
+     parejas (peor 9,9 con protanopía; 18,5 con visión normal): ver lib/modes.ts */
+  --mode-maritimo: #5252aa;
+  --mode-terrestre: #2b7a3d;
+  --mode-aereo: #dd668d;
+  --mode-ferreo: #bb8912;
+  --mode-fluvial: #2d9fbf;
 
   color-scheme: light;
 }
 
 /* Tema claro por defecto. Oscuro: elegido a mano (data-theme="dark") o "Sistema" con el sistema en oscuro */
 :root[data-theme="dark"] {
-  color-scheme: dark;
-    --background: #000000;
-    --foreground: #f5f5f7;
-    --card: #1c1c1e;
-    --raised: #2c2c2e;
-    --muted-foreground: #a1a1a6; /* 7:1 sobre #1c1c1e */
-    --separator: rgb(255 255 255 / 0.1);
-    --separator-strong: rgb(255 255 255 / 0.2);
-    --fill: rgb(120 120 128 / 0.24);
-    --sidebar: rgb(28 28 30 / 0.78);
+    color-scheme: dark;
+    /* Oscuro diseñado aparte (no es el claro invertido): tres capas de grafito con el mismo tono frío. El fondo no es
+       negro puro; cada superficie sube un paso de luz y lleva un borde de luz arriba en vez de sombra (en oscuro la
+       sombra no se ve). Texto gris claro, nunca blanco puro, para no deslumbrar en jornadas largas. */
+    --background: #111316;
+    --foreground: #eeeff2;
+    --card: #191b1f;
+    --raised: #222429;
+    --muted-foreground: #a6a9b1; /* 7,3:1 sobre la tarjeta */
+    --separator: rgb(255 255 255 / 0.07);
+    --separator-strong: rgb(255 255 255 / 0.14);
+    --fill: rgb(255 255 255 / 0.06);
+    --sidebar: rgb(25 27 31 / 0.82);
+    --card-edge: inset 0 1px 0 rgb(255 255 255 / 0.045);
 
-    /* rgba(0,0,0,.4) sobre fondo negro sería invisible: el vidrio oscuro es un gris translúcido */
-    --glass: rgb(28 28 30 / 0.82);
+    --glass: rgb(25 27 31 / 0.84);
     --glass-border: rgb(255 255 255 / 0.08);
-    --glass-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.06);
-    --glass-shadow-lift: 0 16px 48px rgb(0 0 0 / 0.6), 0 2px 8px rgb(0 0 0 / 0.4), 0 0 0 0.5px rgb(255 255 255 / 0.14);
-    --float-shadow: 0 10px 40px rgb(0 0 0 / 0.55), 0 0 0 0.5px rgb(255 255 255 / 0.12);
+    --glass-shadow: 0 0 0 1px rgb(255 255 255 / 0.05);
+    --glass-shadow-lift: 0 18px 50px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.08), inset 0 1px 0 rgb(255 255 255 / 0.06);
+    --float-shadow: 0 16px 48px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.35), 0 0 0 1px rgb(255 255 255 / 0.08), inset 0 1px 0 rgb(255 255 255 / 0.06);
     --backdrop: none;
 
-    --sys-blue: #0a84ff;
-    --sys-green: #30d158;
-    --sys-red: #ff453a;
-    --sys-orange: #ff9f0a;
+    --sys-blue: #86baeb;
+    --sys-green: #6bc987;
+    --sys-red: #f47a79;
+    --sys-orange: #f6a65d;
 
-    --accent: #2997ff; /* enlace de apple.com en oscuro: 5,6:1 sobre #1c1c1e */
-    --accent-solid: #0071e3; /* el mismo azul de botón que en claro (antes índigo): texto blanco 4,7:1 */
-    --accent-foreground: #ffffff;
-    --success: #30d158;
-    --warning: #ff9f0a;
-    --danger: #ff6961; /* rojo accesible de Apple en oscuro: 6:1 sobre #1c1c1e */
-    --on-danger: #1c1c1e; /* texto sobre el rojo: oscuro 6:1 (el blanco solo llegaba a 2,8:1) */
-    --on-warning: #1c1c1e; /* texto sobre el naranja: oscuro 8:1 (el blanco llegaba a 2,1:1) */
-    --info: #8986ff;
+    --accent: #eeeff2; /* la interfaz es tinta: en oscuro, gris claro */
+    --accent-solid: #eeeff2; /* botón principal claro con texto grafito: 14,8:1 */
+    --accent-foreground: #111316;
+    --success: #6bc987;
+    --warning: #f6a65d;
+    --danger: #f47a79;
+    --on-danger: #111316; /* 7,3:1 */
+    --on-warning: #111316;
+    --info: #86baeb;
 
-    --mode-maritimo: #6f71fc;
-    --mode-terrestre: #017829;
-    --mode-aereo: #e60e4c;
-    --mode-ferreo: #ce7f00;
-    --mode-fluvial: #29a1cc;
+    --mode-maritimo: #6765c5;
+    --mode-terrestre: #397c3a;
+    --mode-aereo: #d65a7e;
+    --mode-ferreo: #b2902c;
+    --mode-fluvial: #22a2c3;
 }
 
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
-    color-scheme: dark;
-    --background: #000000;
-    --foreground: #f5f5f7;
-    --card: #1c1c1e;
-    --raised: #2c2c2e;
-    --muted-foreground: #a1a1a6; /* 7:1 sobre #1c1c1e */
-    --separator: rgb(255 255 255 / 0.1);
-    --separator-strong: rgb(255 255 255 / 0.2);
-    --fill: rgb(120 120 128 / 0.24);
-    --sidebar: rgb(28 28 30 / 0.78);
+      color-scheme: dark;
+      /* Oscuro diseñado aparte (no es el claro invertido): tres capas de grafito con el mismo tono frío. El fondo no es
+         negro puro; cada superficie sube un paso de luz y lleva un borde de luz arriba en vez de sombra (en oscuro la
+         sombra no se ve). Texto gris claro, nunca blanco puro, para no deslumbrar en jornadas largas. */
+      --background: #111316;
+      --foreground: #eeeff2;
+      --card: #191b1f;
+      --raised: #222429;
+      --muted-foreground: #a6a9b1; /* 7,3:1 sobre la tarjeta */
+      --separator: rgb(255 255 255 / 0.07);
+      --separator-strong: rgb(255 255 255 / 0.14);
+      --fill: rgb(255 255 255 / 0.06);
+      --sidebar: rgb(25 27 31 / 0.82);
+      --card-edge: inset 0 1px 0 rgb(255 255 255 / 0.045);
 
-    /* rgba(0,0,0,.4) sobre fondo negro sería invisible: el vidrio oscuro es un gris translúcido */
-    --glass: rgb(28 28 30 / 0.82);
-    --glass-border: rgb(255 255 255 / 0.08);
-    --glass-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.06);
-    --glass-shadow-lift: 0 16px 48px rgb(0 0 0 / 0.6), 0 2px 8px rgb(0 0 0 / 0.4), 0 0 0 0.5px rgb(255 255 255 / 0.14);
-    --float-shadow: 0 10px 40px rgb(0 0 0 / 0.55), 0 0 0 0.5px rgb(255 255 255 / 0.12);
-    --backdrop: none;
+      --glass: rgb(25 27 31 / 0.84);
+      --glass-border: rgb(255 255 255 / 0.08);
+      --glass-shadow: 0 0 0 1px rgb(255 255 255 / 0.05);
+      --glass-shadow-lift: 0 18px 50px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.08), inset 0 1px 0 rgb(255 255 255 / 0.06);
+      --float-shadow: 0 16px 48px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.35), 0 0 0 1px rgb(255 255 255 / 0.08), inset 0 1px 0 rgb(255 255 255 / 0.06);
+      --backdrop: none;
 
-    --sys-blue: #0a84ff;
-    --sys-green: #30d158;
-    --sys-red: #ff453a;
-    --sys-orange: #ff9f0a;
+      --sys-blue: #86baeb;
+      --sys-green: #6bc987;
+      --sys-red: #f47a79;
+      --sys-orange: #f6a65d;
 
-    --accent: #2997ff; /* enlace de apple.com en oscuro: 5,6:1 sobre #1c1c1e */
-    --accent-solid: #0071e3; /* el mismo azul de botón que en claro (antes índigo): texto blanco 4,7:1 */
-    --accent-foreground: #ffffff;
-    --success: #30d158;
-    --warning: #ff9f0a;
-    --danger: #ff6961; /* rojo accesible de Apple en oscuro: 6:1 sobre #1c1c1e */
-    --on-danger: #1c1c1e; /* texto sobre el rojo: oscuro 6:1 (el blanco solo llegaba a 2,8:1) */
-    --on-warning: #1c1c1e; /* texto sobre el naranja: oscuro 8:1 (el blanco llegaba a 2,1:1) */
-    --info: #8986ff;
+      --accent: #eeeff2; /* la interfaz es tinta: en oscuro, gris claro */
+      --accent-solid: #eeeff2; /* botón principal claro con texto grafito: 14,8:1 */
+      --accent-foreground: #111316;
+      --success: #6bc987;
+      --warning: #f6a65d;
+      --danger: #f47a79;
+      --on-danger: #111316; /* 7,3:1 */
+      --on-warning: #111316;
+      --info: #86baeb;
 
-    --mode-maritimo: #6f71fc;
-    --mode-terrestre: #017829;
-    --mode-aereo: #e60e4c;
-    --mode-ferreo: #ce7f00;
-    --mode-fluvial: #29a1cc;
+      --mode-maritimo: #6765c5;
+      --mode-terrestre: #397c3a;
+      --mode-aereo: #d65a7e;
+      --mode-ferreo: #b2902c;
+      --mode-fluvial: #22a2c3;
   }
 }
 
@@ -350,6 +359,8 @@
 @utility glass {
   background-color: var(--card);
   border: 1px solid var(--separator);
+  /* Claro: una sombra de 1 px apenas visible. Oscuro: un borde de luz arriba (la superficie «sube» sin sombra). */
+  box-shadow: var(--card-edge);
 }
 
 /* Vidrio de verdad: solo para lo que flota sobre el mapa, donde hay algo detrás que desenfocar. */
@@ -1012,7 +1023,7 @@ p {
     --separator: rgb(0 0 0 / 0.14);
     --separator-strong: rgb(0 0 0 / 0.24);
     --fill: rgb(0 0 0 / 0.05);
-    --accent: #004a94;
+    --accent: #161920;
     --success: #18703a;
     --warning: #8a4500;
     --danger: #a30f18;

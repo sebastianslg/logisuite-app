@@ -153,6 +153,11 @@ export function VehicleDetailView({ vehicle: v }: { vehicle: VehicleDetail }) {
               </>
             )}
             <Button variant="secondary" size="sm" asChild>
+              <a href={`/api/fleet/vehicles/${v.id}/pdf`} target="_blank" rel="noopener" title="Documentos, mantenimientos, fallas y viajes en PDF">
+                <FileText /> Hoja de vida
+              </a>
+            </Button>
+            <Button variant="secondary" size="sm" asChild>
               <Link href={`/flota/${v.id}/editar`}><Pencil /> Editar</Link>
             </Button>
             {v.retired ? (

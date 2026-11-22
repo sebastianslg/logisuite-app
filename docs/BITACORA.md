@@ -1688,3 +1688,34 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
 - **Pendiente:** extender `link-draw` al resto de enlaces si se quiere un solo gesto; `/api/today` y `/api/alerts` siguen sin
   memoria porque su coste es derivación con reloj (`fleet.summary(now)`), no lectura; los paneles del resumen, quietos por
   framer-motion.
+
+## 76. Rediseño de color: la interfaz en tinta, paleta de modos nueva y un modo oscuro propio; cierre de la tanda 3
+
+- **Pedido del dueño:** «los colores rojo, verde, azul no combinan y se ve bastante mal»; «el modo oscuro es horrible, se
+  siente como un simple masking al modo claro»; más movimiento, utilidad y profesionalismo, aunque se pierda el estilo de
+  Apple. Skills usadas: la de visualización (validador de paletas), Emil Kowalski (movimiento) e impeccable; de «taste» solo
+  el criterio (sus fotos, fuentes y paletas sorteadas chocan con las reglas del proyecto).
+- **La interfaz es tinta.** Sin color de acento: botones principales, foco, navegación activa, enlaces y gráficos de una
+  serie en grafito frío (`#161920`; en oscuro gris claro `#eeeff2` con texto grafito). El color queda solo para datos
+  (modos y estados), así ya no compite nada. La marca, el favicon, los íconos, la imagen para compartir y el PDF pasan
+  al grafito; en la app la marca usa el color del botón principal y en oscuro se invierte.
+- **Paleta de modos buscada por cálculo** (`scratchpad/pal/search3.mjs` sobre el validador de la skill): croma parecido en
+  los cinco (por eso combinan), tono dentro de su familia y luminosidad repartida; se exigió ≥ 8 con daltonismo y ≥ 17 con
+  visión normal en TODAS las parejas y se premió la armonía. Claro: añil `#5252aa`, verde bosque `#2b7a3d`, rosa `#dd668d`,
+  ocre `#bb8912`, petróleo `#2d9fbf` (9,9 / 18,5). Oscuro, los mismos tonos dentro de la banda del oscuro: `#6765c5`,
+  `#397c3a`, `#d65a7e`, `#b2902c`, `#22a2c3` (10,0 / 17,1). El primer intento con croma idéntico no pasaba (5,7).
+- **Estados** con el mismo cuidado (≥ 4,5:1 sobre la tarjeta y su tinte): éxito `#227240`/`#6bc987`, aviso
+  `#944300`/`#f6a65d`, peligro `#b82e30`/`#f47a79`, en curso `#2a669f`/`#86baeb`. El mapa 3D usa los mismos (cierres,
+  transbordos) y los departamentos y CEDI van en tinta.
+- **Oscuro diseñado aparte:** fondo `#111316`, tarjeta `#191b1f`, elevado `#222429` (mismo tono frío, un paso de luz por
+  capa), texto `#eeeff2`, secundario `#a6a9b1`. Las tarjetas llevan un borde de luz arriba (`--card-edge`) en lugar de
+  sombra, y lo que flota un anillo de 1 px de luz.
+- **Utilidad y movimiento:** la columna «Avance» de la lista de envíos es la ruta (`RouteProgress`: un segmento por tramo
+  del color de su modo, lleno hasta donde va; crece con `scaleX`); las cifras de la Torre de control llevan la unidad
+  pequeña y atenuada (`CountUp` con `unitClassName`); «Cumplimiento» en Hoy tiene una barra por modo para compararlos.
+- **Cierre de la tanda 3** (lo que OpenChamber no alcanzó): hoja de vida del vehículo en PDF
+  (`/api/fleet/vehicles/{id}/pdf`, botón «Hoja de vida» en la ficha); errores de validación en español sin devolver el
+  valor recibido (manejador de `RequestValidationError`, conserva `loc` y `type`) y error inesperado con mensaje en español
+  y la traza solo en el log. F6/F7 (celular y oscuro) quedaron cubiertos por este rediseño; B4/B5 (carga con 8 personas,
+  cobertura) siguen pendientes.
+- Pruebas nuevas: `tests/test_hoja_de_vida.py`, `tests/test_errores_es.py`.

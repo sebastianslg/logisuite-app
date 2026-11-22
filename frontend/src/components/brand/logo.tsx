@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Marca de Westvane: la W trazada como una ruta, con origen y destino, sobre el azul de los botones. Es el mismo dibujo
+ * Marca de Westvane: la W trazada como una ruta, con origen y destino, sobre el color del botón principal (grafito en claro; en oscuro se invierte). Es el mismo dibujo
  * de `app/icon.svg` (de donde salen el favicon y los íconos de instalación con `scripts/brand-assets.mjs`): si cambia
  * uno, cambia el otro.
  */
@@ -14,18 +14,18 @@ export function LogoMark({ className, title }: { className?: string; title?: str
       aria-label={title}
       aria-hidden={title ? undefined : true}
     >
-      <rect width="512" height="512" rx="112" fill="#0071e3" />
+      <rect width="512" height="512" rx="112" style={{ fill: "var(--accent-solid)" }} />
       <polyline
         points="122,172 194,344 256,226 318,344 390,172"
         fill="none"
-        stroke="#fff"
+        style={{ stroke: "var(--accent-foreground)" }}
         strokeWidth="34"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="122" cy="172" r="30" fill="#fff" />
-      <circle cx="390" cy="172" r="30" fill="#fff" />
-      <circle cx="256" cy="226" r="14" fill="#0071e3" />
+      <circle cx="122" cy="172" r="30" style={{ fill: "var(--accent-foreground)" }} />
+      <circle cx="390" cy="172" r="30" style={{ fill: "var(--accent-foreground)" }} />
+      <circle cx="256" cy="226" r="14" style={{ fill: "var(--accent-solid)" }} />
     </svg>
   );
 }

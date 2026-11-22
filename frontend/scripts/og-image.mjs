@@ -10,17 +10,17 @@ const icon = await readFile(new URL("../src/app/icon.svg", import.meta.url), "ut
 
 // Kilómetros de la red por modo (los mismos que muestra la presentación; actualizar si cambia la red)
 const MODES = [
-  ["Carretera", "12.628 km", "#248a3d"],
-  ["Río", "4.480 km", "#32ade6"],
-  ["Mar", "3.340 km", "#5856d6"],
-  ["Aire", "13.437 km", "#ff2d55"],
-  ["Tren", "1.464 km", "#ff9500"],
+  ["Carretera", "12.628 km", "#2b7a3d"],
+  ["Río", "4.480 km", "#2d9fbf"],
+  ["Mar", "3.340 km", "#5252aa"],
+  ["Aire", "13.437 km", "#dd668d"],
+  ["Tren", "1.464 km", "#bb8912"],
 ];
 
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>
 @font-face { font-family: Inter; src: url(data:font/woff2;base64,${font.toString("base64")}) format("woff2"); font-weight: 100 900; }
 * { margin: 0; box-sizing: border-box; }
-body { width: 1200px; height: 630px; background: #f5f5f7; color: #1d1d1f; font-family: Inter, sans-serif; padding: 64px 72px; display: flex; flex-direction: column; }
+body { width: 1200px; height: 630px; background: #f6f7f9; color: #161920; font-family: Inter, sans-serif; padding: 64px 72px; display: flex; flex-direction: column; }
 .brand { display: flex; align-items: center; gap: 16px; font-size: 30px; font-weight: 600; letter-spacing: -0.02em; }
 .brand svg { width: 52px; height: 52px; }
 h1 { margin-top: 56px; font-size: 68px; line-height: 1.02; font-weight: 600; letter-spacing: -0.04em; max-width: 900px; }

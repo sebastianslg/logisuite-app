@@ -49,6 +49,8 @@ from functools import lru_cache
 from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Response, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -233,6 +235,63 @@ app = FastAPI(
     redoc_url=None if _PROD else "/redoc",
     openapi_url=None if _PROD else "/openapi.json",
 )
+
+
+def _campo(loc) -> str:
+    """Nombre legible del campo culpable: el último tramo de la ruta que no sea un índice ni «body»/«query»."""
+    partes = [str(x) for x in loc if not isinstance(x, int) and x not in ("body", "query", "path")]
+    return partes[-1].replace("_", " ") if partes else "la solicitud"
+
+
+def _mensaje(e: dict) -> str:
+    """Un error de validación de Pydantic, en español y diciendo qué hacer (sin trazas ni detalles internos)."""
+    campo, t, ctx = _campo(e.get("loc", ())), e.get("type", ""), e.get("ctx") or {}
+    if t == "missing":
+        return f"Falta «{campo}»."
+    if t in ("string_too_long", "too_long"):
+        n = ctx.get("max_length")
+        return f"«{campo}» es demasiado largo" + (f" (máximo {n} {'caracteres' if t == 'string_too_long' else 'elementos'})." if n else ".")
+    if t in ("string_too_short", "too_short"):
+        n = ctx.get("min_length")
+        return f"«{campo}» es demasiado corto" + (f" (mínimo {n})." if n else ".")
+    if t in ("greater_than_equal", "greater_than"):
+        return f"«{campo}» debe ser {'al menos' if t == 'greater_than_equal' else 'mayor que'} {ctx.get('ge', ctx.get('gt'))}."
+    if t in ("less_than_equal", "less_than"):
+        return f"«{campo}» debe ser {'como máximo' if t == 'less_than_equal' else 'menor que'} {ctx.get('le', ctx.get('lt'))}."
+    if t in ("int_parsing", "int_type", "float_parsing", "float_type", "int_from_float"):
+        return f"«{campo}» debe ser un número."
+    if t in ("bool_parsing", "bool_type"):
+        return f"«{campo}» debe ser sí o no."
+    if t in ("literal_error", "enum"):
+        return f"«{campo}» no es un valor permitido" + (f" (usa {ctx['expected']})." if ctx.get("expected") else ".")
+    if t in ("string_type", "list_type", "dict_type", "model_type", "model_attributes_type"):
+        return f"«{campo}» no tiene el formato esperado."
+    if t in ("json_invalid", "json_type"):
+        return "El cuerpo de la solicitud no es un JSON válido."
+    if t in ("datetime_parsing", "datetime_from_date_parsing", "date_parsing", "datetime_type", "date_type"):
+        return f"«{campo}» no es una fecha válida (usa AAAA-MM-DD o AAAA-MM-DDTHH:MM)."
+    if t == "string_pattern_mismatch":
+        return f"«{campo}» tiene caracteres o un formato no permitidos."
+    if t == "value_error":
+        msg = str(e.get("msg", "")).removeprefix("Value error, ")
+        return msg if msg else f"«{campo}» no es válido."
+    return f"«{campo}» no es válido."
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_es(_request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Errores de validación en español. Se conserva la forma de FastAPI (lista con `loc` y `type`) para quien la lea por
+    código; `msg` es lo que la app muestra al usuario. Nunca se devuelve el valor recibido (`input`): podría ser enorme o
+    traer datos personales."""
+    detail = [{"loc": list(e.get("loc", ())), "type": e.get("type"), "msg": _mensaje(e)} for e in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": detail})
+
+
+@app.exception_handler(Exception)
+async def unexpected_es(_request: Request, exc: Exception) -> JSONResponse:
+    """Lo inesperado: 500 con un mensaje en español; el detalle (traza, SQL, rutas) queda solo en el log del servidor."""
+    logging.getLogger("westvane.api").exception("Error inesperado: %s", exc)
+    return JSONResponse(status_code=500, content={"detail": "Algo falló en el servidor. Intenta de nuevo; si sigue, avisa al administrador."})
 
 
 @app.middleware("http")
