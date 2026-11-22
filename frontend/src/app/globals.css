@@ -368,14 +368,17 @@
   }
 }
 
-/* Fila que lleva a algo: ocupa todo el ancho, se marca con un paso de fondo al pasar el puntero. */
+/* Fila que lleva a algo: ocupa todo el ancho, se marca con un paso de fondo al pasar el puntero. La transición del
+   transform va aquí porque `lift` (que la necesita para subir 2 px) puede quedar antes en el orden de utilidades. */
 @utility row-link {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1.25rem;
   outline: none;
-  transition: background-color 0.2s var(--ease-apple);
+  transition:
+    background-color 0.2s var(--ease-apple),
+    transform 0.2s cubic-bezier(0.23, 1, 0.32, 1);
   @media (hover: hover) and (pointer: fine) {
     &:hover {
       background-color: color-mix(in srgb, var(--card) 96%, var(--foreground));
@@ -416,18 +419,29 @@
 }
 
 /*
- * Superficie clicable: al pasar el puntero, el borde se marca y el fondo se aclara/oscurece un paso. Sin
- * escala ni sombra: en una herramienta de trabajo lo que se mueve al pasar el cursor distrae.
+ * Superficie clicable: al pasar el puntero sube 2 px y el borde y el fondo se marcan un paso; al presionar se
+ * hunde a 0,98 sin bajar de ahí. Sin sombra: en una herramienta de trabajo la profundidad la da el movimiento,
+ * no la elevación.
  */
 @utility lift {
   transition:
+    transform 0.2s cubic-bezier(0.23, 1, 0.32, 1),
     border-color 0.2s var(--ease-apple),
     background-color 0.2s var(--ease-apple);
   @media (hover: hover) and (pointer: fine) {
     &:hover {
       border-color: var(--separator-strong);
       background-color: color-mix(in srgb, var(--card) 96%, var(--foreground));
+      transform: translateY(-2px);
     }
+  }
+  /* La presión también en táctil, donde no hay hover: se siente al tocar. */
+  &:active {
+    transform: translateY(-2px) scale(0.98);
+    transition:
+      transform 0.12s cubic-bezier(0.23, 1, 0.32, 1),
+      border-color 0.2s var(--ease-apple),
+      background-color 0.2s var(--ease-apple);
   }
 }
 
@@ -458,10 +472,15 @@
   }
   .press,
   .press:active,
-  .lift {
+  .lift,
+  .lift:hover,
+  .lift:active {
     transition: none;
   }
-  .press:active:not(:disabled) {
+  .press:active:not(:disabled),
+  .lift,
+  .lift:hover,
+  .lift:active {
     transform: none;
   }
 }

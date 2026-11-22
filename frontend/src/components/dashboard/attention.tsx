@@ -131,7 +131,7 @@ export function AlertRows({ items, columns = false, onNavigate }: { items: Alert
             href={it.href}
             onClick={onNavigate}
             data-ripple
-            className="group/alert flex min-h-16 items-center gap-3.5 px-5 py-3.5 outline-none transition-colors duration-200 hover:bg-[color-mix(in_srgb,var(--card)_96%,var(--foreground))] focus-visible:ring-[3px] focus-visible:ring-ring/80 focus-visible:ring-inset"
+            className="group/alert lift flex min-h-16 items-center gap-3.5 px-5 py-3.5 outline-none hover:bg-[color-mix(in_srgb,var(--card)_96%,var(--foreground))] focus-visible:ring-[3px] focus-visible:ring-ring/80 focus-visible:ring-inset"
           >
             {/* Severidad en el color del ícono (rojo = impide operar, naranja = aviso); sin círculos ni franjas */}
             <span

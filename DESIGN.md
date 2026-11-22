@@ -207,7 +207,7 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 ## Motion
 
 - Curva base `cubic-bezier(0.16, 1, 0.3, 1)`: 0,3 s en interacciones, 0,5 s en entradas de vista. Resorte estándar (`SPRING`) para lo que se desliza con `layoutId` (píldora del segmentado, indicador del dock).
-- **Presión (`press`):** baja a 0,97 en 120 ms; al soltar vuelve con un rebote de 300 ms. Sin escala al pasar el puntero (`lift` solo cambia borde y fondo).
+- **Presión (`press`):** baja a 0,97 en 120 ms; al soltar vuelve con un rebote de 300 ms. **Superficie clicable (`lift`):** sube 2 px en 200 ms (`cubic-bezier(0.23, 1, 0.32, 1)`) y al presionar se hunde a 0,98 en 120 ms; sin sombra y quieta con «reducir movimiento».
 - **Solo `transform` y `opacity`.** Barras y líneas de tiempo crecen con `scaleX`/`scaleY`; nada anima `width`, `height`, `top` ni `box-shadow` en listas, tablas o mapa.
 - **El mapa está quieto en reposo.** Su reloj solo corre mientras se arrastra, se hace zoom o está en pantalla completa con animación activa; se monta cuando entra en pantalla y en tiempo ocioso, por capas.
 - **Medidores (`meter-fill`):** relleno a todo el ancho escalado con `--v`; crece al aparecer y se desliza al cambiar. **Sparklines** se dibujan con una máscara que crece; **calendario** crece por filas (20 ms); **mapa por departamento** se llena por intensidad; lo **recién creado** entra con `.enter`.
