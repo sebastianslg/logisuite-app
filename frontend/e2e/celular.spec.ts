@@ -24,3 +24,26 @@ test("en celular no hay desborde horizontal y el dock inferior funciona", async 
   await expect(page).toHaveURL(/\/historial/);
   w.expectClean();
 });
+
+for (const [ancho, tema] of [[320, "dark"], [390, "light"]] as const) {
+  test(`sesiones, ayudas y envíos caben a ${ancho} px (${tema})`, async ({ page }) => {
+    await page.setViewportSize({ width: ancho, height: 800 });
+    await page.addInitScript(t => localStorage.setItem("westvane.theme", t), tema);
+    await page.goto("/configuracion");
+    await expect(page.getByRole("heading", { name: "Mis sesiones", exact: true })).toBeVisible();
+    await noHorizontalOverflow(page);
+    await page.keyboard.press("Shift+Slash");
+    await expect(page.getByRole("dialog", { name: "Atajos de teclado" })).toBeVisible();
+    await noHorizontalOverflow(page);
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Control+k");
+    await expect(page.getByRole("dialog").first()).toBeVisible();
+    await noHorizontalOverflow(page);
+    await page.keyboard.press("Escape");
+    for (const ruta of ["/envios", "/flota?q=lista-vacia-77", "/bodegas?q=lista-vacia-77"]) {
+      await page.goto(ruta);
+      await expect(page.locator("main h1").first()).toBeVisible();
+      await noHorizontalOverflow(page);
+    }
+  });
+}

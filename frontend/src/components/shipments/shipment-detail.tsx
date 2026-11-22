@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRightLeft, CircleOff, CopyPlus, Leaf, FileCheck2, FileSignature, History, ListTree, LoaderCircle, Maximize2, PackageCheck, Paperclip, Pencil, Printer, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, CircleOff, CopyPlus, Cuboid, Leaf, FileCheck2, FileSignature, History, ListTree, LoaderCircle, Maximize2, PackageCheck, Paperclip, Pencil, Printer, Trash2 } from "lucide-react";
 
 import { LayoutGroup, motion, useInView, useReducedMotion } from "framer-motion";
 
 import { Map3DLazy, MapLoading } from "@/components/map/map-3d-lazy";
 import { MapFrame } from "@/components/map/map-frame";
+import { NetworkPreview } from "@/components/map/network-preview";
 import { invalidateMapData, useMapData } from "@/components/map/use-map-data";
 import { useApp } from "@/components/providers";
 import { ActualCost } from "@/components/shipments/actual-cost";
@@ -102,7 +103,13 @@ export function ShipmentDetail({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href="/envios" className="pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <Link
+          href="/envios"
+          prefetch={false}
+          onPointerEnter={() => router.prefetch("/envios")}
+          onFocus={() => router.prefetch("/envios")}
+          className="pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft className="size-3.5" /> <span className="link-draw">Envíos</span>
         </Link>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
@@ -141,13 +148,29 @@ export function ShipmentDetail({
             <Button variant="secondary" size="sm" asChild>
               <Link
                 href={`/envios/nuevo?origin=${encodeURIComponent(s.origin)}&destination=${encodeURIComponent(s.destination)}&priority=${s.priority}&weight=${s.weight_t}`}
+                prefetch={false}
+                onPointerEnter={() =>
+                  router.prefetch(
+                    `/envios/nuevo?origin=${encodeURIComponent(s.origin)}&destination=${encodeURIComponent(s.destination)}&priority=${s.priority}&weight=${s.weight_t}`,
+                  )
+                }
+                onFocus={() =>
+                  router.prefetch(
+                    `/envios/nuevo?origin=${encodeURIComponent(s.origin)}&destination=${encodeURIComponent(s.destination)}&priority=${s.priority}&weight=${s.weight_t}`,
+                  )
+                }
               >
                 <CopyPlus />
                 <span className="max-sm:sr-only">Duplicar</span>
               </Link>
             </Button>
             <Button variant="secondary" size="sm" asChild>
-              <Link href={`/envios/${s.code}/editar`}>
+              <Link
+                href={`/envios/${s.code}/editar`}
+                prefetch={false}
+                onPointerEnter={() => router.prefetch(`/envios/${s.code}/editar`)}
+                onFocus={() => router.prefetch(`/envios/${s.code}/editar`)}
+              >
                 <Pencil />
                 Editar
               </Link>
@@ -221,7 +244,13 @@ export function ShipmentDetail({
                                 {l.asset.vehicle_ids.map((vid, k) => (
                                   <span key={vid}>
                                     {k > 0 && ", "}
-                                    <Link href={`/flota/${vid}`} className="link-draw font-mono text-foreground hover:text-primary">
+                                    <Link
+                                      href={`/flota/${vid}`}
+                                      prefetch={false}
+                                      onPointerEnter={() => router.prefetch(`/flota/${vid}`)}
+                                      onFocus={() => router.prefetch(`/flota/${vid}`)}
+                                      className="link-draw font-mono text-foreground hover:text-primary"
+                                    >
                                       {l.asset?.plates?.[k] ?? vid}
                                     </Link>
                                   </span>
@@ -432,14 +461,15 @@ function RouteMap({ route }: { route: RouteResult | null }) {
 
 function RouteMapBody({ route, onRetry }: { route: RouteResult | null; onRetry: () => void }) {
   const { network, departments, error } = useMapData({ fleet: false });
-  // El mapa 3D se monta después de que el detalle ya se pintó: así la página responde y la transición del guardado termina.
-  const [mapReady, setMapReady] = useState(false);
+  // La vista plana es la de entrada. Compilar WebGL (deck.gl y MapLibre) es la tarea más cara de la app y bloquea
+  // más de un segundo: solo se hace si se elige el 3D aquí mismo, no por llegar a la ficha.
+  const [en3D, setEn3D] = useState(false);
   const [mapFull, setMapFull] = useState(false);
   const exitMapFull = useCallback(() => setMapFull(false), []);
-  useEffect(() => {
-    const id = window.setTimeout(() => setMapReady(true), 300);
-    return () => window.clearTimeout(id);
-  }, []);
+  // Al pasar el puntero o enfocar el botón se baja el trozo; el clic solo lo monta
+  const preload3D = () => {
+    void import("@/components/Map3D");
+  };
 
   if (error && !network) {
     return (
@@ -459,12 +489,34 @@ function RouteMapBody({ route, onRetry }: { route: RouteResult | null; onRetry: 
   return (
     <div className="relative h-[400px]" data-print="hide">
       <MapFrame full={mapFull} onExit={exitMapFull} radius={28} className="relative h-full border border-border">
-        {network && departments && mapReady ? (
+        {!network || !departments ? (
+          <MapLoading />
+        ) : en3D ? (
           <Map3DLazy network={network} departments={departments} route={route} showFleet={false} live={mapFull} />
         ) : (
-          <MapLoading />
+          <div className="relative flex h-full items-center justify-center overflow-hidden bg-fill/30 p-6">
+            {/* La silueta de la red hace de marcador: no es un bloque gris ni promete un mapa que aún no existe */}
+            <div className="pointer-events-none absolute inset-0 px-8 py-10 opacity-60">
+              <NetworkPreview network={network} departments={departments} />
+            </div>
+            <div className="glass-float relative z-10 flex max-w-sm flex-col items-center gap-3 rounded-2xl px-5 py-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                La ruta, los tramos y los costos están arriba. El mapa 3D se carga solo si lo pides.
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onPointerEnter={preload3D}
+                onFocus={preload3D}
+                onClick={() => setEn3D(true)}
+              >
+                <Cuboid />
+                Ver el recorrido en 3D
+              </Button>
+            </div>
+          </div>
         )}
-        {!mapFull && (
+        {en3D && !mapFull && (
           <Button
             variant="secondary"
             size="icon"

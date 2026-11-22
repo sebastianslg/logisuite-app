@@ -3,6 +3,7 @@
 import { Download, FileDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { PaginasLocales, usePaginas } from "./paginas-locales";
 import { cn } from "@/lib/utils";
 
 export interface Column<T> {
@@ -29,6 +30,7 @@ export function DetailTable<T>({
   csvName?: string;
   empty?: string;
 }) {
+  const pagina = usePaginas(rows, csvName);
   const exportCsv = () => {
     const cols = columns.filter((c) => c.csv);
     const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
@@ -54,7 +56,7 @@ export function DetailTable<T>({
       {/* Celular: cada fila es un bloque con la primera columna como título y el resto en pares etiqueta/valor.
           Antes la tabla se encogía hasta partir los nombres letra por letra y se desbordaba. */}
       <ul className="glass rule-list overflow-hidden rounded-3xl lg:hidden">
-        {rows.map((r) => (
+        {pagina.filas.map((r) => (
           <li key={getKey(r)} className="px-4 py-3.5">
             <div className="text-[0.9375rem]">{columns[0].render(r)}</div>
             <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -84,7 +86,7 @@ export function DetailTable<T>({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {pagina.filas.map((r) => (
               <tr key={getKey(r)} className="border-b border-border transition-colors duration-200 last:border-0 hover:bg-[color-mix(in_srgb,var(--card)_97%,var(--foreground))]">
                 {columns.map((c) => (
                   <td key={c.key} className={cn("tabular px-3 py-3 align-middle first:pl-5 last:pr-5", c.align === "right" ? "text-right" : "text-left")}>
@@ -103,6 +105,7 @@ export function DetailTable<T>({
           </tbody>
         </table>
       </div>
+      <PaginasLocales {...pagina} />
     </div>
   );
 }

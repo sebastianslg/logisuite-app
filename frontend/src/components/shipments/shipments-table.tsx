@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -55,7 +56,6 @@ import { PrintHeader } from "@/components/print-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/components/ui/toast";
 import { ExportActions } from "@/components/shipments/export-actions";
-import { ImportShipments } from "@/components/shipments/import-shipments";
 import { Sheet } from "@/components/ui/sheet";
 import { useLocal } from "@/lib/local";
 import { RouteProgress } from "@/components/shipments/route-progress";
@@ -69,6 +69,24 @@ import { MODE_ORDER, MODES, PRIORITIES, STATUSES, STATUS_ORDER, tint } from "@/l
 import { EASE } from "@/lib/motion";
 import type { Mode, Shipment, ShipmentStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+/**
+ * La vista de importación vive en su propio trozo: en la lista de envíos es una acción ocasional y solo se pide al
+ * abrir la hoja (o al pasar el puntero por «Importar»). Leer el archivo y validarlo ocurre en el servidor, así que
+ * el cliente no carga ninguna librería de Excel.
+ */
+const ImportShipments = dynamic(() => import("@/components/shipments/import-shipments").then((m) => m.ImportShipments), {
+  ssr: false,
+  loading: () => (
+    <div aria-busy="true" className="flex flex-col gap-4">
+      <div className="skeleton h-32 rounded-2xl" />
+      <div className="skeleton h-4 w-44 rounded" />
+    </div>
+  ),
+});
+const preloadImport = () => {
+  void import("@/components/shipments/import-shipments");
+};
 
 /* --------------------------------------------------------------------------
  * Filtros propios. Se registran por nombre en `filterFns`; `autoRemove`
@@ -101,19 +119,51 @@ const features = tableFeatures({
 
 const helper = createColumnHelper<typeof features, Shipment>();
 
+/**
+ * Código del envío. La ficha es una de las páginas más pesadas y la lista muestra 25 filas: si cada una pidiera su
+ * ficha al entrar en pantalla, una sola visita dispararía 25 precargas. Se pide al pasar el puntero o al enfocar.
+ */
+function ShipmentCodeLink({ code }: { code: string }) {
+  const router = useRouter();
+  const href = `/envios/${code}`;
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      onPointerEnter={() => router.prefetch(href)}
+      onFocus={() => router.prefetch(href)}
+      data-code={code}
+      onClick={(e) => rememberCode(code, e.currentTarget)}
+      className="font-mono text-xs text-foreground/80 underline-offset-2 hover:text-primary hover:underline"
+    >
+      {code}
+    </Link>
+  );
+}
+
+/** Enlace a la ficha de un vehículo propio, con la misma regla: se pide al mostrar intención, no al montar la fila. */
+function FleetVehicleLink({ id, title, children }: { id: string | number; title: string; children: React.ReactNode }) {
+  const router = useRouter();
+  const href = `/flota/${id}`;
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      onPointerEnter={() => router.prefetch(href)}
+      onFocus={() => router.prefetch(href)}
+      className="font-mono text-xs text-primary hover:underline"
+      title={title}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {children}
+    </Link>
+  );
+}
+
 const columns = helper.columns([
   helper.accessor("code", {
     header: "Envío",
-    cell: (info) => (
-      <Link
-        href={`/envios/${info.getValue()}`}
-        data-code={info.getValue()}
-        onClick={(e) => rememberCode(info.getValue(), e.currentTarget)}
-        className="font-mono text-xs text-foreground/80 underline-offset-2 hover:text-primary hover:underline"
-      >
-        {info.getValue()}
-      </Link>
-    ),
+    cell: (info) => <ShipmentCodeLink code={info.getValue()} />,
   }),
   helper.accessor((s) => `${s.origin} → ${s.destination}`, {
     id: "route",
@@ -157,14 +207,12 @@ const columns = helper.columns([
       }
       if (v.own && v.vehicle_ids?.length) {
         return (
-          <Link
-            href={`/flota/${v.vehicle_ids[0]}`}
-            className="font-mono text-xs text-primary hover:underline"
+          <FleetVehicleLink
+            id={v.vehicle_ids[0]}
             title={`${v.type ?? "Vehículo"} propio (${v.carrier ?? "Flota propia"})`}
-            onClick={(e) => e.stopPropagation()}
           >
             {v.id}
-          </Link>
+          </FleetVehicleLink>
         );
       }
       return (
@@ -210,8 +258,8 @@ const columns = helper.columns([
     cell: (info) => {
       const s = info.row.original;
       return (
-        <div className="flex w-24 items-center gap-2 min-[1600px]:w-32">
-          <RouteProgress modes={s.modes} pct={info.getValue()} className="flex-1" />
+        <div className="flex items-center gap-2">
+          <RouteProgress segments={s.progress_legs} className="w-24 shrink-0" />
           <span className="tabular w-9 text-right text-xs text-muted-foreground">
             {Math.round(info.getValue())} %
           </span>
@@ -326,9 +374,10 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
     columns,
     data: rows,
     globalFilterFn: "includesString",
-    // En tránsito primero (orden operativo de STATUS_ORDER). En modo servidor la API ya filtró y ordenó: la tabla solo pinta
+    // En tránsito primero (orden operativo de STATUS_ORDER). En modo servidor la API ya filtró, ordenó y paginó:
+    // la tabla pinta exactamente la tanda pedida (hoy 25), nunca la lista completa en el DOM
     initialState: servidor
-      ? { pagination: { pageIndex: 0, pageSize: 1000 } }
+      ? { pagination: { pageIndex: 0, pageSize: servidor.pageSize } }
       : {
           pagination: { pageIndex: 0, pageSize: 10 },
           sorting: [{ id: "status", desc: false }],
@@ -609,7 +658,17 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
         >
           {density === "compacta" ? <Rows3 /> : <Rows4 />}
         </Button>
-        <Button variant="secondary" size="sm" onClick={() => setImporting(true)} title="Crear envíos desde un Excel o CSV">
+        <Button
+          variant="secondary"
+          size="sm"
+          onPointerEnter={preloadImport}
+          onFocus={preloadImport}
+          onClick={() => {
+            preloadImport();
+            setImporting(true);
+          }}
+          title="Crear envíos desde un Excel o CSV"
+        >
           <FileUp />
           Importar
         </Button>
@@ -765,6 +824,8 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.18 }}
                   whileTap={{ scale: 0.995 }}
+                  // La fila entera lleva a la ficha: el puntero sobre ella ya es intención suficiente
+                  onPointerEnter={() => router.prefetch(`/envios/${row.original.code}`)}
                   onClick={(e) => {
                     if ((e.target as HTMLElement).closest("a,button,input")) return;
                     rememberCodeIn(e.currentTarget, row.original.code);
@@ -802,6 +863,9 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
                       <Button variant="ghost" size="icon" className="size-8" asChild>
                         <Link
                           href={`/envios/${row.original.code}/editar`}
+                          prefetch={false}
+                          onPointerEnter={() => router.prefetch(`/envios/${row.original.code}/editar`)}
+                          onFocus={() => router.prefetch(`/envios/${row.original.code}/editar`)}
                           aria-label={`Editar ${row.original.code}`}
                           title="Editar"
                         >
@@ -832,7 +896,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
                     description="Crea el primero a mano o cárgalo desde un Excel: queda con su cadena de modos, su vehículo y su seguimiento."
                     actions={[
                       { label: "Crear el primer envío", href: "/envios/nuevo", icon: Plus },
-                      { label: "Importar desde Excel", onClick: () => setImporting(true), icon: FileUp },
+                      { label: "Importar desde Excel", onClick: () => { preloadImport(); setImporting(true); }, icon: FileUp },
                     ]}
                   />
                 </TableCell>
@@ -875,6 +939,9 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
             <li key={row.id}>
               <Link
                 href={`/envios/${sh.code}`}
+                prefetch={false}
+                onPointerEnter={() => router.prefetch(`/envios/${sh.code}`)}
+                onFocus={() => router.prefetch(`/envios/${sh.code}`)}
                 onClick={(e) => rememberCodeIn(e.currentTarget, sh.code)}
                 className="glass press block rounded-2xl p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80"
               >
@@ -889,7 +956,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
                 </div>
                 <div className="mt-3 flex items-center gap-3">
                   <ModeChain modes={sh.modes} />
-                  <RouteProgress modes={sh.modes} pct={sh.progress_pct} className="flex-1" />
+                  <RouteProgress segments={sh.progress_legs} className="flex-1" />
                   <span className="tabular text-xs text-muted-foreground">{Math.round(sh.progress_pct)} %</span>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
@@ -924,7 +991,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
               description="Crea el primero a mano o cárgalo desde un Excel: queda con su cadena de modos, su vehículo y su seguimiento."
               actions={[
                 { label: "Crear el primer envío", href: "/envios/nuevo", icon: Plus },
-                { label: "Importar desde Excel", onClick: () => setImporting(true), icon: FileUp },
+                { label: "Importar desde Excel", onClick: () => { preloadImport(); setImporting(true); }, icon: FileUp },
               ]}
             />
           </li>

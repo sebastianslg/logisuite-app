@@ -1,153 +1,87 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
 import {
-  CalendarDays,
-  FileText,
-  Scale,
-  Users,
-  BookOpen,
-  Banknote,
-  CornerDownLeft,
-  Fuel,
-  History,
-  ScrollText,
-  Keyboard,
-  LayoutDashboard,
-  Leaf,
-  MapPin,
-  Moon,
-  Network,
-  PackagePlus,
-  Package,
-  Search,
-  Settings,
-  Sun,
-  TrafficCone,
-  Truck,
-  Warehouse,
-  type LucideIcon,
-  CalendarClock,
-} from "lucide-react";
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import dynamic from "next/dynamic";
+import { AnimatePresence, motion } from "framer-motion";
+import { Search } from "lucide-react";
 
 import { EASE } from "@/lib/motion";
-import { rememberCode } from "@/components/shipments/shared-code";
-import { OPEN_SHORTCUTS_EVENT } from "@/components/shell/shortcuts";
-import { useApp } from "@/components/providers";
-import { getAuthToken } from "@/lib/auth";
-import { usePrefs } from "@/lib/prefs";
 import { isPublicPath } from "@/components/shell/shell-only";
-import { cn } from "@/lib/utils";
-
-interface Item {
-  id: string;
-  group: string;
-  /** Bloque al que pertenece la fila («Resultados» para lo que trae el servidor); sin bloque, la lista de siempre. */
-  section?: string;
-  label: string;
-  hint?: string;
-  icon: LucideIcon;
-  run: () => void;
-}
-
-/** Tipos de la búsqueda del servidor (/api/search), con su grupo en español y su ícono. */
-const KIND: Record<string, { group: string; icon: LucideIcon }> = {
-  envio: { group: "Envíos", icon: Package },
-  vehiculo: { group: "Vehículos", icon: Truck },
-  bodega: { group: "Bodegas", icon: Warehouse },
-  cliente: { group: "Clientes", icon: Users },
-};
-const KIND_ORDER = Object.keys(KIND);
-
-interface Hit {
-  type?: string;
-  title?: string;
-  subtitle?: string;
-  href?: string;
-}
-interface SearchResponse {
-  items?: Hit[];
-  truncated?: boolean;
-}
-type ServerSearch = { term: string; status: "done" | "error"; items: Hit[]; truncated: boolean };
+import type { PaletteResult } from "@/components/shell/command-palette-body";
 
 /**
- * Convierte lo que devolvió /api/search en filas de la paleta, agrupadas por tipo en el orden de «Envíos, Vehículos,
- * Bodegas, Clientes». Tolera campos que falten y enlaces que no sean de la app (se descartan).
+ * La lista y la búsqueda de la paleta viven en su propio trozo (`command-palette-body`): el armazón de la app solo
+ * lleva el atajo, el marco y el campo de texto. El campo se monta con el diálogo y recibe el foco al instante, así la
+ * primera tecla no se pierde mientras llega el resto.
  */
-function serverItems(hits: Hit[] | undefined, go: (href: string) => () => void): Item[] {
-  if (!Array.isArray(hits)) return [];
-  return hits
-    .map((hit, index) => ({
-      hit,
-      index,
-      order: hit && typeof hit.type === "string" && KIND[hit.type] ? KIND_ORDER.indexOf(hit.type) : KIND_ORDER.length,
-    }))
-    .sort((a, b) => a.order - b.order)
-    .map(({ hit, index }): Item | null => {
-      if (!hit || typeof hit.href !== "string" || !hit.href.startsWith("/")) return null;
-      const tipo = typeof hit.type === "string" ? KIND[hit.type] : undefined;
-      const label = hit.title || hit.subtitle || hit.href;
-      return {
-        id: `sr-${index}`,
-        section: "Resultados",
-        group: tipo?.group ?? "Otros resultados",
-        label,
-        hint: hit.title && hit.subtitle ? hit.subtitle : undefined,
-        icon: tipo?.icon ?? Search,
-        run: go(hit.href),
-      };
-    })
-    .filter((it): it is Item => it !== null);
+const PaletteBody = dynamic(() => import("@/components/shell/command-palette-body").then((m) => m.CommandPaletteBody), {
+  ssr: false,
+  loading: () => <PaletteLoading />,
+});
+
+let paletteRequested = false;
+/** Pide el trozo al mostrar intención (puntero o foco) o al pulsar el atajo; repetirlo no descarga nada de nuevo. */
+export function preloadCommandPalette() {
+  if (paletteRequested) return;
+  paletteRequested = true;
+  void import("@/components/shell/command-palette-body");
 }
 
-function PaletteHeading({ children, strong = false }: { children: React.ReactNode; strong?: boolean }) {
+const Ctx = createContext<{ open: () => void; preload: () => void; shortcut: string }>({
+  open: () => {},
+  preload: () => {},
+  shortcut: "Ctrl K",
+});
+export const useCommandPalette = () => useContext(Ctx);
+
+function PaletteLoading() {
   return (
-    <div className={cn("px-3 pt-2 pb-1 text-xs font-semibold", strong ? "text-foreground/80" : "text-muted-foreground")}>
-      {children}
+    <div aria-hidden className="p-2">
+      <div className="skeleton mx-3 mt-2 mb-2 h-3 w-16 rounded" />
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="skeleton mx-2 mt-1 h-9 rounded-xl" />
+      ))}
     </div>
   );
 }
 
-const Ctx = createContext<{ open: () => void; shortcut: string }>({ open: () => {}, shortcut: "Ctrl K" });
-export const useCommandPalette = () => useContext(Ctx);
-
-const norm = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-
 export function CommandPalette({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const { setTheme } = usePrefs();
-  const { setCurrency, fx } = useApp();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
-  const [shipments, setShipments] = useState<{ code: string; origin: string; destination: string }[]>([]);
-  const [cities, setCities] = useState<{ city: string; category: string }[]>([]);
-  // Más resultados para la búsqueda: vehículos, bodegas y vías (se piden al abrir por primera vez)
-  const [vehicles, setVehicles] = useState<{ id: number; code: string; vehicle_type: string; mode_label: string; home_name?: string }[]>([]);
-  const [warehouses, setWarehouses] = useState<{ warehouse_id: number; code: string; name: string; city: string }[]>([]);
-  const [corridors, setCorridors] = useState<{ corridor: string; active: boolean; distance_fmt: string }[]>([]);
-  // Última respuesta de /api/search y el texto con el que se pidió (si no coincide con lo escrito, se está buscando)
-  const [server, setServer] = useState<ServerSearch>({ term: "", status: "done", items: [], truncated: false });
-  const needle = q.trim();
+  const [activeId, setActiveId] = useState<string | undefined>(undefined);
+  const results = useRef<PaletteResult[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
   const mac = useSyncExternalStore(
     () => () => {},
     () => /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent),
     () => false,
   );
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
 
   const show = useCallback(() => {
+    preloadCommandPalette();
+    results.current = [];
+    setActiveId(undefined);
     setQ("");
     setActive(0);
     setOpen(true);
   }, []);
-  const close = useCallback(() => setOpen(false), []);
+  const close = useCallback(() => {
+    results.current = [];
+    setActiveId(undefined);
+    setOpen(false);
+  }, []);
 
-  // Atajos globales: Ctrl/⌘ + K, y "/" fuera de los campos de texto
+  // Atajos globales: Ctrl/⌘ + K, y "/" fuera de los campos de texto. El trozo de la lista se pide a la vez.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isPublicPath(window.location.pathname)) return; // la búsqueda es de la app, no de las páginas públicas
@@ -155,9 +89,8 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
         (e.target as HTMLElement)?.isContentEditable;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpen((o) => !o);
-        setQ("");
-        setActive(0);
+        if (open) close();
+        else show();
       } else if (e.key === "/" && !typing && !open) {
         e.preventDefault();
         show();
@@ -165,184 +98,37 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, show]);
+  }, [open, close, show]);
 
-  // Datos de búsqueda: se piden al abrir por primera vez
+  // El foco entra al abrir: el campo existe desde el primer cuadro, aunque la lista todavía esté llegando.
   useEffect(() => {
-    if (!open || shipments.length) return;
-    fetch("/api/shipments?limit=100", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setShipments(d.items))
-      .catch(() => {});
-    fetch("/api/locations", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setCities(d.cities))
-      .catch(() => {});
-    const load = <T,>(url: string, set: (v: T[]) => void) =>
-      fetch(url, { cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => d && set(d.items))
-        .catch(() => {});
-    load("/api/fleet/vehicles", setVehicles);
-    load("/api/warehouses", setWarehouses);
-    load("/api/corridors", setCorridors);
-  }, [open, shipments.length]);
-
-  // Resultados del servidor: se piden 250 ms después de dejar de escribir, desde 2 caracteres y cancelando la
-  // petición anterior. Si la API falla, la paleta sigue con los comandos y lo ya cargado, sin aviso ruidoso.
-  useEffect(() => {
-    if (!open || needle.length < 2) return;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      const token = getAuthToken();
-      fetch(`/api/search?q=${encodeURIComponent(needle)}&limit=5`, {
-        cache: "no-store",
-        signal: controller.signal,
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      })
-        .then((r) => {
-          if (!r.ok) throw new Error(`Error ${r.status}`);
-          return r.json() as Promise<SearchResponse>;
-        })
-        .then((data) => {
-          if (controller.signal.aborted) return;
-          setServer({
-            term: needle,
-            status: "done",
-            items: Array.isArray(data?.items) ? data.items : [],
-            truncated: data?.truncated === true,
-          });
-          // Las filas del servidor entran delante de las demás: el resaltado vuelve a la primera para que Intro abra
-          // lo que se ve resaltado y no otra fila que acaba de ocupar ese lugar
-          setActive(0);
-        })
-        .catch(() => {
-          if (controller.signal.aborted) return;
-          setServer({ term: needle, status: "error", items: [], truncated: false });
-        });
-    }, 250);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [open, needle]);
-
-  useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 30);
+    if (open) inputRef.current?.focus({ preventScroll: true });
   }, [open]);
 
-  const go = useCallback(
-    (href: string) => () => {
-      close();
-      router.push(href);
-    },
-    [close, router],
-  );
-
-  const items = useMemo<Item[]>(() => {
-    const base: Item[] = [
-      { id: "p-home", group: "Ir a", label: "Resumen", icon: LayoutDashboard, run: go("/panel") },
-      { id: "p-env", group: "Ir a", label: "Envíos", icon: Package, run: go("/envios") },
-      { id: "p-red", group: "Ir a", label: "Red multimodal", icon: Network, run: go("/red") },
-      { id: "p-fuel", group: "Ir a", label: "Combustible", icon: Fuel, run: go("/combustible") },
-      { id: "p-co2", group: "Ir a", label: "Huella de carbono", icon: Leaf, run: go("/huella") },
-      { id: "p-vias", group: "Ir a", label: "Vías y cierres", icon: TrafficCone, run: go("/vias") },
-      { id: "p-fleet", group: "Ir a", label: "Flota de vehículos", icon: Truck, run: go("/flota") },
-      { id: "p-wh", group: "Ir a", label: "Bodegas", icon: Warehouse, run: go("/bodegas") },
-      { id: "p-hist", group: "Ir a", label: "Historial de trayectos", hint: "Por ciudad, departamento y corredor", icon: History, run: go("/historial") },
-      { id: "p-aud", group: "Ir a", label: "Auditoría", hint: "Quién cambió qué y cuándo", icon: ScrollText, run: go("/auditoria") },
-      { id: "p-metodo", group: "Ir a", label: "Metodología", hint: "Cómo se calculan rutas, costos y huella", icon: BookOpen, run: go("/metodologia") },
-      { id: "p-creditos", group: "Ir a", label: "Créditos y licencias", hint: "Fuentes de datos, mapas y software de terceros", icon: BookOpen, run: go("/creditos") },
-      { id: "p-hoy", group: "Ir a", label: "Hoy", hint: "Salidas, llegadas y entregas por firmar", icon: CalendarClock, run: go("/hoy") },
-      { id: "p-cal", group: "Ir a", label: "Calendario de envíos", hint: "Qué sale y qué llega", icon: CalendarDays, run: go("/calendario") },
-      { id: "p-cli", group: "Ir a", label: "Clientes", hint: "Envíos, puntualidad y flete por cliente", icon: Users, run: go("/clientes") },
-      { id: "p-cmp", group: "Ir a", label: "Comparar rutas", hint: "Escenarios lado a lado", icon: Scale, run: go("/comparar") },
-      { id: "p-cot", group: "Ir a", label: "Cotización", hint: "Precio de un traslado con margen", icon: FileText, run: go("/cotizacion") },
-      { id: "p-cfg", group: "Ir a", label: "Configuración", icon: Settings, run: go("/configuracion") },
-      { id: "a-veh", group: "Acciones", label: "Agregar un vehículo", hint: "Flota", icon: Truck, run: go("/flota/nuevo") },
-      { id: "a-wh", group: "Acciones", label: "Crear una bodega", hint: "Bodegas", icon: Warehouse, run: go("/bodegas/nueva") },
-      { id: "a-new", group: "Acciones", label: "Crear envío", hint: "Simulador de rutas", icon: PackagePlus, run: go("/envios/nuevo") },
-      { id: "a-rep", group: "Acciones", label: "Descargar el reporte semanal", hint: "PDF", icon: FileText, run: () => { close(); window.open("/api/reports/operations?days=7", "_blank", "noopener"); } },
-      ...(fx?.rate ? [{ id: "a-cop", group: "Acciones" as const, label: "Mostrar costos en pesos (COP)", icon: Banknote, run: () => { setCurrency("COP"); close(); } }] : []),
-      { id: "a-usd", group: "Acciones", label: "Mostrar costos en dólares (USD)", icon: Banknote, run: () => { setCurrency("USD"); close(); } },
-      { id: "a-keys", group: "Acciones", label: "Ver atajos de teclado", hint: "?", icon: Keyboard, run: () => { close(); setTimeout(() => window.dispatchEvent(new Event(OPEN_SHORTCUTS_EVENT)), 0); } },
-      { id: "a-light", group: "Acciones", label: "Apariencia: claro", icon: Sun, run: () => { setTheme("light"); close(); } },
-      { id: "a-dark", group: "Acciones", label: "Apariencia: oscuro", icon: Moon, run: () => { setTheme("dark"); close(); } },
-    ];
-    const ships = shipments.map<Item>((s) => ({
-      id: `s-${s.code}`, group: "Envíos", label: s.code, hint: `${s.origin} → ${s.destination}`,
-      icon: Package,
-      // El código vuela desde la paleta hasta el encabezado del detalle
-      run: () => {
-        rememberCode(s.code, document.querySelector(`[data-code="${CSS.escape(s.code)}"]`));
-        go(`/envios/${s.code}`)();
-      },
-    }));
-    const cs = cities.map<Item>((c) => ({
-      id: `c-${c.city}`, group: "Ciudades", label: c.city, hint: "Ver en el mapa",
-      icon: MapPin, run: go(`/red?ciudad=${encodeURIComponent(c.city)}`),
-    }));
-    const vs = vehicles.map<Item>((v) => ({
-      id: `v-${v.id}`, group: "Vehículos", label: v.code, hint: `${v.vehicle_type} · ${v.mode_label}${v.home_name ? ` · ${v.home_name}` : ""}`,
-      icon: Truck, run: go(`/flota/${v.id}`),
-    }));
-    const ws = warehouses.map<Item>((w) => ({
-      id: `w-${w.warehouse_id}`, group: "Bodegas", label: w.name, hint: `${w.code} · ${w.city}`,
-      icon: Warehouse, run: go(`/bodegas/${w.warehouse_id}`),
-    }));
-    const cr = corridors.map<Item>((c) => ({
-      id: `r-${c.corridor}`, group: "Vías", label: c.corridor, hint: `${c.active ? "Activa" : "Cerrada"} · ${c.distance_fmt}`,
-      icon: TrafficCone, run: go("/vias"),
-    }));
-    return [...base, ...ships, ...cs, ...vs, ...ws, ...cr];
-  }, [shipments, cities, vehicles, warehouses, corridors, go, setCurrency, setTheme, close, fx]);
-
-  const localResults = useMemo(() => {
-    const texto = norm(q.trim());
-    if (!texto) return items.filter((i) => i.group === "Ir a" || i.group === "Acciones");
-    return items
-      .filter((i) => norm(`${i.label} ${i.hint ?? ""}`).includes(texto))
-      .sort((a, b) => Number(norm(b.label).startsWith(texto)) - Number(norm(a.label).startsWith(texto)))
-      .slice(0, 30);
-  }, [items, q]);
-
-  const serverFor = server.term === needle ? server : null;
-  const serverResults = useMemo(
-    () => (serverFor?.status === "done" ? serverItems(serverFor.items, go) : []),
-    [serverFor, go],
-  );
-  const buscandoServidor = needle.length >= 2 && !serverFor;
-  // «Sin resultados» solo si tampoco hay coincidencias locales (comandos o lo ya cargado) que mostrar
-  const sinServidor =
-    needle.length >= 2 && !buscandoServidor && serverFor?.status === "done" && serverResults.length === 0 &&
-    localResults.length === 0;
-  // Lo del servidor va primero (la sección «Resultados») y después los comandos y lo que ya estaba cargado, sin
-  // repetir lo que el servidor ya trajo (mismo grupo y mismo título)
-  const results = useMemo(() => {
-    const vistos = new Set(serverResults.map((r) => `${r.group}|${r.label}`));
-    return [...serverResults, ...localResults.filter((r) => !vistos.has(`${r.group}|${r.label}`))];
-  }, [serverResults, localResults]);
-
-  useEffect(() => {
-    listRef.current?.querySelector<HTMLElement>(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
-  }, [active]);
+  const onResults = useCallback((items: PaletteResult[]) => {
+    results.current = items;
+  }, []);
+  const onActiveId = useCallback((id: string | undefined) => setActiveId(id), []);
 
   const onInputKey = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActive((a) => Math.max(0, Math.min(a + 1, results.length - 1)));
+      setActive((a) => Math.max(0, Math.min(a + 1, results.current.length - 1)));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive((a) => Math.max(a - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      results[active]?.run();
+      results.current[active]?.run();
     } else if (e.key === "Escape") {
       close();
     }
   };
 
-  const value = useMemo(() => ({ open: show, shortcut: mac ? "⌘ K" : "Ctrl K" }), [show, mac]);
+  const value = useMemo(
+    () => ({ open: show, preload: preloadCommandPalette, shortcut: mac ? "⌘ K" : "Ctrl K" }),
+    [show, mac],
+  );
 
   return (
     <Ctx.Provider value={value}>
@@ -383,76 +169,20 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
                   role="combobox"
                   aria-expanded
                   aria-controls="palette-list"
-                  aria-activedescendant={results[active] ? `palette-${results[active].id}` : undefined}
+                  aria-activedescendant={activeId ? `palette-${activeId}` : undefined}
+                  aria-label="Buscar envíos, ciudades o comandos"
                   placeholder="Buscar envíos, ciudades o comandos"
                   className="h-14 w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
                 />
               </div>
-              <ul id="palette-list" role="listbox" ref={listRef} className="max-h-[50dvh] overflow-y-auto p-2">
-                {buscandoServidor && (
-                  <>
-                    <li role="presentation">
-                      <PaletteHeading strong>Resultados</PaletteHeading>
-                    </li>
-                    <li role="presentation" aria-live="polite" className="px-3 pb-2 text-xs text-muted-foreground">
-                      Buscando…
-                    </li>
-                  </>
-                )}
-                {sinServidor && (
-                  <>
-                    <li role="presentation">
-                      <PaletteHeading strong>Resultados</PaletteHeading>
-                    </li>
-                    <li role="presentation" className="px-3 pb-2 text-xs text-muted-foreground">
-                      Sin resultados.
-                    </li>
-                  </>
-                )}
-                {results.map((it, i) => {
-                  const Icon = it.icon;
-                  const prev = i > 0 ? results[i - 1] : null;
-                  const showSection = !!it.section && it.section !== prev?.section;
-                  const showGroup = showSection || !prev || prev.section !== it.section || prev.group !== it.group;
-                  return (
-                    <li key={it.id} role="presentation">
-                      {showSection && <PaletteHeading strong>{it.section}</PaletteHeading>}
-                      {showGroup && <PaletteHeading>{it.group}</PaletteHeading>}
-                      <div
-                        id={`palette-${it.id}`}
-                        role="option"
-                        aria-selected={i === active}
-                        data-index={i}
-                        onMouseMove={() => setActive(i)}
-                        onClick={it.run}
-                        className={cn(
-                          "flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm",
-                          i === active ? "bg-solid text-primary-foreground" : "",
-                        )}
-                      >
-                        <Icon className="size-4 shrink-0" aria-hidden />
-                        <span className="truncate font-medium" data-code={it.group === "Envíos" ? it.label : undefined}>
-                          {it.label}
-                        </span>
-                        {it.hint && (
-                          <span className={cn("truncate text-xs", i === active ? "opacity-80" : "text-muted-foreground")}>
-                            {it.hint}
-                          </span>
-                        )}
-                        {i === active && <CornerDownLeft className="ml-auto size-4 shrink-0 opacity-80" aria-hidden />}
-                      </div>
-                    </li>
-                  );
-                })}
-                {serverFor?.status === "done" && serverFor.truncated && serverResults.length > 0 && (
-                  <li role="presentation" className="px-3 pt-1 pb-2 text-xs text-muted-foreground">
-                    Hay más coincidencias: escribe un poco más para acotar.
-                  </li>
-                )}
-                {results.length === 0 && !buscandoServidor && !sinServidor && (
-                  <li className="px-3 py-8 text-center text-sm text-muted-foreground">Sin resultados para “{q.trim()}”.</li>
-                )}
-              </ul>
+              <PaletteBody
+                q={q}
+                active={active}
+                setActive={setActive}
+                onClose={close}
+                onResults={onResults}
+                onActiveId={onActiveId}
+              />
               <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5"><Kbd>↑</Kbd><Kbd>↓</Kbd> navegar</span>
                 <span className="flex items-center gap-1.5"><Kbd>Intro</Kbd> abrir</span>

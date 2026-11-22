@@ -14,6 +14,23 @@ import { expect, test, watchErrors } from "./helpers";
 
 const INICIO = "[data-empty-start]";
 
+test("en papel: cumplimiento y hoja de vida sin dock ni acciones de edición", async ({ page }) => {
+  await page.emulateMedia({ media: "print", colorScheme: "dark" });
+  const { items } = await (await page.request.get("/api/fleet/vehicles")).json() as { items: { id: number }[] };
+  expect(items.length).toBeGreaterThan(0);
+  for (const ruta of ["/hoy", `/flota/${items[0].id}`]) {
+    await page.goto(ruta);
+    await expect(page.locator("main h1").first()).toBeVisible();
+    await expect(page.locator("body")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(page.getByRole("navigation", { name: "Navegación principal", exact: true })).toHaveCount(0);
+    if (ruta === "/hoy") await expect(page.locator("#cumplimiento-t")).toBeVisible();
+    else {
+      await expect(page.getByRole("heading", { name: "Mantenimientos", exact: true })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Editar", exact: true })).toHaveCount(0);
+    }
+  }
+});
+
 test("envíos: una búsqueda sin resultados no es el inicio vacío", async ({ page, request }) => {
   const w = watchErrors(page);
   const { total } = (await (await request.get("/api/shipments?limit=1")).json()) as { total: number };

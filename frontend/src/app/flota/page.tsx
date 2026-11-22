@@ -23,10 +23,15 @@ export default function FlotaPage({ searchParams }: PageProps<"/flota">) {
         title="Flota de vehículos"
         description="Camiones, aviones de carga, convoyes, buques y trenes de la operación: su estado, cuánto falta para su mantenimiento, sus fallas y los envíos que llevan. Un vehículo con una falla que impide operar se inhabilita solo y sus envíos pasan a otro."
         actions={
-          <>
+          /*
+           * Los tres botones suman unos 337 px y en celular no caben al lado del título. El encabezado pone las
+           * acciones en su propia línea pero no las deja encoger, así que el grupo se limita al ancho útil de la
+           * página: a 320 px los botones bajan a una segunda fila en vez de desbordar a lo ancho.
+           */
+          <div className="flex max-w-[calc(100dvw_-_2rem)] flex-wrap items-center gap-2">
             <TableIO kind="vehiculos" />
             <BurstLink href="/flota/nuevo"><Plus /> Nuevo vehículo</BurstLink>
-          </>
+          </div>
         }
       />
       <Suspense fallback={<Skeleton className="h-[640px]" />}>

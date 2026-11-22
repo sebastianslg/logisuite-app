@@ -1,15 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 
-import { Sheet } from "@/components/ui/sheet";
 import { isPublicPath } from "@/components/shell/shell-only";
+
+/**
+ * La ayuda va en su propio trozo (la tecla «?» o la acción del menú la piden): así la primera pantalla no carga el
+ * contenido de la hoja solo para tenerla cerrada. Se pide al mostrar intención (puntero o foco) y al abrirla, nunca
+ * en reposo.
+ */
+const ShortcutsHelp = dynamic(() => import("@/components/shell/shortcuts-help").then((m) => m.ShortcutsHelp), {
+  ssr: false,
+});
+
+let helpRequested = false;
+/** Descarga la ayuda antes de abrirla (hover o foco); repetirlo no pide nada de nuevo. */
+export function preloadShortcutsHelp() {
+  if (helpRequested) return;
+  helpRequested = true;
+  void import("@/components/shell/shortcuts-help");
+}
 
 export const OPEN_SHORTCUTS_EVENT = "westvane:shortcuts";
 
 /** Teclas de navegación: "g" y luego una letra, como en las apps de escritorio. */
-const GO: { key: string; href: string; label: string }[] = [
+export const GO: { key: string; href: string; label: string }[] = [
   { key: "d", href: "/panel", label: "Ir al resumen" },
   { key: "e", href: "/envios", label: "Ir a envíos" },
   { key: "r", href: "/red", label: "Ir a la red multimodal" },
@@ -22,24 +39,11 @@ const GO: { key: string; href: string; label: string }[] = [
   { key: "s", href: "/configuracion", label: "Ir a configuración" },
 ];
 
-const HELP: { keys: string[]; label: string }[] = [
-  { keys: ["Ctrl", "K"], label: "Buscar o ejecutar un comando" },
-  { keys: ["/"], label: "Buscar (fuera de un campo de texto)" },
-  { keys: ["n"], label: "Crear un envío" },
-  ...GO.map((g) => ({ keys: ["g", g.key], label: g.label })),
-  { keys: ["?"], label: "Ver estos atajos" },
-  { keys: ["Esc"], label: "Cerrar paneles y hojas" },
-];
-
-/** Cómo se lee cada tecla con un lector de pantalla (las letras sueltas ya se leen bien). */
-const KEY_NAMES: Record<string, string> = {
-  "?": "signo de interrogación",
-  "/": "barra",
-  Esc: "Escape",
-};
-
-const keysLabel = (keys: string[]) =>
-  keys.map((k) => KEY_NAMES[k] ?? k).join(keys.length === 2 && keys[0] === "g" ? ", luego " : " más ");
+/** Teclas que llevan a `href`, para mostrarlas junto a la acción (menú del dock y paleta). */
+export function shortcutFor(href: string): string[] | undefined {
+  const target = GO.find((g) => g.href === href);
+  return target ? ["g", target.key] : undefined;
+}
 
 const isTyping = (t: EventTarget | null) => {
   const el = t as HTMLElement | null;
@@ -50,6 +54,8 @@ const isTyping = (t: EventTarget | null) => {
 export function Shortcuts() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  // Una vez abierta, la hoja sigue montada para que su salida se anime y el estado no se pierda
+  const [loaded, setLoaded] = useState(false);
   const pending = useRef<number | null>(null);
   // Estable: si este componente se vuelve a dibujar, la hoja no repite el efecto que mueve el foco
   const close = useCallback(() => setOpen(false), []);
@@ -64,6 +70,8 @@ export function Shortcuts() {
       if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target) || isPublicPath(window.location.pathname)) return;
       if (e.key === "?") {
         e.preventDefault();
+        preloadShortcutsHelp();
+        setLoaded(true);
         setOpen(true);
         clear();
         return;
@@ -84,7 +92,12 @@ export function Shortcuts() {
         router.push("/envios/nuevo");
       }
     };
-    const onOpen = () => setOpen(true);
+    const onOpen = () => {
+      // La acción que abre la ayuda (dock o Configuración) ya mostró intención: el trozo se pide aquí
+      preloadShortcutsHelp();
+      setLoaded(true);
+      setOpen(true);
+    };
     window.addEventListener("keydown", onKey);
     window.addEventListener(OPEN_SHORTCUTS_EVENT, onOpen);
     return () => {
@@ -94,29 +107,5 @@ export function Shortcuts() {
     };
   }, [router]);
 
-  return (
-    <Sheet open={open} onClose={close} title="Atajos de teclado" description="Para trabajar sin soltar el teclado">
-      <ul className="flex flex-col">
-        {HELP.map((h) => (
-          <li key={h.label} className="flex items-center justify-between gap-4 border-b border-border py-2.5 text-sm last:border-0">
-            <span>{h.label}</span>
-            <span className="flex shrink-0 items-center gap-1">
-              {/* El lector de pantalla oye la secuencia completa («Ctrl más K»), no dos teclas sueltas */}
-              <span className="sr-only">{keysLabel(h.keys)}</span>
-              <span aria-hidden className="flex items-center gap-1">
-                {h.keys.map((k, i) => (
-                  <span key={`${k}-${i}`} className="flex items-center gap-1">
-                    {i > 0 && h.keys[0] === "g" && <span className="text-xs text-muted-foreground">luego</span>}
-                    <kbd className="inline-flex min-w-6 items-center justify-center rounded-md border border-border-strong bg-fill px-1.5 py-0.5 text-xs leading-4 font-medium">
-                      {k}
-                    </kbd>
-                  </span>
-                ))}
-              </span>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </Sheet>
-  );
+  return loaded ? <ShortcutsHelp open={open} onClose={close} /> : null;
 }
