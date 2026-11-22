@@ -101,7 +101,8 @@ test("la ficha del envío empieza plana y el mapa 3D solo se monta al elegirlo",
 
   // La elección explícita sí monta el mapa real
   await ver3D.click();
-  await page.locator(".maplibregl-canvas").first().waitFor({ state: "attached", timeout: 30_000 });
+  // Sin mapa base (apagado por defecto, sección 77) deck.gl dibuja solo Colombia: no hay lienzo de MapLibre
+  await page.locator('[data-testid="mapa-colombia"]').first().waitFor({ state: "attached", timeout: 30_000 });
   await expect(ver3D).toHaveCount(0);
 
   watch.expectClean();
