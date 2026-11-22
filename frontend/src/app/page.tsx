@@ -27,7 +27,7 @@ export default function LandingPage() {
   return (
     <div data-public-page>
       <LandingHeader />
-      <div id="contenido">
+      <div>
         <Suspense fallback={<StoryFallback />}>
           <Story />
         </Suspense>

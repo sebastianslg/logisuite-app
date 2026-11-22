@@ -74,7 +74,7 @@ export function LoginScreen() {
         </Link>
       </header>
 
-      <div id="contenido" className="flex flex-1 items-start justify-center px-4 pt-[8vh] pb-16 sm:items-center sm:pt-0">
+      <div className="flex flex-1 items-start justify-center px-4 pt-[8vh] pb-16 sm:items-center sm:pt-0">
         <div className="rise-in w-full max-w-sm">
           <h1 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.03em]">Ingresar a Westvane</h1>
           <p className="mt-2 text-[0.9375rem] text-muted-foreground">
