@@ -23,3 +23,8 @@ frontend/playwright-report/
 
 # Configuración local de herramientas de agentes (rutas absolutas, no es del proyecto)
 .claude/
+
+# Skill «taste» (design-taste-frontend): 39 MB de recursos, instalada solo en este PC con npx skills add Leonxlnx/taste-skill
+.agents/skills/design-taste-frontend/
+.claude/skills/design-taste-frontend
+.taste-skill/
