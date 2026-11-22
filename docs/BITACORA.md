@@ -1543,3 +1543,17 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
 - **Arreglo hallado por la cobertura:** importar peajes con un archivo ilegible (base64 roto, CSV dañado) respondía 500; ahora 422
   con mensaje en español, y los errores de fila ya no muestran el texto de pandas en inglés.
 - **Verificación:** tsc, eslint y build limpios; 495 pruebas de la API; 47 de navegador × 2 corridas.
+
+## 70. Cierre de la ronda 3 (F6, F7, F8) y subida a producción
+
+- OpenChamber dejó sin commit las tareas F6, F7 y F8 de la ronda 3. Claude las verificó, corrigió dos pruebas y las subió.
+- **F6, filtros en la dirección:** en Flota (vehículos y fallas) y Bodegas, los filtros y el orden quedan en la URL; al
+  recargar o compartir el enlace se ve lo mismo (`components/fleet/filters.ts`).
+- **F7, borrador del envío nuevo:** se guarda en el navegador mientras se escribe, se ofrece al volver y se borra al
+  guardar, al descartar o al cerrar sesión (puede traer datos del cliente). Editar un envío existente no lo toca.
+- **F8, errores por sección:** en la ficha del envío, si fallan el mapa, la bitácora, la entrega, los adjuntos o el
+  historial, solo esa parte avisa (con «Reintentar» en el mapa) y el resto de la ficha sigue en pie.
+- **Pruebas corregidas:** la de errores buscaba el SVG de la vista previa, pero la ficha usa el mapa 3D; ahora comprueba
+  que «Reintentar» vuelve a pedir la red y el aviso se va. La del borrador comparaba también la hora del guardado, que
+  puede moverse una vez más en el envío nuevo; ahora compara solo los valores.
+- Pruebas: 495 de la API y 53 de navegador.
