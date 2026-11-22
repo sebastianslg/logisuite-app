@@ -1,0 +1,18 @@
+{
+  "version": 8,
+  "name": "Westvane · Colombia claro",
+  "metadata": {
+    "westvane:nota": "Estilo local sin fuentes externas ni teselas. Pinta el mar; la silueta de Colombia, la máscara y los datos los dibuja deck.gl. Si algún día se agregan teselas locales (PMTiles), van aquí como una fuente más.",
+    "westvane:atribucion": "Límites departamentales: DANE · MGN 2018"
+  },
+  "sources": {},
+  "layers": [
+    {
+      "id": "mar",
+      "type": "background",
+      "paint": {
+        "background-color": "#eef1f4"
+      }
+    }
+  ]
+}
