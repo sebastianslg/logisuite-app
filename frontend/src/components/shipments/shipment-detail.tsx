@@ -19,7 +19,7 @@ import { ExportActions } from "@/components/shipments/export-actions";
 import { SharedCode } from "@/components/shipments/shared-code";
 import { ShipmentAttachments } from "@/components/shipments/shipment-attachments";
 import { ShipmentJournal } from "@/components/shipments/shipment-journal";
-import { RouteChain } from "@/components/shipments/route-chain";
+import { RouteChain, RouteRule } from "@/components/shipments/route-chain";
 import { SectionBoundary, SectionError } from "@/components/shipments/section-error";
 import { ModeChain, ModeIcon, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -108,7 +108,7 @@ export function ShipmentDetail({
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <SharedCode code={s.code} className="font-mono text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] md:text-[2.25rem]" />
+              <SharedCode code={s.code} className="font-mono text-[1.0625rem] leading-tight font-semibold tracking-[-0.01em] text-muted-foreground md:text-[1.25rem]" />
               <StatusBadge status={s.status} />
               {s.route_status === "sin_ruta" && (
                 <Badge tone="danger">
@@ -118,10 +118,11 @@ export function ShipmentDetail({
               )}
               <Badge tone="neutral">{SOURCE[s.source]}</Badge>
             </div>
-            <p className="mt-2 text-[1.0625rem] font-medium tracking-[-0.01em]">
-              {s.origin} <span className="text-muted-foreground">→</span> {s.destination}
+            {/* La ruta es lo que se reconoce de un envío: va en grande; el código queda como título (lector, enlaces) */}
+            <p className="mt-2 text-[2rem] leading-[1.05] font-semibold tracking-[-0.035em] text-balance md:text-[2.75rem]">
+              {s.origin} <span className="font-normal text-muted-foreground/70">→</span> {s.destination}
             </p>
-            <p className="mt-0.5 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm text-muted-foreground">
               {s.cargo} · {s.client}
             </p>
           </div>
@@ -157,6 +158,7 @@ export function ShipmentDetail({
             </Button>
           </div>
         </div>
+        <RouteRule legs={legs} />
         {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
         {s.route_note && (
           <p

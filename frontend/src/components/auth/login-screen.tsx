@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, Eye, EyeOff, Mail } from "lucide-react";
 
 import { Wordmark } from "@/components/brand/logo";
+import { MODES } from "@/lib/modes";
+import type { Mode as TransportMode } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { getAuthToken, refreshUser, useAuth } from "@/lib/auth";
 
@@ -125,7 +127,8 @@ export function LoginScreen() {
         </Link>
       </header>
 
-      <div className="flex flex-1 items-start justify-center px-4 pt-[8vh] pb-16 sm:items-center sm:pt-0">
+      <div className="grid flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+      <div className="flex items-start justify-center px-4 pt-[8vh] pb-16 sm:items-center sm:pt-0">
         <div className="rise-in w-full max-w-sm">
           <h1 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.03em]">Ingresar a Westvane</h1>
           <p className="mt-2 text-[0.9375rem] text-muted-foreground">
@@ -310,6 +313,57 @@ export function LoginScreen() {
           </Link>
         </div>
       </div>
+      <NetworkPanel />
+      </div>
     </div>
+  );
+}
+
+const NETWORK: [TransportMode, number][] = [
+  ["aereo", 13437],
+  ["terrestre", 12628],
+  ["fluvial", 4480],
+  ["maritimo", 3340],
+  ["ferreo", 1464],
+];
+const TOTAL_KM = NETWORK.reduce((a, [, km]) => a + km, 0);
+
+/**
+ * Panel de escritorio junto al ingreso: la red real que la persona va a operar. Un trazo por modo, del largo de su red
+ * (el más largo llena la fila), que se dibuja al entrar y queda quieto. Con ícono y nombre: el modo nunca es solo color.
+ */
+function NetworkPanel() {
+  const max = NETWORK[0][1];
+  return (
+    <aside aria-label="La red de Westvane" className="relative hidden overflow-hidden border-l border-border bg-card lg:-mt-16 lg:flex lg:flex-col lg:justify-center lg:px-16 lg:pt-16 xl:px-24">
+      <p className="text-xs font-medium tracking-[0.02em] text-muted-foreground">La red que vas a operar</p>
+      <p className="mt-3 text-[3.5rem] leading-none font-semibold tracking-[-0.045em] tabular">
+        {TOTAL_KM.toLocaleString("es-CO")} <span className="text-[1.75rem] tracking-[-0.03em] text-muted-foreground">km</span>
+      </p>
+      <p className="mt-3 max-w-[40ch] text-[0.9375rem] leading-relaxed text-muted-foreground">
+        Carretera, río, mar, aire y tren de Colombia, con sus nodos, transbordos y cierres reales.
+      </p>
+      <ul className="mt-10 flex flex-col gap-5">
+        {NETWORK.map(([m, km], i) => {
+          const { icon: Icon, color, label } = MODES[m];
+          return (
+            <li key={m} className="grid grid-cols-[7.5rem_minmax(0,1fr)_4.5rem] items-center gap-4 text-sm">
+              <span className="flex items-center gap-2 font-medium">
+                <Icon className="size-4 shrink-0" style={{ color }} aria-hidden />
+                {label}
+              </span>
+              <span className="relative h-2" aria-hidden>
+                <span className="absolute inset-0 rounded-full bg-fill" />
+                <span
+                  className="network-seg absolute inset-y-0 left-0 !h-full"
+                  style={{ width: `${(km / max) * 100}%`, backgroundColor: color, "--i": i + 2 } as React.CSSProperties}
+                />
+              </span>
+              <span className="tabular text-right text-muted-foreground">{km.toLocaleString("es-CO")} km</span>
+            </li>
+          );
+        })}
+      </ul>
+    </aside>
   );
 }

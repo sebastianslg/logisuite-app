@@ -94,3 +94,25 @@ export function RouteChain({
     </div>
   );
 }
+
+/**
+ * La firma de la ficha: la misma línea de red del encabezado de cada pantalla, pero con los tramos de este envío (color de
+ * su modo, largo según su distancia) y un nodo en cada transbordo. Decorativa: la cadena detallada va más abajo.
+ */
+export function RouteRule({ legs }: { legs: Leg[] }) {
+  if (legs.length === 0) return null;
+  return (
+    <div className="network-rule mt-6 flex items-center md:mt-7" aria-hidden>
+      <span className="network-node" style={{ "--i": 0 } as React.CSSProperties} />
+      {legs.map((l, i) => (
+        <span key={i} className="contents">
+          <span
+            className="network-seg"
+            style={{ flexGrow: Math.max(l.distance_km ?? 0, 1), backgroundColor: MODES[l.mode].color, "--i": i } as React.CSSProperties}
+          />
+          <span className="network-node" style={{ "--i": i + 1 } as React.CSSProperties} />
+        </span>
+      ))}
+    </div>
+  );
+}

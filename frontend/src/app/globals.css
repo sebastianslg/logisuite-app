@@ -581,6 +581,51 @@ main:has([data-public-page]) {
     transform: translateY(12px);
   }
 }
+/* Línea de red bajo el título (page-header.tsx): cada tramo crece de izquierda a derecha, 60 ms después del anterior,
+   y los nodos aparecen cuando el trazo llega. Solo transform y opacidad; luego queda quieta. */
+.network-rule {
+  gap: 3px;
+}
+.network-seg {
+  height: 2px;
+  flex-basis: 0;
+  border-radius: 999px;
+  transform-origin: left center;
+  animation: seg-draw 0.55s cubic-bezier(0.23, 1, 0.32, 1) backwards;
+  animation-delay: calc(0.12s + var(--i) * 60ms);
+}
+.network-node {
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--background);
+  box-shadow: inset 0 0 0 1.5px var(--foreground);
+  animation: node-in 0.3s cubic-bezier(0.23, 1, 0.32, 1) backwards;
+  animation-delay: calc(0.12s + var(--i) * 60ms);
+}
+@keyframes seg-draw {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes node-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+.stamp-in {
+  animation: fade-in 0.3s var(--ease-apple) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .network-seg,
+  .network-node,
+  .stamp-in {
+    animation: none;
+  }
+}
+
 /* Transición de vista (template.tsx): fundido de 220 ms con 4 px de subida, hecha con CSS para que no espere a la
    hidratación: con framer-motion el HTML del servidor llegaba con opacity:0 y el LCP esperaba al JavaScript. */
 .view-in {

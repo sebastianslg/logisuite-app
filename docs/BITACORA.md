@@ -1641,3 +1641,21 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
   desajustar la hidratación si el navegador está en otra zona horaria que el servidor.
 - **Verificación:** tsc, eslint y build limpios; **553 pruebas de la API**; **74 de navegador** (73 en la corrida completa y la que
   falló, `ingreso.spec.ts`, por un corte de red del equipo —`net::ERR_NETWORK_CHANGED`—, pasó al repetirla).
+
+## 74. Firma visual propia: la línea de red, la ficha con la ruta en grande y el ingreso con la red
+
+- **Pedido del dueño:** que no se vea genérica; con las guías de Emil Kowalski (`.agents/skills/emil-design-eng`) e
+  impeccable. Diagnóstico con capturas: todas las pantallas repetían el mismo molde (título, párrafo gris, botones, tarjetas)
+  sin nada propio de un sistema de transporte.
+- **Línea de red (en `PageHeader`, todas las pantallas de la app):** bajo el título, un trazo con los cinco modos; cada
+  tramo mide lo que su red real en kilómetros (aéreo 13.437, terrestre 12.628, fluvial 4.480, marítimo 3.340, férreo
+  1.464), con un nodo en cada unión. Se dibuja de izquierda a derecha al entrar (escala en X, 60 ms entre tramos, curva
+  de salida fuerte `cubic-bezier(0.23, 1, 0.32, 1)`), luego queda quieta. Nada con «reducir movimiento».
+- **«Operación en vivo»** sobre cada título: hora de Bogotá (`shell/live-stamp.tsx`), solo en el navegador (el HTML
+  prerenderizado no puede llevar la hora), cada 30 s y solo con la pestaña visible; el punto no pulsa.
+- **Ficha del envío:** la ruta (origen → destino) pasa a ser lo grande; el código sigue siendo el título (lector de
+  pantalla, pruebas y la transición desde la lista) pero en pequeño y monoespaciado. Debajo, la misma línea de la firma
+  con los tramos de ese envío (`RouteRule`: color de su modo, largo según su distancia).
+- **Ingreso (`/ingresar`) en escritorio:** a la derecha, la red que se va a operar: 35.349 km y un trazo por modo
+  proporcional a sus kilómetros, con ícono y nombre, que se dibuja al entrar.
+- Pruebas: 553 de la API y 74 de navegador (accesibilidad en claro y oscuro incluida).

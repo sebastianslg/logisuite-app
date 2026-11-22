@@ -83,7 +83,7 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     real (v18), httpx2 sin advertencia, y cobertura al 84 % con fx/tolls/shipments_io probados a fondo; importar peajes ilegible
     ya no da 500. 495 pruebas de la API, 47 e2e × 2. Falta: ronda 4 (F6 filtros de Flota/Bodegas en la URL, F7 borrador del envío
     nuevo, F8 errores por sección en la ficha).
-- **En curso / a medias:** nada. Tanda 2 completa en `desarrollo` (secciones 71 a 73), **sin desplegar ni subida a `main`**: ETag/304 de la
+- **En curso / a medias:** nada. Tanda 2 (secciones 71 a 73) y firma visual (74) en producción.
   red, atajos y contraste (71); mis sesiones, último ingreso, búsqueda global, inicio vacío e impresión, con la migración v19 (72);
   cumplimiento, accesibilidad, rendimiento medido y parches de dependencias (73). Producción sigue en la sección 70. Para subir:
   `git log origin/main..desarrollo`, las verificaciones de `AGENTS.md` y el procedimiento de «Subir a main». Ojo al desplegar: hay
