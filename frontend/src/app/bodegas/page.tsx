@@ -5,7 +5,7 @@ import { PageHeader, Skeleton } from "@/components/page-header";
 import { BurstLink } from "@/components/ui/burst-link";
 import { TableIO } from "@/components/ui/table-io";
 import { TransfersBoard } from "@/components/warehouses/transfers-board";
-import { WarehouseBoard } from "@/components/warehouses/warehouse-board";
+import { WarehouseBoard, type WarehouseFilters } from "@/components/warehouses/warehouse-board";
 import { WarehouseTabs, type WarehouseTab } from "@/components/warehouses/warehouse-tabs";
 import { apiGet } from "@/lib/api";
 import type { Warehouse, WarehouseRole, WarehouseSummary, WarehouseTransfer } from "@/lib/types";
@@ -33,23 +33,31 @@ export default function BodegasPage({ searchParams }: PageProps<"/bodegas">) {
 }
 
 async function Content({ searchParams }: { searchParams: PageProps<"/bodegas">["searchParams"] }) {
-  const ver = (await searchParams).ver;
+  const sp = await searchParams;
+  const ver = sp.ver;
   const tab: WarehouseTab = ver === "traslados" ? "traslados" : "red";
+  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  // Los filtros se leen de la URL en el servidor: la lista se pinta ya filtrada y el enlace se puede compartir
+  const filters: WarehouseFilters = {
+    q: first(sp.q) ?? "",
+    role: first(sp.rol) ?? "",
+    alerts: first(sp.alertas) === "1",
+  };
   const summary = await apiGet<WarehouseSummary>("/api/warehouses/summary");
   return (
     <>
       <div><WarehouseTabs current={tab} transit={summary.in_transit} /></div>
-      <div className="mt-6">{tab === "red" ? <Network summary={summary} /> : <Transfers />}</div>
+      <div className="mt-6">{tab === "red" ? <Network summary={summary} filters={filters} /> : <Transfers />}</div>
     </>
   );
 }
 
-async function Network({ summary }: { summary: WarehouseSummary }) {
+async function Network({ summary, filters }: { summary: WarehouseSummary; filters: WarehouseFilters }) {
   const [w, r] = await Promise.all([
     apiGet<{ items: Warehouse[] }>("/api/warehouses"),
     apiGet<{ items: WarehouseRole[] }>("/api/warehouses/roles"),
   ]);
-  return <WarehouseBoard warehouses={w.items} summary={summary} roles={r.items} />;
+  return <WarehouseBoard warehouses={w.items} summary={summary} roles={r.items} initial={filters} />;
 }
 
 async function Transfers() {

@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronRight, MapPin, Search, Truck } from "lucide-react";
 
 import { GroupBlock } from "@/components/corridors/group-block";
@@ -13,12 +14,89 @@ import { cn } from "@/lib/utils";
 import { WarehouseNetworkMap } from "./network-map";
 import { Capabilities, n0, OccupancyBar, RoleIcon, WarehouseStatusBadge } from "./status";
 
-/** Red de bodegas: indicadores, filtros por rol, esquema hub-and-spoke y la lista agrupada por ciudad. */
-export function WarehouseBoard({ warehouses, summary, roles }: { warehouses: Warehouse[]; summary: WarehouseSummary; roles: WarehouseRole[] }) {
-  const [query, setQuery] = useState("");
-  const [role, setRole] = useState<string | null>(null);
-  const [alertsOnly, setAlertsOnly] = useState(false);
+/** Filtros de la red de bodegas. Viven en la URL (`?q=…&rol=…&alertas=1`) para que el enlace restaure la vista. */
+export interface WarehouseFilters {
+  q: string;
+  /** Clave del rol (?rol=hub); vacío, todos. */
+  role: string;
+  /** Solo bodegas con avisos de inventario (?alertas=1). */
+  alerts: boolean;
+}
+
+/** Firma estable de los filtros, para distinguir un cambio de URL propio de uno que llega de fuera. */
+const warehouseKey = (f: WarehouseFilters) => JSON.stringify([f.q.trim(), f.role, f.alerts]);
+
+/** Enlace de la red con estos filtros; sin filtros, la ruta limpia. */
+function warehouseHref(f: WarehouseFilters): string {
+  const sp = new URLSearchParams();
+  if (f.q.trim()) sp.set("q", f.q.trim());
+  if (f.role) sp.set("rol", f.role);
+  if (f.alerts) sp.set("alertas", "1");
+  const qs = sp.toString();
+  return `/bodegas${qs ? `?${qs}` : ""}`;
+}
+
+/**
+ * Red de bodegas: indicadores, filtros por rol, esquema hub-and-spoke y la lista agrupada por ciudad.
+ * Los filtros viven en la URL (`initial` llega del servidor) y cada cambio navega a esa URL.
+ */
+export function WarehouseBoard({ warehouses, summary, roles, initial }: { warehouses: Warehouse[]; summary: WarehouseSummary; roles: WarehouseRole[]; initial: WarehouseFilters }) {
+  const router = useRouter();
+  const [query, setQuery] = useState(initial.q);
+  // Un rol que ya no existe (o un enlace viejo) se ignora en vez de dejar la lista vacía
+  const [role, setRole] = useState<string | null>(roles.some((r) => r.key === initial.role) ? initial.role : null);
+  const [alertsOnly, setAlertsOnly] = useState(initial.alerts);
   const [open, setOpen] = useState<Record<string, boolean>>({});
+
+  const inicialKey = warehouseKey(initial);
+  const confirmada = useRef(inicialKey);
+  const primeraVez = useRef(true);
+
+  /** Navega con los filtros nuevos; los que no cambian se conservan. Igual que `irA` en la lista de envíos. */
+  function irA(cambios: Partial<WarehouseFilters>, modo: "push" | "replace" = "push") {
+    const next: WarehouseFilters = { q: query, role: role ?? "", alerts: alertsOnly, ...cambios };
+    // Lo que esta pantalla escribe queda confirmado: al volver del servidor no se pisa lo que se está escribiendo
+    confirmada.current = warehouseKey(next);
+    const href = warehouseHref(next);
+    if (modo === "replace") router.replace(href, { scroll: false });
+    else router.push(href, { scroll: false });
+  }
+
+  function quitarFiltros() {
+    setQuery("");
+    setRole(null);
+    setAlertsOnly(false);
+    irA({ q: "", role: "", alerts: false });
+  }
+
+  function toggleAlertas() {
+    const next = !alertsOnly;
+    setAlertsOnly(next);
+    irA({ alerts: next });
+  }
+
+  // Un cambio de URL que no nació aquí (atrás/adelante, un enlace o la pestaña): manda la URL
+  useEffect(() => {
+    if (inicialKey === confirmada.current) return;
+    confirmada.current = inicialKey;
+    setQuery(initial.q);
+    setRole(roles.some((r) => r.key === initial.role) ? initial.role : null);
+    setAlertsOnly(initial.alerts);
+  }, [inicialKey, initial, roles]);
+
+  // La búsqueda se escribe al instante en la lista y, tras una pausa, también en la URL (sin una entrada por tecla)
+  useEffect(() => {
+    if (primeraVez.current) {
+      primeraVez.current = false;
+      return;
+    }
+    const t = setTimeout(() => {
+      if (query.trim() !== initial.q.trim()) irA({ q: query }, "replace");
+    }, 400);
+    return () => clearTimeout(t);
+    // También al cambiar otro filtro: el temporizador pendiente no debe escribir una URL con el estado viejo
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, role, alertsOnly]);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -55,7 +133,7 @@ export function WarehouseBoard({ warehouses, summary, roles }: { warehouses: War
         items={[
           { label: "Bodegas", value: summary.warehouses, hint: `en ${summary.cities} ciudades · ${summary.operating} operativas` },
           { label: "Ocupación", value: `${summary.occupancy_pct.toLocaleString("es-CO")} %`, hint: `${n0(summary.used_m3)} de ${n0(summary.capacity_m3)} m³`, tone: summary.occupancy_pct >= 90 ? "danger" : summary.occupancy_pct >= 75 ? "warning" : undefined },
-          { label: "Bajo el mínimo", value: summary.low_stock_lines, hint: "productos por reponer", tone: summary.low_stock_lines ? "danger" : undefined, active: alertsOnly, onClick: () => setAlertsOnly(!alertsOnly) },
+          { label: "Bajo el mínimo", value: summary.low_stock_lines, hint: "productos por reponer", tone: summary.low_stock_lines ? "danger" : undefined, active: alertsOnly, onClick: toggleAlertas },
           { label: "En exceso", value: summary.over_stock_lines, hint: `${summary.full_warehouses.length} ${summary.full_warehouses.length === 1 ? "bodega casi llena" : "bodegas casi llenas"}`, tone: summary.over_stock_lines ? "warning" : undefined },
           { label: "Traslados en tránsito", value: summary.in_transit, hint: "entre bodegas", href: "/bodegas?ver=traslados" },
         ]}
@@ -69,12 +147,12 @@ export function WarehouseBoard({ warehouses, summary, roles }: { warehouses: War
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar bodega, ciudad o responsable" aria-label="Buscar bodegas"
                 className="h-10 w-full field pr-3 pl-9 text-sm outline-none" />
             </label>
-            <button type="button" aria-pressed={alertsOnly} onClick={() => setAlertsOnly(!alertsOnly)}
+            <button type="button" aria-pressed={alertsOnly} onClick={toggleAlertas}
               className={cn("press flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors", alertsOnly ? "border-warning/50 bg-warning/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}>
               Con alertas {alerts ? <span className="tabular font-semibold">{warehouses.filter((w) => w.alerts.length).length}</span> : null}
             </button>
             {filtering && (
-              <button type="button" className="press text-xs text-primary hover:underline" onClick={() => { setQuery(""); setRole(null); setAlertsOnly(false); }}>
+              <button type="button" className="press text-xs text-primary hover:underline" onClick={quitarFiltros}>
                 Quitar filtros
               </button>
             )}
@@ -83,7 +161,7 @@ export function WarehouseBoard({ warehouses, summary, roles }: { warehouses: War
             {roles.map((r) => {
               const on = role === r.key;
               return (
-                <button key={r.key} type="button" aria-pressed={on} onClick={() => setRole(on ? null : r.key)} title={`${r.description} Almacena: ${r.stores}`}
+                <button key={r.key} type="button" aria-pressed={on} onClick={() => { setRole(on ? null : r.key); irA({ role: on ? "" : r.key }); }} title={`${r.description} Almacena: ${r.stores}`}
                   className={cn("press flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-xs transition-colors", on ? "border-primary/40 bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}>
                   <RoleIcon role={r.key} className="size-3.5" />
                   {r.label}
@@ -96,7 +174,7 @@ export function WarehouseBoard({ warehouses, summary, roles }: { warehouses: War
 
           <p className="tabular text-xs text-muted-foreground" aria-live="polite">{list.length} de {warehouses.length} bodegas en {groups.length} ciudades</p>
           <ul className="flex flex-col gap-1">
-            {groups.length === 0 && <li className="glass rounded-3xl"><EmptyState title="Ninguna bodega coincide" description="Prueba con otra ciudad o quita los filtros." action={{ label: "Quitar filtros", onClick: () => { setQuery(""); setRole(null); setAlertsOnly(false); } }} /></li>}
+            {groups.length === 0 && <li className="glass rounded-3xl"><EmptyState title="Ninguna bodega coincide" description="Prueba con otra ciudad o quita los filtros." action={{ label: "Quitar filtros", onClick: quitarFiltros }} /></li>}
             {groups.map((g, i) => (
               <GroupBlock key={g.city} title={g.city} count={g.items.length} icon={<MapPin className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
                 open={open[g.city] ?? (filtering || i < 4)} onToggle={() => setOpen((o) => ({ ...o, [g.city]: !(o[g.city] ?? (filtering || i < 4)) }))}>
