@@ -1557,3 +1557,23 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
   que «Reintentar» vuelve a pedir la red y el aviso se va. La del borrador comparaba también la hora del guardado, que
   puede moverse una vez más en el envío nuevo; ahora compara solo los valores.
 - Pruebas: 495 de la API y 53 de navegador.
+
+## 71. Tanda 2, ronda 1: caché de la red, ayuda de atajos y contraste del tema oscuro
+
+- **B1 caché del navegador (ETag/304):** `/api/network/multimodal` y `/api/geo/departments` llevan ETag (hash del contenido) y
+  `Cache-Control: no-cache`; con `If-None-Match` vigente devuelven 304 sin cuerpo. Medido con TestClient: 156.456 B sin comprimir
+  (24.920 B con gzip) la primera vez y ~214 B de cabeceras en las siguientes. El proxy de Next tuvo que reenviar `If-None-Match`
+  y devolver `etag/cache-control/vary`: sin eso el navegador nunca veía el validador. Solo esas lecturas usan `cache: no-cache`;
+  el resto de la app sigue en `no-store`. Costo: ya no comparten la caché de lecturas de 5 s (10 a 22 ms por petición) y el JSON se
+  serializa dos veces (pendiente opcional: cachear `network_geojson` o hashear los bytes ya serializados).
+- **F2 ayuda de atajos:** la hoja de `?` ya existía; se añadió el acceso visible en Configuración > Ayuda, la lista se lee completa
+  con lector de pantalla y `Sheet` ganó trampa de foco, título/descripción asociados, cierre por ref (un redibujo ya no roba el foco)
+  y solo cuenta lo tabulable. Capas ordenadas: hoja 70 < acceso 72 < paleta 75 < avisos y consentimiento 80.
+- **F1 revisión visual (claro/oscuro, escritorio/celular):** de lo nuevo (ingresar, esqueletos, errores por sección, borrador,
+  cambiar contraseña, dock con la cuenta) solo había un fallo real: blanco sobre el rojo suave del tema oscuro daba 2,8:1 (botón
+  «Cerrar sesión») y sobre el naranja 2,1:1 (contador de avisos). Tokens `--on-danger` y `--on-warning`. En celular, las hojas
+  modales quedaban debajo del dock; ahora van encima. Sin desborde horizontal a 412 px.
+- **Revisión:** además del contraste del contador de avisos, la paleta (Ctrl K) quedaba tapada por la hoja abierta; las dos
+  cosas se corrigieron. Falta probar con varios controles la trampa de foco (la e2e usa una hoja de un solo botón).
+- **Pendiente de la tanda:** B2 (último ingreso por usuario) pasa a la ronda 2 porque toca las rutas de administración de `main.py`.
+- **Verificación:** tsc, eslint y build limpios; 503 pruebas de la API; 60 de navegador.
