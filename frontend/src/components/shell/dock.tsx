@@ -17,6 +17,7 @@ import {
   Keyboard,
   LayoutDashboard,
   Leaf,
+  LogOut,
   Network,
   Package,
   Search,
@@ -33,7 +34,9 @@ import { useCommandPalette } from "@/components/shell/command-palette";
 import { OPEN_SHORTCUTS_EVENT } from "@/components/shell/shortcuts";
 import { AlertCount, AlertsList, AlertsMenu, useAlerts } from "@/components/shell/alerts-menu";
 import { CurrencyControl, ThemeControl } from "@/components/shell/toolbar";
-import { useAuth } from "@/lib/auth";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useAuth, type AuthUser } from "@/lib/auth";
 import { openAuthModal } from "@/components/auth/login-dialog";
 import { Mail } from "lucide-react";
 import { EASE, SPRING, stagger } from "@/lib/motion";
@@ -202,6 +205,7 @@ function DesktopDock() {
             {showLabels && <span className="hidden xl:inline">Buscar</span>}
             <kbd className="hidden rounded-full border border-border-strong px-1.5 text-[11px] font-medium lg:inline">{shortcut}</kbd>
           </button>
+          <AccountMenu showLabel={showLabels} />
         </motion.div>
       </motion.header>
     </div>
@@ -376,6 +380,142 @@ function MoreMenu({
                 Atajos de teclado
                 <kbd className="ml-auto rounded-md border border-border-strong px-1.5 text-xs font-medium">?</kbd>
               </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Cuenta (escritorio)                                                 */
+/* ------------------------------------------------------------------ */
+
+/** Nombre del rol si el servidor no manda `role_label`. */
+const ROLE_LABEL: Record<AuthUser["role"], string> = {
+  admin: "Administrador",
+  operador: "Operador",
+  lector: "Lector",
+};
+
+function roleLabel(user: AuthUser) {
+  return user.role_label || ROLE_LABEL[user.role] || user.role;
+}
+
+function roleTone(role: AuthUser["role"]): "accent" | "info" | "neutral" {
+  if (role === "admin") return "accent";
+  if (role === "operador") return "info";
+  return "neutral";
+}
+
+/** Iniciales del nombre: la primera letra y la del apellido (el avatar de la cuenta). */
+function initialsOf(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (parts[0][0] + last).toUpperCase();
+}
+
+/**
+ * Quién tiene la sesión: en el dock, la inicial, el nombre y el rol (el nombre se recorta antes de desbordar);
+ * al pulsar, el menú de cuenta con el nombre completo, el rol, la empresa y «Cerrar sesión» directo.
+ * Sin sesión no dibuja nada: el acceso de cuenta sigue en «Más», como siempre.
+ */
+function AccountMenu({ showLabel }: { showLabel: boolean }) {
+  const { user, logout } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const id = useId();
+  const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  if (!user) return null;
+
+  const name = user.full_name || user.username;
+  const label = roleLabel(user);
+
+  // El cierre de sesión ya lleva a /ingresar (lib/auth.ts); aquí solo se evita pulsar dos veces mientras responde
+  const exit = async () => {
+    setBusy(true);
+    try {
+      await logout();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={id}
+        title={`${name} · ${label}`}
+        className={cn(
+          "press flex h-10 min-w-10 items-center gap-2 rounded-full px-1.5 text-foreground hover:bg-fill/70 pointer-coarse:h-11 pointer-coarse:min-w-11",
+          ring,
+        )}
+      >
+        <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/12 text-xs font-semibold text-primary">
+          {initialsOf(name)}
+        </span>
+        <span className="sr-only">
+          Cuenta de {name}, {label}
+        </span>
+        {showLabel && (
+          <span aria-hidden className="hidden min-w-0 max-w-[10.5rem] text-left xl:block">
+            <span className="block truncate text-[13px] leading-tight font-medium">{name}</span>
+            <span className="block truncate text-xs leading-tight text-muted-foreground">{label}</span>
+          </span>
+        )}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            id={id}
+            role="group"
+            aria-label="Cuenta"
+            initial={{ opacity: 0, scale: 0.96, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.2, ease: EASE } }}
+            exit={{ opacity: 0, scale: 0.96, y: -6, transition: { duration: 0.15, ease: EASE } }}
+            style={{ transformOrigin: "top right" }}
+            className="floating absolute top-full right-0 z-40 mt-3 w-[min(20rem,calc(100vw-2rem))] rounded-[20px] p-2"
+          >
+            <div className="px-3 pt-2 pb-3">
+              <p className="text-sm leading-snug font-semibold [overflow-wrap:anywhere]">{name}</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <Badge tone={roleTone(user.role)}>{label}</Badge>
+                {user.email && <span className="min-w-0 truncate text-xs text-muted-foreground">{user.email}</span>}
+              </div>
+              {user.company && <p className="mt-1 truncate text-xs text-muted-foreground">{user.company.name}</p>}
+            </div>
+            <div className="border-t border-border pt-2">
+              <Button variant="destructive" className="w-full" onClick={() => void exit()} disabled={busy}>
+                <LogOut className="size-4" aria-hidden />
+                Cerrar sesión
+              </Button>
             </div>
           </motion.div>
         )}
@@ -564,7 +704,7 @@ function MobileDock() {
                 <ThemeControl segmented />
               </div>
               <div className="mt-3 border-t border-border pt-3">
-                <OperatorField onNavigate={() => setOpen(false)} />
+                <OperatorField onNavigate={() => setOpen(false)} showLogout />
               </div>
             </motion.section>
           </div>
@@ -655,35 +795,49 @@ function SystemStatusText() {
 }
 
 /** Nombre del operador: firma los cambios en el historial (o usuario autenticado por correo). */
-function OperatorField({ onNavigate }: { onNavigate?: () => void }) {
+function OperatorField({ onNavigate, showLogout = false }: { onNavigate?: () => void; showLogout?: boolean }) {
   const { operator, setOperator } = useApp();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const [busy, setBusy] = useState(false);
   // Cierra el menú que contiene este campo: el diálogo de ingreso no debe quedar tapado por el menú «Más»
   const openAccount = () => {
     onNavigate?.();
     openAuthModal();
   };
+  // En el celular el cierre de sesión va directo aquí; el escritorio lo tiene en el menú de cuenta del dock
+  const exit = async () => {
+    setBusy(true);
+    try {
+      await logout();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (user) {
+    const name = user.full_name || user.username;
+    const label = roleLabel(user);
     return (
       <div className="px-1 pb-2">
         <span className="mb-1.5 flex items-center gap-1.5 px-2 text-xs text-muted-foreground">
           <UserRound className="size-3.5" aria-hidden /> Usuario autenticado
         </span>
-        <div className="rounded-xl bg-fill p-2.5 flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 rounded-xl bg-fill p-2.5">
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold text-foreground truncate">{user.full_name || user.username}</span>
-              <span className="text-xs rounded px-1.5 py-0.5 bg-primary/15 text-primary font-medium">{user.role_label}</span>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="min-w-0 truncate text-xs font-semibold text-foreground">{name}</span>
+              <span className="max-w-[50%] shrink-0 truncate rounded-full bg-primary/15 px-1.5 py-0.5 text-xs font-medium text-primary">
+                {label}
+              </span>
             </div>
             {user.company && (
-              <span className="text-xs text-muted-foreground block truncate">{user.company.name}</span>
+              <span className="block truncate text-xs text-muted-foreground">{user.company.name}</span>
             )}
           </div>
           <button
             type="button"
             onClick={openAccount}
-            className="text-xs text-primary hover:underline shrink-0 font-medium"
+            className={cn("press shrink-0 rounded-lg px-2 text-xs font-medium text-primary hover:bg-primary/10 pointer-coarse:min-h-11", ring)}
           >
             Cuenta
           </button>
@@ -692,10 +846,16 @@ function OperatorField({ onNavigate }: { onNavigate?: () => void }) {
           <Link
             href="/administracion"
             onClick={onNavigate}
-            className="mt-1.5 block rounded-lg px-2 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
+            className={cn("mt-1.5 flex items-center rounded-lg px-2 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 pointer-coarse:min-h-11", ring)}
           >
             Administrar usuarios y empresas
           </Link>
+        )}
+        {showLogout && (
+          <Button variant="destructive" className="mt-2 w-full" onClick={() => void exit()} disabled={busy}>
+            <LogOut className="size-4" aria-hidden />
+            Cerrar sesión
+          </Button>
         )}
       </div>
     );
