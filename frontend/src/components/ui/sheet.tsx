@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 
@@ -9,10 +9,14 @@ import { EASE, T_VIEW } from "@/lib/motion";
 import { useMedia } from "@/lib/use-media";
 import { cn } from "@/lib/utils";
 
+/** Lo enfocable dentro de la hoja: el Tab no debe escaparse a la página que queda detrás. */
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 /**
  * Hoja modal. En pantallas anchas es un inspector que entra por la derecha; en móvil, una hoja
  * inferior con agarradera que se cierra deslizándola hacia abajo. Esc o tocar fuera la cierran,
- * el foco entra en la hoja y vuelve a lo que la abrió.
+ * el foco entra en la hoja, se queda dentro mientras está abierta y vuelve a lo que la abrió.
  */
 export function Sheet({
   open,
@@ -32,8 +36,17 @@ export function Sheet({
   className?: string;
 }) {
   const mobile = useMedia("(max-width: 767px)");
+  const titleId = useId();
+  const descriptionId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const opener = useRef<HTMLElement | null>(null);
+  // El cierre llega por ref: casi todas las hojas pasan una flecha nueva en cada render, y si fuera una dependencia del
+  // efecto, cada redibujo del dueño devolvería el foco al botón de cerrar y perdería a qué elemento volver.
+  const closeFn = useRef(onClose);
+  useEffect(() => {
+    closeFn.current = onClose;
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -41,7 +54,36 @@ export function Sheet({
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        closeFn.current();
+        return;
+      }
+      if (e.key !== "Tab" || !panelRef.current) return;
+      // El foco queda dentro de la hoja (aria-modal): al pasar del último elemento vuelve al primero
+      // Solo lo que el Tab de verdad visita: visible, sin tabindex=-1 y, en un grupo de radios, el marcado
+      const items = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+        (el) =>
+          el.getClientRects().length > 0 &&
+          el.tabIndex >= 0 &&
+          !(el instanceof HTMLInputElement && el.type === "radio" && !el.checked && el.name && el.form?.querySelector(`input[name="${el.name}"]:checked`)),
+      );
+      if (!items.length) {
+        e.preventDefault();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (!panelRef.current.contains(active)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
     const t = setTimeout(() => closeRef.current?.focus(), 50);
@@ -49,14 +91,18 @@ export function Sheet({
       window.removeEventListener("keydown", onKey);
       clearTimeout(t);
       document.body.style.overflow = prevOverflow;
-      opener.current?.focus?.();
+      // Vuelve a lo que la abrió; si ese elemento ya no existe (un ítem de un menú que se cerró),
+      // el foco va al contenido en lugar de quedarse en el <body>.
+      const back = opener.current;
+      if (back?.isConnected) back.focus();
+      else document.getElementById("contenido")?.focus({ preventScroll: true });
     };
-  }, [open, onClose]);
+  }, [open]);
 
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50" role="presentation">
+        <div className="fixed inset-0 z-[70]" role="presentation">
           <motion.div
             className="absolute inset-0 bg-black/40"
             initial={{ opacity: 0 }}
@@ -67,9 +113,11 @@ export function Sheet({
             aria-hidden
           />
           <motion.section
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
-            aria-label={title}
+            aria-labelledby={titleId}
+            aria-describedby={description ? descriptionId : undefined}
             initial={mobile ? { y: "100%" } : { x: 48, opacity: 0 }}
             animate={mobile ? { y: 0 } : { x: 0, opacity: 1 }}
             exit={mobile ? { y: "100%" } : { x: 48, opacity: 0 }}
@@ -91,8 +139,8 @@ export function Sheet({
             <div className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-border-strong md:hidden" aria-hidden />
             <header className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
               <div className="min-w-0">
-                <h2 className="truncate text-lg font-bold tracking-tight">{title}</h2>
-                {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
+                <h2 id={titleId} className="truncate text-lg font-bold tracking-tight">{title}</h2>
+                {description && <p id={descriptionId} className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 {actions}

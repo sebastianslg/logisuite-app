@@ -1557,3 +1557,105 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
   que «Reintentar» vuelve a pedir la red y el aviso se va. La del borrador comparaba también la hora del guardado, que
   puede moverse una vez más en el envío nuevo; ahora compara solo los valores.
 - Pruebas: 495 de la API y 53 de navegador.
+
+## 71. Tanda 2, ronda 1: caché de la red, ayuda de atajos y contraste del tema oscuro
+
+- **B1 caché del navegador (ETag/304):** `/api/network/multimodal` y `/api/geo/departments` llevan ETag (hash del contenido) y
+  `Cache-Control: no-cache`; con `If-None-Match` vigente devuelven 304 sin cuerpo. Medido con TestClient: 156.456 B sin comprimir
+  (24.920 B con gzip) la primera vez y ~214 B de cabeceras en las siguientes. El proxy de Next tuvo que reenviar `If-None-Match`
+  y devolver `etag/cache-control/vary`: sin eso el navegador nunca veía el validador. Solo esas lecturas usan `cache: no-cache`;
+  el resto de la app sigue en `no-store`. Costo: ya no comparten la caché de lecturas de 5 s (10 a 22 ms por petición) y el JSON se
+  serializa dos veces (pendiente opcional: cachear `network_geojson` o hashear los bytes ya serializados).
+- **F2 ayuda de atajos:** la hoja de `?` ya existía; se añadió el acceso visible en Configuración > Ayuda, la lista se lee completa
+  con lector de pantalla y `Sheet` ganó trampa de foco, título/descripción asociados, cierre por ref (un redibujo ya no roba el foco)
+  y solo cuenta lo tabulable. Capas ordenadas: hoja 70 < acceso 72 < paleta 75 < avisos y consentimiento 80.
+- **F1 revisión visual (claro/oscuro, escritorio/celular):** de lo nuevo (ingresar, esqueletos, errores por sección, borrador,
+  cambiar contraseña, dock con la cuenta) solo había un fallo real: blanco sobre el rojo suave del tema oscuro daba 2,8:1 (botón
+  «Cerrar sesión») y sobre el naranja 2,1:1 (contador de avisos). Tokens `--on-danger` y `--on-warning`. En celular, las hojas
+  modales quedaban debajo del dock; ahora van encima. Sin desborde horizontal a 412 px.
+- **Revisión:** además del contraste del contador de avisos, la paleta (Ctrl K) quedaba tapada por la hoja abierta; las dos
+  cosas se corrigieron. Falta probar con varios controles la trampa de foco (la e2e usa una hoja de un solo botón).
+- **Pendiente de la tanda:** B2 (último ingreso por usuario) pasa a la ronda 2 porque toca las rutas de administración de `main.py`.
+- **Verificación:** tsc, eslint y build limpios; 503 pruebas de la API; 60 de navegador.
+
+## 72. Tanda 2, ronda 2: mis sesiones, último ingreso, búsqueda global, inicio vacío e impresión
+
+- **B2 último ingreso por usuario:** la lista de Administración muestra «Último ingreso» (o «Nunca ha entrado»), los intentos
+  fallidos y «Bloqueada». Migración **v19** (aditiva): `users.last_login_at`. Se escribe solo al abrir sesión con éxito.
+- **B3 mis sesiones:** Configuración > Mis sesiones lista las de la propia cuenta (navegador resumido, «Esta sesión») y
+  «Cerrar las demás». Migración v19: `user_sessions.user_agent` (recortado a 200; **no se guarda IP**). Los ids son opacos
+  (sha256 de los 16 primeros caracteres del token, nunca el token), sin sesión devuelven 401, y el cierre queda en el historial sin
+  tokens. El proxy de Next ahora reenvía el `user-agent`. De paso: cerrar sesión con solo la cookie no borraba la sesión de la base
+  (ahora sí), y se probó que `/api/auth/` nunca sale de la caché de lecturas de 5 s aunque dos cuentas pidan la misma URL.
+- **B4 búsqueda global:** `GET /api/search?q=&limit=` (envíos, vehículos, bodegas y clientes; tope por tipo; menos de 2 caracteres
+  no toca la base; los `%` y `_` del texto se escapan; las tildes se pliegan). ~7 ms con la base sembrada y ~16 ms con la de
+  ejemplo (casi todo es apertura de conexiones). La paleta Ctrl K la usa con retardo de 250 ms y cancelando la anterior. Es un
+  `LIKE '%…%'`: con muchos miles de envíos haría falta FTS5. **Decisión del dueño pendiente:** la ruta no exige sesión (igual que
+  las demás lecturas hoy) y permite buscar clientes y códigos sin entrar.
+- **F3 inicio vacío:** sin envíos, vehículos o bodegas (y sin filtros) cada lista dice qué hacer primero. En bodegas no ofrece
+  «Importar desde Excel» porque ahí el Excel carga inventario y exige la bodega creada. No se pudo simular el vacío real con e2e
+  (esas listas se leen en el servidor y `page.route` no las alcanza): se prueba que un filtro sin resultados NO es inicio vacío.
+- **F4 impresión:** encabezado con marca, título y fecha; sin dock, botones, filtros ni paginador; la tabla se reparte entre
+  páginas (el contenedor con `overflow` la dejaba como una caja que recortaba filas y columnas, lo encontró la revisión).
+- **Revisión:** además de lo anterior, la paleta abría otra fila que la resaltada cuando llegaba el servidor y repetía resultados.
+- **Verificación:** tsc, eslint y build limpios; 543 pruebas de la API; 68 de navegador.
+
+## 73. Tanda 2, ronda 3: cumplimiento, accesibilidad, rendimiento medido y dependencias
+
+- **B5 cumplimiento (entregas a tiempo):** `engine/otif.py` con la misma regla del tablero (entregado sin retraso), por modo (el del
+  tramo más largo del envío, no el reparto por t-km) y por cliente (top 10 y «Otros»); sin entregas es «N/D», nunca 0 %. Va en el
+  reporte mensual (sección «Cumplimiento», por fecha de entrega) y en una tarjeta de «Hoy» (últimos 30 días, sin consultas nuevas).
+  El «completo» de OTIF **no se puede medir**: no hay cantidad entregada frente a la pedida; por eso se rotula «entregas a tiempo».
+  La revisión encontró que un `&` o `<` en el nombre de un cliente rompía el PDF (422 y correo mensual perdido): se escapan las celdas.
+- **«OTIF 30 días» del tablero:** rotulaba 30 días pero contaba toda la base de entregados. Ahora cuenta los últimos 30 días por
+  fecha de entrega, igual que Hoy y el reporte (en la base de ejemplo sigue en 83,3 %: las 12 entregas son recientes). Decisión del
+  dueño el día de la entrega («cambia lo que necesites»).
+- **`/api/search` ahora pide sesión** (ruta nueva; no toca ninguna lectura existente ni los roles) y sale de la caché de lecturas de
+  5 s: por cookie la caché no distingue personas y habría servido la respuesta de quien entró a quien no.
+- **F5 accesibilidad con lector de pantalla y teclado** en ingresar, crear envío y registrar entrega: errores (role=alert) y
+  cargas/éxitos (role=status) anunciados una sola vez, `aria-invalid`/`aria-describedby`, grupos de botones con nombre, foco que no se
+  pierde al fallar y diálogo de entrega que cierra con Esc. **Hallazgo de seguridad:** el ingreso aceptaba redirecciones a otro sitio
+  con `?next=/\evil.com` (el parser trata la barra invertida como `/`); ahora solo vuelve al mismo origen, con e2e. Limitación
+  conocida: el lienzo de la firma solo se opera con puntero.
+- **F6 rendimiento medido** (Edge, CPU x4 y 4G lenta, mediana de 5, build de producción):
+
+  | Página | LCP antes | LCP después | INP antes | INP después |
+  |---|---|---|---|---|
+  | portada | 2.820 ms | 1.976 ms | — | — |
+  | panel | 2.836 ms | 1.556 ms | 184 ms | 200 ms |
+  | lista de envíos | 3.056 ms | 1.128 ms | 160 ms | 192 ms |
+  | ficha de envío | 2.244 ms | 1.008 ms | **1.080 ms** | **192 ms** |
+
+  CLS ≤ 0,025 en todas (límite «bueno»: 0,1). Causas: el **LCP** era el párrafo del encabezado, que `Reveal` y `template.tsx`
+  (framer-motion) renderizaban con `opacity: 0` hasta hidratar; ahora son animaciones CSS (`.reveal-up` y `.view-in`, solo
+  transform/opacity, quietas con «reducir movimiento», con `fill-mode: backwards` para no dejar un transform residual que rompa lo
+  `position: fixed`). El **INP de la ficha** era la creación del mapa 3D: una tarea de 1,4 s (6 s de tareas largas en total) que
+  competía con Ctrl K; ahora se crea tras 1,5 s sin actividad (tope de 15 s), no con la pestaña oculta ni con un modal abierto, y
+  mientras tanto se ve la red plana. La ficha baja además de 574 a 434 KB transferidos en la ventana medida.
+- **B6 dependencias:** `npm audit` y `pip-audit` sin vulnerabilidades conocidas. Solo parches: `deck.gl` 9.4.1, Tailwind 4.3.5 y
+  `tailwind-merge` 3.7.1. Quedan sin tocar los menores con riesgo visual (`framer-motion` 14.14, `lucide-react` 1.77, `maplibre-gl`
+  6.19, `@tanstack/react-table` 9.3) porque sin motivo de seguridad no compensan; Playwright 1.65 y React 19.3.1 también están
+  disponibles.
+- **Pendientes que quedan:** `import-shipments` (22 KB gzip) se carga siempre en `/envios`; el JSON de la red y los departamentos se
+  serializa dos veces por el ETag; la firma no se opera con teclado; `Date.now()` en el estado inicial del formulario de envío puede
+  desajustar la hidratación si el navegador está en otra zona horaria que el servidor.
+- **Verificación:** tsc, eslint y build limpios; **553 pruebas de la API**; **74 de navegador** (73 en la corrida completa y la que
+  falló, `ingreso.spec.ts`, por un corte de red del equipo —`net::ERR_NETWORK_CHANGED`—, pasó al repetirla).
+
+## 74. Firma visual propia: la línea de red, la ficha con la ruta en grande y el ingreso con la red
+
+- **Pedido del dueño:** que no se vea genérica; con las guías de Emil Kowalski (`.agents/skills/emil-design-eng`) e
+  impeccable. Diagnóstico con capturas: todas las pantallas repetían el mismo molde (título, párrafo gris, botones, tarjetas)
+  sin nada propio de un sistema de transporte.
+- **Línea de red (en `PageHeader`, todas las pantallas de la app):** bajo el título, un trazo con los cinco modos; cada
+  tramo mide lo que su red real en kilómetros (aéreo 13.437, terrestre 12.628, fluvial 4.480, marítimo 3.340, férreo
+  1.464), con un nodo en cada unión. Se dibuja de izquierda a derecha al entrar (escala en X, 60 ms entre tramos, curva
+  de salida fuerte `cubic-bezier(0.23, 1, 0.32, 1)`), luego queda quieta. Nada con «reducir movimiento».
+- **«Operación en vivo»** sobre cada título: hora de Bogotá (`shell/live-stamp.tsx`), solo en el navegador (el HTML
+  prerenderizado no puede llevar la hora), cada 30 s y solo con la pestaña visible; el punto no pulsa.
+- **Ficha del envío:** la ruta (origen → destino) pasa a ser lo grande; el código sigue siendo el título (lector de
+  pantalla, pruebas y la transición desde la lista) pero en pequeño y monoespaciado. Debajo, la misma línea de la firma
+  con los tramos de ese envío (`RouteRule`: color de su modo, largo según su distancia).
+- **Ingreso (`/ingresar`) en escritorio:** a la derecha, la red que se va a operar: 35.349 km y un trazo por modo
+  proporcional a sus kilómetros, con ícono y nombre, que se dibuja al entrar.
+- Pruebas: 553 de la API y 74 de navegador (accesibilidad en claro y oscuro incluida).

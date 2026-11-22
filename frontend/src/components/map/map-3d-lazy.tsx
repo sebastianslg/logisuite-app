@@ -1,45 +1,65 @@
 "use client";
 
-import { useEffect, useRef, useState, type ComponentProps } from "react";
-import dynamic from "next/dynamic";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 
+import type { Map3DProps } from "@/components/Map3D";
 import { NetworkPreview } from "@/components/map/network-preview";
-import { onIdle } from "@/lib/idle";
-
-/** deck.gl y MapLibre usan WebGL y `window`: el mapa solo se monta en el cliente. */
-const Map3DDynamic = dynamic(() => import("@/components/Map3D"), {
-  ssr: false,
-  loading: () => <MapLoading />,
-});
+import { onQuiet } from "@/lib/idle";
 
 /**
- * El mapa se crea cuando su contenedor está en pantalla (o a 200 px) y el navegador quedó libre tras pintar
- * la página: crear el contexto WebGL y compilar sombreadores es lo más caro de la app. Así la navegación y
- * los primeros toques no esperan, y un mapa que no se ve (el del resumen en celular, bajo el pliegue) no
- * gasta nada hasta que se baja hasta él. Una vez creado, se conserva.
+ * El mapa se crea cuando su contenedor está en pantalla (o a 200 px), la página ya cargó, la pestaña está visible y
+ * el navegador lleva un rato sin entradas: crear el contexto WebGL y compilar sombreadores es lo más caro de la app y
+ * cae entero en una sola tarea, así que no puede empezar encima de un toque, de la paleta Ctrl K o de un diálogo
+ * abierto. Mientras espera —y mientras baja el trozo de deck.gl/MapLibre— se ve la red dibujada en plano, que ya es el
+ * marcador de posición. Una vez creado, se conserva.
  */
-export function Map3DLazy(props: ComponentProps<typeof Map3DDynamic>) {
+export function Map3DLazy(props: Map3DProps) {
   const [ready, setReady] = useState(false);
+  // Se cambia al mapa solo cuando el trozo ya resolvió: así el marcador nunca es un spinner y el montaje no suspende.
+  const [Map3D, setMap3D] = useState<ComponentType<Map3DProps> | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (ready) return;
     const el = ref.current;
     if (!el) return;
-    let cancelIdle = () => {};
+    let cancelQuiet = () => {};
     const io = new IntersectionObserver(
       ([e]) => {
-        cancelIdle();
-        if (e.isIntersecting) cancelIdle = onIdle(() => setReady(true), 600);
+        cancelQuiet();
+        if (e.isIntersecting) {
+          cancelQuiet = onQuiet(() => setReady(true), {
+            // La paleta de búsqueda y los menús son modales: nada de compilar WebGL debajo de lo que se escribe
+            when: () => !document.querySelector('[aria-modal="true"]'),
+          });
+        }
       },
       { rootMargin: "200px" },
     );
     io.observe(el);
     return () => {
       io.disconnect();
-      cancelIdle();
+      cancelQuiet();
     };
   }, [ready]);
-  if (ready) return <Map3DDynamic {...props} />;
+
+  useEffect(() => {
+    if (!ready || Map3D) return;
+    let alive = true;
+    void import("@/components/Map3D").then(
+      (m) => {
+        if (alive) setMap3D(() => m.default);
+      },
+      () => {
+        /* Si el trozo no llega, queda la red plana (y su aviso): no se inventa un reintento en cada render. */
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [ready, Map3D]);
+
+  if (Map3D) return <Map3D {...props} />;
   // Mientras llega el mapa 3D se ve la red dibujada en plano (la silueta del país con sus rutas), no un bloque gris
   return (
     <div ref={ref} className="relative h-full min-h-80 w-full bg-fill/40">

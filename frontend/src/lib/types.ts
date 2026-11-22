@@ -1011,6 +1011,21 @@ export interface TodayShipment {
   no_route: boolean;
 }
 
+/**
+ * Cumplimiento de entregas de la ventana de «Hoy» (GET /api/today): «a tiempo» es un envío entregado sin retraso
+ * registrado, la misma definición del resumen y del reporte. Sin entregas, `pct` es null (no 0 %) y `pct_fmt` «N/D».
+ * `mode` llega como texto: una ruta vieja sin tramos puede caer en un modo que la app no conoce.
+ */
+export interface TodayCompliance {
+  window_days: number;
+  entregas: number;
+  a_tiempo: number;
+  pct: number | null;
+  pct_fmt: string;
+  by_mode: { mode: string; label: string; entregas: number; a_tiempo: number; pct: number | null }[];
+  note: string;
+}
+
 export interface TodayBoard {
   now: string;
   window_h: number;
@@ -1020,6 +1035,8 @@ export interface TodayBoard {
   incidents: { code: string; kind_label: string; body: string; delay_h: number; at: string; resolved: boolean; origin: string | null; destination: string | null }[];
   fleet_documents: FleetSummary["documents_due"];
   counts: { departures: number; arrivals: number; to_sign: number; incidents: number; fleet_documents: number; late_arrivals: number };
+  /** Opcional: las respuestas de una API anterior no lo traen. */
+  cumplimiento?: TodayCompliance;
 }
 
 /** Prueba de entrega (POD) de un envío. */

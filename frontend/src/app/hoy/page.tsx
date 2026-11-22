@@ -1,16 +1,17 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowDownToLine, ArrowUpFromLine, FileWarning, PenLine, TriangleAlert } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, FileWarning, Gauge, PenLine, TriangleAlert } from "lucide-react";
 
 import { PageHeader, Skeleton } from "@/components/page-header";
 import { PrintButton } from "@/components/ui/print-button";
 import { Reveal } from "@/components/reveal";
-import { ModeChain } from "@/components/status-badge";
+import { ModeChain, ModeIcon } from "@/components/status-badge";
 import { AutoRefresh } from "@/components/tracking/auto-refresh";
 import { Badge } from "@/components/ui/badge";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { apiGet } from "@/lib/api";
-import type { Mode, TodayBoard, TodayShipment } from "@/lib/types";
+import { MODES } from "@/lib/modes";
+import type { Mode, TodayBoard, TodayCompliance, TodayShipment } from "@/lib/types";
 
 export const metadata = { title: "Hoy" };
 
@@ -67,6 +68,11 @@ async function Board() {
           ]}
         />
       </Reveal>
+      {b.cumplimiento && (
+        <Reveal index={1} className="mb-8">
+          <Compliance c={b.cumplimiento} />
+        </Reveal>
+      )}
       <div className="grid gap-6 lg:grid-cols-2">
         <Column index={1} id="salen" title="Salen" icon={<ArrowUpFromLine className="size-4 text-primary" aria-hidden />} empty="Nada sale en las próximas 24 horas.">
           {b.departures.map((s) => (
@@ -122,6 +128,64 @@ async function Board() {
         </Column>
       </div>
     </>
+  );
+}
+
+function pctLabel(v: number | null) {
+  return v === null ? "N/D" : `${v.toLocaleString("es-CO", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`;
+}
+
+/**
+ * Cumplimiento de los últimos 30 días: una cifra grande y una fila por modo, en la misma superficie de las demás
+ * secciones. Llega ya calculado por la API (incluido `pct_fmt`); aquí solo se pinta. Sin datos se dice «N/D», no 0 %.
+ */
+function Compliance({ c }: { c: TodayCompliance }) {
+  const sinDatos = c.pct === null || c.entregas === 0;
+  return (
+    <section aria-labelledby="cumplimiento-t" className="glass overflow-hidden rounded-3xl">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 px-5 py-4 sm:py-5">
+        <div className="min-w-0">
+          <h2 id="cumplimiento-t" className="flex items-center gap-2 text-sm font-semibold">
+            <Gauge className="size-4 text-muted-foreground" aria-hidden />
+            Cumplimiento · últimos {c.window_days} días
+          </h2>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            {sinDatos
+              ? "Sin entregas registradas en la ventana: no hay porcentaje que mostrar."
+              : `${c.a_tiempo.toLocaleString("es-CO")} de ${c.entregas.toLocaleString("es-CO")} entregas a tiempo`}
+          </p>
+        </div>
+        <p
+          className={`tabular text-[2rem] leading-none font-semibold tracking-[-0.03em] sm:text-[2.5rem] ${sinDatos ? "text-muted-foreground" : ""}`}
+        >
+          {sinDatos ? "N/D" : c.pct_fmt}
+        </p>
+      </div>
+      {c.by_mode.length > 0 && (
+        <ul className="rule-list border-t border-border">
+          {c.by_mode.map((m) => {
+            const known = Object.prototype.hasOwnProperty.call(MODES, m.mode);
+            return (
+              <li key={m.mode} className="flex flex-wrap items-center gap-x-2 gap-y-1 px-5 py-2.5 text-xs">
+                {known ? (
+                  <ModeIcon mode={m.mode as Mode} className="size-5" />
+                ) : (
+                  <span className="inline-flex size-5 items-center justify-center rounded-md bg-fill text-muted-foreground" aria-hidden>
+                    ·
+                  </span>
+                )}
+                <span className="font-medium">{m.label}</span>
+                <span className="tabular text-muted-foreground">
+                  {m.a_tiempo.toLocaleString("es-CO")} de {m.entregas.toLocaleString("es-CO")}
+                </span>
+                <span className="tabular ml-auto font-medium">{pctLabel(m.pct)}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {c.note && <p className="border-t border-border px-5 py-3 text-xs text-muted-foreground">{c.note}</p>}
+    </section>
   );
 }
 

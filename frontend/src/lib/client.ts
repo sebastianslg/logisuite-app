@@ -4,7 +4,13 @@
  */
 export async function api<T>(
   path: string,
-  options: { method?: "GET" | "POST" | "PUT" | "DELETE"; body?: unknown; headers?: Record<string, string> } = {},
+  options: {
+    method?: "GET" | "POST" | "PUT" | "DELETE";
+    body?: unknown;
+    headers?: Record<string, string>;
+    /** Caché del navegador: `no-store` (por defecto) o `no-cache` (guardar y revalidar con ETag). */
+    cache?: RequestCache;
+  } = {},
 ): Promise<T> {
   let res: Response;
   const headers: Record<string, string> = { ...options.headers };
@@ -27,7 +33,7 @@ export async function api<T>(
       method: options.method ?? "GET",
       headers: Object.keys(headers).length > 0 ? headers : undefined,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-      cache: "no-store",
+      cache: options.cache ?? "no-store",
       // Los PDF pueden tardar; nada debería tardar más de 60 s
       signal: AbortSignal.timeout(60_000),
     });

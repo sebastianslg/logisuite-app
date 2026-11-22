@@ -112,7 +112,7 @@ export function LoginDialog() {
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+        <div className="fixed inset-0 z-[72] flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
           {/* Fondo difuminado */}
           <motion.div
             initial={{ opacity: 0 }}

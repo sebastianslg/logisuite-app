@@ -35,6 +35,7 @@ Ejecución local (desde backend/):  uvicorn app.main:app --reload --port 8000
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -50,6 +51,7 @@ from typing import Annotated, Literal
 from fastapi import FastAPI, HTTPException, Query, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.api import format as F
@@ -58,7 +60,7 @@ from app.api import serializers as S
 from app.database.db import fetch_all, run_query, run_write
 from app.data.colombia_ciudades import category_of
 from app.engine import (auth_otp, client_notify, clients, delivery, demo, mail, notify, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
-                        shipments_io, sustainability as SU, tables_io, telemetry, tolls, tracking, trends, warehouses, xlsx)
+                        otif as otif_engine, search, shipments_io, sustainability as SU, tables_io, telemetry, tolls, tracking, trends, warehouses, xlsx)
 from app.engine.common import SESSION_USER, purge_old_audit, safe_cell
 from app.engine.dispatch import status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
@@ -93,6 +95,11 @@ _cache_lock = threading.Lock()
 _inflight: dict[str, "asyncio.Future"] = {}
 # Lecturas que no se cachean: salud, PDF y archivos generados
 _NO_CACHE = ("/api/health", "/api/client-errors", "/api/exports/", "/api/tolls/export", "/api/reports/", "/api/shipments/import/",
+             # Red y departamentos responden con ETag: la caché rehace la respuesta y perdería esa cabecera, y el
+             # navegador revalida con If-None-Match (un 304 no lleva cuerpo). Sus datos ya se arman en memoria.
+             "/api/network/multimodal", "/api/geo/departments",
+             # La búsqueda pide sesión: si se cachea por URL, la respuesta de quien entró se serviría a quien no
+             "/api/search",
              # Cuentas, administración y datos personales: la respuesta depende de quién pide y no se comparte nunca
              "/api/auth/", "/api/admin/", "/api/companies", "/api/system/", "/api/demo-requests", "/api/consents")
 
@@ -410,6 +417,15 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/api/search")
+def buscar_global(request: Request, q: str = Query("", max_length=100), limit: int = Query(5, ge=1, le=10)) -> dict:
+    """Búsqueda global de la paleta (Ctrl K): envíos, vehículos, bodegas y clientes, con tope por tipo.
+    Menos de 2 caracteres devuelve la lista vacía sin consultar la base. Pide sesión: lista clientes y códigos."""
+    if not auth_otp.get_user_by_session(_token_de_sesion(request)):
+        raise HTTPException(status_code=401, detail="Inicia sesión para buscar.")
+    return search.search(q, limit)
+
+
 @app.get("/api/locations")
 def locations() -> dict:
     """Ciudades y nodos seleccionables como origen o destino."""
@@ -434,9 +450,32 @@ def locations() -> dict:
     return {"cities": cities}
 
 
+def _etag_json(payload) -> str:
+    """ETag del contenido: sha256 del JSON con las claves ordenadas. Es estable entre procesos y peticiones, y cambia
+    exactamente cuando cambia lo que se sirve (un nodo o una vía editados, un envío nuevo que suma toneladas)."""
+    raw = json.dumps(payload, sort_keys=True, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+    return '"' + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:40] + '"'
+
+
+def _revalidable(request: Request, payload: dict) -> Response:
+    """200 con ETag y `Cache-Control: no-cache` (guardar, pero preguntar siempre) o 304 sin cuerpo si el navegador ya
+    tiene esa versión (`If-None-Match`).
+
+    Solo para lecturas públicas y casi inmutables: la red multimodal y los departamentos se piden en cada visita y casi
+    siempre son los mismos bytes. El cuerpo ya se arma en memoria (la red con `lru_cache` y los polígonos del país
+    también); lo que se ahorra es bajarlo otra vez."""
+    etag = _etag_json(payload)
+    headers = {"ETag": etag, "Cache-Control": "no-cache"}
+    candidatos = [t.strip() for t in (request.headers.get("if-none-match") or "").split(",") if t.strip()]
+    # Comparación débil: si un proxy reenvía `W/"…"`, en un GET equivale a la misma representación
+    if "*" in candidatos or any(c.removeprefix("W/") == etag for c in candidatos):
+        return Response(status_code=304, headers=headers)
+    return JSONResponse(payload, headers=headers)
+
+
 @app.get("/api/network/multimodal")
-def multimodal_network() -> dict:
-    return S.network_geojson(network())
+def multimodal_network(request: Request) -> Response:
+    return _revalidable(request, S.network_geojson(network()))
 
 
 # ---------------------------------------------------------------------------
@@ -1426,7 +1465,7 @@ def _recent_shipments(now: datetime, days: int = 30) -> list:
 
 
 @app.get("/api/geo/departments")
-def geo_departments() -> dict:
+def geo_departments(request: Request) -> Response:
     """Departamentos (DANE) con las toneladas que los atraviesan en 30 días."""
     now = _sync()
     traffic = geo.department_traffic(_recent_shipments(now))
@@ -1441,7 +1480,7 @@ def geo_departments() -> dict:
             # Escala raíz: el granel (miles de t) no aplasta a los demás
             "intensity": round((t / peak) ** 0.5, 3),
         }})
-    return {"type": "FeatureCollection", "metadata": base.get("metadata", {}), "features": features}
+    return _revalidable(request, {"type": "FeatureCollection", "metadata": base.get("metadata", {}), "features": features})
 
 
 UNSIGNED_ALERT_H = 48
@@ -1514,18 +1553,15 @@ def dashboard_summary() -> dict:
     now = _sync()
     # Conteos y totales en una sola pasada de SQL (antes se leía la tabla entera para contarla en Python).
     counts = {k: 0 for k in ("Programado", "En Ruta", "Transferencia Modal", "Retrasado", "Entregado")}
-    in_transit_t, in_transit_cost, delivered, on_time = 0.0, 0.0, 0, 0
+    in_transit_t, in_transit_cost = 0.0, 0.0
     for fila in fetch_all("SELECT status, COUNT(*) AS n, COALESCE(SUM(weight_t), 0) AS t, "
-                          "COALESCE(SUM(total_cost), 0) AS c, "
-                          "COALESCE(SUM(CASE WHEN delay_h = 0 THEN 1 ELSE 0 END), 0) AS a_tiempo "
+                          "COALESCE(SUM(total_cost), 0) AS c "
                           "FROM mm_shipments GROUP BY status"):
         estado, n = fila["status"], int(fila["n"])
         counts[estado] = counts.get(estado, 0) + n
         if estado in telemetry.ACTIVE_STATUSES:
             in_transit_t += float(fila["t"])
             in_transit_cost += float(fila["c"])
-        if estado == "Entregado":
-            delivered, on_time = n, int(fila["a_tiempo"])
 
     # Para lo que sí necesita el recorrido (t-km, corredores, tendencias y alertas): solo las columnas que se usan,
     # no `SELECT *` (36 columnas, de las que se leen 12).
@@ -1551,6 +1587,11 @@ def dashboard_summary() -> dict:
                      for c, t in sorted(corridor_t.items(), key=lambda kv: -kv[1])]
     top_corridors = all_corridors[:6]
     active = counts["En Ruta"] + counts["Transferencia Modal"] + counts["Retrasado"]
+    # «OTIF 30 días»: las entregas de los últimos 30 días (por fecha de entrega), con la regla de siempre (entregado sin
+    # retraso). Antes contaba toda la base de entregados aunque el rótulo dijera 30 días.
+    entregadas = otif_engine.delivered_in_window(rows, now)
+    delivered = len(entregadas)
+    on_time = sum(1 for r in entregadas if otif_engine.on_time(r))
     otif = 100 * on_time / delivered if delivered else None
 
     # Serie de despachos de los últimos 14 días (para el sparkline)
@@ -1815,18 +1856,19 @@ def auth_otp_request(body: OtpRequestIn) -> dict:
 
 
 @app.post("/api/auth/otp/verify")
-def auth_otp_verify(body: OtpVerifyIn) -> dict:
+def auth_otp_verify(body: OtpVerifyIn, request: Request) -> dict:
     try:
-        return auth_otp.verify_otp(body.email, body.code)
+        # El navegador de la petición se guarda resumido con la sesión («Mis sesiones»); nunca la IP
+        return auth_otp.verify_otp(body.email, body.code, request.headers.get("user-agent"))
     except ops.OperationError as exc:
         _op_error(exc)
 
 
 @app.post("/api/auth/password")
-def auth_password(body: PasswordLoginIn) -> dict:
+def auth_password(body: PasswordLoginIn, request: Request) -> dict:
     """Ingreso con el usuario o el correo y la contraseña (cuentas a las que se les puso desde la consola)."""
     try:
-        return auth_otp.login_password(body.identifier, body.password)
+        return auth_otp.login_password(body.identifier, body.password, request.headers.get("user-agent"))
     except ops.OperationError as exc:
         _op_error(exc)
 
@@ -1865,11 +1907,35 @@ def auth_me(request: Request) -> dict:
 
 @app.post("/api/auth/logout", status_code=204)
 def auth_logout(request: Request) -> Response:
-    auth_header = request.headers.get("Authorization", "")
-    token = auth_header[7:].strip() if auth_header.startswith("Bearer ") else None
+    token = _token_de_sesion(request)       # por cabecera o por la cookie: con solo cookie también cierra la sesión de la base
     user = auth_otp.get_user_by_session(token)
     auth_otp.logout(token, user["username"] if user else None)
     return Response(status_code=204)
+
+
+def _token_de_sesion(request: Request) -> str | None:
+    """Token de la sesión de la petición: por cabecera (Bearer) o por la cookie `westvane_session` del navegador."""
+    header = request.headers.get("Authorization", "")
+    token = header[7:].strip() if header.startswith("Bearer ") else None
+    return token or request.cookies.get("westvane_session")
+
+
+@app.get("/api/auth/sessions")
+def auth_sessions(request: Request) -> dict:
+    """Mis sesiones abiertas (la actual primero), con el navegador resumido y un id opaco: ni tokens ni IP. Sin sesión, 401."""
+    try:
+        return {"items": auth_otp.list_sessions(_token_de_sesion(request))}
+    except ops.OperationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+
+@app.post("/api/auth/sessions/close-others")
+def auth_sessions_close_others(request: Request) -> dict:
+    """Cierra las demás sesiones de mi cuenta (la actual sigue) y lo deja en el historial, sin tokens. Sin sesión, 401."""
+    try:
+        return auth_otp.close_other_sessions(_token_de_sesion(request))
+    except ops.OperationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
 def _require_admin(request: Request, what: str = "administrar usuarios y empresas") -> dict:

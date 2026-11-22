@@ -4,12 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LayoutGroup } from "framer-motion";
-import { Check, CloudDownload, Copy, History, Link2, LoaderCircle, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Check, CloudDownload, Copy, History, Keyboard, Link2, LoaderCircle, RefreshCw, Search, Trash2 } from "lucide-react";
 
 import { glRenderer, useMapAnimation, useMapQuality, usesSoftwareGL, type MapQuality } from "@/components/map/use-map-animation";
 import { useApp } from "@/components/providers";
+import { OPEN_SHORTCUTS_EVENT } from "@/components/shell/shortcuts";
 import { MailAlerts } from "@/components/settings/mail-alerts";
 import { MyPassword } from "@/components/settings/my-password";
+import { MySessions } from "@/components/settings/my-sessions";
 import { ServerStatus } from "@/components/settings/server-status";
 import { Badge } from "@/components/ui/badge";
 
@@ -62,7 +64,9 @@ export function SettingsPanel({ settings, links, history }: { settings: Settings
           <MailAlerts />
           <ServerStatus />
           <MyPassword />
+          <MySessions />
           <MapQualitySection />
+          <ShortcutsSection />
           <PrivacySection />
           <ClientErrors />
           <SharedLinks links={links} />
@@ -273,6 +277,27 @@ function MapQualitySection() {
             )}
           </p>
         )}
+      </div>
+    </Section>
+  );
+}
+
+/** Acceso visible a la ayuda: el mismo panel que abre «?», sin tener que conocer el atajo. */
+function ShortcutsSection() {
+  return (
+    <Section
+      title="Ayuda"
+      description="Para moverse sin soltar el teclado. La ayuda se abre con ? en cualquier página de la app y se cierra con Esc; dentro de un campo de texto, ? se escribe como siempre."
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <Button variant="secondary" onClick={() => window.dispatchEvent(new Event(OPEN_SHORTCUTS_EVENT))}>
+          <Keyboard />
+          Atajos de teclado
+        </Button>
+        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          o pulsa
+          <kbd className="inline-flex min-w-6 items-center justify-center rounded-md border border-border-strong bg-fill px-1.5 py-0.5 text-xs leading-4 font-medium">?</kbd>
+        </span>
       </div>
     </Section>
   );

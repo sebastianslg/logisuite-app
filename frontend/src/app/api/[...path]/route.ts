@@ -22,6 +22,10 @@ async function forward(req: NextRequest, path: string[]) {
       ...(req.headers.get("x-forwarded-for") ? { "x-forwarded-for": req.headers.get("x-forwarded-for")! } : {}),
       // La cookie de sesión: el navegador la manda y la API la acepta en /api/auth/me y el cambio de contraseña
       ...(req.headers.get("cookie") ? { cookie: req.headers.get("cookie")! } : {}),
+      // El navegador de quien entra: la API lo resume («Edge en Windows») en «Mis sesiones»; sin esto vería el de Node
+      ...(req.headers.get("user-agent") ? { "user-agent": req.headers.get("user-agent")! } : {}),
+      // Revalidación con ETag (red multimodal y departamentos): el navegador manda If-None-Match y la API responde 304
+      ...(req.headers.get("if-none-match") ? { "if-none-match": req.headers.get("if-none-match")! } : {}),
     },
     cache: "no-store",
     signal: AbortSignal.any([req.signal, AbortSignal.timeout(TIMEOUT_MS)]),
@@ -32,6 +36,11 @@ async function forward(req: NextRequest, path: string[]) {
   try {
     const res = await fetch(url, init);
     const headers = new Headers({ "content-type": res.headers.get("content-type") ?? "application/json" });
+    // Sin el validador, el navegador no manda If-None-Match y el 304 nunca llega
+    for (const key of ["etag", "cache-control", "vary"]) {
+      const value = res.headers.get(key);
+      if (value) headers.set(key, value);
+    }
     // PDF: inline (ver en el navegador) o attachment (descargar)
     const disposition = res.headers.get("content-disposition");
     if (disposition) headers.set("content-disposition", disposition);

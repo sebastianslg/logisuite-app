@@ -1,18 +1,31 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, Eye, EyeOff, Mail } from "lucide-react";
 
 import { Wordmark } from "@/components/brand/logo";
+import { MODES } from "@/lib/modes";
+import type { Mode as TransportMode } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { getAuthToken, refreshUser, useAuth } from "@/lib/auth";
 
-/** A dónde volver después de ingresar: solo rutas de esta misma app (nunca otro sitio ni la propia pantalla de ingreso). */
+/**
+ * A dónde volver después de ingresar: solo rutas de esta misma app (nunca otro sitio ni la propia pantalla de
+ * ingreso). Se resuelve con `URL` y se compara el origen porque `//` y `/\` (que el navegador trata como `//`)
+ * sacaban a otro dominio. El servidor no conoce el origen: ahí se queda en el panel y el cliente lo resuelve.
+ */
 function safeNext(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/ingresar")) return "/panel";
-  return raw;
+  if (!raw || typeof window === "undefined") return "/panel";
+  try {
+    const u = new URL(raw, window.location.origin);
+    if (u.origin !== window.location.origin) return "/panel";
+    const path = `${u.pathname}${u.search}${u.hash}`;
+    return path.startsWith("/ingresar") ? "/panel" : path;
+  } catch {
+    return "/panel";
+  }
 }
 
 type Mode = "password" | "email" | "code";
@@ -34,7 +47,26 @@ export function LoginScreen() {
   const [devCode, setDevCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [entered, setEntered] = useState(false);
   const first = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const navTimer = useRef<number | null>(null);
+  const mounted = useRef(true);
+  // Ids estables para atar el error a los campos y el botón de la contraseña a su campo
+  const errorId = useId();
+  const passwordId = useId();
+
+  // «Sesión iniciada» se queda el tiempo suficiente para que el lector lo lea; al desmontar se cancela la salida.
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (navTimer.current !== null) {
+        window.clearTimeout(navTimer.current);
+        navTimer.current = null;
+      }
+    };
+  }, []);
 
   // Con una sesión válida en este navegador no hace falta ingresar de nuevo
   useEffect(() => {
@@ -48,16 +80,34 @@ export function LoginScreen() {
     first.current?.focus();
   }, [mode]);
 
+  /** Tras un error, el botón deshabilitado deja el foco en <body>: se devuelve al primer campo con error. */
+  const focusError = () => {
+    requestAnimationFrame(() => {
+      const target = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]') ?? first.current;
+      target?.focus();
+    });
+  };
+
   const run = async (fn: () => Promise<unknown>, done?: () => void) => {
     setBusy(true);
     setError(null);
     try {
       await fn();
-      if (done) done();
-      else window.location.assign(next);
+      if (done) {
+        done();
+        return;
+      }
+      // Se anuncia «Sesión iniciada» antes de navegar: la voz del lector no sobrevive al cambio de página.
+      setEntered(true);
+      if (navTimer.current !== null) window.clearTimeout(navTimer.current);
+      navTimer.current = window.setTimeout(() => {
+        navTimer.current = null;
+        if (mounted.current) window.location.assign(next);
+      }, 1200);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo ingresar.");
       setBusy(false);
+      focusError();
     }
   };
 
@@ -65,6 +115,9 @@ export function LoginScreen() {
     setError(null);
     setMode(m);
   };
+
+  // Lo que se anuncia mientras se espera al servidor (el botón queda deshabilitado y pierde el foco)
+  const busyLabel = mode === "password" ? "Ingresando…" : mode === "email" ? "Enviando el código…" : "Verificando el código…";
 
   return (
     <div data-public-page className="flex min-h-dvh flex-col bg-background">
@@ -74,7 +127,8 @@ export function LoginScreen() {
         </Link>
       </header>
 
-      <div className="flex flex-1 items-start justify-center px-4 pt-[8vh] pb-16 sm:items-center sm:pt-0">
+      <div className="grid flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+      <div className="flex items-start justify-center px-4 pt-[8vh] pb-16 sm:items-center sm:pt-0">
         <div className="rise-in w-full max-w-sm">
           <h1 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.03em]">Ingresar a Westvane</h1>
           <p className="mt-2 text-[0.9375rem] text-muted-foreground">
@@ -86,15 +140,20 @@ export function LoginScreen() {
           </p>
 
           {error && (
-            <p role="alert" className="mt-5 flex items-start gap-2 rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
+            <p id={errorId} role="alert" className="mt-5 flex items-start gap-2 rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
               <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
               {error}
             </p>
           )}
+          <p role="status" className="sr-only">
+            {entered ? "Sesión iniciada. Abriendo la aplicación…" : busy ? busyLabel : ""}
+          </p>
 
           {mode === "password" && (
             <form
+              ref={formRef}
               className="mt-6 flex flex-col gap-4"
+              aria-busy={busy}
               onSubmit={(e) => {
                 e.preventDefault();
                 void run(() => loginPassword(identifier.trim(), password));
@@ -112,6 +171,8 @@ export function LoginScreen() {
                   required
                   maxLength={200}
                   value={identifier}
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? errorId : undefined}
                   onChange={(e) => setIdentifier(e.target.value)}
                 />
               </label>
@@ -119,6 +180,7 @@ export function LoginScreen() {
                 <span className="text-[0.8125rem] font-medium">Contraseña</span>
                 <span className="relative">
                   <input
+                    id={passwordId}
                     className="field h-11 w-full pr-11 pl-3 text-base"
                     name="password"
                     type={show ? "text" : "password"}
@@ -126,6 +188,8 @@ export function LoginScreen() {
                     required
                     maxLength={200}
                     value={password}
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? errorId : undefined}
                     onChange={(e) => setPassword(e.target.value)}
                   />
                   <button
@@ -133,6 +197,7 @@ export function LoginScreen() {
                     onClick={() => setShow((v) => !v)}
                     aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
                     aria-pressed={show}
+                    aria-controls={passwordId}
                     className="absolute top-1/2 right-1 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/80"
                   >
                     {show ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
@@ -154,7 +219,9 @@ export function LoginScreen() {
 
           {mode === "email" && (
             <form
+              ref={formRef}
               className="mt-6 flex flex-col gap-4"
+              aria-busy={busy}
               onSubmit={(e) => {
                 e.preventDefault();
                 void run(
@@ -181,6 +248,8 @@ export function LoginScreen() {
                   required
                   maxLength={200}
                   value={email}
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? errorId : undefined}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </label>
@@ -195,7 +264,9 @@ export function LoginScreen() {
 
           {mode === "code" && (
             <form
+              ref={formRef}
               className="mt-6 flex flex-col gap-4"
+              aria-busy={busy}
               onSubmit={(e) => {
                 e.preventDefault();
                 void run(() => verifyOtp(email.trim(), code));
@@ -204,7 +275,7 @@ export function LoginScreen() {
               {devCode && (
                 <p className="flex items-center justify-between gap-2 rounded-xl bg-primary/10 p-3 text-sm text-primary">
                   Código (modo local): <strong className="font-mono">{devCode}</strong>
-                  <button type="button" className="font-medium underline" onClick={() => setCode(devCode)}>
+                  <button type="button" className="rounded-md font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80" onClick={() => setCode(devCode)}>
                     Usar código
                   </button>
                 </p>
@@ -219,6 +290,8 @@ export function LoginScreen() {
                   maxLength={6}
                   required
                   value={code}
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? errorId : undefined}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 />
               </label>
@@ -240,6 +313,57 @@ export function LoginScreen() {
           </Link>
         </div>
       </div>
+      <NetworkPanel />
+      </div>
     </div>
+  );
+}
+
+const NETWORK: [TransportMode, number][] = [
+  ["aereo", 13437],
+  ["terrestre", 12628],
+  ["fluvial", 4480],
+  ["maritimo", 3340],
+  ["ferreo", 1464],
+];
+const TOTAL_KM = NETWORK.reduce((a, [, km]) => a + km, 0);
+
+/**
+ * Panel de escritorio junto al ingreso: la red real que la persona va a operar. Un trazo por modo, del largo de su red
+ * (el más largo llena la fila), que se dibuja al entrar y queda quieto. Con ícono y nombre: el modo nunca es solo color.
+ */
+function NetworkPanel() {
+  const max = NETWORK[0][1];
+  return (
+    <aside aria-label="La red de Westvane" className="relative hidden overflow-hidden border-l border-border bg-card lg:-mt-16 lg:flex lg:flex-col lg:justify-center lg:px-16 lg:pt-16 xl:px-24">
+      <p className="text-xs font-medium tracking-[0.02em] text-muted-foreground">La red que vas a operar</p>
+      <p className="mt-3 text-[3.5rem] leading-none font-semibold tracking-[-0.045em] tabular">
+        {TOTAL_KM.toLocaleString("es-CO")} <span className="text-[1.75rem] tracking-[-0.03em] text-muted-foreground">km</span>
+      </p>
+      <p className="mt-3 max-w-[40ch] text-[0.9375rem] leading-relaxed text-muted-foreground">
+        Carretera, río, mar, aire y tren de Colombia, con sus nodos, transbordos y cierres reales.
+      </p>
+      <ul className="mt-10 flex flex-col gap-5">
+        {NETWORK.map(([m, km], i) => {
+          const { icon: Icon, color, label } = MODES[m];
+          return (
+            <li key={m} className="grid grid-cols-[7.5rem_minmax(0,1fr)_4.5rem] items-center gap-4 text-sm">
+              <span className="flex items-center gap-2 font-medium">
+                <Icon className="size-4 shrink-0" style={{ color }} aria-hidden />
+                {label}
+              </span>
+              <span className="relative h-2" aria-hidden>
+                <span className="absolute inset-0 rounded-full bg-fill" />
+                <span
+                  className="network-seg absolute inset-y-0 left-0 !h-full"
+                  style={{ width: `${(km / max) * 100}%`, backgroundColor: color, "--i": i + 2 } as React.CSSProperties}
+                />
+              </span>
+              <span className="tabular text-right text-muted-foreground">{km.toLocaleString("es-CO")} km</span>
+            </li>
+          );
+        })}
+      </ul>
+    </aside>
   );
 }

@@ -36,17 +36,79 @@ import { EASE } from "@/lib/motion";
 import { rememberCode } from "@/components/shipments/shared-code";
 import { OPEN_SHORTCUTS_EVENT } from "@/components/shell/shortcuts";
 import { useApp } from "@/components/providers";
+import { getAuthToken } from "@/lib/auth";
 import { usePrefs } from "@/lib/prefs";
 import { isPublicPath } from "@/components/shell/shell-only";
 import { cn } from "@/lib/utils";
 
 interface Item {
   id: string;
-  group: "Ir a" | "Acciones" | "Envíos" | "Ciudades" | "Vehículos" | "Bodegas" | "Vías";
+  group: string;
+  /** Bloque al que pertenece la fila («Resultados» para lo que trae el servidor); sin bloque, la lista de siempre. */
+  section?: string;
   label: string;
   hint?: string;
   icon: LucideIcon;
   run: () => void;
+}
+
+/** Tipos de la búsqueda del servidor (/api/search), con su grupo en español y su ícono. */
+const KIND: Record<string, { group: string; icon: LucideIcon }> = {
+  envio: { group: "Envíos", icon: Package },
+  vehiculo: { group: "Vehículos", icon: Truck },
+  bodega: { group: "Bodegas", icon: Warehouse },
+  cliente: { group: "Clientes", icon: Users },
+};
+const KIND_ORDER = Object.keys(KIND);
+
+interface Hit {
+  type?: string;
+  title?: string;
+  subtitle?: string;
+  href?: string;
+}
+interface SearchResponse {
+  items?: Hit[];
+  truncated?: boolean;
+}
+type ServerSearch = { term: string; status: "done" | "error"; items: Hit[]; truncated: boolean };
+
+/**
+ * Convierte lo que devolvió /api/search en filas de la paleta, agrupadas por tipo en el orden de «Envíos, Vehículos,
+ * Bodegas, Clientes». Tolera campos que falten y enlaces que no sean de la app (se descartan).
+ */
+function serverItems(hits: Hit[] | undefined, go: (href: string) => () => void): Item[] {
+  if (!Array.isArray(hits)) return [];
+  return hits
+    .map((hit, index) => ({
+      hit,
+      index,
+      order: hit && typeof hit.type === "string" && KIND[hit.type] ? KIND_ORDER.indexOf(hit.type) : KIND_ORDER.length,
+    }))
+    .sort((a, b) => a.order - b.order)
+    .map(({ hit, index }): Item | null => {
+      if (!hit || typeof hit.href !== "string" || !hit.href.startsWith("/")) return null;
+      const tipo = typeof hit.type === "string" ? KIND[hit.type] : undefined;
+      const label = hit.title || hit.subtitle || hit.href;
+      return {
+        id: `sr-${index}`,
+        section: "Resultados",
+        group: tipo?.group ?? "Otros resultados",
+        label,
+        hint: hit.title && hit.subtitle ? hit.subtitle : undefined,
+        icon: tipo?.icon ?? Search,
+        run: go(hit.href),
+      };
+    })
+    .filter((it): it is Item => it !== null);
+}
+
+function PaletteHeading({ children, strong = false }: { children: React.ReactNode; strong?: boolean }) {
+  return (
+    <div className={cn("px-3 pt-2 pb-1 text-xs font-semibold", strong ? "text-foreground/80" : "text-muted-foreground")}>
+      {children}
+    </div>
+  );
 }
 
 const Ctx = createContext<{ open: () => void; shortcut: string }>({ open: () => {}, shortcut: "Ctrl K" });
@@ -67,6 +129,9 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
   const [vehicles, setVehicles] = useState<{ id: number; code: string; vehicle_type: string; mode_label: string; home_name?: string }[]>([]);
   const [warehouses, setWarehouses] = useState<{ warehouse_id: number; code: string; name: string; city: string }[]>([]);
   const [corridors, setCorridors] = useState<{ corridor: string; active: boolean; distance_fmt: string }[]>([]);
+  // Última respuesta de /api/search y el texto con el que se pidió (si no coincide con lo escrito, se está buscando)
+  const [server, setServer] = useState<ServerSearch>({ term: "", status: "done", items: [], truncated: false });
+  const needle = q.trim();
   const mac = useSyncExternalStore(
     () => () => {},
     () => /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent),
@@ -122,6 +187,45 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
     load("/api/warehouses", setWarehouses);
     load("/api/corridors", setCorridors);
   }, [open, shipments.length]);
+
+  // Resultados del servidor: se piden 250 ms después de dejar de escribir, desde 2 caracteres y cancelando la
+  // petición anterior. Si la API falla, la paleta sigue con los comandos y lo ya cargado, sin aviso ruidoso.
+  useEffect(() => {
+    if (!open || needle.length < 2) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      const token = getAuthToken();
+      fetch(`/api/search?q=${encodeURIComponent(needle)}&limit=5`, {
+        cache: "no-store",
+        signal: controller.signal,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+        .then((r) => {
+          if (!r.ok) throw new Error(`Error ${r.status}`);
+          return r.json() as Promise<SearchResponse>;
+        })
+        .then((data) => {
+          if (controller.signal.aborted) return;
+          setServer({
+            term: needle,
+            status: "done",
+            items: Array.isArray(data?.items) ? data.items : [],
+            truncated: data?.truncated === true,
+          });
+          // Las filas del servidor entran delante de las demás: el resaltado vuelve a la primera para que Intro abra
+          // lo que se ve resaltado y no otra fila que acaba de ocupar ese lugar
+          setActive(0);
+        })
+        .catch(() => {
+          if (controller.signal.aborted) return;
+          setServer({ term: needle, status: "error", items: [], truncated: false });
+        });
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [open, needle]);
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 30);
@@ -193,14 +297,31 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
     return [...base, ...ships, ...cs, ...vs, ...ws, ...cr];
   }, [shipments, cities, vehicles, warehouses, corridors, go, setCurrency, setTheme, close, fx]);
 
-  const results = useMemo(() => {
-    const needle = norm(q.trim());
-    if (!needle) return items.filter((i) => i.group === "Ir a" || i.group === "Acciones");
+  const localResults = useMemo(() => {
+    const texto = norm(q.trim());
+    if (!texto) return items.filter((i) => i.group === "Ir a" || i.group === "Acciones");
     return items
-      .filter((i) => norm(`${i.label} ${i.hint ?? ""}`).includes(needle))
-      .sort((a, b) => Number(norm(b.label).startsWith(needle)) - Number(norm(a.label).startsWith(needle)))
+      .filter((i) => norm(`${i.label} ${i.hint ?? ""}`).includes(texto))
+      .sort((a, b) => Number(norm(b.label).startsWith(texto)) - Number(norm(a.label).startsWith(texto)))
       .slice(0, 30);
   }, [items, q]);
+
+  const serverFor = server.term === needle ? server : null;
+  const serverResults = useMemo(
+    () => (serverFor?.status === "done" ? serverItems(serverFor.items, go) : []),
+    [serverFor, go],
+  );
+  const buscandoServidor = needle.length >= 2 && !serverFor;
+  // «Sin resultados» solo si tampoco hay coincidencias locales (comandos o lo ya cargado) que mostrar
+  const sinServidor =
+    needle.length >= 2 && !buscandoServidor && serverFor?.status === "done" && serverResults.length === 0 &&
+    localResults.length === 0;
+  // Lo del servidor va primero (la sección «Resultados») y después los comandos y lo que ya estaba cargado, sin
+  // repetir lo que el servidor ya trajo (mismo grupo y mismo título)
+  const results = useMemo(() => {
+    const vistos = new Set(serverResults.map((r) => `${r.group}|${r.label}`));
+    return [...serverResults, ...localResults.filter((r) => !vistos.has(`${r.group}|${r.label}`))];
+  }, [serverResults, localResults]);
 
   useEffect(() => {
     listRef.current?.querySelector<HTMLElement>(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
@@ -209,7 +330,7 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
   const onInputKey = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActive((a) => Math.min(a + 1, results.length - 1));
+      setActive((a) => Math.max(0, Math.min(a + 1, results.length - 1)));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive((a) => Math.max(a - 1, 0));
@@ -228,7 +349,7 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
       {children}
       <AnimatePresence>
         {open && (
-          <div className="fixed inset-0 z-[60] flex items-start justify-center px-3 pt-[12dvh]" role="presentation">
+          <div className="fixed inset-0 z-[75] flex items-start justify-center px-3 pt-[12dvh]" role="presentation">
             <motion.div
               className="absolute inset-0 bg-black/40"
               initial={{ opacity: 0 }}
@@ -268,17 +389,35 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
                 />
               </div>
               <ul id="palette-list" role="listbox" ref={listRef} className="max-h-[50dvh] overflow-y-auto p-2">
-                {results.length === 0 && (
-                  <li className="px-3 py-8 text-center text-sm text-muted-foreground">Sin resultados para “{q}”.</li>
+                {buscandoServidor && (
+                  <>
+                    <li role="presentation">
+                      <PaletteHeading strong>Resultados</PaletteHeading>
+                    </li>
+                    <li role="presentation" aria-live="polite" className="px-3 pb-2 text-xs text-muted-foreground">
+                      Buscando…
+                    </li>
+                  </>
+                )}
+                {sinServidor && (
+                  <>
+                    <li role="presentation">
+                      <PaletteHeading strong>Resultados</PaletteHeading>
+                    </li>
+                    <li role="presentation" className="px-3 pb-2 text-xs text-muted-foreground">
+                      Sin resultados.
+                    </li>
+                  </>
                 )}
                 {results.map((it, i) => {
                   const Icon = it.icon;
-                  const showGroup = i === 0 || results[i - 1].group !== it.group;
+                  const prev = i > 0 ? results[i - 1] : null;
+                  const showSection = !!it.section && it.section !== prev?.section;
+                  const showGroup = showSection || !prev || prev.section !== it.section || prev.group !== it.group;
                   return (
                     <li key={it.id} role="presentation">
-                      {showGroup && (
-                        <div className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground">{it.group}</div>
-                      )}
+                      {showSection && <PaletteHeading strong>{it.section}</PaletteHeading>}
+                      {showGroup && <PaletteHeading>{it.group}</PaletteHeading>}
                       <div
                         id={`palette-${it.id}`}
                         role="option"
@@ -305,6 +444,14 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
                     </li>
                   );
                 })}
+                {serverFor?.status === "done" && serverFor.truncated && serverResults.length > 0 && (
+                  <li role="presentation" className="px-3 pt-1 pb-2 text-xs text-muted-foreground">
+                    Hay más coincidencias: escribe un poco más para acotar.
+                  </li>
+                )}
+                {results.length === 0 && !buscandoServidor && !sinServidor && (
+                  <li className="px-3 py-8 text-center text-sm text-muted-foreground">Sin resultados para “{q.trim()}”.</li>
+                )}
               </ul>
               <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5"><Kbd>↑</Kbd><Kbd>↓</Kbd> navegar</span>

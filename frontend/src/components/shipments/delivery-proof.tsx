@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Camera, CircleAlert, CircleCheck, ImageIcon } from "lucide-react";
@@ -42,7 +42,64 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
   const [photoOk, setPhotoOk] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Qué campo causó el error: así el aviso se ata a ese campo y no se repite en voz alta
+  const [errorField, setErrorField] = useState<"name" | "notes" | "signature" | null>(null);
+  const errorId = useId();
+  const trigger = useRef<HTMLButtonElement | null>(null);
+  const nameRef = useRef<HTMLInputElement | null>(null);
+  const returnFocus = useRef(false);
+  const focusReceipt = useRef(false);
   const url = `/api/shipments/${encodeURIComponent(code)}/delivery`;
+
+  // Antes del retorno temprano: los hooks deben llamarse siempre en el mismo orden.
+  const d = info?.delivery ?? null;
+  const view: "receipt" | "form" | "idle" = d ? "receipt" : open ? "form" : "idle";
+
+  // Al cerrar el formulario, el foco vuelve a «Registrar entrega» en cuanto el formulario termina de salir (el botón
+  // se vuelve a montar al final de la animación), y al guardar pasa al comprobante.
+  const attachTrigger = (node: HTMLButtonElement | null) => {
+    trigger.current = node;
+    if (node && returnFocus.current) {
+      returnFocus.current = false;
+      node.focus();
+    }
+  };
+  const attachReceipt = (node: HTMLDivElement | null) => {
+    if (node && focusReceipt.current) {
+      focusReceipt.current = false;
+      node.focus({ preventScroll: true });
+    }
+  };
+  // El foco entra al nombre al abrirse el formulario, pero solo si sigue en el disparador o ya cayó al documento:
+  // si la persona lo movió durante la salida de 300 ms, no se le quita. La referencia es estable para que React no
+  // vuelva a enfocar en cada render.
+  const attachName = useCallback((node: HTMLInputElement | null) => {
+    nameRef.current = node;
+    if (!node) return;
+    const active = document.activeElement;
+    // También cuenta un foco que quedó en el botón ya retirado del documento: el navegador aún no lo movió a <body>.
+    if (active === document.body || active === trigger.current || !active?.isConnected) node.focus({ preventScroll: true });
+  }, []);
+
+  const closeForm = () => {
+    if (state === "busy") return;
+    returnFocus.current = true;
+    setOpen(false);
+  };
+
+  // Escape cierra aunque el foco se haya quedado en <body> (al guardar se deshabilita el botón que lo tenía):
+  // se escucha en el documento solo mientras el formulario está abierto y se quita al desmontar.
+  useEffect(() => {
+    if (view !== "form") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || state === "busy") return;
+      e.preventDefault();
+      returnFocus.current = true;
+      setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [view, state]);
 
   if (!info) return <p className="text-sm text-muted-foreground">Sin datos de entrega para este envío.</p>;
 
@@ -80,9 +137,19 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (name.trim().length < 2) return setError("Escribe el nombre de quien recibe.");
-    if (condition === "con_novedad" && !notes.trim()) return setError("Describe la novedad.");
-    if (!signature) return setError("Falta la firma de quien recibe.");
+    setErrorField(null);
+    if (name.trim().length < 2) {
+      setErrorField("name");
+      return setError("Escribe el nombre de quien recibe.");
+    }
+    if (condition === "con_novedad" && !notes.trim()) {
+      setErrorField("notes");
+      return setError("Describe la novedad.");
+    }
+    if (!signature) {
+      setErrorField("signature");
+      return setError("Falta la firma de quien recibe.");
+    }
     setState("busy");
     try {
       const next = await api<DeliveryInfo>(url, {
@@ -92,10 +159,12 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
       setState("done");
       setInfo(next);
       setOpen(false);
+      focusReceipt.current = true;
       toast({ title: "Entrega registrada" });
       router.refresh();
     } catch (err) {
       setState("idle");
+      setErrorField(null);
       setError((err as Error).message);
     }
   }
@@ -106,6 +175,8 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
       setInfo(await api<DeliveryInfo>(`${url}?usuario=${encodeURIComponent(operator)}`, { method: "DELETE" }));
       setState("idle");
       setSignature(null);
+      // El botón «Anular» desaparece con el comprobante: el foco vuelve a «Registrar entrega».
+      returnFocus.current = true;
       toast({ title: "Entrega anulada" });
       router.refresh();
     } catch (err) {
@@ -115,13 +186,20 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
 
   const enter = reduced ? { opacity: 0 } : { opacity: 0, y: 8 };
   const shown = reduced ? { opacity: 1 } : { opacity: 1, y: 0 };
-  const d = info.delivery;
-  const view = d ? "receipt" : open ? "form" : "idle";
 
   return (
     <AnimatePresence mode="wait" initial={false}>
       {view === "receipt" && d && (
-        <motion.div key="receipt" initial={enter} animate={shown} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: EASE }} className="flex flex-col gap-3 text-sm">
+        <motion.div
+          key="receipt"
+          ref={attachReceipt}
+          tabIndex={-1}
+          initial={enter}
+          animate={shown}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3, ease: EASE }}
+          className="flex flex-col gap-3 text-sm outline-none"
+        >
           <div className="flex items-start gap-3">
             <motion.span
               initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.6 }}
@@ -157,10 +235,30 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
       )}
 
       {view === "form" && (
-        <motion.form key="form" onSubmit={save} initial={enter} animate={shown} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: EASE }} className="flex flex-col gap-3 text-sm" noValidate>
+        <motion.form
+          key="form"
+          role="dialog"
+          aria-label="Registrar entrega"
+          onSubmit={save}
+          initial={enter}
+          animate={shown}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3, ease: EASE }}
+          className="flex flex-col gap-3 text-sm"
+          noValidate
+        >
           <label className="block">
             <span className="mb-1 block text-xs text-muted-foreground">Recibe (nombre completo)</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoFocus autoComplete="off" className="field h-10 w-full px-3" aria-invalid={!!error && name.trim().length < 2} />
+            <input
+              ref={attachName}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={80}
+              autoComplete="off"
+              className="field h-10 w-full px-3"
+              aria-invalid={errorField === "name" || undefined}
+              aria-describedby={errorField === "name" ? errorId : undefined}
+            />
           </label>
           <Segmented
             id="pod-condition"
@@ -176,9 +274,20 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
           />
           <label className="block">
             <span className="mb-1 block text-xs text-muted-foreground">{condition === "con_novedad" ? "Novedad (obligatoria)" : "Observaciones"}</span>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} rows={2} className="field w-full px-3 py-2" placeholder={condition === "con_novedad" ? "Faltante, avería, empaque abierto…" : "Opcional"} />
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              maxLength={500}
+              rows={2}
+              className="field w-full px-3 py-2"
+              placeholder={condition === "con_novedad" ? "Faltante, avería, empaque abierto…" : "Opcional"}
+              aria-invalid={errorField === "notes" || undefined}
+              aria-describedby={errorField === "notes" ? errorId : undefined}
+            />
           </label>
-          <SignaturePad onChange={setSignature} />
+          <div aria-invalid={errorField === "signature" || undefined} aria-describedby={errorField === "signature" ? errorId : undefined}>
+            <SignaturePad onChange={setSignature} />
+          </div>
 
           {/* Foto de la entrega: en el celular abre la cámara; queda como adjunto del envío */}
           <div className="rounded-xl border border-border p-3">
@@ -189,7 +298,7 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
                   <ImageIcon className="size-3.5" aria-hidden /> {photo.name}
                 </span>
               ) : (
-                <label className={photoBusy ? "pointer-events-none opacity-60" : "cursor-pointer"}>
+                <label className={`rounded-md has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/80 ${photoBusy ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
                   <span className="inline-flex h-8 items-center gap-1.5 rounded-md bg-fill px-3 text-xs font-medium press">
                     <Camera className="size-3.5" aria-hidden /> {photoBusy ? "Subiendo…" : "Tomar foto"}
                   </span>
@@ -216,15 +325,18 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
             )}
           </div>
           {error && (
-            <p role="alert" className="text-xs text-destructive">
+            <p id={errorId} role="alert" className="text-xs text-destructive">
               {error}
             </p>
           )}
+          <p role="status" className="sr-only">
+            {state === "busy" ? "Guardando la entrega…" : photoBusy ? "Subiendo la foto…" : ""}
+          </p>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={state === "busy"}>
+            <Button type="button" variant="ghost" onClick={closeForm} disabled={state === "busy"}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={state === "busy"}>
+            <Button type="submit" disabled={state === "busy"} aria-busy={state === "busy"}>
               <SaveIcon state={state} /> Guardar entrega
             </Button>
           </div>
@@ -237,7 +349,18 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
             {info.arrived ? "Llegó a destino: registra quién recibió y su firma." : `Se registra al llegar (estimado ${dt(info.eta_at)}).`}
           </p>
           {info.can_record && (
-            <Button variant="secondary" size="sm" className="print:hidden" onClick={() => { setError(null); setOpen(true); }}>
+            <Button
+              ref={attachTrigger}
+              variant="secondary"
+              size="sm"
+              className="print:hidden"
+              aria-haspopup="dialog"
+              onClick={() => {
+                setError(null);
+                setErrorField(null);
+                setOpen(true);
+              }}
+            >
               Registrar entrega
             </Button>
           )}

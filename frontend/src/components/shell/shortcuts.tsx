@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Sheet } from "@/components/ui/sheet";
@@ -31,6 +31,16 @@ const HELP: { keys: string[]; label: string }[] = [
   { keys: ["Esc"], label: "Cerrar paneles y hojas" },
 ];
 
+/** Cómo se lee cada tecla con un lector de pantalla (las letras sueltas ya se leen bien). */
+const KEY_NAMES: Record<string, string> = {
+  "?": "signo de interrogación",
+  "/": "barra",
+  Esc: "Escape",
+};
+
+const keysLabel = (keys: string[]) =>
+  keys.map((k) => KEY_NAMES[k] ?? k).join(keys.length === 2 && keys[0] === "g" ? ", luego " : " más ");
+
 const isTyping = (t: EventTarget | null) => {
   const el = t as HTMLElement | null;
   return !!el && (/INPUT|TEXTAREA|SELECT/.test(el.tagName) || el.isContentEditable);
@@ -41,6 +51,8 @@ export function Shortcuts() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const pending = useRef<number | null>(null);
+  // Estable: si este componente se vuelve a dibujar, la hoja no repite el efecto que mueve el foco
+  const close = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
     const clear = () => {
@@ -83,18 +95,24 @@ export function Shortcuts() {
   }, [router]);
 
   return (
-    <Sheet open={open} onClose={() => setOpen(false)} title="Atajos de teclado" description="Para trabajar sin soltar el teclado">
+    <Sheet open={open} onClose={close} title="Atajos de teclado" description="Para trabajar sin soltar el teclado">
       <ul className="flex flex-col">
         {HELP.map((h) => (
           <li key={h.label} className="flex items-center justify-between gap-4 border-b border-border py-2.5 text-sm last:border-0">
             <span>{h.label}</span>
             <span className="flex shrink-0 items-center gap-1">
-              {h.keys.map((k, i) => (
-                <span key={k} className="flex items-center gap-1">
-                  {i > 0 && h.keys[0] === "g" && <span className="text-xs text-muted-foreground">luego</span>}
-                  <kbd className="rounded-md border border-border-strong bg-fill px-1.5 py-0.5 text-xs font-medium">{k}</kbd>
-                </span>
-              ))}
+              {/* El lector de pantalla oye la secuencia completa («Ctrl más K»), no dos teclas sueltas */}
+              <span className="sr-only">{keysLabel(h.keys)}</span>
+              <span aria-hidden className="flex items-center gap-1">
+                {h.keys.map((k, i) => (
+                  <span key={`${k}-${i}`} className="flex items-center gap-1">
+                    {i > 0 && h.keys[0] === "g" && <span className="text-xs text-muted-foreground">luego</span>}
+                    <kbd className="inline-flex min-w-6 items-center justify-center rounded-md border border-border-strong bg-fill px-1.5 py-0.5 text-xs leading-4 font-medium">
+                      {k}
+                    </kbd>
+                  </span>
+                ))}
+              </span>
             </span>
           </li>
         ))}

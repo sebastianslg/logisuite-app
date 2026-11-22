@@ -13,6 +13,8 @@ Autenticación sin contraseñas (Passwordless OTP por correo electrónico) y ges
 - Además del código, una cuenta puede tener contraseña (PBKDF2-SHA256): se ingresa con el usuario o el correo. Se le pone
   desde la consola del servidor (`python -m app.crear_acceso`), nunca desde la web. Tras 5 fallos seguidos la cuenta no
   acepta contraseña por 15 minutos.
+- Cada sesión guarda el navegador resumido que la abrió (nunca la IP ni cabeceras completas) y la cuenta, la fecha de su
+  último ingreso. «Mis sesiones» las lista con un id opaco (no el token) y permite cerrar las demás de esa misma cuenta.
 """
 import hashlib
 import hmac
@@ -46,6 +48,7 @@ LOCK_MINUTES = 15
 
 OTP_COOLDOWN_S = 60  # segundos mínimos entre dos códigos pedidos para el mismo correo
 AUTH_CODE_RETENTION_DAYS = 7  # días que se conservan los códigos ya usados o vencidos antes de borrarlos
+USER_AGENT_MAX = 200  # caracteres que se guardan del User-Agent: para nombrar el navegador no hace falta más
 
 
 def dev_otp_enabled() -> bool:
@@ -169,8 +172,9 @@ def request_otp(email: str) -> dict:
     return {**generic, "dev_code": code if dev_otp_enabled() else None}
 
 
-def verify_otp(email: str, code: str) -> dict:
-    """Verifica el código OTP y entrega token de sesión."""
+def verify_otp(email: str, code: str, user_agent: str | None = None) -> dict:
+    """Verifica el código OTP y entrega token de sesión. El User-Agent (si la ruta lo captura) se guarda resumido con la
+    sesión para «Mis sesiones»."""
     norm_email = normalize_email(email)
     clean_code = (code or "").strip()
     if not clean_code or len(clean_code) != 6 or not clean_code.isdigit():
@@ -219,18 +223,27 @@ def verify_otp(email: str, code: str) -> dict:
         raise OperationError("Usuario inactivo o no encontrado.")
 
     user = user_rows.iloc[0].to_dict()
-    return _open_session(user, f"Inicio de sesión con código por correo ({norm_email})")
+    return _open_session(user, f"Inicio de sesión con código por correo ({norm_email})", user_agent)
 
 
-def _open_session(user: dict, how: str) -> dict:
-    """Crea la sesión (token de 32 bytes, SESSION_TTL_DAYS días) y la deja en el historial."""
+def _guardar_user_agent(ua: str | None) -> str | None:
+    """Texto del navegador listo para guardar: recortado a USER_AGENT_MAX y None si no vino. No se guardan cabeceras
+    completas ni la IP (privacidad): solo esta etiqueta, de la que se deriva el nombre legible al listar las sesiones."""
+    return (ua or "").strip()[:USER_AGENT_MAX] or None
+
+
+def _open_session(user: dict, how: str, user_agent: str | None = None) -> dict:
+    """Crea la sesión (token de 32 bytes, SESSION_TTL_DAYS días), anota el navegador que la abre y deja el último ingreso
+    en la cuenta; también registra el ingreso en el historial. La IP no se guarda."""
     now_str = _now_str()
     session_id = secrets.token_urlsafe(32)
     session_exp = (_now() + timedelta(days=SESSION_TTL_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
     run_write(
-        "INSERT INTO user_sessions (session_id, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
-        (session_id, int(user["user_id"]), session_exp, now_str),
+        "INSERT INTO user_sessions (session_id, user_id, expires_at, created_at, user_agent) VALUES (?, ?, ?, ?, ?)",
+        (session_id, int(user["user_id"]), session_exp, now_str, _guardar_user_agent(user_agent)),
     )
+    # Último ingreso con éxito: lo ve Administración en la lista de usuarios (contraseña y código pasan por aquí)
+    run_write("UPDATE users SET last_login_at = ? WHERE user_id = ?", (now_str, int(user["user_id"])))
     audit(user["username"], "LOGIN", "users", str(user["user_id"]), how)
 
     return {"token": session_id, "user": _public_user(user)}
@@ -292,6 +305,101 @@ def logout(session_id: str | None, current_user: str | None = None) -> None:
             audit(current_user, "LOGOUT", "users", None, "Cierre de sesión")
 
 
+# ---------------------------------------------------------------------------
+# Mis sesiones: navegador resumido y cierre de las demás
+# ---------------------------------------------------------------------------
+
+def resumir_navegador(ua: str | None) -> str:
+    """Nombre legible del navegador y el sistema a partir del User-Agent: «Edge en Windows», «Safari en iPhone»…
+
+    Reglas simples y en orden, porque unos User-Agent contienen a otros: Edge dice «Chrome» y «Safari», Chrome dice
+    «Safari», y Android y el iPhone dicen «Linux» o «Mac OS X». Si no se reconoce el navegador: «Navegador desconocido»;
+    si se reconoce el navegador pero no el sistema, solo va el nombre del navegador."""
+    texto = ua or ""
+    if "Edg/" in texto or "EdgA/" in texto or "EdgiOS/" in texto:
+        navegador = "Edge"
+    elif "Chrome/" in texto or "CriOS/" in texto:
+        navegador = "Chrome"
+    elif "Firefox/" in texto or "FxiOS/" in texto:
+        navegador = "Firefox"
+    elif "Safari/" in texto and "Version/" in texto:
+        navegador = "Safari"
+    else:
+        return "Navegador desconocido"
+
+    if "Android" in texto:
+        sistema = "Android"
+    elif "iPhone" in texto:
+        sistema = "iPhone"
+    elif "iPad" in texto:
+        sistema = "iPad"
+    elif "Windows" in texto:
+        sistema = "Windows"
+    elif "Macintosh" in texto or "Mac OS X" in texto:
+        sistema = "macOS"
+    elif "Linux" in texto or "X11" in texto:
+        sistema = "Linux"
+    else:
+        return navegador
+    return f"{navegador} en {sistema}"
+
+
+def _etiqueta_sesion(token: str | None) -> str:
+    """Identificador opaco de una sesión para la lista: sha256 de los primeros 16 caracteres del token.
+
+    No es el token y no sirve para entrar; solo deja nombrar una fila de la lista. Se calcula al leer, así que no hace
+    falta guardarlo en la base."""
+    return hashlib.sha256((token or "")[:16].encode()).hexdigest()
+
+
+def _sesion_actual(session_id: str | None) -> tuple[dict, str]:
+    """Cuenta de la sesión que pregunta y el token ya limpio. Sin sesión válida no hay lista ni cierre: se avisa."""
+    user = get_user_by_session(session_id)
+    if not user:
+        raise OperationError("Sesión no válida o expirada.")
+    return user, (session_id or "").strip()
+
+
+def list_sessions(session_id: str | None) -> list[dict]:
+    """Sesiones vigentes de la cuenta de la sesión que pregunta, la actual primero; nunca las de otras cuentas.
+
+    Cada una lleva un id opaco (no el token), sus fechas y el navegador resumido que se guardó al abrirla."""
+    user, token = _sesion_actual(session_id)
+    rows = fetch_all(
+        """SELECT session_id, created_at, expires_at, user_agent
+           FROM user_sessions
+           WHERE user_id = ? AND expires_at >= ?
+           ORDER BY created_at DESC, rowid DESC""",
+        (int(user["user_id"]), _now_str()),
+    )
+    items = [
+        {
+            "id": _etiqueta_sesion(r["session_id"]),
+            "created_at": r["created_at"],
+            "expires_at": r["expires_at"],
+            "browser": resumir_navegador(r.get("user_agent")),
+            "current": r["session_id"] == token,
+        }
+        for r in rows
+    ]
+    # La actual primero; entre las demás se respeta lo más reciente arriba (el orden de la consulta)
+    items.sort(key=lambda s: not s["current"])
+    return items
+
+
+def close_other_sessions(session_id: str | None) -> dict:
+    """Cierra las demás sesiones de la cuenta de la sesión que pregunta (la actual sigue abierta) y deja la acción en el
+    historial. Nunca toca las sesiones de otras cuentas y el historial no guarda tokens."""
+    user, token = _sesion_actual(session_id)
+    closed = int(run_write(
+        "DELETE FROM user_sessions WHERE user_id = ? AND session_id != ?",
+        (int(user["user_id"]), token),
+    ) or 0)
+    audit(user["username"], "UPDATE", "users", str(int(user["user_id"])),
+          f"Cierre de las demás sesiones de la cuenta ({closed})")
+    return {"closed": closed}
+
+
 def purge_expired_auth(now: datetime | None = None) -> dict:
     """Borra lo que ya no sirve para entrar: las sesiones vencidas y los códigos de ingreso usados o vencidos hace
     más de AUTH_CODE_RETENTION_DAYS días. Devuelve cuántos borró de cada uno.
@@ -341,13 +449,23 @@ def create_company(name: str, nit: str | None = None, operator: str | None = Non
 
 
 def list_users() -> list[dict]:
-    return fetch_all(
+    """Cuentas para Administración, con su último ingreso (`last_login_at`, null si nunca entró), los fallos de
+    contraseña seguidos (`failed_logins`) y si la contraseña está bloqueada ahora (`locked`, hasta `locked_until`)."""
+    now_str = _now_str()
+    rows = fetch_all(
         """SELECT u.user_id, u.username, u.full_name, u.email, u.role, u.active, u.created_at,
+                  u.failed_logins, u.locked_until, u.last_login_at,
                   c.company_id, c.name as company_name
            FROM users u
            LEFT JOIN companies c ON u.company_id = c.company_id
            ORDER BY u.user_id ASC"""
     )
+    for r in rows:
+        # `locked_until` no sale como tal: se resume en `locked` (bloqueo vigente) y no se muestra la fecha interna
+        locked_until = r.pop("locked_until", None)
+        r["failed_logins"] = int(r.get("failed_logins") or 0)
+        r["locked"] = bool(locked_until and str(locked_until) > now_str)
+    return rows
 
 
 def create_user_record(
@@ -482,9 +600,10 @@ USERNAME_REGEX = re.compile(r"^[a-z0-9][a-z0-9._-]{2,39}$")
 WRONG = "Usuario, correo o contraseña incorrectos."
 
 
-def login_password(identifier: str, password: str) -> dict:
+def login_password(identifier: str, password: str, user_agent: str | None = None) -> dict:
     """Ingreso con el usuario o el correo y la contraseña. El mensaje de error es el mismo si la cuenta no existe, no tiene
-    contraseña o la contraseña no coincide (no deja averiguar quién tiene cuenta)."""
+    contraseña o la contraseña no coincide (no deja averiguar quién tiene cuenta). El User-Agent de la petición se guarda
+    resumido con la sesión que se abre."""
     ident = (identifier or "").strip().lower()
     if not ident or not password:
         raise OperationError("Escribe tu usuario o correo y tu contraseña.")
@@ -515,7 +634,7 @@ def login_password(identifier: str, password: str) -> dict:
                   f"Contraseña bloqueada {LOCK_MINUTES} min por {MAX_PASSWORD_FAILURES} intentos fallidos")
         raise OperationError(WRONG)
     run_write("UPDATE users SET failed_logins = 0, locked_until = NULL WHERE user_id = ?", (int(user["user_id"]),))
-    return _open_session(user, "Inicio de sesión con contraseña")
+    return _open_session(user, "Inicio de sesión con contraseña", user_agent)
 
 
 def change_password(session_id: str | None, current: str, new: str) -> dict:

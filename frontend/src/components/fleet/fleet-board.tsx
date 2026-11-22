@@ -3,11 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Search, TriangleAlert, UserRound, Warehouse as WarehouseIcon } from "lucide-react";
+import { ChevronRight, FileUp, Plus, Search, TriangleAlert, UserRound, Warehouse as WarehouseIcon } from "lucide-react";
 
+import { EmptyStart } from "@/components/empty-start";
+import { PrintHeader } from "@/components/print-header";
 import { ModeIcon } from "@/components/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatStrip } from "@/components/ui/stat-strip";
+import { abrirCargaDeExcel, filtersActive, isStartEmpty } from "@/lib/empty";
 import { MODE_ORDER, MODES, tint } from "@/lib/modes";
 import type { FleetSummary, Mode, Vehicle, VehicleStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -115,11 +118,15 @@ export function FleetBoard({ vehicles, summary, initial }: { vehicles: Vehicle[]
     setStatuses(next);
     irA({ statuses: next });
   };
-  const hasFilters = query || modes.length || statuses.length || onlyAlerts;
+  const hasFilters = filtersActive(query, modes.length, statuses.length, onlyAlerts);
+  // La flota se ve vacía porque todavía no hay vehículos (no porque un filtro los esconda)
+  const inicioVacio = isStartEmpty(vehicles.length, hasFilters);
 
   return (
-    <div className="flex flex-col gap-5">
-      <StatStrip
+    <div className="flex flex-col gap-5 print:block">
+      <PrintHeader title="Flota de vehículos" />
+      <div className="print:hidden">
+        <StatStrip
         items={[
           {
             label: "Disponibilidad",
@@ -139,9 +146,10 @@ export function FleetBoard({ vehicles, summary, initial }: { vehicles: Vehicle[]
             tone: (summary.documents_due ?? []).some((d) => d.state === "Vencido") ? "danger" : (summary.documents_due ?? []).length ? "warning" : undefined,
           },
         ]}
-      />
+        />
+      </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 print:hidden">
         <label className="relative flex h-10 w-full max-w-xs items-center">
           <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" aria-hidden />
           <input
@@ -209,12 +217,25 @@ export function FleetBoard({ vehicles, summary, initial }: { vehicles: Vehicle[]
         </label>
       </div>
 
-      <p className="tabular text-xs text-muted-foreground" aria-live="polite">
-        {list.length} de {vehicles.length} vehículos
-      </p>
+      {!inicioVacio && (
+        <p className="tabular text-xs text-muted-foreground print:mb-2" aria-live="polite">
+          {list.length} de {vehicles.length} vehículos
+        </p>
+      )}
 
       <ul className="list-in glass rule-list overflow-hidden rounded-3xl">
-        {list.length === 0 && (
+        {inicioVacio ? (
+          <li>
+            <EmptyStart
+              title="Aún no hay vehículos"
+              description="Agrega el primero o carga toda la flota desde un Excel con su placa, modo y tipo."
+              actions={[
+                { label: "Agregar el primer vehículo", href: "/flota/nuevo", icon: Plus },
+                { label: "Importar desde Excel", onClick: abrirCargaDeExcel, icon: FileUp },
+              ]}
+            />
+          </li>
+        ) : list.length === 0 ? (
           <li>
             <EmptyState
               title="Ningún vehículo coincide"
@@ -222,7 +243,7 @@ export function FleetBoard({ vehicles, summary, initial }: { vehicles: Vehicle[]
               action={hasFilters ? { label: "Quitar filtros", onClick: quitarFiltros } : undefined}
             />
           </li>
-        )}
+        ) : null}
         {list.map((v) => (
           <li key={v.id}>
             <Link
