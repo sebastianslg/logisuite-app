@@ -57,7 +57,7 @@ from pydantic import BaseModel, Field
 from app.api import format as F
 from app.api import guard
 from app.api import serializers as S
-from app.database.db import fetch_all, run_query, run_write
+from app.database.db import data_version, fetch_all, run_query, run_write
 from app.data.colombia_ciudades import category_of
 from app.engine import (auth_otp, client_notify, clients, delivery, demo, mail, notify, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
                         otif as otif_engine, search, shipments_io, sustainability as SU, tables_io, telemetry, tolls, tracking, trends, warehouses, xlsx)
@@ -600,6 +600,50 @@ def _filtros_envios(status: str | None, modes: str | None, q: str | None, firmar
     return (" WHERE " + " AND ".join(where)) if where else "", params
 
 
+# Lista de envíos recordada mientras la base no cambie (misma técnica que fleet._ctx): cada página repetía cuatro
+# consultas sobre mm_shipments (total, recuentos por estado, recuentos por modo y filas) más las entregas firmadas,
+# y el dock y el calendario piden la misma lectura muchas veces por minuto. Se guardan las filas y los recuentos
+# leídos, no la respuesta: los estados se siguen derivando con el reloj en cada petición, y la página se recorta al
+# final con `limit`/`offset`. Una escritura sube `data_version()` y la lectura siguiente vuelve a la base, así nunca
+# se sirve algo anterior a un cambio.
+_envios_cache: dict = {}
+# Los endpoints corren en varios hilos (ver _sync): la purga, el desalojo y la inserción de una entrada van con cerrojo
+# para que nadie itere el diccionario mientras otro lo cambia. Leer con .get fuera del cerrojo es seguro en Python.
+_envios_lock = threading.Lock()
+_ENVIOS_CACHE_MAX = 4  # combinaciones de filtros recordadas; cada una es una copia de las filas, así que son pocas
+
+
+def _envios_leidos(where: str, params: list, where_sin_estado: str, params_sin_estado: list, orden: str) -> dict:
+    """Filas (todas las que pasan el filtro, ya ordenadas), recuentos de los chips y códigos ya firmados, recordados
+    mientras la base no cambie.
+
+    La clave lleva los dos filtros —el de la página y el de los recuentos, que no aplican el estado— y el orden, así que
+    una búsqueda nunca se sirve de otra; `limit` y `offset` no entran porque el recorte se hace al armar la respuesta.
+    Quien la use no debe modificar lo que recibe: se comparte entre peticiones."""
+    key = (data_version(), where, tuple(params), where_sin_estado, tuple(params_sin_estado), orden)
+    leido = _envios_cache.get(key)
+    if leido is None:
+        rows = fetch_all(f"SELECT * FROM mm_shipments{where} ORDER BY {orden}", tuple(params))
+        estados = {fila["status"]: int(fila["n"]) for fila in
+                   fetch_all(f"SELECT status, COUNT(*) AS n FROM mm_shipments{where_sin_estado} GROUP BY status",
+                             tuple(params_sin_estado))}
+        modos: dict = {}
+        for r in rows:
+            # set(): un envío con dos tramos del mismo modo no debe contar dos veces
+            for m in set((r["modes"] or "").split(",")):
+                if m:
+                    modos[m] = modos.get(m, 0) + 1
+        leido = {"rows": rows, "status": estados, "modes": modos, "signed": delivery.signed_codes()}
+        # Lo recordado de una versión anterior ya no se puede acertar y ocupa memoria: se descarta al guardar lo nuevo
+        with _envios_lock:
+            for viejo in [k for k in _envios_cache if k[0] != key[0]]:
+                _envios_cache.pop(viejo, None)
+            if len(_envios_cache) >= _ENVIOS_CACHE_MAX and _envios_cache:
+                _envios_cache.pop(next(iter(_envios_cache)))  # se olvida la combinación más vieja
+            _envios_cache[key] = leido
+    return leido
+
+
 @app.get("/api/shipments")
 def shipments(status: str | None = Query(None, max_length=200), modes: str | None = Query(None, max_length=200),
               q: str | None = Query(None, max_length=200), firmar: bool = False,
@@ -615,24 +659,15 @@ def shipments(status: str | None = Query(None, max_length=200), modes: str | Non
     silencio; ahora un valor absurdo responde 422 en vez de calcular una consulta enorme."""
     now = _sync()
     where, params = _filtros_envios(status, modes, q, firmar)
-    total = int(run_query(f"SELECT COUNT(*) AS n FROM mm_shipments{where}", tuple(params)).iloc[0]["n"])
     # Recuentos de los chips: respetan la búsqueda y el modo, no el filtro de estado (si no, al elegir uno los demás irían a 0)
     where_sin_estado, params_sin_estado = _filtros_envios(None, modes, q, firmar)
-    counts = {"status": {}, "modes": {}}
-    for fila in fetch_all(f"SELECT status, COUNT(*) AS n FROM mm_shipments{where_sin_estado} GROUP BY status",
-                          tuple(params_sin_estado)):
-        counts["status"][fila["status"]] = int(fila["n"])
-    for fila in fetch_all(f"SELECT modes, COUNT(*) AS n FROM mm_shipments{where}{(' AND' if where else ' WHERE')} modes != ''",
-                          tuple(params)):
-        # set(): un envío con dos tramos del mismo modo no debe contar dos veces
-        for m in set((fila["modes"] or "").split(",")):
-            if m:
-                counts["modes"][m] = counts["modes"].get(m, 0) + int(fila["n"])
     orden = {"estado": f"{_ORDEN_ESTADO}, departure_at DESC", "salida": "departure_at DESC",
              "codigo": "shipment_code", "costo": "total_cost DESC", "eta": "eta_at"}.get(sort, f"{_ORDEN_ESTADO}, departure_at DESC")
-    rows = fetch_all(f"SELECT * FROM mm_shipments{where} ORDER BY {orden} LIMIT ? OFFSET ?",
-                     tuple(params) + (limit, offset))
-    signed = delivery.signed_codes()
+    leido = _envios_leidos(where, params, where_sin_estado, params_sin_estado, orden)
+    total = len(leido["rows"])
+    counts = {"status": dict(leido["status"]), "modes": dict(leido["modes"])}
+    rows = leido["rows"][offset:offset + limit]
+    signed = leido["signed"]
     items = []
     for r in rows:
         item = S.shipment(r, status_at(r, now))
