@@ -34,6 +34,20 @@ export interface ShipmentDraft {
 const MAX_CORRIDORS = 3;
 const MAX_WEIGHT_T = 20000;
 
+/** Nombre visible de cada campo: lo usa el resumen que se anuncia al lector de pantalla cuando falta algo. */
+const FIELD_LABELS: Record<keyof ShipmentDraft, string> = {
+  origin: "Origen",
+  destination: "Destino",
+  cargo: "Carga",
+  client: "Cliente",
+  weight_t: "Peso",
+  priority: "Prioridad",
+  departure_at: "Fecha y hora de salida",
+  delay_h: "Retraso operativo",
+  forced_modes: "Modos forzados",
+  forced_corridors: "Vías forzadas",
+};
+
 type Errors = Partial<Record<keyof ShipmentDraft, string>>;
 
 const num = (v: string) => Number(v.trim().replace(",", "."));
@@ -219,8 +233,13 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
   const [corridorQuery, setCorridorQuery] = useState("");
   const [errors, setErrors] = useState<Errors>({});
   const formRef = useRef<HTMLFormElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
   const originRef = useRef<HTMLSelectElement>(null);
   const cargoRef = useRef<HTMLInputElement>(null);
+  const corridorSearchRef = useRef<HTMLInputElement>(null);
+  const corridorChipsRef = useRef<HTMLDivElement>(null);
+  const modeGroupId = useId();
+  const corridorGroupId = useId();
   const draftRef = useRef<ShipmentDraft>(draft);
   const touchedRef = useRef(false); // hubo cambios propios: ya vale la pena guardar
   const doneRef = useRef(false); // ya se guardó el envío: el borrador no vuelve
@@ -311,6 +330,12 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
     return false;
   }
 
+  /** Errores del servidor: el botón queda deshabilitado y suelta el foco, así que se lleva al aviso visible. */
+  function showServerError(message: string) {
+    setError(message);
+    requestAnimationFrame(() => errorRef.current?.focus());
+  }
+
   async function runPreview() {
     if (!check()) return;
     setBusy("preview");
@@ -322,7 +347,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
     } catch (e) {
       setPreview(null);
       setFootprint(null);
-      setError((e as Error).message);
+      showServerError((e as Error).message);
     } finally {
       setBusy(null);
     }
@@ -346,7 +371,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
       router.push(`/envios/${saved.code}`);
       router.refresh();
     } catch (err) {
-      setError((err as Error).message);
+      showServerError((err as Error).message);
       setBusy(null);
     }
   }
@@ -389,12 +414,30 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
       .slice(0, 8);
   }, [corridors, corridorQuery, draft.forced_corridors]);
 
+  // Un solo aviso para el lector de pantalla: qué campos corregir (el detalle de cada uno vive junto a su campo,
+  // atado con aria-describedby, para no repetir el mismo texto dos veces en voz alta).
+  const errorKeys = (Object.keys(errors) as (keyof ShipmentDraft)[]).filter((k) => errors[k]);
+  const errorSummary =
+    errorKeys.length === 0
+      ? ""
+      : errorKeys.length === 1
+        ? `Hay un campo por corregir: ${FIELD_LABELS[errorKeys[0]]}.`
+        : `Hay ${errorKeys.length} campos por corregir: ${errorKeys
+            .map((k) => FIELD_LABELS[k])
+            .join(", ")
+            .replace(/, ([^,]*)$/, " y $1")}.`;
+
   const input =
     "h-10 w-full field px-3 text-sm outline-none [&>option]:bg-card";
 
   return (
     <form ref={formRef} onSubmit={save} noValidate className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="flex flex-col gap-5 glass rounded-3xl p-5">
+        {errorSummary && (
+          <p role="alert" className="sr-only">
+            {errorSummary}
+          </p>
+        )}
         {recover && (
           <div role="status" className="rounded-2xl bg-fill/60 p-4 text-sm">
             <p>
@@ -468,8 +511,8 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
           </Field>
         </div>
 
-        <div>
-          <span className="mb-1.5 block text-xs text-muted-foreground">
+        <div role="group" aria-labelledby={modeGroupId}>
+          <span id={modeGroupId} className="mb-1.5 block text-xs text-muted-foreground">
             Forzar modos (opcional): la ruta solo usará los modos marcados
           </span>
           <div className="flex flex-wrap gap-1.5">
@@ -478,7 +521,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
               const { icon: Icon, color, label } = MODES[m];
               return (
                 <button key={m} type="button" onClick={() => toggleMode(m)} aria-pressed={on}
-                  className={cn("flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors",
+                  className={cn("flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80",
                     on ? "text-foreground" : "border-border text-muted-foreground hover:text-foreground")}
                   style={on ? { borderColor: tint(color, 45), backgroundColor: tint(color, 12) } : undefined}>
                   <Icon className="size-3.5" style={{ color }} />
@@ -489,21 +532,21 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
           </div>
         </div>
 
-        <div>
-          <span className="mb-1.5 block text-xs text-muted-foreground">
+        <div role="group" aria-labelledby={corridorGroupId}>
+          <span id={corridorGroupId} className="mb-1.5 block text-xs text-muted-foreground">
             Forzar vías (opcional, máximo {MAX_CORRIDORS}): la ruta pasará por cada una
           </span>
-          <div className="mb-2 flex flex-wrap gap-1.5">
+          <div ref={corridorChipsRef} className="mb-2 flex flex-wrap gap-1.5">
             {draft.forced_corridors.map((c) => (
-              <button key={c} type="button" onClick={() => toggleCorridor(c)}
-                className="flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-xs text-primary">
+              <button key={c} type="button" onClick={() => toggleCorridor(c)} aria-label={`Quitar ${c}`}
+                className="flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-xs text-primary outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80">
                 {c} <X className="size-3" />
               </button>
             ))}
           </div>
           {draft.forced_corridors.length < MAX_CORRIDORS && (
             <div className="relative">
-              <input className={input} value={corridorQuery} onChange={(e) => setCorridorQuery(e.target.value)}
+              <input ref={corridorSearchRef} className={input} value={corridorQuery} onChange={(e) => setCorridorQuery(e.target.value)}
                 placeholder="Buscar vía (ej. Río Magdalena, Ruta del Sol)" aria-label="Buscar vía para forzar" />
               <AnimatePresence>
               {corridorQuery && (
@@ -517,8 +560,20 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
                   {corridorOptions.length === 0 && <li className="px-3 py-2 text-xs text-muted-foreground">Sin coincidencias entre las vías activas</li>}
                   {corridorOptions.map((c) => (
                     <li key={c.corridor}>
-                      <button type="button" onClick={() => { toggleCorridor(c.corridor); setCorridorQuery(""); }}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-fill">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toggleCorridor(c.corridor);
+                          setCorridorQuery("");
+                          // La lista se cierra al elegir: el foco vuelve al buscador o, si ya se llegó al máximo, a
+                          // la última vía añadida, en vez de caer al <body>.
+                          requestAnimationFrame(() => {
+                            const target =
+                              corridorSearchRef.current ?? (corridorChipsRef.current?.lastElementChild as HTMLElement | null);
+                            target?.focus();
+                          });
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs outline-none hover:bg-fill focus-visible:ring-[3px] focus-visible:ring-ring/80">
                         {c.modes.map((m) => <ModeIcon key={m} mode={m} className="size-5" />)}
                         {c.corridor}
                       </button>
@@ -531,14 +586,26 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
           )}
         </div>
 
-        {error && <p className="rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+        {error && (
+          <p
+            ref={errorRef}
+            tabIndex={-1}
+            role="alert"
+            className="rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80"
+          >
+            {error}
+          </p>
+        )}
+        <p role="status" className="sr-only">
+          {busy === "save" ? (shipment ? "Guardando los cambios…" : "Creando el envío…") : busy === "preview" ? "Calculando la ruta…" : ""}
+        </p>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" disabled={!!busy} burst={shipment ? Check : Sparkles}>
+          <Button type="submit" disabled={!!busy} aria-busy={busy === "save"} burst={shipment ? Check : Sparkles}>
             <SaveIcon state={saved ? "done" : busy === "save" ? "busy" : "idle"} />
             {shipment ? "Guardar cambios" : "Crear envío"}
           </Button>
-          <Button type="button" variant="secondary" disabled={!!busy} onClick={runPreview}>
+          <Button type="button" variant="secondary" disabled={!!busy} aria-busy={busy === "preview"} onClick={runPreview}>
             {busy === "preview" ? <LoaderCircle className="animate-spin" /> : <Route />}
             Calcular ruta
           </Button>
@@ -558,6 +625,9 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
 
       <aside className="glass h-fit rounded-3xl p-5 lg:sticky lg:top-24">
         <h2 className="text-sm font-medium">Ruta calculada</h2>
+        <p role="status" className="sr-only">
+          {preview ? `Ruta calculada: ${preview.time_fmt}, ${preview.distance_fmt}.` : ""}
+        </p>
         {!preview ? (
           <p className="mt-3 text-xs text-muted-foreground">
             La ruta se calcula sola al guardar. Usa «Calcular ruta» para verla antes, con las vías cerradas ya excluidas.
