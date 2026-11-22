@@ -82,7 +82,7 @@ async function Tabla({ searchParams }: { searchParams: Promise<Record<string, st
       <form method="get" action="/auditoria" className="glass flex flex-wrap items-end gap-3 rounded-3xl p-4">
         <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-muted-foreground">
           Buscar en el detalle
-          <input name="q" defaultValue={f.q} placeholder="código, placa, texto…" className="field h-10 px-3 text-sm text-foreground outline-none" />
+          <input name="q" defaultValue={f.q} maxLength={200} placeholder="código, placa, texto…" className="field h-10 px-3 text-sm text-foreground outline-none" />
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           Tabla

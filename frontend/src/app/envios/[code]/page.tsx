@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Skeleton } from "@/components/page-header";
 import { ShipmentDetail } from "@/components/shipments/shipment-detail";
-import { apiGet, apiGetOrNull } from "@/lib/api";
+import { apiGetOrNull } from "@/lib/api";
 import type { Attachment, AuditEntry, DeliveryInfo, Shipment, ShipmentEvent } from "@/lib/types";
 
 export const metadata = { title: "Detalle de envío" };
@@ -25,7 +25,7 @@ async function Detail({ params }: { params: Promise<{ code: string }> }) {
   // Historial por registro (no solo por tabla): incluye notas, incidencias y adjuntos del envío
   const [shipment, audit, events, attachments, delivery] = await Promise.all([
     apiGetOrNull<Shipment>(`/api/shipments/${c}`),
-    apiGet<{ items: AuditEntry[] }>(`/api/audit?record=${c}`),
+    apiGetOrNull<{ items: AuditEntry[] }>(`/api/audit?record=${c}`),
     apiGetOrNull<{ items: ShipmentEvent[] }>(`/api/shipments/${c}/events`),
     apiGetOrNull<{ items: Attachment[] }>(`/api/shipments/${c}/attachments`),
     apiGetOrNull<DeliveryInfo>(`/api/shipments/${c}/delivery`),
@@ -34,7 +34,7 @@ async function Detail({ params }: { params: Promise<{ code: string }> }) {
   return (
     <ShipmentDetail
       shipment={shipment}
-      history={audit.items}
+      history={audit?.items ?? []}
       events={events?.items ?? []}
       attachments={attachments?.items ?? []}
       delivery={delivery}

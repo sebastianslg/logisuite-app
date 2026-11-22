@@ -507,6 +507,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
             onChange={(e) => (servidor ? setTexto(e.target.value) : table.setGlobalFilter(e.target.value))}
             placeholder="Buscar envío, ciudad, carga, cliente"
             aria-label="Buscar envíos"
+            maxLength={200}
             className="h-10 w-full field pr-3 pl-9 text-sm outline-none"
           />
         </label>
