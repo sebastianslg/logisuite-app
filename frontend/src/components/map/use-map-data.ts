@@ -15,7 +15,8 @@ export interface MapData {
 }
 
 async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(path, { cache: "no-store", signal: AbortSignal.timeout(15_000) });
+  // `no-cache`: el navegador guarda y revalida con If-None-Match; si no cambió, la API responde 304 sin cuerpo.
+  const res = await fetch(path, { cache: "no-cache", signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`${path}: ${res.status}`);
   return res.json() as Promise<T>;
 }

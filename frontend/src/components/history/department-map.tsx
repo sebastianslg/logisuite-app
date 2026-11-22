@@ -23,7 +23,8 @@ export function DepartmentMap({ departments }: { departments: HistoryDepartment[
   const [geo, setGeo] = useState<DepartmentsGeo | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   useEffect(() => {
-    api<DepartmentsGeo>("/api/geo/departments").then(setGeo).catch(() => undefined);
+    // Los polígonos casi no cambian: el navegador los guarda y los revalida con ETag
+    api<DepartmentsGeo>("/api/geo/departments", { cache: "no-cache" }).then(setGeo).catch(() => undefined);
   }, []);
 
   const byCode = useMemo(() => new Map(departments.map((d) => [d.code, d])), [departments]);

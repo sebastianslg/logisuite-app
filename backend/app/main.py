@@ -35,6 +35,7 @@ Ejecución local (desde backend/):  uvicorn app.main:app --reload --port 8000
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -50,6 +51,7 @@ from typing import Annotated, Literal
 from fastapi import FastAPI, HTTPException, Query, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.api import format as F
@@ -93,6 +95,9 @@ _cache_lock = threading.Lock()
 _inflight: dict[str, "asyncio.Future"] = {}
 # Lecturas que no se cachean: salud, PDF y archivos generados
 _NO_CACHE = ("/api/health", "/api/client-errors", "/api/exports/", "/api/tolls/export", "/api/reports/", "/api/shipments/import/",
+             # Red y departamentos responden con ETag: la caché rehace la respuesta y perdería esa cabecera, y el
+             # navegador revalida con If-None-Match (un 304 no lleva cuerpo). Sus datos ya se arman en memoria.
+             "/api/network/multimodal", "/api/geo/departments",
              # Cuentas, administración y datos personales: la respuesta depende de quién pide y no se comparte nunca
              "/api/auth/", "/api/admin/", "/api/companies", "/api/system/", "/api/demo-requests", "/api/consents")
 
@@ -434,9 +439,32 @@ def locations() -> dict:
     return {"cities": cities}
 
 
+def _etag_json(payload) -> str:
+    """ETag del contenido: sha256 del JSON con las claves ordenadas. Es estable entre procesos y peticiones, y cambia
+    exactamente cuando cambia lo que se sirve (un nodo o una vía editados, un envío nuevo que suma toneladas)."""
+    raw = json.dumps(payload, sort_keys=True, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+    return '"' + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:40] + '"'
+
+
+def _revalidable(request: Request, payload: dict) -> Response:
+    """200 con ETag y `Cache-Control: no-cache` (guardar, pero preguntar siempre) o 304 sin cuerpo si el navegador ya
+    tiene esa versión (`If-None-Match`).
+
+    Solo para lecturas públicas y casi inmutables: la red multimodal y los departamentos se piden en cada visita y casi
+    siempre son los mismos bytes. El cuerpo ya se arma en memoria (la red con `lru_cache` y los polígonos del país
+    también); lo que se ahorra es bajarlo otra vez."""
+    etag = _etag_json(payload)
+    headers = {"ETag": etag, "Cache-Control": "no-cache"}
+    candidatos = [t.strip() for t in (request.headers.get("if-none-match") or "").split(",") if t.strip()]
+    # Comparación débil: si un proxy reenvía `W/"…"`, en un GET equivale a la misma representación
+    if "*" in candidatos or any(c.removeprefix("W/") == etag for c in candidatos):
+        return Response(status_code=304, headers=headers)
+    return JSONResponse(payload, headers=headers)
+
+
 @app.get("/api/network/multimodal")
-def multimodal_network() -> dict:
-    return S.network_geojson(network())
+def multimodal_network(request: Request) -> Response:
+    return _revalidable(request, S.network_geojson(network()))
 
 
 # ---------------------------------------------------------------------------
@@ -1426,7 +1454,7 @@ def _recent_shipments(now: datetime, days: int = 30) -> list:
 
 
 @app.get("/api/geo/departments")
-def geo_departments() -> dict:
+def geo_departments(request: Request) -> Response:
     """Departamentos (DANE) con las toneladas que los atraviesan en 30 días."""
     now = _sync()
     traffic = geo.department_traffic(_recent_shipments(now))
@@ -1441,7 +1469,7 @@ def geo_departments() -> dict:
             # Escala raíz: el granel (miles de t) no aplasta a los demás
             "intensity": round((t / peak) ** 0.5, 3),
         }})
-    return {"type": "FeatureCollection", "metadata": base.get("metadata", {}), "features": features}
+    return _revalidable(request, {"type": "FeatureCollection", "metadata": base.get("metadata", {}), "features": features})
 
 
 UNSIGNED_ALERT_H = 48

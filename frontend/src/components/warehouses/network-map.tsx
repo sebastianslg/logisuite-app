@@ -41,7 +41,7 @@ export function WarehouseNetworkMap({
   const [hover, setHover] = useState<string | null>(null);
 
   useEffect(() => {
-    api<{ features: Dept[] }>("/api/geo/departments")
+    api<{ features: Dept[] }>("/api/geo/departments", { cache: "no-cache" })
       .then((d) => {
         const out: string[] = [];
         for (const f of d.features) {
