@@ -228,7 +228,7 @@ export function CommandPalette({ children }: { children: React.ReactNode }) {
       {children}
       <AnimatePresence>
         {open && (
-          <div className="fixed inset-0 z-[60] flex items-start justify-center px-3 pt-[12dvh]" role="presentation">
+          <div className="fixed inset-0 z-[75] flex items-start justify-center px-3 pt-[12dvh]" role="presentation">
             <motion.div
               className="absolute inset-0 bg-black/40"
               initial={{ opacity: 0 }}
