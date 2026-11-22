@@ -17,7 +17,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
 from app.api import format as F
-from app.database.db import run_query
+from app.database.db import fetch_all
 from app.engine import history as H, journal, sustainability as SU
 from app.engine.dispatch import status_at
 from app.engine.pdf import Money, _footer, _styles, _table
@@ -37,7 +37,9 @@ def render(net, days: int, currency: str, fx: dict, now: datetime) -> bytes:
     hist = H.history(now, days)
     t, prev = hist["totals"], hist["previous"]
 
-    rows = run_query("SELECT * FROM mm_shipments").to_dict(orient="records")
+    # El reporte recorre todos los envíos y no agrega con pandas: los dicts de fetch_all alcanzan. Las columnas que
+    # usa (delay_h, route_json, departure_at, eta_at) no admiten NULL, así que None no aparece donde antes había NaN
+    rows = fetch_all("SELECT * FROM mm_shipments")
     in_window = [r for r in rows if since <= datetime.fromisoformat(r["departure_at"]) <= now
                  and r["status"] != "Programado"]
     states = {r["shipment_code"]: status_at(r, now)["status"] for r in rows}

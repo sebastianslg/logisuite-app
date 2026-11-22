@@ -20,7 +20,7 @@ import random
 import threading
 from datetime import datetime, timedelta
 
-from app.database.db import run_query, run_write
+from app.database.db import fetch_all, run_write
 from app.engine import fleet, warehouses
 from app.engine.dispatch import TEMPLATES, build_shipment, status_at
 from app.engine.multimodal import MultimodalNetwork, RoutingError
@@ -61,8 +61,9 @@ def position_on(timeline: list, route_h: float) -> dict:
 
 def refresh_statuses(now: datetime) -> None:
     """Recalcula y persiste el estado de los envíos no entregados."""
-    rows = run_query("""SELECT shipment_code, departure_at, total_time_h, delay_h, route_json, status
-                        FROM mm_shipments WHERE status != 'Entregado'""").to_dict(orient="records")
+    # Corre en cada sincronización (cada 15 s) y `status_at` ya trabaja con dicts: fetch_all evita armar el DataFrame
+    rows = fetch_all("""SELECT shipment_code, departure_at, total_time_h, delay_h, route_json, status
+                        FROM mm_shipments WHERE status != 'Entregado'""")
     for r in rows:
         new = status_at(r, now)["status"]
         if new != r["status"]:
@@ -76,9 +77,9 @@ def replenish(network: MultimodalNetwork, now: datetime) -> int:
     from app.engine.operations import auto_replenish, next_code
     if not auto_replenish():
         return 0
-    active = int(run_query(
+    active = int(fetch_all(
         f"SELECT COUNT(*) c FROM mm_shipments WHERE status IN ({','.join('?' * len(ACTIVE_STATUSES))})",
-        ACTIVE_STATUSES).iloc[0]["c"])
+        ACTIVE_STATUSES)[0]["c"])
     missing = MIN_ACTIVE - active
     if missing <= 0:
         return 0
@@ -117,9 +118,10 @@ def sync(network: MultimodalNetwork, now: datetime) -> None:
 
 def live_fleet(now: datetime) -> list:
     """Activos en movimiento con su posición, tramo actual y recorrido."""
-    rows = run_query(
+    # Se sondea desde varias pantallas y solo se recorre: los dicts de fetch_all evitan armar el DataFrame
+    rows = fetch_all(
         f"SELECT * FROM mm_shipments WHERE status IN ({','.join('?' * len(ACTIVE_STATUSES))})",
-        ACTIVE_STATUSES).to_dict(orient="records")
+        ACTIVE_STATUSES)
     fleet = []
     for r in rows:
         route = json.loads(r["route_json"])

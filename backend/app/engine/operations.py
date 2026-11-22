@@ -34,7 +34,7 @@ import random
 import re
 from datetime import datetime, timedelta
 
-from app.database.db import run_query, run_write
+from app.database.db import fetch_all, run_write
 from app.engine import notify
 from app.engine.common import ANON, OperationError, _now_iso, _user, audit  # noqa: F401 (reexportados)
 from app.engine import fleet
@@ -76,17 +76,19 @@ def audit_search(limit: int = 200, offset: int = 0, table: str | None = None, re
         where.append("(detail LIKE ? OR record_id LIKE ?)")
         params.extend([f"%{q}%", f"%{q}%"])
     clause = " AND ".join(where)
-    total = int(run_query(f"SELECT COUNT(*) AS n FROM audit_log WHERE {clause}", tuple(params)).iloc[0]["n"])
-    rows = run_query(f"SELECT * FROM audit_log WHERE {clause} ORDER BY audit_id DESC LIMIT ? OFFSET ?",
+    # fetch_all en vez de run_query: la lista de auditoría puede traer miles de líneas y armar el DataFrame de
+    # pandas cuesta más que recorrer los dicts; los vacíos llegan como None, igual que los entregaba pandas aquí.
+    total = int(fetch_all(f"SELECT COUNT(*) AS n FROM audit_log WHERE {clause}", tuple(params))[0]["n"])
+    rows = fetch_all(f"SELECT * FROM audit_log WHERE {clause} ORDER BY audit_id DESC LIMIT ? OFFSET ?",
                      tuple(params) + (max(1, min(limit, 1000)), max(0, offset)))
-    return {"total": total, "items": rows.to_dict(orient="records")}
+    return {"total": total, "items": rows}
 
 
 def audit_facets() -> dict:
     """Valores para los filtros: quiénes aparecen, qué acciones y qué tablas, con cuántas líneas cada uno."""
     def por(columna: str) -> list:
-        rows = run_query(f"SELECT {columna} AS v, COUNT(*) AS n FROM audit_log GROUP BY {columna} ORDER BY n DESC")
-        return [{"value": r["v"], "count": int(r["n"])} for r in rows.to_dict(orient="records") if r["v"]]
+        rows = fetch_all(f"SELECT {columna} AS v, COUNT(*) AS n FROM audit_log GROUP BY {columna} ORDER BY n DESC")
+        return [{"value": r["v"], "count": int(r["n"])} for r in rows if r["v"]]
 
     return {"usuarios": por("username"), "acciones": por("action"), "tablas": por("table_name")}
 
@@ -101,15 +103,16 @@ def audit_entries(limit: int = 200, table: str | None = None, record: str | None
         params.append(record)
     sql += " ORDER BY audit_id DESC LIMIT ?"
     params.append(max(1, min(limit, 1000)))
-    return run_query(sql, tuple(params)).to_dict(orient="records")
+    return fetch_all(sql, tuple(params))
 
 
 # ---------------------------------------------------------------------------
 # Parámetros
 # ---------------------------------------------------------------------------
 def _param(key: str, default: str = "") -> str:
-    rows = run_query("SELECT param_value FROM system_params WHERE param_key = ?", (key,))
-    return default if rows.empty else str(rows.iloc[0]["param_value"])
+    # Lectura de una sola fila: fetch_all evita el costo de armar un DataFrame en cada consulta de TRM y reposición
+    rows = fetch_all("SELECT param_value FROM system_params WHERE param_key = ?", (key,))
+    return default if not rows else str(rows[0]["param_value"])
 
 
 def _set_param(key: str, value: str, description: str = "") -> None:
@@ -162,12 +165,13 @@ def set_auto_replenish(enabled: bool, user: str | None) -> bool:
 # ---------------------------------------------------------------------------
 def next_code(when: datetime) -> str:
     """LS-AAMM-NNNN con NNNN consecutivo global (no se reutiliza tras borrar)."""
-    codes = run_query("SELECT shipment_code FROM mm_shipments")["shipment_code"].tolist()
+    # Se piden solo los códigos, como columnas sueltas: con fetch_all no se arma un DataFrame para extraerlas
+    codes = [r["shipment_code"] for r in fetch_all("SELECT shipment_code FROM mm_shipments")]
     nums = [int(m.group(1)) for c in codes if (m := re.search(r"-(\d+)$", c))]
     last = max(nums, default=0)
     # Un consecutivo borrado no vuelve a usarse: se registra en el historial
-    logged = run_query("SELECT record_id FROM audit_log WHERE table_name = 'mm_shipments' "
-                       "AND action = 'DELETE'")["record_id"].tolist()
+    logged = [r["record_id"] for r in fetch_all("SELECT record_id FROM audit_log WHERE table_name = 'mm_shipments' "
+                                                "AND action = 'DELETE'")]
     nums_del = [int(m.group(1)) for c in logged if c and (m := re.search(r"-(\d+)$", c))]
     return f"LS-{when:%y%m}-{max([last, *nums_del]) + 1:04d}"
 
@@ -184,8 +188,7 @@ def _split(v) -> list:
 
 
 def corridors(net: MultimodalNetwork, now: datetime) -> list:
-    status = {r["corridor"]: r for r in
-              run_query("SELECT * FROM mm_corridor_status").to_dict(orient="records")}
+    status = {r["corridor"]: r for r in fetch_all("SELECT * FROM mm_corridor_status")}
     usage: dict = {}
     for r in _open_shipments():
         route = json.loads(r["route_json"])
@@ -227,8 +230,8 @@ def set_corridor_status(net_factory, corridor: str, active: bool, reason: str | 
     reason = (reason or "").strip()
     if not active and not reason:
         raise OperationError("Indica el motivo del cierre.")
-    current = run_query("SELECT active FROM mm_corridor_status WHERE corridor = ?", (corridor,))
-    was_active = current.empty or bool(current.iloc[0]["active"])
+    current = fetch_all("SELECT active FROM mm_corridor_status WHERE corridor = ?", (corridor,))
+    was_active = not current or bool(current[0]["active"])
     if was_active == active:
         raise OperationError(f"La vía ya está {'activa' if active else 'cerrada'}.")
     run_write("""INSERT INTO mm_corridor_status (corridor, active, reason, changed_at, changed_by)
@@ -248,8 +251,7 @@ def set_corridor_status(net_factory, corridor: str, active: bool, reason: str | 
 
 def nodes_status(net: MultimodalNetwork, now: datetime) -> list:
     """Nodos de la red con su estado operativo y los envíos pendientes que pasan por ellos."""
-    status = {r["node_code"]: r for r in
-              run_query("SELECT * FROM mm_node_status").to_dict(orient="records")}
+    status = {r["node_code"]: r for r in fetch_all("SELECT * FROM mm_node_status")}
     usage: dict = {}
     for r in _open_shipments():
         route = json.loads(r["route_json"])
@@ -323,7 +325,7 @@ def _notify_closure(name: str, active: bool, reason: str, summary: dict, path: s
 # Reconciliación de rutas con el estado de la red
 # ---------------------------------------------------------------------------
 def _open_shipments() -> list:
-    return run_query("SELECT * FROM mm_shipments WHERE status != 'Entregado'").to_dict(orient="records")
+    return fetch_all("SELECT * FROM mm_shipments WHERE status != 'Entregado'")
 
 
 def _plan(net: MultimodalNetwork, origin: str, dest: str, weight: float, priority: str,
@@ -648,10 +650,10 @@ def create_shipment(net: MultimodalNetwork, data: dict, user: str | None, now: d
 
 def update_shipment(net: MultimodalNetwork, code: str, data: dict, user: str | None,
                     now: datetime) -> str:
-    rows = run_query("SELECT * FROM mm_shipments WHERE shipment_code = ?", (code,))
-    if rows.empty:
+    rows = fetch_all("SELECT * FROM mm_shipments WHERE shipment_code = ?", (code,))
+    if not rows:
         raise LookupError(code)
-    old = rows.to_dict(orient="records")[0]
+    old = rows[0]
     merged = {
         "origin": old["origin_city"], "destination": old["dest_city"], "cargo": old["cargo"],
         "weight_t": old["weight_t"], "priority": old["priority"], "client": old["client"],
@@ -678,11 +680,11 @@ def update_shipment(net: MultimodalNetwork, code: str, data: dict, user: str | N
 
 
 def delete_shipment(code: str, user: str | None) -> None:
-    rows = run_query("SELECT origin_city, dest_city, cargo, source FROM mm_shipments "
+    rows = fetch_all("SELECT origin_city, dest_city, cargo, source FROM mm_shipments "
                      "WHERE shipment_code = ?", (code,))
-    if rows.empty:
+    if not rows:
         raise LookupError(code)
-    r = rows.iloc[0]
+    r = rows[0]
     run_write("DELETE FROM mm_shipments WHERE shipment_code = ?", (code,))
     fleet.release(code)
     audit(user, "DELETE", "mm_shipments", code,

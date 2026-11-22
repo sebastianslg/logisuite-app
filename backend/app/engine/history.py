@@ -15,7 +15,7 @@ import json
 from datetime import datetime, timedelta
 
 from app.api import format as F
-from app.database.db import run_query
+from app.database.db import fetch_all
 from app.engine import geo
 from app.engine.sustainability import leg_emissions
 
@@ -25,7 +25,7 @@ def _department_names() -> dict[str, str]:
 
 
 def _city_departments() -> dict[str, str]:
-    rows = run_query("SELECT city, department_code FROM mm_nodes ORDER BY node_code").to_dict(orient="records")
+    rows = fetch_all("SELECT city, department_code FROM mm_nodes ORDER BY node_code")
     out: dict[str, str] = {}
     for r in rows:
         out.setdefault(r["city"], str(r["department_code"]).zfill(2))
@@ -35,10 +35,10 @@ def _city_departments() -> dict[str, str]:
 def history(now: datetime, days: int = 30) -> dict:
     since = now - timedelta(days=days)
     before = since - timedelta(days=days)
-    all_rows = run_query(
+    all_rows = fetch_all(
         "SELECT shipment_code, origin_city, dest_city, weight_t, total_cost, status, departure_at, route_json, delay_h "
         "FROM mm_shipments WHERE status != 'Programado'"
-    ).to_dict(orient="records")
+    )
     rows = [r for r in all_rows if since <= datetime.fromisoformat(r["departure_at"]) <= now]
     # Ventana anterior del mismo largo, para comparar (solo totales)
     prev = [r for r in all_rows if before <= datetime.fromisoformat(r["departure_at"]) < since]
