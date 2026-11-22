@@ -1719,3 +1719,56 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
   y la traza solo en el log. F6/F7 (celular y oscuro) quedaron cubiertos por este rediseño; B4/B5 (carga con 8 personas,
   cobertura) siguen pendientes.
 - Pruebas nuevas: `tests/test_hoja_de_vida.py`, `tests/test_errores_es.py`.
+
+## 77. Tanda 3, cierre: la app abre antes, el mapa es solo Colombia y la Red queda en reposo
+
+- **P0, medido antes y después** con `frontend/scripts/rendimiento.mjs` (Edge, 1400×900, misma máquina, 10 s por ruta;
+  tablas completas en `docs/mediciones/`). Presupuestos: LCP < 1,8 s **cumplido** en las 17 rutas; CLS < 0,05
+  **cumplido salvo Configuración** (0,092, ver pendientes); la ficha del envío pasa de 4.439 a 259 ms de CPU y de una
+  tarea de 1.031 ms a ninguna. La Red queda en **0 cuadros en reposo** y con el reloj apagado.
+- **P1 mapa solo Colombia:** límites de cámara y de zoom (3,4–9), inclinación ≤ 60°, giro ±40°, sin copias del mundo;
+  silueta y máscara inversa calculadas de los 33 polígonos del DANE (sin líneas internas, con San Andrés), estilos
+  locales claro/oscuro que solo pintan el mar y la atribución, y comprobación de WebGL2 antes de bajar deck.gl (con
+  WebGL1 se queda la red plana). El mapa se pausa fuera de pantalla o con la pestaña oculta y tiene reintento.
+  **Decisión tomada:** el mapa base arranca **apagado en todos los equipos**, no solo en los modestos. El estilo local
+  solo pinta el mar (la silueta y los datos ya los dibuja deck.gl) y con MapLibre montado la Red gastaba 4,2 s de CPU
+  cada 5 s; sin él, 0,07 s. El interruptor sigue disponible y se recuerda.
+- **PMTiles de Colombia, preparado y no activado:** `frontend/scripts/extraer-colombia.mjs` y
+  `docs/CARTOGRAFIA_OPCIONAL.md`. Extracto real de 31.363.854 bytes verificado (origen Protomaps del 22/11/2026,
+  zoom 11); quedan escritas la instrucción de Caddy (rangos 206) y la advertencia de que hace falta registrar el
+  protocolo y elegir un estilo con los `source-layer` correctos. No se sirve ni se activa nada.
+- **P2 carga diferida:** la paleta Ctrl K, la ayuda de atajos, el lienzo de firma, la importación de envíos y el 3D de
+  la ficha viven en trozos que solo se piden al abrirlos o al mostrar intención; la ficha empieza con la ruta en plano.
+  Las listas de más de 100 filas se paginan en el cliente (nunca 1.000 filas en el DOM) y las secciones bajo el pliegue
+  usan `content-visibility`. Inter queda en el subconjunto latino con `next/font/local`, `preload` y `display: swap`.
+- **P3 actividad:** un solo motor de sondeo por URL (`lib/sondeo.ts`), con peticiones compartidas, pausa por pestaña
+  oculta/sin red/fuera de pantalla, espera creciente y sin contar la cancelación como fallo. Un reloj de 30 s para toda
+  la interfaz; diagnóstico con un solo rAF; refresco de «Hoy» encadenado y pausado. El reloj del mapa se quedaba
+  encendido porque deck.gl avisa «nada activo» en cada cuadro y reiniciaba el temporizador; ahora solo se arma al pasar
+  de activo a quieto, con tope duro.
+- **P4 API y red:** ETag público en ubicaciones, catálogo de flota y roles de bodega; **`no-store`** en nodos y vías
+  (llevan operador y códigos de envíos), sin validador. El tablero calcula sus conteos de la consulta de filas, la
+  flota reutiliza `_ctx`, el historial recuerda el mapa ciudad→departamento y la telemetría pide solo las columnas que
+  usa. Detalle y cifras en `docs/MEDICION_API.md`.
+- **P5 robustez:** `api()` combina cancelación y plazo a mano (sin `AbortSignal.any`, para Safari viejo), las lecturas
+  se cancelan al cambiar de ruta, los paneles con gráficos tienen límite de error, el mapa cae a la red plana con
+  reintento y los formularios bloquean el doble envío.
+- **P6 pulido:** atajos visibles junto a cada acción del menú «Más», vista recordada por cuenta en flota, bodegas,
+  historial y Red (nunca el texto buscado), indicador discreto de sin conexión/reconectando en el dock, «Guardando… /
+  Guardado» en los formularios que ya usaban el disquete, e impresión revisada de Hoy y la hoja de vida.
+- **Presupuestos que NO se cumplen (con causa):**
+  - **JS inicial 30 % menor: no.** Movió trozos a demanda, pero el byte inicial subió ~2 % por el cliente compartido
+    (sondeo, cancelación, paginación). El código ejecutado a 2 s es prácticamente igual.
+  - **Memoria < 15 % en el bucle con la Red: no (54 %).** Sin la ruta del mapa el mismo bucle crece 14,1 %, dentro del
+    límite: la retención está en las visitas repetidas a WebGL (Next conserva la ruta oculta y el contexto vivo).
+  - **Ninguna tarea > 200 ms al abrir: no en la Red (1.443 ms).** Es la compilación inicial de deck.gl y sus capas; el
+    mapa queda quieto después y la ficha ya no la tiene.
+  - **CLS < 0,05: Configuración 0,092.** El panel de «Mis sesiones» crece al cargar y empuja el contenido. Las demás
+    rutas están en 0.
+- **Verificación:** `tsc`, `eslint` y build limpios; **582 pruebas de la API** (nuevas: ETag, avance por tramos y rutas
+  frecuentes); **101 de navegador** con base limpia, incluidas accesibilidad en claro y oscuro, mapa, actividad,
+  carga diferida y conexión. Carga local con 8 personas: 226 peticiones, 0 errores, páginas 270 ms de mediana
+  (p95 1,27 s) y API 34 ms (p95 100 ms).
+- **Pendiente:** bajar el costo de apertura de la Red y su memoria al volver (desmontar el contexto al salir de la
+  ruta, trocear la compilación de capas); reservar el alto de «Mis sesiones»; activar PMTiles cuando el dueño lo
+  decida; recordar también las vistas de envíos y panel; el sondeo de salud del dock sigue duplicado en dos instancias.
