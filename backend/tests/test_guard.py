@@ -53,6 +53,48 @@ def test_limite_de_escrituras_por_cliente(client, limited):
     assert client.get("/api/health", headers=ip).status_code == 200
 
 
+def test_el_ingreso_tiene_su_propio_limite_por_ip(client, monkeypatch):
+    """10 intentos por minuto y por IP: el 11.º responde 429 con mensaje propio y Retry-After."""
+    monkeypatch.setenv("WESTVANE_RATE_LIMIT", "1000")       # el general, alto: aquí se mide el del ingreso
+    monkeypatch.setenv("WESTVANE_AUTH_RATE_LIMIT", "10")
+    guard.reset()
+    ip = {"x-forwarded-for": "203.0.113.40"}
+    for _ in range(10):
+        r = client.post("/api/auth/password", json={"identifier": "nadie", "password": "x"}, headers=ip)
+        assert r.status_code == 422, r.status_code            # credenciales malas: todavía no es 429
+    r = client.post("/api/auth/password", json={"identifier": "nadie", "password": "x"}, headers=ip)
+    assert r.status_code == 429
+    assert "intentos de ingreso" in r.json()["detail"]
+    assert int(r.headers["Retry-After"]) >= 1
+    # Otra IP no queda castigada
+    assert client.post("/api/auth/password", json={"identifier": "nadie", "password": "x"},
+                       headers={"x-forwarded-for": "203.0.113.41"}).status_code == 422
+    # Pedir código por correo comparte el mismo cubo de ingreso
+    assert client.post("/api/auth/otp/request", json={"email": "x@y.co"}, headers=ip).status_code == 429
+    guard.reset()
+
+
+def test_el_limite_del_ingreso_no_afecta_al_resto(client, monkeypatch):
+    monkeypatch.setenv("WESTVANE_RATE_LIMIT", "1000")
+    monkeypatch.setenv("WESTVANE_AUTH_RATE_LIMIT", "1")
+    guard.reset()
+    ip = {"x-forwarded-for": "203.0.113.50"}
+    assert client.post("/api/auth/password", json={"identifier": "nadie", "password": "x"}, headers=ip).status_code == 422
+    assert client.post("/api/auth/password", json={"identifier": "nadie", "password": "x"}, headers=ip).status_code == 429
+    # Una escritura normal de la app sigue pasando
+    assert client.put("/api/settings/replenish", json={"enabled": False, "usuario": "T"}, headers=ip).status_code == 200
+    guard.reset()
+
+
+def test_el_limite_del_ingreso_se_puede_apagar(client, monkeypatch):
+    monkeypatch.setenv("WESTVANE_AUTH_RATE_LIMIT", "0")
+    guard.reset()
+    ip = {"x-forwarded-for": "203.0.113.60"}
+    for _ in range(15):
+        assert client.post("/api/auth/password", json={"identifier": "nadie", "password": "x"}, headers=ip).status_code == 422
+    guard.reset()
+
+
 def test_ventana_deslizante():
     guard.reset()
     import os

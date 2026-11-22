@@ -303,8 +303,11 @@ async def abuse_guard(request: Request, call_next):
         key = guard.client_key(request.headers.get("x-forwarded-for"), request.client.host if request.client else None)
         wait = guard.check_rate(key, request.url.path)
         if wait is not None:
-            return Response(json.dumps({"detail": "Demasiadas solicitudes seguidas; espera un momento y vuelve a intentar."}),
-                            status_code=429, media_type="application/json", headers={"Retry-After": str(int(wait))})
+            mensaje = ("Demasiados intentos de ingreso desde esta conexión. Espera un minuto y vuelve a intentar."
+                       if guard.is_auth_path(request.url.path)
+                       else "Demasiadas solicitudes seguidas; espera un momento y vuelve a intentar.")
+            return Response(json.dumps({"detail": mensaje}), status_code=429, media_type="application/json",
+                            headers={"Retry-After": str(int(wait))})
     return await call_next(request)
 
 
