@@ -15,7 +15,7 @@ import json
 from datetime import datetime, timedelta
 
 from app.api import format as F
-from app.database.db import fetch_all
+from app.database.db import data_version, fetch_all
 from app.engine import geo
 from app.engine.sustainability import leg_emissions
 
@@ -24,11 +24,22 @@ def _department_names() -> dict[str, str]:
     return {f["properties"]["code"]: f["properties"]["name"] for f in geo.departments()["features"]}
 
 
+_city_dept_cache: dict = {}
+
+
 def _city_departments() -> dict[str, str]:
-    rows = fetch_all("SELECT city, department_code FROM mm_nodes ORDER BY node_code")
-    out: dict[str, str] = {}
-    for r in rows:
-        out.setdefault(r["city"], str(r["department_code"]).zfill(2))
+    """Ciudad → departamento, recordado mientras la base no cambie (`data_version`): los nodos solo cambian al editar
+    la red, y el historial releía la tabla completa en cada visita (era cerca de la mitad del costo de la lectura).
+    Quien la use no debe modificar el diccionario: se comparte entre peticiones."""
+    key = data_version()
+    out = _city_dept_cache.get(key)
+    if out is None:
+        rows = fetch_all("SELECT city, department_code FROM mm_nodes ORDER BY node_code")
+        out = {}
+        for r in rows:
+            out.setdefault(r["city"], str(r["department_code"]).zfill(2))
+        _city_dept_cache.clear()
+        _city_dept_cache[key] = out
     return out
 
 

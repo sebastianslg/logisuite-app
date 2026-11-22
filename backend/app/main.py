@@ -82,6 +82,22 @@ def _network(reload: bool = False) -> MultimodalNetwork:
     return network()
 
 
+def _red_stats() -> list:
+    """Estadísticas por modo de la red (enlaces y km), sin armar el GeoJSON completo.
+
+    El resumen del tablero solo necesita estos tres números por modo; antes llamaba a `S.network_geojson`, que recorre
+    los 148 enlaces y formatea cada propiedad para descartar todo menos `stats`. El cálculo y el orden son los mismos
+    que los de `S.network_geojson(...)["stats"]`, así que la respuesta no cambia."""
+    stats: dict = {}
+    for l in network().links:
+        m = stats.setdefault(l["mode"], {"mode": l["mode"], "label": F.MODE_LABELS[l["mode"]], "links": 0, "km": 0})
+        m["links"] += 1
+        m["km"] += F.km(l["distance_km"])
+    for m in stats.values():
+        m["km_fmt"] = F.km_fmt(m["km"])
+    return list(stats.values())
+
+
 _sync_lock = threading.Lock()
 
 # ---------------------------------------------------------------------------
@@ -294,29 +310,92 @@ async def unexpected_es(_request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=500, content={"detail": "Algo falló en el servidor. Intenta de nuevo; si sigue, avisa al administrador."})
 
 
+# Lecturas públicas que cambian poco y no dependen de quién pide: ubicaciones y catálogos. Se marcan con ETag para
+# que el navegador reciba un 304 sin cuerpo al revalidar, sin dejar de usar la caché corta del servidor. El ETag sale
+# del propio cuerpo servido, así que cambia exactamente cuando cambia la respuesta; ninguna ruta con datos personales,
+# cuentas ni respuestas por sesión entra en esta lista.
+_ETAG_LECTURAS = ("/api/locations", "/api/fleet/catalog", "/api/warehouses/roles")
+
+# Lecturas con datos de la operación: el estado de nodos y vías lleva `changed_by` (quién hizo el cierre) y los códigos
+# de los envíos pendientes, que no son un catálogo. No se guardan en el navegador ni en un intermediario
+# (`Cache-Control: no-store`) y por eso tampoco llevan ETag: un validador solo sirve para revalidar una copia guardada.
+# La caché de 5 s del servidor sigue usándose (el cuerpo es igual para todos y no sale de él), pero la respuesta se
+# envía sin validador y se rehace para el cliente. Los POST de cierre (/api/corridors/status y /api/nodes/status)
+# también llevan `no-store` porque su resumen trae los envíos redirigidos.
+_NO_STORE = ("/api/nodes/status", "/api/corridors", "/api/corridors/status")
+
+
+def _etag_de_cuerpo(body: bytes) -> str:
+    """ETag (sha256) del cuerpo que se sirve: mismo formato y mismo largo que `_json_canonico`."""
+    return '"' + hashlib.sha256(body).hexdigest()[:40] + '"'
+
+
+def _sin_cuerpo(request: Request, etag: str) -> bool:
+    """¿El cliente ya tiene esta versión? `If-None-Match` acepta `W/"…"`: en un GET es la misma representación."""
+    candidatos = [t.strip() for t in (request.headers.get("if-none-match") or "").split(",") if t.strip()]
+    return "*" in candidatos or any(c.removeprefix("W/") == etag for c in candidatos)
+
+
+def _no_guardar(response: Response) -> Response:
+    """`Cache-Control: no-store`: ni el navegador ni un intermediario guardan esta respuesta."""
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+def _respuesta_lectura(body: bytes, media: str, estado: str | None, request: Request, etiquetable: bool,
+                       no_store: bool = False) -> Response:
+    """Respuesta de una lectura: `no-store` en las de `_NO_STORE`; en las de `_ETAG_LECTURAS`, ETag y `no-cache`, con
+    304 sin cuerpo si el cliente ya tiene esa versión (el cuerpo sigue en la caché del servidor para las demás
+    peticiones)."""
+    headers = {"x-cache": estado} if estado else {}
+    if no_store:
+        headers["Cache-Control"] = "no-store"
+    elif etiquetable:
+        etag = _etag_de_cuerpo(body)
+        headers.update({"ETag": etag, "Cache-Control": "no-cache"})
+        if _sin_cuerpo(request, etag):
+            return Response(status_code=304, headers=headers)
+    return Response(body, media_type=media, headers=headers)
+
+
+async def _con_etag(response, request: Request) -> Response:
+    """Marca con ETag una respuesta JSON que no pasó por la caché de lecturas (caché apagada, ruta excluida o con
+    sesión). Se consumen los bytes para calcular el ETag; son lecturas pequeñas y sin datos de nadie."""
+    if response.status_code != 200 or "application/json" not in response.headers.get("content-type", ""):
+        return response
+    body = b"".join([tramo async for tramo in response.body_iterator])
+    return _respuesta_lectura(body, response.headers.get("content-type", "application/json"), None, request, True)
+
+
 @app.middleware("http")
 async def read_cache(request: Request, call_next):
     path = request.url.path
+    no_store = path in _NO_STORE
     if request.method != "GET":
         response = await call_next(request)
         if request.method in ("POST", "PUT", "DELETE"):
             _bump_cache()
-        return response
+        return _no_guardar(response) if no_store else response
+    etiquetable = path in _ETAG_LECTURAS
     # Con sesión (token portador) no se guarda ni se sirve de la caché: la clave es solo la ruta, y lo que ve una cuenta no
-    # puede llegarle a otra persona que pida lo mismo en los segundos siguientes
+    # puede llegarle a otra persona que pida lo mismo en los segundos siguientes. Las rutas con ETag sí pueden marcarse
+    # (no dependen de la sesión) aunque la caché esté apagada; las de `_NO_STORE` se marcan siempre como no guardables.
     if (CACHE_TTL_S <= 0 or not path.startswith("/api/") or path.startswith(_NO_CACHE) or path.endswith("/pdf")
             or request.headers.get("authorization")):
-        return await call_next(request)
+        response = await call_next(request)
+        if etiquetable:
+            response = await _con_etag(response, request)
+        return _no_guardar(response) if no_store else response
     key = f"{path}?{request.url.query}"
     hit = _cache.get(key)
     if hit and hit[0] == _cache_version and time.monotonic() - hit[1] < CACHE_TTL_S:
-        return Response(hit[2], media_type=hit[3], headers={"x-cache": "hit"})
+        return _respuesta_lectura(hit[2], hit[3], "hit", request, etiquetable, no_store)
     # Vuelo único: si la misma lectura ya se está calculando, se espera ese resultado en vez de repetirla
     pending = _inflight.get(key)
     if pending is not None:
         try:
             body, media = await asyncio.wait_for(asyncio.shield(pending), timeout=30)
-            return Response(body, media_type=media, headers={"x-cache": "shared"})
+            return _respuesta_lectura(body, media, "shared", request, etiquetable, no_store)
         except Exception:
             pass  # la primera falló o tardó demasiado: esta petición calcula por su cuenta
     future: asyncio.Future = asyncio.get_running_loop().create_future()
@@ -326,7 +405,7 @@ async def read_cache(request: Request, call_next):
         response = await call_next(request)
         if response.status_code != 200 or "application/json" not in response.headers.get("content-type", ""):
             future.set_exception(RuntimeError("sin caché"))
-            return response
+            return _no_guardar(response) if no_store else response
         body = b"".join([chunk async for chunk in response.body_iterator])
         media = response.headers["content-type"]
         future.set_result((body, media))
@@ -335,7 +414,7 @@ async def read_cache(request: Request, call_next):
                 if len(_cache) >= CACHE_MAX:
                     _cache.clear()
                 _cache[key] = (version, time.monotonic(), body, media)
-        return Response(body, status_code=200, media_type=media, headers={"x-cache": "miss"})
+        return _respuesta_lectura(body, media, "miss", request, etiquetable, no_store)
     except BaseException as exc:
         if not future.done():
             future.set_exception(RuntimeError(str(exc)))
@@ -509,11 +588,13 @@ def locations() -> dict:
     return {"cities": cities}
 
 
-def _etag_json(payload) -> str:
-    """ETag del contenido: sha256 del JSON con las claves ordenadas. Es estable entre procesos y peticiones, y cambia
-    exactamente cuando cambia lo que se sirve (un nodo o una vía editados, un envío nuevo que suma toneladas)."""
-    raw = json.dumps(payload, sort_keys=True, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
-    return '"' + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:40] + '"'
+def _json_canonico(payload) -> tuple[bytes, str]:
+    """Cuerpo JSON con las claves ordenadas y su ETag (sha256). Se serializa una sola vez y se sirven esos mismos bytes:
+    el ETag es estable entre procesos y peticiones, y cambia exactamente cuando cambia lo que se sirve (un nodo o una vía
+    editados, un envío nuevo que suma toneladas)."""
+    raw = json.dumps(payload, sort_keys=True, ensure_ascii=False, allow_nan=False,
+                     separators=(",", ":")).encode("utf-8")
+    return raw, '"' + hashlib.sha256(raw).hexdigest()[:40] + '"'
 
 
 def _revalidable(request: Request, payload: dict) -> Response:
@@ -522,14 +603,13 @@ def _revalidable(request: Request, payload: dict) -> Response:
 
     Solo para lecturas públicas y casi inmutables: la red multimodal y los departamentos se piden en cada visita y casi
     siempre son los mismos bytes. El cuerpo ya se arma en memoria (la red con `lru_cache` y los polígonos del país
-    también); lo que se ahorra es bajarlo otra vez."""
-    etag = _etag_json(payload)
+    también); lo que se ahorra es bajarlo otra vez. Se serializa una sola vez (antes se hacía dos: una para el hash y
+    otra para la respuesta), y el ETag es el mismo de siempre porque el JSON canónico no cambió."""
+    raw, etag = _json_canonico(payload)
     headers = {"ETag": etag, "Cache-Control": "no-cache"}
-    candidatos = [t.strip() for t in (request.headers.get("if-none-match") or "").split(",") if t.strip()]
-    # Comparación débil: si un proxy reenvía `W/"…"`, en un GET equivale a la misma representación
-    if "*" in candidatos or any(c.removeprefix("W/") == etag for c in candidatos):
+    if _sin_cuerpo(request, etag):
         return Response(status_code=304, headers=headers)
-    return JSONResponse(payload, headers=headers)
+    return Response(raw, media_type="application/json", headers=headers)
 
 
 @app.get("/api/network/multimodal")
@@ -1584,8 +1664,10 @@ def _unsigned_recent(now: datetime, hours: int = UNSIGNED_ALERT_H) -> int:
     """Envíos que llegaron en las últimas `hours` horas sin prueba de entrega: las que de verdad hay que cerrar.
     (En la operación simulada nadie firma, así que contar la semana entera daba un aviso permanente de cientos.)"""
     since = (now - timedelta(hours=hours)).isoformat(timespec="minutes")
-    return int(run_query("SELECT COUNT(*) AS n FROM mm_shipments s LEFT JOIN mm_deliveries d ON d.shipment_code = s.shipment_code "
-                         "WHERE s.status = 'Entregado' AND d.shipment_code IS NULL AND s.eta_at >= ?", (since,)).iloc[0]["n"])
+    # fetch_all en vez de run_query: un conteo no necesita el DataFrame de pandas (que era la mitad del costo)
+    filas = fetch_all("SELECT COUNT(*) AS n FROM mm_shipments s LEFT JOIN mm_deliveries d ON d.shipment_code = s.shipment_code "
+                      "WHERE s.status = 'Entregado' AND d.shipment_code IS NULL AND s.eta_at >= ?", (since,))
+    return int(filas[0]["n"]) if filas else 0
 
 
 def _alerts(rows: list, fs: dict, ws: dict, now: datetime | None = None) -> dict:
@@ -1620,6 +1702,17 @@ def _alerts(rows: list, fs: dict, ws: dict, now: datetime | None = None) -> dict
     }
 
 
+def _bodegas_alerta() -> dict:
+    """Lo que las alertas necesitan de las bodegas: líneas con stock bajo y bodegas llenas.
+
+    `warehouses.summary()` arma además el resumen por rol y la red de bodegas y cuenta los traslados con pandas; en el
+    tablero y en las alertas solo se usan estas dos cifras. Se leen las mismas bodegas y se aplican los mismos umbrales
+    (`warehouses.OCCUPANCY_ALERT`), así que los valores de `alerts.warehouses` no cambian."""
+    ws = warehouses.list_warehouses()
+    return {"low_stock_lines": sum(w["low_stock"] for w in ws),
+            "full_warehouses": [w["code"] for w in ws if w["occupancy_pct"] >= warehouses.OCCUPANCY_ALERT]}
+
+
 @app.get("/api/alerts")
 def alerts() -> dict:
     """Solo las alertas (para el aviso global del dock): más liviano que el resumen completo."""
@@ -1627,7 +1720,7 @@ def alerts() -> dict:
     rows = fetch_all(
         "SELECT shipment_code, status, route_status, route_note, origin_city, dest_city, delay_h FROM mm_shipments"
     )
-    data = _alerts(rows, fleet.summary(now), warehouses.summary(), now)
+    data = _alerts(rows, fleet.summary(now), _bodegas_alerta(), now)
     fl, wh, dc = data["fleet"], data["warehouses"], data["documents"]
     urgent = ((fl["disabled"] + fl["in_shop"] > 0) + bool(data["no_route"]) + bool(data["closed_corridors"])
               + bool(data["closed_nodes"]) + bool(dc["expired"]))
@@ -1645,22 +1738,19 @@ def today_board() -> dict:
 @app.get("/api/dashboard/summary")
 def dashboard_summary() -> dict:
     now = _sync()
-    # Conteos y totales en una sola pasada de SQL (antes se leía la tabla entera para contarla en Python).
-    counts = {k: 0 for k in ("Programado", "En Ruta", "Transferencia Modal", "Retrasado", "Entregado")}
-    in_transit_t, in_transit_cost = 0.0, 0.0
-    for fila in fetch_all("SELECT status, COUNT(*) AS n, COALESCE(SUM(weight_t), 0) AS t, "
-                          "COALESCE(SUM(total_cost), 0) AS c "
-                          "FROM mm_shipments GROUP BY status"):
-        estado, n = fila["status"], int(fila["n"])
-        counts[estado] = counts.get(estado, 0) + n
-        if estado in telemetry.ACTIVE_STATUSES:
-            in_transit_t += float(fila["t"])
-            in_transit_cost += float(fila["c"])
-
-    # Para lo que sí necesita el recorrido (t-km, corredores, tendencias y alertas): solo las columnas que se usan,
-    # no `SELECT *` (36 columnas, de las que se leen 12).
+    # Para lo que necesita el recorrido (t-km, corredores, tendencias y alertas) y también para los conteos: solo las
+    # columnas que se usan, no `SELECT *` (36 columnas, de las que se leen 12). Antes los conteos hacían además un
+    # `GROUP BY status` sobre la misma tabla; con las filas ya en memoria salen de la misma pasada (base de 40 envíos,
+    # pero el tablero se pide desde varias pantallas a la vez y cada consulta abre y cierra su conexión).
     rows = fetch_all("SELECT shipment_code, status, weight_t, total_cost, delay_h, total_time_h, departure_at, "
                      "route_json, route_status, route_note, origin_city, dest_city FROM mm_shipments")
+    counts = {k: 0 for k in ("Programado", "En Ruta", "Transferencia Modal", "Retrasado", "Entregado")}
+    in_transit_t, in_transit_cost = 0.0, 0.0
+    for r in rows:
+        counts[r["status"]] = counts.get(r["status"], 0) + 1
+        if r["status"] in telemetry.ACTIVE_STATUSES:
+            in_transit_t += float(r["weight_t"] or 0)
+            in_transit_cost += float(r["total_cost"] or 0)
     tkm_by_mode: dict = {}
     corridor_t: dict = {}
     for r in rows:
@@ -1696,7 +1786,7 @@ def dashboard_summary() -> dict:
         if d in per_day:
             per_day[d] += 1
 
-    fs, ws = fleet.summary(now), warehouses.summary()
+    fs, ws = fleet.summary(now), _bodegas_alerta()
     return {
         "generated_at": now.isoformat(timespec="seconds"),
         "status_counts": counts,
@@ -1719,7 +1809,7 @@ def dashboard_summary() -> dict:
         "trends": trends.trends(rows, now),
         "alerts": _alerts(rows, fs, ws, now),
         "network": {"nodes": len(network().nodes), "links": len(network().links),
-                    "modes": S.network_geojson(network())["stats"]},
+                    "modes": _red_stats()},
     }
 
 

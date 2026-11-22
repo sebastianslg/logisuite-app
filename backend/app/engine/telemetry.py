@@ -118,11 +118,13 @@ def sync(network: MultimodalNetwork, now: datetime) -> None:
 
 def live_fleet(now: datetime) -> list:
     """Activos en movimiento con su posición, tramo actual y recorrido."""
-    # Se sondea desde varias pantallas y solo se recorre: los dicts de fetch_all evitan armar el DataFrame
+    # Se sondea desde varias pantallas y solo se recorre: los dicts de fetch_all evitan armar el DataFrame, y se piden
+    # solo las columnas que usan las dos vistas (mapa y combustible) en vez de las 36 de la tabla.
     rows = fetch_all(
-        f"SELECT * FROM mm_shipments WHERE status IN ({','.join('?' * len(ACTIVE_STATUSES))})",
+        "SELECT shipment_code, departure_at, total_time_h, delay_h, route_json, weight_t, cargo, eta_at, status, "
+        f"origin_city, dest_city FROM mm_shipments WHERE status IN ({','.join('?' * len(ACTIVE_STATUSES))})",
         ACTIVE_STATUSES)
-    fleet = []
+    activos = []
     for r in rows:
         route = json.loads(r["route_json"])
         st = status_at(r, now, route)
@@ -131,5 +133,5 @@ def live_fleet(now: datetime) -> list:
                    None)
         if leg is None:  # en transbordo: se toma el tramo siguiente
             leg = next((l for l in route["legs"] if l["start_h"] >= st["route_h"]), route["legs"][-1])
-        fleet.append({"shipment": r, "route": route, "state": st, "position": pos, "leg": leg})
-    return fleet
+        activos.append({"shipment": r, "route": route, "state": st, "position": pos, "leg": leg})
+    return activos
