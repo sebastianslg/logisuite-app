@@ -567,6 +567,32 @@ main:has([data-public-page]) {
   animation: fade-in 0.4s var(--ease-apple) both;
 }
 
+/*
+ * Entrada del encabezado de página: sube 12 px con `transform` y nada más. Sin opacidad, el título y la
+ * descripción llegan pintados en el primer HTML (el LCP de la página no puede esperar a que hidrate React);
+ * una vez terminada la animación el bloque queda en su sitio, así que no hay salto de diseño.
+ */
+.reveal-up {
+  /* backwards (no both): al terminar no queda ningún transform aplicado, que haría de bloque contenedor de lo que lleve position: fixed */
+  animation: reveal-up 0.5s var(--ease-apple) backwards;
+}
+@keyframes reveal-up {
+  from {
+    transform: translateY(12px);
+  }
+}
+/* Transición de vista (template.tsx): fundido de 220 ms con 4 px de subida, hecha con CSS para que no espere a la
+   hidratación: con framer-motion el HTML del servidor llegaba con opacity:0 y el LCP esperaba al JavaScript. */
+.view-in {
+  animation: view-in 0.22s var(--ease-apple) backwards;
+}
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
 /* Fila recién creada (una nota de la bitácora, un documento adjunto): baja 6 px y aparece en 300 ms */
 .enter {
   transition:
@@ -646,7 +672,9 @@ main:has([data-public-page]) {
   .leg-in,
   .spark-reveal,
   .spark-dot,
-  .badge-pop {
+  .badge-pop,
+  .reveal-up,
+  .view-in {
     animation: none;
   }
 }
