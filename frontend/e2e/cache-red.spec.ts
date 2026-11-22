@@ -24,11 +24,14 @@ for (const ruta of ["/api/network/multimodal", "/api/geo/departments"]) {
 
 test("la red se vuelve a abrir (con revalidación) sin errores", async ({ page }) => {
   const w = watchErrors(page);
-  const lienzo = () => page.locator(".maplibregl-canvas").first().waitFor({ state: "attached", timeout: 30_000 });
+  // Se espera el mapa de deck.gl, no el lienzo de MapLibre: en equipos de 4 hilos o 4 GB el mapa base no se monta
+  // (y esta prueba no depende de él). La marca la pone deck.gl al cargar.
+  const mapa = () =>
+    page.locator('[data-testid="mapa-colombia"][data-map-ready="1"]').first().waitFor({ state: "attached", timeout: 30_000 });
   await page.goto("/red");
-  await lienzo();
+  await mapa();
   // La segunda visita revalida con If-None-Match: si el 304 llegara roto, el mapa no cargaría la red
   await page.reload();
-  await lienzo();
+  await mapa();
   w.expectClean();
 });
