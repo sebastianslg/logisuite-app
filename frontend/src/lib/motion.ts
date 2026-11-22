@@ -12,8 +12,9 @@ export const T_VIEW = { duration: 0.5, ease: EASE } as const;
 export const stagger = (i: number, step = 0.05, max = 0.6) => Math.min(i * step, max);
 
 /**
- * Hover de superficies clicables con framer-motion: ya no hay escala ni sombra (ver la utilidad `lift` de
- * globals.css). Se conserva el nombre para los componentes que lo usan; no mueve nada.
+ * Superficies clicables que usan framer-motion: el gesto de hover y presión vive en la utilidad `lift` de
+ * globals.css. Este objeto vacío se conserva para no cambiar las props de los componentes; en los que
+ * framer-motion deja un `transform` en línea, el CSS no alcanza a moverlos.
  */
 export const hoverLift = {} as const;
 

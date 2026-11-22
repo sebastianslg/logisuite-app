@@ -2,34 +2,36 @@
 name: Westvane TMS
 description: Herramienta profesional de operación multimodal para Colombia. Se lee como un documento de trabajo (superficies opacas, líneas finas, cifras grandes), con un dock flotante como única navegación y el vidrio reservado para lo que flota sobre el mapa.
 colors:
-  background-light: "#f5f5f7"
-  background-dark: "#000000"
-  foreground-light: "#1d1d1f"
-  foreground-dark: "#f5f5f7"
+  background-light: "#f6f7f9"
+  background-dark: "#111316"
+  foreground-light: "#161920"
+  foreground-dark: "#eeeff2"
   card-light: "#ffffff"
-  card-dark: "#1c1c1e"
-  muted-foreground-light: "#5f5f64"
-  muted-foreground-dark: "#a1a1a6"
-  accent-light: "#0064c8"
-  accent-dark: "#2997ff"
-  accent-solid-light: "#0071e3"
-  accent-solid-dark: "#0071e3"
-  success-light: "#1f7835"
-  success-dark: "#30d158"
-  warning-light: "#b52f00"
-  warning-dark: "#ff9f0a"
-  danger-light: "#c20013"
-  danger-dark: "#ff6961"
-  mode-maritimo-light: "#5856d6"
-  mode-maritimo-dark: "#6f71fc"
-  mode-terrestre-light: "#248a3d"
-  mode-terrestre-dark: "#017829"
-  mode-aereo-light: "#ff2d55"
-  mode-aereo-dark: "#e60e4c"
-  mode-ferreo-light: "#ff9500"
-  mode-ferreo-dark: "#ce7f00"
-  mode-fluvial-light: "#32ade6"
-  mode-fluvial-dark: "#29a1cc"
+  card-dark: "#191b1f"
+  raised-light: "#f0f1f4"
+  raised-dark: "#222429"
+  muted-foreground-light: "#5e626a"
+  muted-foreground-dark: "#a6a9b1"
+  ink-light: "#161920"
+  ink-dark: "#eeeff2"
+  success-light: "#227240"
+  success-dark: "#6bc987"
+  warning-light: "#944300"
+  warning-dark: "#f6a65d"
+  danger-light: "#b82e30"
+  danger-dark: "#f47a79"
+  info-light: "#2a669f"
+  info-dark: "#86baeb"
+  mode-maritimo-light: "#5252aa"
+  mode-maritimo-dark: "#6765c5"
+  mode-terrestre-light: "#2b7a3d"
+  mode-terrestre-dark: "#397c3a"
+  mode-aereo-light: "#dd668d"
+  mode-aereo-dark: "#d65a7e"
+  mode-ferreo-light: "#bb8912"
+  mode-ferreo-dark: "#b2902c"
+  mode-fluvial-light: "#2d9fbf"
+  mode-fluvial-dark: "#22a2c3"
 typography:
   display:
     fontFamily: "'Inter Variable', Inter, system-ui, sans-serif"
@@ -93,13 +95,13 @@ spacing:
   section-lg: "112px"
 components:
   button-primary:
-    backgroundColor: "{colors.accent-solid-light}"
+    backgroundColor: "{colors.ink-light}"
     textColor: "#ffffff"
     rounded: "{rounded.md}"
     height: "36px"
     padding: "0 16px"
   button-secondary:
-    backgroundColor: "rgba(120,120,128,0.1)"
+    backgroundColor: "rgba(22,25,32,0.05)"
     textColor: "{colors.foreground-light}"
     rounded: "{rounded.md}"
     height: "36px"
@@ -111,7 +113,7 @@ components:
     rounded: "{rounded.pill}"
     height: "56px"
   logo-mark:
-    backgroundColor: "{colors.accent-solid-light}"
+    backgroundColor: "{colors.ink-light}"
     textColor: "#ffffff"
     size: "32px"
   public-header:
@@ -124,31 +126,31 @@ components:
 
 ## Overview
 
-Westvane es una herramienta de operación para despachadores y planificadores de carga: jornadas largas, escritorio Windows y celular Android, español de Colombia. La referencia es el software profesional (Apple, Mercury, Linear, Notion), no un tablero de métricas: una página se lee como un informe. Superficies opacas separadas por una línea fina, cifras grandes donde importan, filas en lugar de tarjetas y una sola navegación flotante. La identidad vive en los detalles del dominio (cinco modos de transporte con color propio, cadena de modos por envío, cierres que se propagan) y no en la decoración.
+Westvane es una herramienta de operación para despachadores y planificadores de carga: jornadas largas, escritorio Windows y celular Android, español de Colombia. La referencia es el software profesional (Linear, Mercury, Vercel, Notion), no un tablero de métricas: una página se lee como un informe. Superficies opacas separadas por una línea fina, cifras grandes donde importan, filas en lugar de tarjetas y una sola navegación flotante. La identidad vive en los detalles del dominio (cinco modos de transporte con color propio, cadena de modos por envío, cierres que se propagan) y no en la decoración.
 
 ## Colors
 
-- **Un color significa una cosa.** Azul de acento = interactivo. Verde, naranja y rojo = estado (en ruta, transbordo o aviso, retraso o cierre). Los cinco colores de modo identifican únicamente el modo.
-- **Colores de Apple.** Los rellenos, gráficos y modos usan los colores de sistema de Apple (iOS/macOS); el texto de
-  estado usa sus variantes de «contraste aumentado», ajustadas lo mínimo para llegar a 4,5:1 también sobre su tinte al
-  14 % y sobre los resaltados (en claro: acento `#0064c8`, rojo `#c20013`, naranja `#b52f00`; los escaneos de `axe` lo comprueban). El acento es el azul de apple.com: `#0071e3` en botones (los dos temas) y `#0064c8` / `#2997ff` como texto.
-  Se cambió el 29/10/2026: la paleta anterior (magenta, violeta, turquesa y un acento índigo en oscuro) «se notaba
-  hecha por IA».
-- **Tema claro por defecto** (fondo `#f5f5f7`, tarjeta `#ffffff`); oscuro elegido a mano o "Sistema". El oscuro no es
-  una inversión: tiene su propia paleta de modos.
+Rediseño del 22/11/2026, a pedido del dueño: «los colores rojo, verde y azul no combinan» y «el modo oscuro se siente como
+una máscara del claro». La paleta anterior (los colores de sistema de Apple y el azul de apple.com) queda descartada.
+
+- **La interfaz es tinta.** Texto, botones principales, foco, navegación activa, enlaces y gráficos de una sola serie van
+  en grafito frío (`#161920` en claro; en oscuro, gris claro `#eeeff2` con texto grafito encima). No hay color de acento:
+  así nada de la interfaz compite con los datos. Los enlaces se distinguen por el subrayado que se dibuja (`link-draw`).
+- **El color es solo para datos:** los cinco modos de transporte y los estados. Un color significa una cosa.
+- **Estados** (texto y rellenos; ≥ 4,5:1 sobre la tarjeta y sobre su tinte al 12 %): éxito `#227240` / `#6bc987`, aviso
+  `#944300` / `#f6a65d`, peligro `#b82e30` / `#f47a79`, en curso o programado (info) `#2a669f` / `#86baeb`.
+- **Paleta de modos, buscada por cálculo y validada** con el validador de la skill de visualización, con TODAS las parejas
+  (en el mapa se ven juntas): croma parecido en los cinco (por eso combinan) y la luminosidad repartida para que se
+  distingan. Claro: añil `#5252aa` (marítimo), verde bosque `#2b7a3d` (terrestre), rosa `#dd668d` (aéreo), ocre `#bb8912`
+  (férreo), petróleo `#2d9fbf` (fluvial): peor pareja con daltonismo 9,9 y con visión normal 18,5. Oscuro: los mismos tonos
+  un paso adaptados al grafito (`#6765c5`, `#397c3a`, `#d65a7e`, `#b2902c`, `#22a2c3`): 10,0 y 17,1, todos ≥ 3:1. Los valores
+  viven en `lib/modes.ts` (RGB para el mapa) y en `globals.css` (`--mode-*`); el cálculo está en la bitácora (sección 76).
+- **El oscuro se diseña aparte.** Tres capas de grafito con el mismo tono frío: fondo `#111316`, tarjeta `#191b1f`, elevado
+  `#222429`; texto `#eeeff2` (nunca blanco puro) y secundario `#a6a9b1`. Las tarjetas no llevan sombra (no se ve en oscuro)
+  sino un borde de luz arriba (`--card-edge`); lo que flota suma un anillo de 1 px de luz. El mapa usa su estilo oscuro.
 - **El modo nunca va solo en color:** siempre lleva ícono y texto.
-- **Paleta de modos validada** con el validador de la skill de visualización (OKLab ×100, protanopía y deuteranopía,
-  todas las parejas, porque en el mapa se ven juntos):
-  - **Claro:** índigo `#5856d6` (marítimo), verde `#248a3d` (terrestre, el verde accesible de Apple), rosa `#ff2d55`
-    (aéreo), naranja `#ff9500` (férreo), cian `#32ade6` (fluvial). Peor pareja con daltonismo 8,9 y con visión normal
-    20,4.
-  - **Oscuro:** los mismos tonos con la luminosidad dentro de la banda del oscuro (0,48–0,67): `#6f71fc`, `#017829`,
-    `#e60e4c`, `#ce7f00`, `#29a1cc`. Peor pareja 8,9 con daltonismo y 16,2 con visión normal; todos ≥3:1 sobre
-    `#1c1c1e`.
-  - **Descartados:** el café de Apple (se lee gris y se confunde con el rosa), el morado (choca con el índigo) y el
-    verde de sistema puro en terrestre (6,5 con el rosa).
-  - Los valores viven en `lib/modes.ts` (RGB para el mapa) y en `globals.css` (`--mode-*`).
-- **Contraste:** el texto usa las variantes oscuras (`--accent`, `--success`, `--warning`, `--danger`) para llegar a 4,5:1 también sobre sus tintes al 12 %. Los colores del sistema (`--sys-*`) son para rellenos y gráficos, no para texto pequeño.
+- **Marca:** la W en un cuadro del color del botón principal: grafito en claro; en oscuro se invierte (cuadro claro, W
+  grafito). `app/icon.svg`, los íconos, el `.ico`, la imagen para compartir y el PDF usan el grafito.
 
 ## Typography
 
@@ -186,16 +188,16 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 - **Tabla de detalle (`DetailTable`):** columnas numéricas a la derecha, barra de proporción fina (escala, no ancho) y exportación a CSV; la lista de envíos exporta además a Excel.
 - **Estado vacío (`EmptyState`), aviso (`toast`), guardado (`SaveIcon`):** vacío con una cifra grande y una acción; avisos de 4 s, máximo tres; el botón de guardar respira mientras guarda y confirma con un check.
 - **Hoja (`Sheet`):** inspector a la derecha en escritorio; hoja inferior que se cierra deslizando en celular.
-- **Campo (`field`):** línea fina, foco con anillo de acento de 3 px; error en rojo con mensaje en español, `aria-invalid` y foco al primer error.
+- **Campo (`field`):** línea fina, foco con anillo de tinta de 3 px; error en rojo con mensaje en español, `aria-invalid` y foco al primer error.
 - **Tendencia (`Sparkline`, `Delta`):** línea de 1,5 px de una sola serie, escala desde cero, valor del día al pasar el puntero; el cambio contra el período anterior va con flecha dibujada y texto («Sube 12 %»), en verde o rojo solo si esa dirección es buena o mala (los retrasos).
-- **Línea de tiempo (`ShipmentJournal`):** hora a la izquierda, punto con ícono y texto a la derecha; lo previsto atenuado y una marca de «Ahora» en el color de acento.
+- **Línea de tiempo (`ShipmentJournal`):** hora a la izquierda, punto con ícono y texto a la derecha; lo previsto atenuado y una marca de «Ahora» en tinta.
 - **Calendario:** barras del color del estado; el retraso es un tramo rayado, no otro color. Ficha propia al pasar el puntero o con el foco (no el tooltip del navegador).
-- **Mapa por departamento:** un solo tono del acento en cinco pasos por cuantiles, gris para «sin movimiento», leyenda con rangos.
+- **Mapa por departamento:** un solo tono de tinta en cinco pasos por cuantiles, gris para «sin movimiento», leyenda con rangos.
 - **Impresión:** papel blanco y tinta oscura aunque la app esté en oscuro; sin dock, controles ni mapa; las tarjetas no se cortan entre páginas.
 - **Modo presentación:** cifras a 7 vw para proyectar, actualizadas cada 30 s mientras está abierto.
 - **Control segmentado (`Segmented`):** fondo `fill`, píldora de tarjeta que se desliza; `md` en cabeceras, `sm` en paneles; grupo de radio con flechas del teclado. Es el único segmentado de la app.
-- **Casilla de verificación:** 16 px, radio de 5 px, línea `separator-strong`; marcada, acento sólido con palomita; estado parcial con guion.
-- **Mapa de calor de retrasos (`DelayHeatmap`):** tabla de vías por día, un tono del acento en cinco pasos por quintiles sin repetir cortes; el paso más oscuro es el acento pleno con texto blanco. Detalle al pasar el puntero y con el foco.
+- **Casilla de verificación:** 16 px, radio de 5 px, línea `separator-strong`; marcada, tinta sólida con palomita; estado parcial con guion.
+- **Mapa de calor de retrasos (`DelayHeatmap`):** tabla de vías por día, un tono de tinta en cinco pasos por quintiles sin repetir cortes; el paso más oscuro es la tinta plena con el texto del botón principal. Detalle al pasar el puntero y con el foco.
 - **Bienvenida (`ConsentGate`):** diálogo con dos casillas separadas y sin marcar (términos y datos) y el aviso de privacidad corto; los documentos legales se leen sin aceptar y llevan aviso de borrador mientras falten datos del responsable.
 - **Vista plana de la red (`NetworkPreview`):** SVG con departamentos, enlaces por modo, nodos y flota de tamaño fijo en pantalla; es lo que muestra el Resumen y lo que se ve mientras carga el mapa 3D.
 - **Marca (`LogoMark`, `Wordmark`):** cuadro de esquinas suaves (radio de 112 sobre 512) en el azul de los botones con la W trazada en blanco como una ruta: trazo grueso de extremos y uniones redondos, origen y destino en círculos blancos y un transbordo calado en el vértice central. Es el mismo dibujo que `app/icon.svg` (favicon e íconos de instalación): si cambia uno, cambia el otro. En el dock va sola a 32 px; en la barra y el pie públicos va a 28 px junto al nombre en Inter 600 a 1,0625 rem. El nombre nunca va en otra fuente ni como imagen.
@@ -207,7 +209,7 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 ## Motion
 
 - Curva base `cubic-bezier(0.16, 1, 0.3, 1)`: 0,3 s en interacciones, 0,5 s en entradas de vista. Resorte estándar (`SPRING`) para lo que se desliza con `layoutId` (píldora del segmentado, indicador del dock).
-- **Presión (`press`):** baja a 0,97 en 120 ms; al soltar vuelve con un rebote de 300 ms. Sin escala al pasar el puntero (`lift` solo cambia borde y fondo).
+- **Presión (`press`):** baja a 0,97 en 120 ms; al soltar vuelve con un rebote de 300 ms. **Superficie clicable (`lift`):** sube 2 px en 200 ms (`cubic-bezier(0.23, 1, 0.32, 1)`) y al presionar se hunde a 0,98 en 120 ms; sin sombra y quieta con «reducir movimiento».
 - **Solo `transform` y `opacity`.** Barras y líneas de tiempo crecen con `scaleX`/`scaleY`; nada anima `width`, `height`, `top` ni `box-shadow` en listas, tablas o mapa.
 - **El mapa está quieto en reposo.** Su reloj solo corre mientras se arrastra, se hace zoom o está en pantalla completa con animación activa; se monta cuando entra en pantalla y en tiempo ocioso, por capas.
 - **Medidores (`meter-fill`):** relleno a todo el ancho escalado con `--v`; crece al aparecer y se desliza al cambiar. **Sparklines** se dibujan con una máscara que crece; **calendario** crece por filas (20 ms); **mapa por departamento** se llena por intensidad; lo **recién creado** entra con `.enter`.
@@ -225,4 +227,4 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 - Sí: resaltar un modo bajando lo demás a 12 % de opacidad, y acompañar el color del modo con su ícono y su nombre.
 - Sí: en las páginas públicas, un solo borde izquierdo para todas las secciones y ningún elemento del armazón de la app (dock, avisos, bienvenida).
 - No: tarjetas idénticas como estructura de página, íconos en círculos sobre cada cifra, tarjetas dentro de tarjetas, vidrio decorativo.
-- No: color como único portador de significado, `transition: all`, nuevas curvas de movimiento, fuentes propietarias o fotos de terceros.
+- No: color como único portador de significado, color de acento en la interfaz (es tinta), `transition: all`, nuevas curvas de movimiento, fuentes propietarias o fotos de terceros.

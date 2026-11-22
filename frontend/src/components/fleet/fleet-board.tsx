@@ -250,7 +250,7 @@ export function FleetBoard({ vehicles, summary, initial }: { vehicles: Vehicle[]
               href={`/flota/${v.id}`}
               data-ripple
               className={cn(
-                "row-link grid gap-3 px-5 py-3.5",
+                "row-link lift grid gap-3 px-5 py-3.5",
                 "md:grid-cols-[minmax(0,1.5fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto]",
                 v.retired && "opacity-70",
               )}

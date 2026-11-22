@@ -178,7 +178,14 @@ function Compliance({ c }: { c: TodayCompliance }) {
                 <span className="tabular text-muted-foreground">
                   {m.a_tiempo.toLocaleString("es-CO")} de {m.entregas.toLocaleString("es-CO")}
                 </span>
-                <span className="tabular ml-auto font-medium">{pctLabel(m.pct)}</span>
+                {/* Barra del color del modo: los modos se comparan de un vistazo (crece con scaleX, meter-fill) */}
+                <span className="ml-auto hidden h-1.5 w-40 overflow-hidden rounded-full bg-fill sm:block lg:w-64" aria-hidden>
+                  <span
+                    className="meter-fill block h-full rounded-full"
+                    style={{ "--v": (m.pct ?? 0) / 100, backgroundColor: known ? MODES[m.mode as Mode].color : "var(--muted-foreground)" } as React.CSSProperties}
+                  />
+                </span>
+                <span className="tabular w-14 text-right font-medium max-sm:ml-auto">{pctLabel(m.pct)}</span>
               </li>
             );
           })}

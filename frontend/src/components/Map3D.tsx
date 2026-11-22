@@ -71,23 +71,24 @@ export const COLOMBIA_VIEW: MapViewState = {
 };
 
 type RGBA = [number, number, number, number];
-const ACCENT_LIGHT: [number, number, number] = [0, 113, 227];
-const ACCENT_DARK: [number, number, number] = [41, 151, 255];
+// La interfaz es tinta (DESIGN.md): el tráfico por departamento va en grafito, no en un color que compita con los modos
+const ACCENT_LIGHT: [number, number, number] = [22, 25, 32];
+const ACCENT_DARK: [number, number, number] = [238, 239, 242];
 /** Qué nombre de ciudad gana cuando dos se tocan en el mapa. */
 const LABEL_PRIORITY: Record<string, number> = { cedi: 100, puerto_maritimo: 80, aeropuerto: 60, puerto_fluvial: 40, terminal_ferrea: 20 };
 
 const rgba = (mode: Mode, a = 255, dark = false): RGBA => [...(dark ? MODES[mode].rgbDark : MODES[mode].rgb), a];
-// Estado (DESIGN.md): rojo = cierre, naranja = transbordo. Variantes de Apple para claro y oscuro.
-const DANGER_LIGHT: [number, number, number] = [194, 0, 19];
-const DANGER_DARK: [number, number, number] = [255, 105, 97];
-const ORANGE: [number, number, number] = [255, 149, 0];
+// Estado (DESIGN.md): rojo = cierre, naranja = transbordo (los mismos tonos que --danger y --warning)
+const DANGER_LIGHT: [number, number, number] = [184, 46, 48];
+const DANGER_DARK: [number, number, number] = [244, 122, 121];
+const ORANGE: [number, number, number] = [214, 128, 40];
 
 const NODE_STYLE: Record<string, { color: [number, number, number]; mode?: Mode; radius: number }> = {
   aeropuerto: { color: MODES.aereo.rgb, mode: "aereo", radius: 6 },
   puerto_maritimo: { color: MODES.maritimo.rgb, mode: "maritimo", radius: 7 },
   puerto_fluvial: { color: MODES.fluvial.rgb, mode: "fluvial", radius: 5.5 },
   terminal_ferrea: { color: MODES.ferreo.rgb, mode: "ferreo", radius: 5.5 },
-  cedi: { color: [0, 113, 227], radius: 6 },
+  cedi: { color: [22, 25, 32], radius: 6 },
   ciudad: { color: [148, 163, 184], radius: 3 },
 };
 
@@ -513,7 +514,10 @@ export default function Map3D({
   const tone = (m: Mode, a = 255): RGBA => rgba(m, a, dark);
   const nodeColor = (kind: string, a: number): RGBA => {
     const st = NODE_STYLE[kind] ?? NODE_STYLE.ciudad;
-    return st.mode ? tone(st.mode, a) : ([...st.color, a] as RGBA);
+    if (st.mode) return tone(st.mode, a);
+    // El CEDI es de la operación propia: va en tinta (grafito en claro, gris claro en oscuro), como la interfaz
+    if (kind === "cedi") return [...(dark ? ACCENT_DARK : ACCENT_LIGHT), a] as RGBA;
+    return [...st.color, a] as RGBA;
   };
 
   // Las capas se construyen a partir de un instante: el bucle de animación las pide con su propio tiempo.

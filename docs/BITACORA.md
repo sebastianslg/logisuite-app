@@ -1659,3 +1659,63 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
 - **Ingreso (`/ingresar`) en escritorio:** a la derecha, la red que se va a operar: 35.349 km y un trazo por modo
   proporcional a sus kilómetros, con ícono y nombre, que se dibuja al entrar.
 - Pruebas: 553 de la API y 74 de navegador (accesibilidad en claro y oscuro incluida).
+
+## 75. Tanda 3, ronda 1: tarjetas que suben, subrayado que se dibuja, carga con la firma y la lista de envíos recordada
+
+- **F1 tarjetas-enlace:** `lift` deja de ser solo un paso de borde y fondo: sube 2 px en 200 ms
+  (`cubic-bezier(0.23, 1, 0.32, 1)`) y al presionar se hunde a 0,98 en 120 ms. Sin sombra, y quieta con «reducir movimiento».
+  Aplicada a los avisos de «Requiere atención» (panel y campana), a las filas de flota y a las de bodegas. `row-link`
+  transiciona también el transform para que el orden de las utilidades no anule el gesto.
+- **Lo que se vio en pantalla:** en filas a todo el ancho dentro de una superficie con divisores, el relleno del hover cubre
+  la línea de arriba (es la señal de que la fila sube) y la presión deja 1–2 px de margen dentro de la celda. Se revisó con
+  capturas de flota y avisos y se aceptó como gesto de fila. Los paneles del resumen (`bento`) siguen quietos porque
+  framer-motion deja un `transform` en línea; no es una regresión, queda como pendiente si se quiere el mismo gesto ahí.
+- **F2 enlaces de texto:** `link-draw` dibuja un subrayado de 1 px con `scaleX` de 0 a 1 en 200 ms desde la izquierda; con
+  teclado aparece de una vez y con «reducir movimiento» queda fijo. En «Abrir mapa», los «Ver…» del panel y del mapa y los
+  enlaces de la ficha («Envíos» y el vehículo). En controles con alto o fondo el subrayado va en la etiqueta, no en la caja.
+  Quedan con `hover:underline` otros enlaces fuera del barrido (tabla de envíos, auditoría, metodología…), anotado.
+- **F3 carga con la firma:** `NetworkRule` acepta `still` y `SkeletonPageHeader` pinta la misma línea de red quieta; el
+  esqueleto reserva además la fila de «Operación en vivo», así la página no salta al llegar. Ningún `loading.tsx` cambió:
+  los 12 usan el componente compartido.
+- **B1 lista de envíos recordada:** medido con `deploy/medir-lecturas.py` y `WESTVANE_CACHE_TTL=0` sobre una copia de la base,
+  `/api/shipments?limit=1000` era la lectura más lenta sin `data_version` (61–66 ms de mediana; `today` 50, `alerts` 44,
+  `fleet/vehicles` 18). Ahora guarda las filas y los recuentos con clave `(data_version(), filtros, orden)`; `limit` y `offset`
+  se recortan después y los estados se derivan con el reloj en cada petición, así que una escritura se ve de inmediato (prueba
+  con `POST /api/shipments`). En el mismo proceso, 33,6 → 16,4 ms de mediana; por HTTP, 61–66 → 39–43 ms (el resto de rutas
+  también se movió por carga de la máquina, así que es un piso). Cerrojo en la purga, el desalojo y la inserción: varios hilos
+  pueden leerla. Coste: hasta 4 copias de las filas filtradas.
+- **Verificación:** tsc, eslint y build limpios; **557 pruebas de la API**; **80 de navegador** con base limpia (Edge). Sin migración.
+- **Pendiente:** extender `link-draw` al resto de enlaces si se quiere un solo gesto; `/api/today` y `/api/alerts` siguen sin
+  memoria porque su coste es derivación con reloj (`fleet.summary(now)`), no lectura; los paneles del resumen, quietos por
+  framer-motion.
+
+## 76. Rediseño de color: la interfaz en tinta, paleta de modos nueva y un modo oscuro propio; cierre de la tanda 3
+
+- **Pedido del dueño:** «los colores rojo, verde, azul no combinan y se ve bastante mal»; «el modo oscuro es horrible, se
+  siente como un simple masking al modo claro»; más movimiento, utilidad y profesionalismo, aunque se pierda el estilo de
+  Apple. Skills usadas: la de visualización (validador de paletas), Emil Kowalski (movimiento) e impeccable; de «taste» solo
+  el criterio (sus fotos, fuentes y paletas sorteadas chocan con las reglas del proyecto).
+- **La interfaz es tinta.** Sin color de acento: botones principales, foco, navegación activa, enlaces y gráficos de una
+  serie en grafito frío (`#161920`; en oscuro gris claro `#eeeff2` con texto grafito). El color queda solo para datos
+  (modos y estados), así ya no compite nada. La marca, el favicon, los íconos, la imagen para compartir y el PDF pasan
+  al grafito; en la app la marca usa el color del botón principal y en oscuro se invierte.
+- **Paleta de modos buscada por cálculo** (`scratchpad/pal/search3.mjs` sobre el validador de la skill): croma parecido en
+  los cinco (por eso combinan), tono dentro de su familia y luminosidad repartida; se exigió ≥ 8 con daltonismo y ≥ 17 con
+  visión normal en TODAS las parejas y se premió la armonía. Claro: añil `#5252aa`, verde bosque `#2b7a3d`, rosa `#dd668d`,
+  ocre `#bb8912`, petróleo `#2d9fbf` (9,9 / 18,5). Oscuro, los mismos tonos dentro de la banda del oscuro: `#6765c5`,
+  `#397c3a`, `#d65a7e`, `#b2902c`, `#22a2c3` (10,0 / 17,1). El primer intento con croma idéntico no pasaba (5,7).
+- **Estados** con el mismo cuidado (≥ 4,5:1 sobre la tarjeta y su tinte): éxito `#227240`/`#6bc987`, aviso
+  `#944300`/`#f6a65d`, peligro `#b82e30`/`#f47a79`, en curso `#2a669f`/`#86baeb`. El mapa 3D usa los mismos (cierres,
+  transbordos) y los departamentos y CEDI van en tinta.
+- **Oscuro diseñado aparte:** fondo `#111316`, tarjeta `#191b1f`, elevado `#222429` (mismo tono frío, un paso de luz por
+  capa), texto `#eeeff2`, secundario `#a6a9b1`. Las tarjetas llevan un borde de luz arriba (`--card-edge`) en lugar de
+  sombra, y lo que flota un anillo de 1 px de luz.
+- **Utilidad y movimiento:** la columna «Avance» de la lista de envíos es la ruta (`RouteProgress`: un segmento por tramo
+  del color de su modo, lleno hasta donde va; crece con `scaleX`); las cifras de la Torre de control llevan la unidad
+  pequeña y atenuada (`CountUp` con `unitClassName`); «Cumplimiento» en Hoy tiene una barra por modo para compararlos.
+- **Cierre de la tanda 3** (lo que OpenChamber no alcanzó): hoja de vida del vehículo en PDF
+  (`/api/fleet/vehicles/{id}/pdf`, botón «Hoja de vida» en la ficha); errores de validación en español sin devolver el
+  valor recibido (manejador de `RequestValidationError`, conserva `loc` y `type`) y error inesperado con mensaje en español
+  y la traza solo en el log. F6/F7 (celular y oscuro) quedaron cubiertos por este rediseño; B4/B5 (carga con 8 personas,
+  cobertura) siguen pendientes.
+- Pruebas nuevas: `tests/test_hoja_de_vida.py`, `tests/test_errores_es.py`.

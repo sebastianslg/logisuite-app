@@ -181,7 +181,7 @@ export function CityInspector({
               Usar como destino
             </Button>
             <Button asChild variant="ghost">
-              <Link href={`/envios?q=${encodeURIComponent(city.city)}`}>Ver envíos de {city.city}</Link>
+              <Link href={`/envios?q=${encodeURIComponent(city.city)}`}><span className="link-draw">Ver envíos de {city.city}</span></Link>
             </Button>
           </div>
         </div>

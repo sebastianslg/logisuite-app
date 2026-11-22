@@ -74,7 +74,7 @@ async function DashboardContent() {
             href="/red"
             className="press -mr-1 flex h-8 shrink-0 items-center gap-1 rounded-xl px-2.5 text-sm font-medium text-primary outline-none hover:bg-fill focus-visible:ring-[3px] focus-visible:ring-ring/80"
           >
-            Abrir mapa <ArrowUpRight className="size-3.5" aria-hidden />
+            <span className="link-draw">Abrir mapa</span> <ArrowUpRight className="size-3.5" aria-hidden />
           </Link>
         }
       >

@@ -194,7 +194,7 @@ def shipment_story(s: dict, money: Money, now: datetime, st: dict) -> list:
     return out
 
 
-BRAND_BLUE = colors.HexColor("#0071e3")
+BRAND_BLUE = colors.HexColor("#161920")  # marca en grafito (rediseño del 22/11/2026; el nombre se conserva)
 # La W de la marca (frontend/src/app/icon.svg) en su cuadro de 512: ruta, nodos de origen y destino y el de transbordo
 _W_ROUTE = ((122, 172), (194, 344), (256, 226), (318, 344), (390, 172))
 
@@ -414,5 +414,66 @@ def work_order(m: dict, v: dict, fault: dict | None, now: datetime, company: str
     story += [sign, Spacer(1, 10), Paragraph(
         "Formato interno de Westvane para imprimir y diligenciar en el taller. No reemplaza la factura ni el informe técnico del "
         "taller. Al cerrar el servicio, registra el costo y el kilometraje reales en la ficha del vehículo.", st["muted"])]
+    doc.build(story, onFirstPage=_footer(f"{now:%d/%m/%Y %H:%M}"), onLaterPages=_footer(f"{now:%d/%m/%Y %H:%M}"))
+    return buf.getvalue()
+
+
+def vehicle_sheet(v: dict, now: datetime, company: str | None = None) -> bytes:
+    """Hoja de vida de un vehículo: estado y documentos, servicio, mantenimientos, fallas y los últimos viajes, para
+    archivar o entregar en una auditoría. Sale de `fleet.vehicle_detail` (lo mismo que ve la ficha)."""
+    st = _styles()
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15 * mm, rightMargin=15 * mm,
+                            topMargin=15 * mm, bottomMargin=18 * mm, title=f"Hoja de vida {v['code']}", author="Westvane TMS")
+    drv = v.get("driver") or {}
+    svc = v.get("service") or {}
+    km = lambda n: f"{int(n or 0):,} km".replace(",", ".")  # noqa: E731
+    story: list = [
+        Paragraph(f"Hoja de vida · {v['code']}", st["title"]),
+        Paragraph(f"{v['vehicle_type']} · {v['mode_label']} · estado: <b>{v['status']}</b> · expedida el {now:%d/%m/%Y %H:%M} · "
+                  f"Empresa: {company or 'Westvane (operación simulada)'}", st["body"]),
+        Spacer(1, 6),
+    ]
+    left = [("Marca y modelo", " ".join(x for x in (v.get("make"), v.get("model"), str(v.get("year") or "")) if x) or "-"),
+            ("Capacidad", f"{v.get('capacity_t') or 0:g} t"),
+            ("Bodega base", " · ".join(x for x in (v.get("home_name"), v.get("home_city")) if x) or "-"),
+            ("Conductor", drv.get("name") or "Sin conductor"),
+            ("Kilometraje", km(v.get("odometer_km")))]
+    right = [("Próximo servicio", f"{svc.get('state', '-')}"),
+             ("Faltan", f"{max(int(svc.get('days_left') or 0), 0)} d o {km(max(svc.get('km_left') or 0, 0))}"),
+             ("Viajes registrados", str(v.get("trips_total", 0))),
+             ("Fallas registradas", str(v.get("faults_total", 0))),
+             ("Mantenimiento (US$)", f"{float(v.get('maintenance_cost_usd') or 0):,.0f}".replace(",", "."))]
+    grid = Table([[_kv(left, st), _kv(right, st)]], colWidths=[90 * mm, 90 * mm])
+    grid.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
+    story.append(grid)
+    if v.get("blockers") or v.get("warnings"):
+        story.append(Paragraph("Avisos", st["h2"]))
+        story += [Paragraph(f"• {x}", st["body"]) for x in (v.get("blockers") or []) + (v.get("warnings") or [])]
+    docs = v.get("documents") or []
+    if docs:
+        story += [Paragraph("Documentos", st["h2"]),
+                  _table([["Documento", "Vence", "Estado"]] + [[d["label"], d.get("expiry") or "-", d["state"]] for d in docs],
+                         [80 * mm, 50 * mm, 50 * mm], st)]
+    maints = v.get("maintenance") or []
+    story.append(Paragraph("Mantenimientos", st["h2"]))
+    story.append(_table([["Servicio", "Desde", "Hasta", "Estado", "Costo (US$)"]]
+                        + [[m["kind"], _dt(m["scheduled_start"]), _dt(m["scheduled_end"]), m["status"],
+                            f"{float(m.get('cost_usd') or m.get('est_cost_usd') or 0):,.0f}".replace(",", ".")] for m in maints[:25]],
+                        [52 * mm, 32 * mm, 32 * mm, 30 * mm, 34 * mm], st) if maints else Paragraph("Sin mantenimientos registrados.", st["muted"]))
+    faults = v.get("faults") or []
+    story.append(Paragraph("Fallas", st["h2"]))
+    story.append(_table([["Reportada", "Gravedad", "Categoría", "Estado", "Descripción"]]
+                        + [[_dt(f["reported_at"]), f["severity"], f["category"], f["status"], str(f["description"])[:90]] for f in faults[:25]],
+                        [30 * mm, 24 * mm, 30 * mm, 24 * mm, 72 * mm], st) if faults else Paragraph("Sin fallas registradas.", st["muted"]))
+    trips = v.get("trips") or []
+    story.append(Paragraph("Últimos viajes", st["h2"]))
+    story.append(_table([["Envío", "Ruta", "Salida", "Llegada", "Fase"]]
+                        + [[t["shipment_code"], f"{t.get('origin') or '-'} → {t.get('destination') or '-'}", _dt(t["start_at"]),
+                            _dt(t["end_at"]), t["phase"]] for t in trips[:30]],
+                        [30 * mm, 62 * mm, 30 * mm, 30 * mm, 28 * mm], st) if trips else Paragraph("Sin viajes registrados.", st["muted"]))
+    story += [Spacer(1, 10), Paragraph(
+        "Resumen generado por Westvane con los datos registrados en la app. Los documentos oficiales (SOAT, revisión "
+        "técnico-mecánica, facturas de taller) se conservan aparte.", st["muted"])]
     doc.build(story, onFirstPage=_footer(f"{now:%d/%m/%Y %H:%M}"), onLaterPages=_footer(f"{now:%d/%m/%Y %H:%M}"))
     return buf.getvalue()

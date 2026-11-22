@@ -11,7 +11,7 @@ const svg = await readFile(new URL("../src/app/icon.svg", import.meta.url), "utf
 // Versión de cuadro completo: el mismo dibujo sin el radio y con la W reducida al 80 % (zona segura de los íconos adaptables)
 const inner = svg.replace(/<svg[^>]*>/, "").replace("</svg>", "").replace(/<rect[^>]*\/>/, "");
 const fullBleed = (scale) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#0071e3"/>` +
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#161920"/>` +
   `<g transform="translate(256 256) scale(${scale}) translate(-256 -256)">${inner}</g></svg>`;
 
 const jobs = [

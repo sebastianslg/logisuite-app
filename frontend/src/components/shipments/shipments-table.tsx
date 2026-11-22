@@ -58,6 +58,7 @@ import { ExportActions } from "@/components/shipments/export-actions";
 import { ImportShipments } from "@/components/shipments/import-shipments";
 import { Sheet } from "@/components/ui/sheet";
 import { useLocal } from "@/lib/local";
+import { RouteProgress } from "@/components/shipments/route-progress";
 import { ModeChain, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -208,15 +209,9 @@ const columns = helper.columns([
     enableGlobalFilter: false,
     cell: (info) => {
       const s = info.row.original;
-      const color = s.current_mode ? MODES[s.current_mode].color : "var(--muted-foreground)";
       return (
-        <div className="flex w-20 items-center gap-2 min-[1600px]:w-28">
-          <div className="h-1 flex-1 rounded-full bg-fill">
-            <div
-              className="meter-fill h-full rounded-full"
-              style={{ "--v": info.getValue() / 100, backgroundColor: color } as React.CSSProperties}
-            />
-          </div>
+        <div className="flex w-24 items-center gap-2 min-[1600px]:w-32">
+          <RouteProgress modes={s.modes} pct={info.getValue()} className="flex-1" />
           <span className="tabular w-9 text-right text-xs text-muted-foreground">
             {Math.round(info.getValue())} %
           </span>
@@ -894,15 +889,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
                 </div>
                 <div className="mt-3 flex items-center gap-3">
                   <ModeChain modes={sh.modes} />
-                  <div className="h-1.5 flex-1 rounded-full bg-fill">
-                    <div
-                      className="meter-fill h-full rounded-full"
-                      style={{
-                        "--v": sh.progress_pct / 100,
-                        backgroundColor: sh.current_mode ? MODES[sh.current_mode].color : "var(--muted-foreground)",
-                      } as React.CSSProperties}
-                    />
-                  </div>
+                  <RouteProgress modes={sh.modes} pct={sh.progress_pct} className="flex-1" />
                   <span className="tabular text-xs text-muted-foreground">{Math.round(sh.progress_pct)} %</span>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">

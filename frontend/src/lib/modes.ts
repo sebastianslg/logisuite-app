@@ -15,15 +15,16 @@ import {
 import type { Mode, Priority, ShipmentStatus } from "./types";
 
 /**
- * Paleta por modo (fuente única para mapa, gráficos y badges). Parte de la elegida el 27/10/2026 (terrestre
- * verde, fluvial azul, marítimo añil, aéreo magenta, férreo ámbar) y se ajustó en luminosidad y saturación
- * (tono ±15°) para pasar el validador de la skill de visualización con TODAS las parejas comparadas, como en
- * un mapa: separación ≥ 8 (ΔE OKLab ×100) con protanopía y deuteranopía, ≥ 15 con visión normal y contraste
- * ≥ 3:1 sobre la superficie. La original fallaba: aéreo y terrestre casi iguales con deuteranopía (4,4) y
- * fluvial y marítimo poco distinguibles incluso con visión normal (10,5).
+ * Paleta por modo (fuente única para mapa, gráficos y badges). Rediseño del 22/11/2026: la anterior usaba los colores de
+ * sistema de Apple (rosa, verde, cian y naranja casi puros) y en pantalla chocaban entre sí. Esta se buscó por cálculo:
+ * los cinco con croma parecido (por eso combinan) y la luminosidad repartida para que se distingan, y pasó el validador
+ * de la skill de visualización con TODAS las parejas comparadas, como en un mapa: separación con protanopía y
+ * deuteranopía 9,9 en claro y 10,0 en oscuro (objetivo ≥ 8, ΔE OKLab ×100), ≥ 17 con visión normal y contraste ≥ 3:1
+ * sobre la superficie. El oscuro son los mismos tonos un paso más arriba para el fondo grafito, no otra paleta.
  *
- *   claro (sobre #ffffff):   marítimo #5044db · terrestre #26a683 · aéreo #d623a7 · férreo #bc812f · fluvial #3c88e5
- *   oscuro (sobre #1c1c1e):  marítimo #684af5 · terrestre #26a683 · aéreo #c82a9c · férreo #bc812f · fluvial #5b91d7
+ *   claro (sobre #ffffff):  marítimo añil #5252aa · terrestre verde bosque #2b7a3d · aéreo rosa #dd668d ·
+ *                           férreo ocre #bb8912 · fluvial petróleo #2d9fbf
+ *   oscuro (sobre #191b1f): #6765c5 · #397c3a · #d65a7e · #b2902c · #22a2c3
  *
  * `color` es la variable CSS (cambia con el tema); `rgb` y `rgbDark` son lo mismo para deck.gl. El modo nunca
  * se comunica solo con color: siempre va con ícono y texto. Los gráficos de partes de un todo usan MODE_ORDER.
@@ -34,11 +35,11 @@ export const MODES: Record<
   Mode,
   { label: string; vehicle: string; color: string; rgb: [number, number, number]; rgbDark: [number, number, number]; icon: LucideIcon }
 > = {
-  maritimo: { label: "Marítimo", vehicle: "Buque", color: "var(--mode-maritimo)", rgb: [88, 86, 214], rgbDark: [111, 113, 252], icon: Ship },
-  terrestre: { label: "Terrestre", vehicle: "Camión", color: "var(--mode-terrestre)", rgb: [36, 138, 61], rgbDark: [1, 120, 41], icon: Truck },
-  aereo: { label: "Aéreo", vehicle: "Avión", color: "var(--mode-aereo)", rgb: [255, 45, 85], rgbDark: [230, 14, 76], icon: Plane },
-  ferreo: { label: "Férreo", vehicle: "Tren", color: "var(--mode-ferreo)", rgb: [255, 149, 0], rgbDark: [206, 127, 0], icon: TrainFront },
-  fluvial: { label: "Fluvial", vehicle: "Barcaza", color: "var(--mode-fluvial)", rgb: [50, 173, 230], rgbDark: [41, 161, 204], icon: Sailboat },
+  maritimo: { label: "Marítimo", vehicle: "Buque", color: "var(--mode-maritimo)", rgb: [82, 82, 170], rgbDark: [103, 101, 197], icon: Ship },
+  terrestre: { label: "Terrestre", vehicle: "Camión", color: "var(--mode-terrestre)", rgb: [43, 122, 61], rgbDark: [57, 124, 58], icon: Truck },
+  aereo: { label: "Aéreo", vehicle: "Avión", color: "var(--mode-aereo)", rgb: [221, 102, 141], rgbDark: [214, 90, 126], icon: Plane },
+  ferreo: { label: "Férreo", vehicle: "Tren", color: "var(--mode-ferreo)", rgb: [187, 137, 18], rgbDark: [178, 144, 44], icon: TrainFront },
+  fluvial: { label: "Fluvial", vehicle: "Barcaza", color: "var(--mode-fluvial)", rgb: [45, 159, 191], rgbDark: [34, 162, 195], icon: Sailboat },
 };
 
 export type Tone = "neutral" | "accent" | "info" | "success" | "warning" | "danger";

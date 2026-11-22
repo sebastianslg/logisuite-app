@@ -83,6 +83,17 @@ def register(app: FastAPI, sync: Callable[[], datetime], network: Callable) -> N
     def fleet_vehicle(vehicle_id: int) -> dict:
         return read(fleet.vehicle_detail, vehicle_id, sync())
 
+    @app.get("/api/fleet/vehicles/{vehicle_id}/pdf")
+    def fleet_vehicle_pdf(vehicle_id: int, descargar: bool = False) -> Response:
+        """Hoja de vida del vehículo en PDF: documentos, servicio, mantenimientos, fallas y últimos viajes."""
+        from app.engine import legal, pdf
+        now = sync()
+        v = read(fleet.vehicle_detail, vehicle_id, now)
+        data = pdf.vehicle_sheet(v, now, legal.responsible()["name"])
+        disposition = "attachment" if descargar else "inline"
+        return Response(data, media_type="application/pdf",
+                        headers={"Content-Disposition": f'{disposition}; filename="hoja-de-vida-{v["code"]}.pdf"'})
+
     @app.put("/api/fleet/vehicles/{vehicle_id}")
     def fleet_vehicle_update(vehicle_id: int, body: dict = Body(...)) -> dict:
         return run(fleet.update_vehicle, vehicle_id, body, who(body), sync())
