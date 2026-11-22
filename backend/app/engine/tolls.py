@@ -69,11 +69,17 @@ def update_toll(link_id: int, tolls_cop, note: str | None, source: str | None, u
 def import_file(filename: str, content_b64: str, usuario: str | None) -> dict:
     """Carga peajes desde un Excel (.xlsx) o CSV. Columnas: link_id, peaje_cop y opcionales nota, fuente.
     Las filas con error se reportan y no detienen la carga del resto."""
-    raw = base64.b64decode(content_b64)
-    if filename.lower().endswith((".xlsx", ".xls")):
-        df = pd.read_excel(io.BytesIO(raw), dtype=object)
-    else:
-        df = pd.read_csv(io.BytesIO(raw), dtype=object, sep=None, engine="python")
+    try:
+        raw = base64.b64decode(content_b64, validate=True)
+    except Exception:
+        raise OperationError("El archivo no se puede leer: descárgalo de nuevo y vuelve a intentarlo.")
+    try:
+        if filename.lower().endswith((".xlsx", ".xls")):
+            df = pd.read_excel(io.BytesIO(raw), dtype=object)
+        else:
+            df = pd.read_csv(io.BytesIO(raw), dtype=object, sep=None, engine="python")
+    except Exception:
+        raise OperationError("No se pudo leer el archivo. Comprueba que sea un Excel o un CSV válido.")
     df.columns = [str(c).strip().lower() for c in df.columns]
     faltan = COLUMNAS_OBLIGATORIAS - set(df.columns)
     if faltan:
@@ -84,9 +90,13 @@ def import_file(filename: str, content_b64: str, usuario: str | None) -> dict:
         numero = fila + 2  # fila en la hoja: encabezado en la 1
         try:
             link_id = int(float(row["link_id"]))
+        except (ValueError, TypeError):
+            errores.append({"fila": int(numero), "error": "El link_id no es un número."})
+            continue
+        try:
             update_toll(link_id, row["peaje_cop"], _texto(row.get("nota")), _texto(row.get("fuente")), usuario)
             actualizados += 1
-        except (OperationError, LookupError, ValueError, TypeError) as exc:
+        except (OperationError, LookupError) as exc:
             errores.append({"fila": int(numero), "error": str(exc)})
     return {"actualizados": actualizados, "errores": errores}
 
