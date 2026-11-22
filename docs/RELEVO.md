@@ -83,10 +83,10 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     real (v18), httpx2 sin advertencia, y cobertura al 84 % con fx/tolls/shipments_io probados a fondo; importar peajes ilegible
     ya no da 500. 495 pruebas de la API, 47 e2e × 2. Falta: ronda 4 (F6 filtros de Flota/Bodegas en la URL, F7 borrador del envío
     nuevo, F8 errores por sección en la ficha).
-- **En curso / a medias:** tanda 2 de mejoras, ronda 1 cerrada en `desarrollo` (sección 71, sin desplegar): ETag/304 de la red y los
-  departamentos, ayuda de atajos y contraste del tema oscuro. Siguen la ronda 2 (B2 último ingreso, B3 mis sesiones, B4 búsqueda
-  global en el servidor, F3 inicio vacío, F4 impresión) y la 3 (B5 OTIF, B6 dependencias, F5 lector de pantalla, F6 Web Vitals).
-  Producción sigue en la sección 70.
+- **En curso / a medias:** tanda 2 de mejoras, rondas 1 y 2 cerradas en `desarrollo` (secciones 71 y 72, sin desplegar): ETag/304 de
+  la red, atajos y contraste (71); mis sesiones, último ingreso, búsqueda global, inicio vacío e impresión (72, con la migración v19).
+  Falta la ronda 3 (B5 OTIF en el reporte mensual y en Hoy, B6 dependencias, F5 lector de pantalla, F6 Web Vitals). Producción sigue
+  en la sección 70. Decisión del dueño pendiente: `/api/search` no exige sesión (como el resto de las lecturas).
 - **Pendiente de decisión del dueño:** exigir sesión para todo lo que escribe (roles reales; hoy `/api/audit` y las pantallas
   siguen abiertas como demostración); rotar la contraseña de aplicación de Gmail y el tema de ntfy tras el aviso de Contabo;
   dominio propio; una instalación por empresa o separar datos por empresa; revisión legal.
@@ -106,6 +106,6 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
   - Roles que limiten acciones: espera decisión del dueño (obligaría a iniciar sesión a todos).
   - Política de privacidad con abogado; secretos de GitHub para el despliegue automático; dominio propio y Cloudflare;
     PostgreSQL cuando haya varios usuarios a la vez.
-- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **503 pruebas de la API**; **60 de navegador** (incluye
+- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **543 pruebas de la API**; **68 de navegador** (incluye
   accesibilidad). En el servidor, `bash deploy/verificar.sh` (34 comprobaciones, en verde).
 - **Producción:** `main` y Contabo en el mismo commit; `desarrollo` sin nada pendiente de desplegar.

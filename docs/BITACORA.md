@@ -1577,3 +1577,25 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
   cosas se corrigieron. Falta probar con varios controles la trampa de foco (la e2e usa una hoja de un solo botón).
 - **Pendiente de la tanda:** B2 (último ingreso por usuario) pasa a la ronda 2 porque toca las rutas de administración de `main.py`.
 - **Verificación:** tsc, eslint y build limpios; 503 pruebas de la API; 60 de navegador.
+
+## 72. Tanda 2, ronda 2: mis sesiones, último ingreso, búsqueda global, inicio vacío e impresión
+
+- **B2 último ingreso por usuario:** la lista de Administración muestra «Último ingreso» (o «Nunca ha entrado»), los intentos
+  fallidos y «Bloqueada». Migración **v19** (aditiva): `users.last_login_at`. Se escribe solo al abrir sesión con éxito.
+- **B3 mis sesiones:** Configuración > Mis sesiones lista las de la propia cuenta (navegador resumido, «Esta sesión») y
+  «Cerrar las demás». Migración v19: `user_sessions.user_agent` (recortado a 200; **no se guarda IP**). Los ids son opacos
+  (sha256 de los 16 primeros caracteres del token, nunca el token), sin sesión devuelven 401, y el cierre queda en el historial sin
+  tokens. El proxy de Next ahora reenvía el `user-agent`. De paso: cerrar sesión con solo la cookie no borraba la sesión de la base
+  (ahora sí), y se probó que `/api/auth/` nunca sale de la caché de lecturas de 5 s aunque dos cuentas pidan la misma URL.
+- **B4 búsqueda global:** `GET /api/search?q=&limit=` (envíos, vehículos, bodegas y clientes; tope por tipo; menos de 2 caracteres
+  no toca la base; los `%` y `_` del texto se escapan; las tildes se pliegan). ~7 ms con la base sembrada y ~16 ms con la de
+  ejemplo (casi todo es apertura de conexiones). La paleta Ctrl K la usa con retardo de 250 ms y cancelando la anterior. Es un
+  `LIKE '%…%'`: con muchos miles de envíos haría falta FTS5. **Decisión del dueño pendiente:** la ruta no exige sesión (igual que
+  las demás lecturas hoy) y permite buscar clientes y códigos sin entrar.
+- **F3 inicio vacío:** sin envíos, vehículos o bodegas (y sin filtros) cada lista dice qué hacer primero. En bodegas no ofrece
+  «Importar desde Excel» porque ahí el Excel carga inventario y exige la bodega creada. No se pudo simular el vacío real con e2e
+  (esas listas se leen en el servidor y `page.route` no las alcanza): se prueba que un filtro sin resultados NO es inicio vacío.
+- **F4 impresión:** encabezado con marca, título y fecha; sin dock, botones, filtros ni paginador; la tabla se reparte entre
+  páginas (el contenedor con `overflow` la dejaba como una caja que recortaba filas y columnas, lo encontró la revisión).
+- **Revisión:** además de lo anterior, la paleta abría otra fila que la resaltada cuando llegaba el servidor y repetía resultados.
+- **Verificación:** tsc, eslint y build limpios; 543 pruebas de la API; 68 de navegador.
