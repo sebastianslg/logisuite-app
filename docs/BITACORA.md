@@ -1483,3 +1483,25 @@ bodega, seguimiento público y configuración, en escritorio y celular. Lo que s
   del navegador entra con ella. Nuevas: `tests/test_acceso_contrasena.py` y `e2e/ingreso.spec.ts`.
 - **Cuenta del profesor:** `profesor`, administrador, creada en Contabo. La contraseña no va en git ni en el chat: el
   dueño la tiene en `backend/data/acceso-profesor.txt` (ignorado por git) en su PC.
+
+## 67. Ronda 1 de mejoras en paralelo: índices, limpieza de sesiones, peticiones lentas y esqueletos de carga
+
+Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1017) y un revisor; el coordinador corrió toda la verificación y hizo los commits.
+
+- **Cambiar mi contraseña** (cerrado antes de la ronda): `POST /api/auth/password/change`, formulario en Configuración. Se arregló
+  que el proxy de Next no reenviaba la cookie de sesión y que la e2e terminaba antes de restaurar la clave de pruebas.
+- **B1 índices (schema_v18, aditivo):** `mm_shipments(status, departure_at DESC)`, `audit_log(table_name, audit_id, action, record_id)`,
+  `user_sessions(user_id)` y `auth_codes(email, code_id)`. En una base de 5.000 envíos y 60.000 líneas de historial: lista filtrada
+  por estado 1,0 -> 0,3 ms; consecutivo al crear un envío 12,8 -> 4,5 ms; escrituras ~14 % más lentas (1,7 µs por fila).
+  Ya existía un índice duplicado de estado (`idx_mm_shipments_status` de v3 e `idx_ship_status` de v15): no se borró por ser migración
+  solo aditiva; queda a decidir. El orden por defecto de la lista (CASE de estados) no lo sirve ningún índice.
+- **B2 limpieza:** `auth_otp.purge_expired_auth` borra sesiones vencidas y códigos usados o vencidos hace más de 7 días, en la pasada diaria
+  (con prueba de que el enganche existe).
+- **B3 peticiones lentas:** WARNING `westvane.lento` en toda petición `/api` de más de 1 s (`WESTVANE_SLOW_MS`, 0 la apaga); la ruta va
+  sin query string y con marcadores en lugar de códigos, ids, correos y tokens.
+- **F1 esqueletos:** `loading.tsx` en envíos, ficha, flota, bodegas, red, auditoría y hoy, y en las subrutas de formulario y ficha
+  (si no, el del padre se pintaba también en `nuevo` y `editar`). Piezas en `components/skeletons.tsx`.
+- **Revisión:** la prueba de B1 prometía más de lo que el índice da (se corrigió el texto), la de B2 dependía del orden (corregida) y
+  se añadió la comprobación del enganche. Pendiente: las páginas tienen su propio `Suspense`, así que puede verse el esqueleto nuevo y
+  luego el genérico; unificarlos exige tocar cada `page.tsx`. Sin e2e para los esqueletos.
+- **Verificación:** tsc, eslint y build limpios; 373 pruebas de la API; 45 de navegador.
