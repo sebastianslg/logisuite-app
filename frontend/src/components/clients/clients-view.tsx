@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import { EnlaceIntencion as Link } from "@/components/ui/enlace-intencion";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowDown, ArrowUp, ChevronDown, Search } from "lucide-react";
 
@@ -9,6 +9,7 @@ import { useApp } from "@/components/providers";
 import { ModeIcon } from "@/components/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatStrip } from "@/components/ui/stat-strip";
+import { PaginasLocales, usePaginas } from "@/components/ui/paginas-locales";
 import { EASE } from "@/lib/motion";
 import type { ClientSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,7 @@ export function ClientsView({ items }: { items: ClientSummary[] }) {
     return [...filtered].sort((a, b) => (sort.desc ? val(b) - val(a) : val(a) - val(b)));
   }, [items, q, sort]);
 
+  const pagina = usePaginas(list, JSON.stringify([q, sort]));
   const totalCost = items.reduce((a, c) => a + c.cost, 0);
   const delivered = items.reduce((a, c) => a + c.delivered, 0);
   const onTime = items.reduce((a, c) => a + ((c.on_time_pct ?? 0) / 100) * c.delivered, 0);
@@ -108,7 +110,7 @@ export function ClientsView({ items }: { items: ClientSummary[] }) {
             <span>Modos</span>
             <span />
           </li>
-          {list.map((c) => {
+          {pagina.filas.map((c) => {
             const expanded = open === c.client;
             return (
               <li key={c.client}>
@@ -181,7 +183,7 @@ export function ClientsView({ items }: { items: ClientSummary[] }) {
                         <h3 className="text-xs font-medium text-muted-foreground">Últimos envíos</h3>
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                           {c.recent.map((code) => (
-                            <Link key={code} href={`/envios/${code}`} prefetch={false} className="rounded-md border border-border px-1.5 py-0.5 font-mono text-xs hover:border-primary hover:text-primary">
+                            <Link key={code} href={`/envios/${code}`} className="rounded-md border border-border px-1.5 py-0.5 font-mono text-xs hover:border-primary hover:text-primary">
                               {code}
                             </Link>
                           ))}
@@ -208,6 +210,7 @@ export function ClientsView({ items }: { items: ClientSummary[] }) {
           })}
         </ul>
       )}
+      <PaginasLocales {...pagina} />
     </div>
   );
 }

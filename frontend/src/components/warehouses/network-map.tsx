@@ -41,7 +41,8 @@ export function WarehouseNetworkMap({
   const [hover, setHover] = useState<string | null>(null);
 
   useEffect(() => {
-    api<{ features: Dept[] }>("/api/geo/departments", { cache: "no-cache" })
+    const ctrl = new AbortController();
+    api<{ features: Dept[] }>("/api/geo/departments", { cache: "no-cache", signal: ctrl.signal })
       .then((d) => {
         const out: string[] = [];
         for (const f of d.features) {
@@ -55,6 +56,7 @@ export function WarehouseNetworkMap({
         setPaths(out);
       })
       .catch(() => undefined);
+    return () => ctrl.abort();
   }, []);
 
   const byCode = useMemo(() => new Map(network.map((n) => [n.code, n])), [network]);

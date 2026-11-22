@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import { EnlaceIntencion as Link } from "@/components/ui/enlace-intencion";
 import { useRouter } from "next/navigation";
 import { ChevronRight, FileUp, Plus, Search, TriangleAlert, UserRound, Warehouse as WarehouseIcon } from "lucide-react";
 
@@ -10,10 +10,12 @@ import { PrintHeader } from "@/components/print-header";
 import { ModeIcon } from "@/components/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatStrip } from "@/components/ui/stat-strip";
+import { PaginasLocales, usePaginas } from "@/components/ui/paginas-locales";
 import { abrirCargaDeExcel, filtersActive, isStartEmpty } from "@/lib/empty";
 import { MODE_ORDER, MODES, tint } from "@/lib/modes";
 import type { FleetSummary, Mode, Vehicle, VehicleStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useVistaGuardada } from "@/lib/use-vista-guardada";
 
 import { FLEET_ORDERS, fleetHref, fleetKey, isFleetOrder, type FleetFilters, type FleetOrder } from "./filters";
 import { km, ServiceMeter, STATUS_ORDER, VEHICLE_STATUS, VehicleStatusBadge } from "./status";
@@ -23,6 +25,7 @@ import { km, ServiceMeter, STATUS_ORDER, VEHICLE_STATUS, VehicleStatusBadge } fr
  * idioma del entorno) y las placas solo tienen letras, números y guion.
  */
 const porPlaca = (a: Vehicle, b: Vehicle) => (a.code < b.code ? -1 : a.code > b.code ? 1 : 0);
+const RECORDAR = ["modo", "estado", "alertas", "orden"] as const;
 
 /**
  * Lista de vehículos: indicadores que filtran, búsqueda, filtros por modo y estado, orden y una fila por vehículo.
@@ -31,6 +34,7 @@ const porPlaca = (a: Vehicle, b: Vehicle) => (a.code < b.code ? -1 : a.code > b.
  */
 export function FleetBoard({ vehicles, summary, initial }: { vehicles: Vehicle[]; summary: FleetSummary; initial: FleetFilters }) {
   const router = useRouter();
+  const recordar = useVistaGuardada("/flota", RECORDAR);
   const [query, setQuery] = useState(initial.q);
   const [modes, setModes] = useState<Mode[]>(initial.modes);
   const [statuses, setStatuses] = useState<VehicleStatus[]>(initial.statuses);
@@ -50,6 +54,7 @@ export function FleetBoard({ vehicles, summary, initial }: { vehicles: Vehicle[]
     // Lo que esta pantalla escribe queda confirmado: al volver del servidor no se pisa lo que se está escribiendo
     confirmada.current = fleetKey(next);
     const href = fleetHref(next);
+    recordar(href);
     if (modo === "replace") router.replace(href, { scroll: false });
     else router.push(href, { scroll: false });
   }
@@ -110,6 +115,7 @@ export function FleetBoard({ vehicles, summary, initial }: { vehicles: Vehicle[]
     });
   }, [vehicles, query, modes, statuses, onlyAlerts, order]);
 
+  const pagina = usePaginas(list, JSON.stringify([query, modes, statuses, onlyAlerts, order]));
   const bs = summary.by_status;
   const blocked = bs["Inhabilitado"] + bs["Mantenimiento vencido"];
   const only = (s: VehicleStatus[]) => (statuses.length === s.length && s.every((x) => statuses.includes(x)));
@@ -244,7 +250,7 @@ export function FleetBoard({ vehicles, summary, initial }: { vehicles: Vehicle[]
             />
           </li>
         ) : null}
-        {list.map((v) => (
+        {pagina.filas.map((v) => (
           <li key={v.id}>
             <Link
               href={`/flota/${v.id}`}
@@ -307,6 +313,7 @@ export function FleetBoard({ vehicles, summary, initial }: { vehicles: Vehicle[]
           </li>
         ))}
       </ul>
+      <PaginasLocales {...pagina} />
     </div>
   );
 }

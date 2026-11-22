@@ -17,7 +17,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import DeckGL, { type DeckGLRef } from "@deck.gl/react";
-import { Pause, Play } from "lucide-react";
+import { Map as MapIcon, MapPinOff, Pause, Play } from "lucide-react";
 import {
   Deck,
   FlyToInterpolator,
@@ -33,12 +33,25 @@ import { setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { boundsOf, flightArc, positionAt, splitTrip, type Position3, type TripSegment } from "./map/geometry";
+import {
+  MAPA_ATRIBUCION,
+  MAPA_ESTILO_CLARO,
+  MAPA_ESTILO_OSCURO,
+  MAPA_GIRO,
+  MAPA_INCLINACION,
+  MAPA_LIMITES,
+  MAPA_TONOS,
+  MAPA_ZOOM,
+  MASCARA_COLOMBIA,
+  TIERRA_COLOMBIA,
+  dentroDeColombia,
+} from "./map/colombia-style";
 import { useApp } from "@/components/providers";
 import { MODES } from "@/lib/modes";
 import { usePrefs } from "@/lib/prefs";
 import type { DepartmentsGeo, FleetLive, LiveAsset, Mode, NetworkGeo, RouteResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { useMapAnimation, useMapQuality } from "@/components/map/use-map-animation";
+import { useMapAnimation, useMapBase, useMapQuality } from "@/components/map/use-map-animation";
 import { onIdle } from "@/lib/idle";
 import { useMedia } from "@/lib/use-media";
 
@@ -55,12 +68,14 @@ deckProto._drawLayers = function (this: Drawable, ...args: unknown[]) {
   if (this.layerManager) drawLayers.apply(this, args);
 };
 
-// NEXT_PUBLIC_MAP_STYLE fija un estilo único; sin él, el mapa sigue la apariencia elegida (Sistema/Claro/Oscuro).
-// OpenFreeMap: teselas de OpenStreetMap libres también para uso comercial, sin clave ni límite de visitas
-// (los mapas de CARTO que se usaban solo son gratis para uso no comercial).
+// Mapa base detallado: teselas de OpenStreetMap vía OpenFreeMap (libres también para uso comercial, sin clave).
+// Sin mapa base, el mapa usa su estilo local (sin red) o, si el estilo elegido falla, cae en él para no dejar un
+// hueco: la silueta, la máscara y los datos los pinta deck.gl de todos modos.
 const MAP_STYLE_DARK = "https://tiles.openfreemap.org/styles/dark";
 const MAP_STYLE_LIGHT = "https://tiles.openfreemap.org/styles/positron";
-
+// NEXT_PUBLIC_MAP_STYLE puede fijar otro estilo (por ejemplo, teselas locales); sin él se usa OpenFreeMap y, si
+// falla, el estilo local.
+const MAP_STYLE = process.env.NEXT_PUBLIC_MAP_STYLE;
 
 export const COLOMBIA_VIEW: MapViewState = {
   longitude: -74.2,
@@ -69,6 +84,19 @@ export const COLOMBIA_VIEW: MapViewState = {
   pitch: 45,
   bearing: -10,
 };
+
+/** Mantiene la cámara dentro de Colombia y de los límites de zoom, inclinación y giro. */
+function containView(view: MapViewState): MapViewState {
+  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+  return {
+    ...view,
+    longitude: clamp(view.longitude, MAPA_LIMITES[0][0], MAPA_LIMITES[1][0]),
+    latitude: clamp(view.latitude, MAPA_LIMITES[0][1], MAPA_LIMITES[1][1]),
+    zoom: clamp(view.zoom, MAPA_ZOOM.min, MAPA_ZOOM.max),
+    pitch: clamp(view.pitch ?? 0, MAPA_INCLINACION.min, MAPA_INCLINACION.max),
+    bearing: clamp(view.bearing ?? 0, MAPA_GIRO.min, MAPA_GIRO.max),
+  };
+}
 
 type RGBA = [number, number, number, number];
 // La interfaz es tinta (DESIGN.md): el tráfico por departamento va en grafito, no en un color que compita con los modos
@@ -214,12 +242,29 @@ export default function Map3D({
   const insetBottom = insets?.bottom ?? 0;
   // Calidad liviana (equipos sin tarjeta gráfica o elegida en Configuración): plano, sin relieve y a 1x
   const { lite } = useMapQuality();
+  // Mapa base: MapLibre pinta el mar y la atribución. Apagado (equipos de 4 hilos o 4 GB) no hay segundo lienzo
+  // WebGL ni teselas; la silueta y la máscara las sigue dibujando deck.gl.
+  const { base, setBase } = useMapBase();
+  // Un Deck nuevo no puede reutilizar capas ya finalizadas (Layer._initialize afirma que no hay estado): al cargar
+  // un Deck se sube la generación y las capas memorizadas se rehacen.
+  const [deckEpoch, setDeckEpoch] = useState(0);
   // En la vista compacta el país sube para no quedar bajo los chips de resumen
   const [viewState, setViewState] = useState<MapViewState>(
     compact ? { ...COLOMBIA_VIEW, latitude: 1.4, zoom: 4.25, pitch: lite ? 0 : 40, bearing: lite ? 0 : COLOMBIA_VIEW.bearing } : lite ? { ...COLOMBIA_VIEW, pitch: 0, bearing: 0 } : COLOMBIA_VIEW,
   );
   const [hover, setHover] = useState<Hover>(null);
+  // El mapa base puede ser un estilo externo (NEXT_PUBLIC_MAP_STYLE): si falla, la cartografía propia sigue y se
+  // avisa. La máscara, la tierra y los datos los pinta deck.gl, así que nunca queda una pantalla vacía.
+  const [baseError, setBaseError] = useState(false);
+  // Con el estilo ya cargado, una tesela caída no invalida la cartografía, pero una ráfaga (servidor sin
+  // respuesta, sin red) deja huecos: se vuelve a pintar la silueta de deck.gl debajo para que el país no se pierda.
+  const [tilesFailed, setTilesFailed] = useState(false);
+  const tileErrors = useRef(0);
+  const tileErrorsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Hasta que MapLibre tiene su estilo cargado, la tierra la pinta deck.gl (evita un hueco del color del mar).
+  const [baseReady, setBaseReady] = useState(false);
   const dark = usePrefs().resolved === "dark";
+  const tonos = dark ? MAPA_TONOS.oscuro : MAPA_TONOS.claro;
   const { money } = useApp();
   // El reloj de la animación vive en una referencia: no pasa por React en cada cuadro.
   // Así el mapa no se redibuja entero 30 veces por segundo; deck.gl recibe las capas directamente.
@@ -228,9 +273,25 @@ export default function Map3D({
   const buildRef = useRef<((t: number) => LayerList) | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { animate, setAnimate } = useMapAnimation();
-  // Resolución de dibujado: la nativa de la pantalla para que el mapa se vea nítido; la vista compacta
-  // del dashboard y la calidad liviana usan 1.
-  const maxPixelRatio = typeof window === "undefined" || compact || lite ? 1 : window.devicePixelRatio || 1;
+  // Resolución de dibujado: la nativa de la pantalla para que el mapa se vea nítido, con tope 2 (1,5 si además
+  // hay mapa base, que dibuja su propio lienzo); la vista compacta del dashboard y la calidad liviana usan 1.
+  const maxPixelRatio =
+    typeof window === "undefined" || compact || lite
+      ? 1
+      : Math.min(window.devicePixelRatio || 1, base ? 1.5 : 2);
+  // Límites del controlador de deck.gl (cámara controlada por React). El giro se limita en containView.
+  const controller = useMemo(
+    () => ({
+      dragRotate: !lite,
+      touchRotate: !lite,
+      scrollZoom: !compact,
+      minZoom: MAPA_ZOOM.min,
+      maxZoom: MAPA_ZOOM.max,
+      minPitch: MAPA_INCLINACION.min,
+      maxPitch: MAPA_INCLINACION.max,
+    }),
+    [compact, lite],
+  );
 
   // deck.gl crea una capa de eventos enfocable sin nombre: se la damos para lectores de pantalla.
   useEffect(() => {
@@ -285,12 +346,23 @@ export default function Map3D({
   // rueda (y 0,8 s después, para que el movimiento no se corte en seco) o en pantalla completa (`live`).
   const [engaged, setEngaged] = useState(false);
   const engageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // deck.gl llama a este aviso en cada cuadro con «nada activo». Si cada llamada reiniciara el temporizador, el
+  // mapa nunca volvería al reposo y el reloj seguiría trabajando. Solo se arma al pasar de activo a quieto.
+  const wasActive = useRef(false);
   const onInteractionStateChange = useCallback(
     (s: { isDragging?: boolean; isPanning?: boolean; isZooming?: boolean; isRotating?: boolean }) => {
       const active = !!(s.isDragging || s.isPanning || s.isZooming || s.isRotating);
-      if (engageTimer.current) clearTimeout(engageTimer.current);
-      if (active) setEngaged(true);
-      else engageTimer.current = setTimeout(() => setEngaged(false), 800);
+      if (active) {
+        wasActive.current = true;
+        if (engageTimer.current) clearTimeout(engageTimer.current);
+        setEngaged(true);
+        // Tope duro: si deck.gl no avisa del final (arrastre que termina fuera), la animación no queda encendida
+        engageTimer.current = setTimeout(() => setEngaged(false), 1200);
+      } else if (wasActive.current) {
+        wasActive.current = false;
+        if (engageTimer.current) clearTimeout(engageTimer.current);
+        engageTimer.current = setTimeout(() => setEngaged(false), 300);
+      }
     },
     [],
   );
@@ -298,6 +370,25 @@ export default function Map3D({
     if (engageTimer.current) clearTimeout(engageTimer.current);
   }, []);
   const running = animate && !paused && (live || engaged);
+
+  // Errores del mapa base. Los de una tesela se cuentan en ráfaga; los del estilo o una fuente caen al estilo local.
+  const onBaseError = useCallback((event: { target: { isStyleLoaded(): boolean | void }; tile?: unknown }) => {
+    if (event.tile) {
+      tileErrors.current += 1;
+      if (tileErrorsTimer.current) clearTimeout(tileErrorsTimer.current);
+      // La ráfaga se mide con las teselas que fallan a la vez: un 404 suelto no cambia la cartografía.
+      tileErrorsTimer.current = setTimeout(() => {
+        tileErrors.current = 0;
+      }, 4000);
+      if (tileErrors.current >= 3) setTilesFailed(true);
+      return;
+    }
+    // Sin tesela es el estilo o una de sus fuentes: se cae al estilo local para no dejar el mar vacío.
+    if (!event.target.isStyleLoaded()) setBaseError(true);
+  }, []);
+  useEffect(() => () => {
+    if (tileErrorsTimer.current) clearTimeout(tileErrorsTimer.current);
+  }, []);
 
   // ---- Reloj de animación (requestAnimationFrame) ---------------------
   useEffect(() => {
@@ -316,7 +407,10 @@ export default function Map3D({
         last = now;
         const t = base + (now - t0) / 1000;
         clockRef.current = t;
-        deckRef.current?.deck?.setProps({ layers: buildRef.current?.(t) ?? NO_LAYERS });
+        // Un Deck ya finalizado (ruta oculta por Activity) no puede recibir capas: su Deck se recrea al volver.
+        // La misma guarda que _drawLayers evita el «assertion failed» al montar el mapa nuevo.
+        const deck = deckRef.current?.deck;
+        if (deck && (deck as unknown as Drawable).layerManager) deck.setProps({ layers: buildRef.current?.(t) ?? NO_LAYERS });
       }
       frame = requestAnimationFrame(tick);
     };
@@ -352,7 +446,7 @@ export default function Map3D({
         const pitch = narrow ? 0 : (v.pitch ?? 0);
         const bearing = narrow ? 0 : (v.bearing ?? 0);
         const fit = fitTilted(narrow ? MAINLAND_BOUNDS : COLOMBIA_BOUNDS, width, height, padding, pitch, bearing);
-        return { ...v, pitch, bearing, longitude: fit.longitude, latitude: fit.latitude, zoom: Math.min(Math.max(fit.zoom, 3.4), 6.4) };
+        return containView({ ...v, pitch, bearing, longitude: fit.longitude, latitude: fit.latitude, zoom: Math.min(Math.max(fit.zoom, 3.4), 6.4) });
       });
     } catch {
       // Sin encuadre posible se queda la vista por defecto
@@ -392,7 +486,7 @@ export default function Map3D({
     try {
       const [pitch, bearing] = lite ? [0, 0] : [50, -12];
       const fit = fitTilted(boundsOf(pts), width, height, padding, pitch, bearing);
-      setViewState((v) => ({
+      setViewState((v) => containView({
         ...v,
         longitude: fit.longitude,
         latitude: fit.latitude,
@@ -424,7 +518,7 @@ export default function Map3D({
     // Fuera del cuerpo del efecto: el vuelo es una reacción a un evento externo, no un estado derivado
     const t = setTimeout(
       () =>
-        setViewState((v) => ({
+        setViewState((v) => containView({
           ...v,
           longitude,
           latitude,
@@ -455,7 +549,10 @@ export default function Map3D({
   );
 
   const links = useMemo(
-    () => network.links.features.filter((f) => isVisible(f.properties.mode)),
+    () =>
+      network.links.features.filter(
+        (f) => isVisible(f.properties.mode) && f.geometry.coordinates.some(dentroDeColombia),
+      ),
     [network, isVisible],
   );
   // Vías cerradas: fuera de las capas normales, en una capa propia (rojo punteado)
@@ -463,9 +560,19 @@ export default function Map3D({
   const closedLinks = useMemo(() => links.filter((f) => f.properties.closed), [links]);
   const groundLinks = useMemo(() => openLinks.filter((f) => f.properties.mode !== "aereo"), [openLinks]);
   const airLinks = useMemo(() => openLinks.filter((f) => f.properties.mode === "aereo"), [openLinks]);
+  // Filtro Colombia: fuera de la caja del país no se dibuja nada (los datos son nacionales; un punto perdido
+  // no debe obligar a alejar la cámara). Los trazados que cruzan el borde se conservan.
   const nodes = useMemo(
-    () => (visibleCities ? network.nodes.features.filter((n) => visibleCities.has(n.properties.city)) : network.nodes.features),
+    () =>
+      (visibleCities ? network.nodes.features.filter((n) => visibleCities.has(n.properties.city)) : network.nodes.features).filter(
+        (n) => dentroDeColombia(n.geometry.coordinates),
+      ),
     [network, visibleCities],
+  );
+  // Origen y destino elegidos: se recalculan cuando cambian las ciudades, no en cada cuadro
+  const selectedNodes = useMemo(
+    () => network.nodes.features.filter((n) => selectedCities.includes(n.properties.city)),
+    [network, selectedCities],
   );
   // Una etiqueta por ciudad, sobre su nodo principal
   // En celular solo se rotulan los centros (CEDI y puertos marítimos): con todas las ciudades los nombres se
@@ -510,15 +617,336 @@ export default function Map3D({
     [route],
   );
 
-  // Colores de modo según el tema (la paleta tiene variante clara y oscura)
-  const tone = (m: Mode, a = 255): RGBA => rgba(m, a, dark);
-  const nodeColor = (kind: string, a: number): RGBA => {
-    const st = NODE_STYLE[kind] ?? NODE_STYLE.ciudad;
-    if (st.mode) return tone(st.mode, a);
-    // El CEDI es de la operación propia: va en tinta (grafito en claro, gris claro en oscuro), como la interfaz
-    if (kind === "cedi") return [...(dark ? ACCENT_DARK : ACCENT_LIGHT), a] as RGBA;
-    return [...st.color, a] as RGBA;
-  };
+  // Solo lo visible de la flota: el filtro de modos no se repite en cada cuadro del reloj
+  const fleetVisibleSegments = useMemo(
+    () => fleetSegments.filter((s) => isVisible(s.mode)),
+    [fleetSegments, isVisible],
+  );
+  const hasRoute = Boolean(route);
+  // Con ruta simulada, la red pasa a segundo plano
+  const dim = hasRoute ? 0.35 : 1;
+
+  // Colores de modo según el tema (la paleta tiene variante clara y oscura). Estables por tema para que las
+  // capas memorizadas solo se rehagan cuando cambia la apariencia.
+  const tone = useCallback((m: Mode, a = 255): RGBA => rgba(m, a, dark), [dark]);
+  const nodeColor = useCallback(
+    (kind: string, a: number): RGBA => {
+      const st = NODE_STYLE[kind] ?? NODE_STYLE.ciudad;
+      if (st.mode) return rgba(st.mode, a, dark);
+      // El CEDI es de la operación propia: va en tinta (grafito en claro, gris claro en oscuro), como la interfaz
+      if (kind === "cedi") return [...(dark ? ACCENT_DARK : ACCENT_LIGHT), a] as RGBA;
+      return [...st.color, a] as RGBA;
+    },
+    [dark],
+  );
+
+  const haloNodes = useMemo(() => nodes.filter((n) => n.properties.kind !== "ciudad"), [nodes]);
+  const roadLinks = useMemo(() => groundLinks.filter((f) => f.properties.mode !== "ferreo"), [groundLinks]);
+  const railLinks = useMemo(() => groundLinks.filter((f) => f.properties.mode === "ferreo"), [groundLinks]);
+
+  // ---- Capas estáticas (memoizadas) ------------------------------------
+  // El reloj solo rehace lo que se mueve (estelas y cabezas). La cartografía, los corredores, los nodos y la ruta
+  // se reutilizan entre cuadros: deck.gl compara props y no vuelve a subir a la GPU lo que no cambió.
+  // Con el mapa base cargado, la tierra y la costa vienen en sus teselas: deck.gl solo oscurece lo de fuera. Si el
+  // estilo falló o sus teselas dejaron huecos, la silueta propia vuelve a pintarse.
+  const showLand = !base || baseError || !baseReady || tilesFailed;
+  const baseLayers = useMemo<LayerList>(
+    () => [
+      // Máscara inversa: el mundo con un hueco por cada anillo del país. Fuera de Colombia se atenúa.
+      new PolygonLayer<{ id: string }>({
+        id: "mascara-colombia",
+        data: [{ id: "mascara" }],
+        getPolygon: () => MASCARA_COLOMBIA,
+        filled: true,
+        extruded: false,
+        getFillColor: tonos.mascara,
+        pickable: false,
+        parameters: { depthWriteEnabled: false },
+      }),
+      // Tierra: la silueta disuelta de los departamentos, archipiélago incluido y sin líneas internas.
+      showLand &&
+        new PolygonLayer<{ id: string; ring: [number, number][] }>({
+          id: "tierra-colombia",
+          data: TIERRA_COLOMBIA.map((ring, i) => ({ id: `tierra-${i}`, ring })),
+          getPolygon: (d) => d.ring,
+          filled: true,
+          extruded: false,
+          getFillColor: tonos.tierra,
+          pickable: false,
+          parameters: { depthWriteEnabled: false },
+        }),
+      showLand &&
+        new PathLayer<[number, number][]>({
+          id: "costa-colombia",
+          data: TIERRA_COLOMBIA,
+          getPath: (ring) => ring,
+          getColor: tonos.costa,
+          getWidth: 1,
+          widthUnits: "pixels",
+          parameters: { depthWriteEnabled: false },
+        }),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- la generación rehace las capas para un Deck nuevo
+    [tonos, deckEpoch, showLand],
+  );
+
+  const deptLayers = useMemo<LayerList>(
+    () => [
+      showDepartments &&
+        stage >= 1 &&
+        new PolygonLayer<DeptDatum>({
+          id: "departamentos",
+          data: deptData,
+          getPolygon: (d) => d.polygon,
+          // Un solo tono del acento por intensidad, como el mapa por departamento. Con una ruta (ficha del envío) van
+          // planos y tenues: la ruta es lo que se mira, no el relieve del país.
+          extruded: !lite && !hasRoute,
+          getElevation: (d) => 800 + d.intensity * 18000,
+          getFillColor: (d) =>
+            [...(dark ? ACCENT_DARK : ACCENT_LIGHT), Math.round((hasRoute ? 4 : 8) + d.intensity * (hasRoute ? 10 : 24))] as RGBA,
+          material: false,
+          pickable: true,
+          autoHighlight: true,
+          highlightColor: [...(dark ? ACCENT_DARK : ACCENT_LIGHT), 40] as RGBA,
+          // Translúcido: no escribe profundidad para no ocultar las rutas
+          parameters: { depthWriteEnabled: false },
+          updateTriggers: { getFillColor: [deptData, dark, hasRoute] },
+        }),
+      showDepartments &&
+        stage >= 1 &&
+        new PathLayer<DeptDatum>({
+          id: "departamentos-borde",
+          data: deptData,
+          getPath: (d) => d.polygon[0] as [number, number][],
+          getColor: [148, 163, 184, 70],
+          getWidth: 0.8,
+          widthUnits: "pixels",
+          parameters: { depthWriteEnabled: false },
+        }),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- la generación rehace las capas para un Deck nuevo
+    [deptData, dark, lite, hasRoute, stage, showDepartments, deckEpoch],
+  );
+
+  const linkLayers = useMemo<LayerList>(
+    () => [
+      // Resplandor de los corredores de superficie
+      new PathLayer<LinkDatum>({
+        id: "corredores-glow",
+        data: roadLinks,
+        getPath: (f) => f.geometry.coordinates as [number, number][],
+        getColor: (f) => tone(f.properties.mode, Math.round(38 * dim)),
+        getWidth: 7,
+        widthUnits: "pixels",
+        capRounded: true,
+        jointRounded: true,
+      }),
+      new PathLayer<LinkDatum>({
+        id: "corredores",
+        data: roadLinks,
+        getPath: (f) => f.geometry.coordinates as [number, number][],
+        getColor: (f) => tone(f.properties.mode, Math.round(220 * dim)),
+        getWidth: (f) => (f.properties.mode === "terrestre" ? 1.6 : 2.2),
+        widthUnits: "pixels",
+        capRounded: true,
+        jointRounded: true,
+        pickable: true,
+        autoHighlight: true,
+        highlightColor: [255, 255, 255, 200],
+        updateTriggers: { getColor: dim },
+      }),
+      stage >= 2 &&
+        new PathLayer<LinkDatum, PathStyleExtensionProps<LinkDatum>>({
+          id: "ferreo",
+          data: railLinks,
+          getPath: (f) => f.geometry.coordinates as [number, number][],
+          getColor: tone("ferreo", Math.round(240 * dim)),
+          getWidth: 2.4,
+          widthUnits: "pixels",
+          getDashArray: () => [5, 3],
+          dashJustified: true,
+          extensions: [new PathStyleExtension({ dash: true })],
+          pickable: true,
+          autoHighlight: true,
+          updateTriggers: { getColor: dim },
+        }),
+      stage >= 2 &&
+        new ArcLayer<LinkDatum>({
+          id: "vuelos",
+          data: airLinks,
+          getSourcePosition: (f) => f.geometry.coordinates[0] as [number, number],
+          getTargetPosition: (f) => f.geometry.coordinates[f.geometry.coordinates.length - 1] as [number, number],
+          getSourceColor: tone("aereo", Math.round(150 * dim)),
+          getTargetColor: tone("aereo", Math.round(90 * dim)),
+          getHeight: 0.42,
+          getWidth: 1.2,
+          widthUnits: "pixels",
+          pickable: true,
+          autoHighlight: true,
+          updateTriggers: { getSourceColor: [dim, dark], getTargetColor: [dim, dark] },
+        }),
+      closedLinks.length > 0 &&
+        stage >= 2 &&
+        new PathLayer<LinkDatum, PathStyleExtensionProps<LinkDatum>>({
+          id: "cerrados",
+          data: closedLinks,
+          getPath: (f) => f.geometry.coordinates as [number, number][],
+          getColor: [...(dark ? DANGER_DARK : DANGER_LIGHT), Math.round(230 * dim)] as RGBA,
+          getWidth: 2.6,
+          widthUnits: "pixels",
+          getDashArray: () => [3, 3],
+          dashJustified: true,
+          extensions: [new PathStyleExtension({ dash: true })],
+          pickable: true,
+          autoHighlight: true,
+          updateTriggers: { getColor: dim },
+        }),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- la generación rehace las capas para un Deck nuevo
+    [airLinks, closedLinks, dark, dim, railLinks, roadLinks, stage, tone, deckEpoch],
+  );
+
+  const selectionLayers = useMemo<LayerList>(
+    () => [
+      // Origen y destino elegidos
+      new ScatterplotLayer<NodeDatum>({
+        id: "seleccion",
+        data: selectedNodes,
+        getPosition: (n) => n.geometry.coordinates as [number, number],
+        getFillColor: [0, 122, 255, 40],
+        getLineColor: [0, 122, 255, 255],
+        stroked: true,
+        filled: true,
+        lineWidthMinPixels: 2,
+        getRadius: 15,
+        radiusUnits: "pixels",
+      }),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- la generación rehace las capas para un Deck nuevo
+    [selectedNodes, deckEpoch],
+  );
+
+  const nodeLayers = useMemo<LayerList>(
+    () => [
+      // Nodos
+      new ScatterplotLayer<NodeDatum>({
+        id: "nodos-halo",
+        data: haloNodes,
+        getPosition: (n) => n.geometry.coordinates as [number, number],
+        getFillColor: (n) => nodeColor(n.properties.kind, 40),
+        getRadius: (n) => NODE_STYLE[n.properties.kind].radius * 2.3,
+        radiusUnits: "pixels",
+        updateTriggers: { getFillColor: dark },
+      }),
+      new ScatterplotLayer<NodeDatum>({
+        id: "nodos",
+        data: nodes,
+        getPosition: (n) => n.geometry.coordinates as [number, number],
+        getFillColor: (n) => nodeColor(n.properties.kind, 255),
+        getLineColor: [3, 7, 18, 255],
+        stroked: true,
+        lineWidthMinPixels: 1.5,
+        getRadius: (n) => NODE_STYLE[n.properties.kind].radius,
+        radiusUnits: "pixels",
+        pickable: true,
+        autoHighlight: true,
+        highlightColor: [255, 255, 255, 160],
+        updateTriggers: { getFillColor: dark },
+      }),
+      !compact &&
+        stage >= 3 &&
+        new TextLayer<NodeDatum, CollisionFilterExtensionProps<NodeDatum>>({
+          id: "nodos-etiquetas",
+          data: cityLabels,
+          getPosition: (n) => n.geometry.coordinates as [number, number],
+          getText: (n) => n.properties.city,
+          getSize: 12,
+          // Tinta del tema sobre un halo del fondo del mapa: se lee en claro y en oscuro
+          getColor: dark ? [235, 235, 245, 235] : [29, 29, 31, 235],
+          getPixelOffset: [0, -16],
+          fontFamily: "'Inter Variable', Inter, system-ui, -apple-system, sans-serif",
+          fontWeight: 600,
+          characterSet: "auto",
+          fontSettings: { sdf: true },
+          outlineWidth: 4,
+          outlineColor: dark ? [0, 0, 0, 230] : [255, 255, 255, 235],
+          parameters: { depthCompare: "always" },
+          // Sin choques: si dos nombres se tocan, queda el del nodo más importante (centro de distribución, luego puerto…).
+          // Se recalcula al mover el mapa; en reposo no trabaja.
+          extensions: [new CollisionFilterExtension()],
+          collisionEnabled: true,
+          getCollisionPriority: (n) => LABEL_PRIORITY[n.properties.kind] ?? 0,
+          collisionTestProps: { sizeScale: 1.15 },
+          updateTriggers: { getColor: dark, outlineColor: dark },
+        }),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- la generación rehace las capas para un Deck nuevo
+    [cityLabels, compact, dark, haloNodes, nodeColor, nodes, stage, deckEpoch],
+  );
+
+  const routeUnderLayers = useMemo<LayerList>(
+    () => [
+      // Ruta simulada (debajo del recorrido animado)
+      route &&
+        stage >= 4 &&
+        new PathLayer({
+          id: "ruta-glow",
+          data: routeGround,
+          getPath: (l) => l.path,
+          getColor: (l) => tone(l.mode, 70),
+          getWidth: 14,
+          widthUnits: "pixels",
+          capRounded: true,
+          jointRounded: true,
+        }),
+      route &&
+        stage >= 4 &&
+        new PathLayer({
+          id: "ruta",
+          data: routeGround,
+          getPath: (l) => l.path,
+          getColor: (l) => tone(l.mode),
+          getWidth: 4,
+          widthUnits: "pixels",
+          capRounded: true,
+          jointRounded: true,
+        }),
+      route &&
+        stage >= 4 &&
+        new PathLayer({
+          id: "ruta-aerea",
+          data: routeAir,
+          getPath: (d) => d.path,
+          getColor: tone("aereo"),
+          getWidth: 3.5,
+          widthUnits: "pixels",
+          capRounded: true,
+        }),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- la generación rehace las capas para un Deck nuevo
+    [route, routeAir, routeGround, stage, tone, deckEpoch],
+  );
+
+  const routeOverLayers = useMemo<LayerList>(
+    () => [
+      route &&
+        stage >= 4 &&
+        new ScatterplotLayer({
+          id: "ruta-transbordos",
+          data: route.transfers,
+          getPosition: (t) => [t.node.lon, t.node.lat],
+          getFillColor: [...ORANGE, 255] as RGBA,
+          getLineColor: dark ? [0, 0, 0, 255] : [255, 255, 255, 255],
+          stroked: true,
+          lineWidthMinPixels: 2,
+          getRadius: 9,
+          radiusUnits: "pixels",
+          pickable: true,
+        }),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- la generación rehace las capas para un Deck nuevo
+    [dark, route, stage, deckEpoch],
+  );
 
   // Las capas se construyen a partir de un instante: el bucle de animación las pide con su propio tiempo.
   const buildLayers = (clock: number) => {
@@ -532,9 +960,9 @@ export default function Map3D({
 
   // Posiciones de este fotograma (cambian en cada tick: no se memorizan)
   const fleetHeads = showFleet
-    ? fleetSegments
+    ? fleetVisibleSegments
         .map((s) => ({ s, p: positionAt(s, fleetTime) }))
-        .filter((x): x is { s: AssetSegment; p: Position3 } => x.p !== null && isVisible(x.s.mode))
+        .filter((x): x is { s: AssetSegment; p: Position3 } => x.p !== null)
     : [];
 
   let routeHead: { p: Position3; mode: Mode } | null = null;
@@ -547,120 +975,17 @@ export default function Map3D({
   }
 
   // ---- Capas ---------------------------------------------------------
-  const dim = route ? 0.35 : 1; // con ruta simulada, la red pasa a segundo plano
-
   const layers = [
-    showDepartments &&
-      stage >= 1 &&
-      new PolygonLayer<DeptDatum>({
-        id: "departamentos",
-        data: deptData,
-        getPolygon: (d) => d.polygon,
-        // Un solo tono del acento por intensidad, como el mapa por departamento. Con una ruta (ficha del envío) van planos y
-        // tenues: la ruta es lo que se mira, no el relieve del país.
-        extruded: !lite && !route,
-        getElevation: (d) => 800 + d.intensity * 18000,
-        getFillColor: (d) => [...(dark ? ACCENT_DARK : ACCENT_LIGHT), Math.round((route ? 4 : 8) + d.intensity * (route ? 10 : 24))] as RGBA,
-        material: false,
-        pickable: true,
-        autoHighlight: true,
-        highlightColor: [...(dark ? ACCENT_DARK : ACCENT_LIGHT), 40] as RGBA,
-        // Translúcido: no escribe profundidad para no ocultar las rutas
-        parameters: { depthWriteEnabled: false },
-        updateTriggers: { getFillColor: [deptData, dark, !!route] },
-      }),
-
-    showDepartments &&
-      stage >= 1 &&
-      new PathLayer<DeptDatum>({
-        id: "departamentos-borde",
-        data: deptData,
-        getPath: (d) => d.polygon[0] as [number, number][],
-        getColor: [148, 163, 184, 70],
-        getWidth: 0.8,
-        widthUnits: "pixels",
-        parameters: { depthWriteEnabled: false },
-      }),
-
-    // Resplandor de los corredores de superficie
-    new PathLayer<LinkDatum>({
-      id: "corredores-glow",
-      data: groundLinks.filter((f) => f.properties.mode !== "ferreo"),
-      getPath: (f) => f.geometry.coordinates as [number, number][],
-      getColor: (f) => tone(f.properties.mode, Math.round(38 * dim)),
-      getWidth: 7,
-      widthUnits: "pixels",
-      capRounded: true,
-      jointRounded: true,
-    }),
-    new PathLayer<LinkDatum>({
-      id: "corredores",
-      data: groundLinks.filter((f) => f.properties.mode !== "ferreo"),
-      getPath: (f) => f.geometry.coordinates as [number, number][],
-      getColor: (f) => tone(f.properties.mode, Math.round(220 * dim)),
-      getWidth: (f) => (f.properties.mode === "terrestre" ? 1.6 : 2.2),
-      widthUnits: "pixels",
-      capRounded: true,
-      jointRounded: true,
-      pickable: true,
-      autoHighlight: true,
-      highlightColor: [255, 255, 255, 200],
-      updateTriggers: { getColor: dim },
-    }),
-    stage >= 2 &&
-      new PathLayer<LinkDatum, PathStyleExtensionProps<LinkDatum>>({
-      id: "ferreo",
-      data: groundLinks.filter((f) => f.properties.mode === "ferreo"),
-      getPath: (f) => f.geometry.coordinates as [number, number][],
-      getColor: tone("ferreo", Math.round(240 * dim)),
-      getWidth: 2.4,
-      widthUnits: "pixels",
-      getDashArray: () => [5, 3],
-      dashJustified: true,
-      extensions: [new PathStyleExtension({ dash: true })],
-      pickable: true,
-      autoHighlight: true,
-      updateTriggers: { getColor: dim },
-    }),
-    stage >= 2 &&
-      new ArcLayer<LinkDatum>({
-      id: "vuelos",
-      data: airLinks,
-      getSourcePosition: (f) => f.geometry.coordinates[0] as [number, number],
-      getTargetPosition: (f) =>
-        f.geometry.coordinates[f.geometry.coordinates.length - 1] as [number, number],
-      getSourceColor: tone("aereo", Math.round(150 * dim)),
-      getTargetColor: tone("aereo", Math.round(90 * dim)),
-      getHeight: 0.42,
-      getWidth: 1.2,
-      widthUnits: "pixels",
-      pickable: true,
-      autoHighlight: true,
-      updateTriggers: { getSourceColor: [dim, dark], getTargetColor: [dim, dark] },
-    }),
-    closedLinks.length > 0 &&
-      stage >= 2 &&
-      new PathLayer<LinkDatum, PathStyleExtensionProps<LinkDatum>>({
-        id: "cerrados",
-        data: closedLinks,
-        getPath: (f) => f.geometry.coordinates as [number, number][],
-        getColor: [...(dark ? DANGER_DARK : DANGER_LIGHT), Math.round(230 * dim)] as RGBA,
-        getWidth: 2.6,
-        widthUnits: "pixels",
-        getDashArray: () => [3, 3],
-        dashJustified: true,
-        extensions: [new PathStyleExtension({ dash: true })],
-        pickable: true,
-        autoHighlight: true,
-        updateTriggers: { getColor: dim },
-      }),
+    ...baseLayers,
+    ...deptLayers,
+    ...linkLayers,
 
     // Flota en vivo: estelas de luz y cabezas brillantes
     showFleet &&
       stage >= 4 &&
       new TripsLayer<AssetSegment>({
         id: "flota-estelas",
-        data: fleetSegments.filter((s) => isVisible(s.mode)),
+        data: fleetVisibleSegments,
         getPath: (s) => s.path,
         getTimestamps: (s) => s.timestamps,
         getColor: (s) => tone(s.mode),
@@ -670,7 +995,8 @@ export default function Map3D({
         widthMinPixels: 3,
         capRounded: true,
         jointRounded: true,
-        opacity: route ? 0.35 : 0.95,
+        opacity: hasRoute ? 0.35 : 0.95,
+        updateTriggers: { getColor: dark },
       }),
     showFleet &&
       stage >= 4 &&
@@ -678,9 +1004,10 @@ export default function Map3D({
         id: "flota-halo",
         data: fleetHeads,
         getPosition: (d) => d.p,
-        getFillColor: (d) => tone(d.s.mode, route ? 25 : 60),
+        getFillColor: (d) => tone(d.s.mode, hasRoute ? 25 : 60),
         getRadius: 11,
         radiusUnits: "pixels",
+        updateTriggers: { getFillColor: [dark, hasRoute] },
       }),
     showFleet &&
       stage >= 4 &&
@@ -688,115 +1015,22 @@ export default function Map3D({
         id: "flota",
         data: fleetHeads,
         getPosition: (d) => d.p,
-        getFillColor: [255, 255, 255, route ? 120 : 255],
+        getFillColor: [255, 255, 255, hasRoute ? 120 : 255],
         getLineColor: (d) => tone(d.s.mode),
         stroked: true,
         lineWidthMinPixels: 2,
         getRadius: 3.5,
         radiusUnits: "pixels",
         pickable: true,
+        updateTriggers: { getLineColor: dark },
       }),
 
-    // Origen y destino elegidos
-    new ScatterplotLayer<NodeDatum>({
-      id: "seleccion",
-      data: network.nodes.features.filter((n) => selectedCities.includes(n.properties.city)),
-      getPosition: (n) => n.geometry.coordinates as [number, number],
-      getFillColor: [0, 122, 255, 40],
-      getLineColor: [0, 122, 255, 255],
-      stroked: true,
-      filled: true,
-      lineWidthMinPixels: 2,
-      getRadius: 15,
-      radiusUnits: "pixels",
-    }),
+    // Origen y destino elegidos, nodos y etiquetas (memoizados)
+    ...selectionLayers,
+    ...nodeLayers,
 
-    // Nodos
-    new ScatterplotLayer<NodeDatum>({
-      id: "nodos-halo",
-      data: nodes.filter((n) => n.properties.kind !== "ciudad"),
-      getPosition: (n) => n.geometry.coordinates as [number, number],
-      getFillColor: (n) => nodeColor(n.properties.kind, 40),
-      getRadius: (n) => NODE_STYLE[n.properties.kind].radius * 2.3,
-      radiusUnits: "pixels",
-    }),
-    new ScatterplotLayer<NodeDatum>({
-      id: "nodos",
-      data: nodes,
-      getPosition: (n) => n.geometry.coordinates as [number, number],
-      getFillColor: (n) => nodeColor(n.properties.kind, 255),
-      getLineColor: [3, 7, 18, 255],
-      stroked: true,
-      lineWidthMinPixels: 1.5,
-      getRadius: (n) => NODE_STYLE[n.properties.kind].radius,
-      radiusUnits: "pixels",
-      pickable: true,
-      autoHighlight: true,
-      highlightColor: [255, 255, 255, 160],
-    }),
-    !compact &&
-      stage >= 3 &&
-      new TextLayer<NodeDatum, CollisionFilterExtensionProps<NodeDatum>>({
-        id: "nodos-etiquetas",
-        data: cityLabels,
-        getPosition: (n) => n.geometry.coordinates as [number, number],
-        getText: (n) => n.properties.city,
-        getSize: 12,
-        // Tinta del tema sobre un halo del fondo del mapa: se lee en claro y en oscuro
-        getColor: dark ? [235, 235, 245, 235] : [29, 29, 31, 235],
-        getPixelOffset: [0, -16],
-        fontFamily: "'Inter Variable', Inter, system-ui, -apple-system, sans-serif",
-        fontWeight: 600,
-        characterSet: "auto",
-        fontSettings: { sdf: true },
-        outlineWidth: 4,
-        outlineColor: dark ? [0, 0, 0, 230] : [255, 255, 255, 235],
-        parameters: { depthCompare: "always" },
-        // Sin choques: si dos nombres se tocan, queda el del nodo más importante (centro de distribución, luego puerto…).
-        // Se recalcula al mover el mapa; en reposo no trabaja.
-        extensions: [new CollisionFilterExtension()],
-        collisionEnabled: true,
-        getCollisionPriority: (n) => LABEL_PRIORITY[n.properties.kind] ?? 0,
-        collisionTestProps: { sizeScale: 1.15 },
-        updateTriggers: { getColor: dark, outlineColor: dark },
-      }),
-
-    // Ruta simulada
-    route &&
-      stage >= 4 &&
-      new PathLayer({
-        id: "ruta-glow",
-        data: routeGround,
-        getPath: (l) => l.path,
-        getColor: (l) => tone(l.mode, 70),
-        getWidth: 14,
-        widthUnits: "pixels",
-        capRounded: true,
-        jointRounded: true,
-      }),
-    route &&
-      stage >= 4 &&
-      new PathLayer({
-        id: "ruta",
-        data: routeGround,
-        getPath: (l) => l.path,
-        getColor: (l) => tone(l.mode),
-        getWidth: 4,
-        widthUnits: "pixels",
-        capRounded: true,
-        jointRounded: true,
-      }),
-    route &&
-      stage >= 4 &&
-      new PathLayer({
-        id: "ruta-aerea",
-        data: routeAir,
-        getPath: (d) => d.path,
-        getColor: tone("aereo"),
-        getWidth: 3.5,
-        widthUnits: "pixels",
-        capRounded: true,
-      }),
+    // Ruta simulada (capas fijas memoizadas)
+    ...routeUnderLayers,
     route &&
       stage >= 4 &&
       new TripsLayer<TripSegment>({
@@ -811,20 +1045,7 @@ export default function Map3D({
         widthMinPixels: 5,
         capRounded: true,
       }),
-    route &&
-      stage >= 4 &&
-      new ScatterplotLayer({
-        id: "ruta-transbordos",
-        data: route.transfers,
-        getPosition: (t) => [t.node.lon, t.node.lat],
-        getFillColor: [...ORANGE, 255] as RGBA,
-        getLineColor: dark ? [0, 0, 0, 255] : [255, 255, 255, 255],
-        stroked: true,
-        lineWidthMinPixels: 2,
-        getRadius: 9,
-        radiusUnits: "pixels",
-        pickable: true,
-      }),
+    ...routeOverLayers,
     route &&
       routeHead &&
       stage >= 4 &&
@@ -838,6 +1059,7 @@ export default function Map3D({
         lineWidthMinPixels: 3,
         getRadius: 6,
         radiusUnits: "pixels",
+        updateTriggers: { getLineColor: dark },
       }),
   ].filter(Boolean);
   return layers;
@@ -846,7 +1068,11 @@ export default function Map3D({
   // React siempre pasa la misma lista vacía, así que no sobrescribe las capas entre cuadros.
   useLayoutEffect(() => {
     buildRef.current = buildLayers;
-    deckRef.current?.deck?.setProps({ layers: buildLayers(clockRef.current) as LayerList });
+    // Un Deck ya finalizado (ruta oculta por Activity) no admite capas; el Deck nuevo las recibe en su onLoad.
+    // La misma guarda que _drawLayers evita el «assertion failed» al volver al mapa.
+    const deck = deckRef.current?.deck;
+    if (!deck || !(deck as unknown as Drawable).layerManager) return;
+    deck.setProps({ layers: buildLayers(clockRef.current) as LayerList });
   });
 
   // ---- Tooltip glassmorphism ------------------------------------------
@@ -911,17 +1137,36 @@ export default function Map3D({
   }, [money]);
 
   return (
-    <div ref={containerRef} className={cn("relative h-full min-h-80 w-full overflow-hidden bg-background", className)}>
+    <div
+      ref={containerRef}
+      data-testid="mapa-colombia"
+      data-lng={viewState.longitude.toFixed(3)}
+      data-lat={viewState.latitude.toFixed(3)}
+      data-zoom={viewState.zoom.toFixed(2)}
+      data-pitch={(viewState.pitch ?? 0).toFixed(1)}
+      data-bearing={(viewState.bearing ?? 0).toFixed(1)}
+      data-map-land={showLand ? "local" : "base"}
+      data-running={running ? "1" : "0"}
+      data-engaged={engaged ? "1" : "0"}
+      data-live={live ? "1" : "0"}
+      style={{ backgroundColor: tonos.mar }}
+      className={cn("relative h-full min-h-80 w-full overflow-hidden", className)}
+    >
       <DeckGL
         useDevicePixels={maxPixelRatio}
         viewState={lite && (viewState.pitch || viewState.bearing) ? { ...viewState, pitch: 0, bearing: 0 } : viewState}
-        onViewStateChange={({ viewState: v }) => setViewState(v as MapViewState)}
+        onViewStateChange={({ viewState: v }) => setViewState(containView(v as MapViewState))}
         onInteractionStateChange={onInteractionStateChange}
-        controller={{ dragRotate: !lite, touchRotate: !lite, scrollZoom: !compact }}
+        controller={controller}
         ref={deckRef}
         layers={NO_LAYERS}
         // Un Deck nuevo (primer montaje, o al volver a una ruta que Next dejó oculta) recibe las capas del instante
-        onLoad={() => deckRef.current?.deck?.setProps({ layers: buildRef.current?.(clockRef.current) ?? NO_LAYERS })}
+        onLoad={() => {
+          // Un Deck nuevo no puede reutilizar capas finalizadas: la generación obliga a rehacerlas en el siguiente
+          // efecto de diseño (que ya corre antes de pintar) y deja el mapa listo para las pruebas y el diagnóstico.
+          setDeckEpoch((e) => e + 1);
+          containerRef.current?.setAttribute("data-map-ready", "1");
+        }}
         onHover={onHover}
         onClick={(info) => {
           const o = info.object as NodeDatum | undefined;
@@ -932,7 +1177,26 @@ export default function Map3D({
         {/* Sin reuseMaps: al volver a una ruta que Next dejó oculta, el mapa se "reusaba" en su mismo contenedor y
             el traslado de nodos de react-map-gl (mientras el contenedor viejo tenga hijos, moverlos al nuevo) no
             terminaba nunca: la pestaña se congelaba en Resumen → otra página → Resumen. */}
-        <BaseMap mapStyle={process.env.NEXT_PUBLIC_MAP_STYLE || (dark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT)} attributionControl={{ compact: true }} />
+        {base && (
+          <BaseMap
+            mapStyle={
+              baseError
+                ? dark
+                  ? MAPA_ESTILO_OSCURO
+                  : MAPA_ESTILO_CLARO
+                : MAP_STYLE || (dark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT)
+            }
+            attributionControl={{ compact: true, customAttribution: MAPA_ATRIBUCION }}
+            interactive={false}
+            renderWorldCopies={false}
+            minZoom={MAPA_ZOOM.min}
+            maxZoom={MAPA_ZOOM.max}
+            maxPitch={MAPA_INCLINACION.max}
+            fadeDuration={0}
+            onLoad={() => setBaseReady(true)}
+            onError={onBaseError}
+          />
+        )}
       </DeckGL>
       {hover && (
         <div
@@ -943,6 +1207,48 @@ export default function Map3D({
         </div>
       )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent" />
+      {(!base || baseError) && !compact && (
+        <p
+          data-testid="mapa-atribucion"
+          className="pointer-events-none absolute right-2 bottom-2 z-10 text-xs text-muted-foreground"
+        >
+          {MAPA_ATRIBUCION}
+        </p>
+      )}
+      {base && (baseError || tilesFailed) && !compact && (
+        <p
+          role="status"
+          className="pointer-events-none absolute right-2 bottom-7 z-10 max-w-64 rounded bg-background/85 px-1.5 py-0.5 text-right text-xs text-warning"
+        >
+          {baseError
+            ? "El mapa base no cargó; se muestra la cartografía local."
+            : "Las teselas del mapa base no cargaron; se muestra la silueta local."}
+        </p>
+      )}
+      {!compact && (
+        <button
+          type="button"
+          data-testid="mapa-base"
+          onClick={() => {
+            setBaseError(false);
+            setBaseReady(false);
+            setTilesFailed(false);
+            tileErrors.current = 0;
+            setBase(!base);
+          }}
+          aria-pressed={base}
+          aria-label="Mapa base"
+          title={
+            base
+              ? "Mapa base activado: teselas de OpenFreeMap (o el estilo configurado)"
+              : "Mapa base desactivado: cartografía propia, sin teselas ni segundo lienzo WebGL"
+          }
+          className="material press absolute top-3 right-3 z-10 flex h-11 w-11 items-center justify-center gap-1.5 rounded-full border border-border text-xs text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/80 sm:h-9 sm:w-auto sm:px-3 pointer-coarse:h-11"
+        >
+          {base ? <MapIcon className="size-4" aria-hidden /> : <MapPinOff className="size-4" aria-hidden />}
+          <span className="hidden sm:inline">Mapa base</span>
+        </button>
+      )}
       {compact && (
         <button
           type="button"

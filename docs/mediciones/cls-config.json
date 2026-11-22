@@ -1,0 +1,46 @@
+{
+  "navegador": "158.0.4370.33",
+  "rutas": [
+    {
+      "ruta": "/configuracion",
+      "ttfb": 16.400000005960464,
+      "fcp": 352,
+      "lcp": 1052,
+      "cls": 0.09196949699536798,
+      "largas": 3,
+      "maxima": 318,
+      "peticiones": 51,
+      "bytes": 521990,
+      "jsBytes": 386009,
+      "jsMs": 597.461,
+      "inpAprox": 144
+    },
+    {
+      "ruta": "/red",
+      "ttfb": 12.599999994039536,
+      "fcp": 120,
+      "lcp": 688,
+      "cls": 0.0002983237670068027,
+      "largas": 6,
+      "maxima": 1840,
+      "peticiones": 55,
+      "bytes": 1093088,
+      "jsBytes": 939937,
+      "jsMs": 6108.030000000001,
+      "cuadrosReposo": 0,
+      "canvas": 1,
+      "inpAprox": 72
+    }
+  ],
+  "bucle": {
+    "inicio": 23487075,
+    "muestras": [
+      26971977,
+      29884678,
+      31973961,
+      34117238,
+      36197656
+    ],
+    "crecimientoPct": 54.11734326219846
+  }
+}

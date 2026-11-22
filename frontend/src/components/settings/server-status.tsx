@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw, TriangleAlert } from "lucide-react";
 
 import { openAuthModal } from "@/components/auth/login-dialog";
@@ -59,6 +59,9 @@ function Meter({ label, value, detail }: { label: string; value: number; detail:
 /**
  * Estado del servidor visto desde la API (disco, memoria, carga, tamaños). Solo para administradores: el servidor
  * responde 401 o 403 al resto y aquí se explica. Lo que vive fuera del contenedor (los respaldos) sigue en estado.sh.
+ *
+ * Lectura a pedido, sin sondeo: si se pulsa «Actualizar» dos veces se cancela la anterior, al desmontar se corta y
+ * una lectura lenta se abandona a los 20 s. Un fallo deja a la vista el último estado bueno.
  */
 export function ServerStatus() {
   const { user } = useAuth();
@@ -66,24 +69,54 @@ export function ServerStatus() {
   const [status, setStatus] = useState<Status | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const current = useRef<AbortController | null>(null);
+  const alive = useRef(true);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      current.current?.abort("unmount");
+    };
+  }, []);
 
   const load = useCallback(async () => {
+    // Una lectura nueva sustituye a la anterior: nunca quedan dos en vuelo ni una respuesta vieja pisa a la nueva.
+    current.current?.abort("reload");
+    const controller = new AbortController();
+    current.current = controller;
+    const timeout = window.setTimeout(() => controller.abort("timeout"), 20_000);
     setBusy(true);
     try {
-      setStatus(await api<Status>("/api/system/status"));
-      setError(null);
+      const data = await api<Status>("/api/system/status", { signal: controller.signal });
+      if (alive.current && !controller.signal.aborted) {
+        setStatus(data);
+        setError(null);
+      }
     } catch (e) {
-      setError((e as Error).message);
+      if (!alive.current) return;
+      if (controller.signal.reason === "timeout") {
+        setError("El servidor tardó demasiado en responder. Se conserva la última lectura.");
+      } else if (!controller.signal.aborted) {
+        setError((e as Error).message);
+      }
     } finally {
-      setBusy(false);
+      window.clearTimeout(timeout);
+      if (current.current === controller) {
+        current.current = null;
+        if (alive.current) setBusy(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (isAdmin) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial al tener sesión de administrador
-      void load();
+    if (!isAdmin) {
+      current.current?.abort("logout");
+      return;
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial al tener sesión de administrador
+    void load();
+    return () => current.current?.abort("unmount");
   }, [isAdmin, load]);
 
   return (

@@ -83,8 +83,10 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     real (v18), httpx2 sin advertencia, y cobertura al 84 % con fx/tolls/shipments_io probados a fondo; importar peajes ilegible
     ya no da 500. 495 pruebas de la API, 47 e2e × 2. Falta: ronda 4 (F6 filtros de Flota/Bodegas en la URL, F7 borrador del envío
     nuevo, F8 errores por sección en la ficha).
-- **En curso / a medias:** nada. Rediseño de color (sección 76) y tanda 3 en producción. Pendientes de la tanda 3: B4 (carga con 8 personas) y B5 (cobertura).
-  La interfaz es tinta y el color es solo para datos (DESIGN.md, Colors): no reintroducir los colores de Apple.
+- **En curso / a medias:** nada. Tanda 3 cerrada en `desarrollo` (secciones 75 a 77: interacciones, rediseño de color
+  y rendimiento), **sin desplegar**. Producción en la sección 76. La interfaz es tinta y el color es solo para datos
+  (DESIGN.md, Colors): no reintroducir los colores de Apple. Presupuestos que quedan pendientes: costo de apertura y
+  memoria de la Red WebGL, CLS de Configuración y el JS inicial (subió ~2 %, no bajó 30 %).
 - **Pendiente de decisión del dueño:** exigir sesión para todo lo que escribe (roles reales; hoy `/api/audit` y las pantallas
   siguen abiertas como demostración); rotar la contraseña de aplicación de Gmail y el tema de ntfy tras el aviso de Contabo;
   dominio propio; una instalación por empresa o separar datos por empresa; revisión legal.
@@ -104,6 +106,6 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
   - Roles que limiten acciones: espera decisión del dueño (obligaría a iniciar sesión a todos).
   - Política de privacidad con abogado; secretos de GitHub para el despliegue automático; dominio propio y Cloudflare;
     PostgreSQL cuando haya varios usuarios a la vez.
-- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **557 pruebas de la API**; **80 de navegador** (incluye
+- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **582 pruebas de la API**; **101 de navegador** (incluye
   accesibilidad). En el servidor, `bash deploy/verificar.sh` (34 comprobaciones, en verde).
-- **Producción:** `main` y Contabo en el mismo commit (sección 74); `desarrollo` con la ronda 1 de la tanda 3 sin desplegar.
+- **Producción:** `main` y Contabo en el mismo commit (`1dfcdba`, sección 76); `desarrollo` con la ronda de rendimiento (77) sin desplegar.

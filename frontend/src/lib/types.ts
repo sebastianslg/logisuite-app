@@ -162,6 +162,8 @@ export interface Shipment {
   delay_h: number;
   delay_fmt: string | null;
   progress_pct: number;
+  /** Datos de dibujo por tramo: modo, kilómetros y fracción recorrida. */
+  progress_legs?: [Mode, number, number][];
   source: "seed" | "auto" | "manual";
   route_status: "ok" | "sin_ruta";
   /** Solo en los entregados: true si ya tiene prueba de entrega, false si falta firmarla. */

@@ -1,0 +1,108 @@
+{
+  "navegador": "158.0.4370.33",
+  "rutas": [
+    {
+      "ruta": "/panel",
+      "jsInicialBytes": 268399,
+      "jsEjecutadoBytes": 493916,
+      "jsFuenteBytes": 1231465
+    },
+    {
+      "ruta": "/envios",
+      "jsInicialBytes": 284397,
+      "jsEjecutadoBytes": 516414,
+      "jsFuenteBytes": 1172767
+    },
+    {
+      "ruta": "/envios/LS-2611-0033",
+      "jsInicialBytes": 288298,
+      "jsEjecutadoBytes": 513162,
+      "jsFuenteBytes": 1284060
+    },
+    {
+      "ruta": "/red",
+      "jsInicialBytes": 272469,
+      "jsEjecutadoBytes": 420631,
+      "jsFuenteBytes": 1079569
+    },
+    {
+      "ruta": "/flota",
+      "jsInicialBytes": 269657,
+      "jsEjecutadoBytes": 552129,
+      "jsFuenteBytes": 1230560
+    },
+    {
+      "ruta": "/hoy",
+      "jsInicialBytes": 255070,
+      "jsEjecutadoBytes": 509536,
+      "jsFuenteBytes": 1211464
+    },
+    {
+      "ruta": "/bodegas",
+      "jsInicialBytes": 266819,
+      "jsEjecutadoBytes": 504134,
+      "jsFuenteBytes": 1226334
+    },
+    {
+      "ruta": "/clientes",
+      "jsInicialBytes": 256877,
+      "jsEjecutadoBytes": 421063,
+      "jsFuenteBytes": 1131670
+    },
+    {
+      "ruta": "/historial",
+      "jsInicialBytes": 261723,
+      "jsEjecutadoBytes": 430946,
+      "jsFuenteBytes": 1198688
+    },
+    {
+      "ruta": "/configuracion",
+      "jsInicialBytes": 261693,
+      "jsEjecutadoBytes": 465974,
+      "jsFuenteBytes": 1171348
+    },
+    {
+      "ruta": "/auditoria",
+      "jsInicialBytes": 248803,
+      "jsEjecutadoBytes": 430525,
+      "jsFuenteBytes": 1127995
+    },
+    {
+      "ruta": "/calendario",
+      "jsInicialBytes": 251251,
+      "jsEjecutadoBytes": 452871,
+      "jsFuenteBytes": 1149958
+    },
+    {
+      "ruta": "/comparar",
+      "jsInicialBytes": 252211,
+      "jsEjecutadoBytes": 425762,
+      "jsFuenteBytes": 1136081
+    },
+    {
+      "ruta": "/vias",
+      "jsInicialBytes": 253692,
+      "jsEjecutadoBytes": 449031,
+      "jsFuenteBytes": 1153985
+    },
+    {
+      "ruta": "/huella",
+      "jsInicialBytes": 259029,
+      "jsEjecutadoBytes": 427030,
+      "jsFuenteBytes": 1170474
+    },
+    {
+      "ruta": "/combustible",
+      "jsInicialBytes": 260615,
+      "jsEjecutadoBytes": 432581,
+      "jsFuenteBytes": 1176914
+    },
+    {
+      "ruta": "/cotizacion",
+      "jsInicialBytes": 250182,
+      "jsEjecutadoBytes": 393660,
+      "jsFuenteBytes": 1133716
+    }
+  ],
+  "bucle": null
+}

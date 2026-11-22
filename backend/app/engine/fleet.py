@@ -354,6 +354,7 @@ def vehicle_detail(vehicle_id: int, now: datetime) -> dict:
 
 
 def summary(now: datetime) -> dict:
+    ctx = _ctx(now)
     vs = list_vehicles(now)
     by_status = {s: 0 for s in STATUSES}
     by_mode: dict = {}
@@ -366,17 +367,30 @@ def summary(now: datetime) -> dict:
     active = [v for v in vs if not v["retired"]]
     soon = sorted((v for v in active if v["service"]["state"] in ("Próximo", "Vencido")),
                   key=lambda v: v["service"]["days_left"])
-    faults = fetch_all("""SELECT f.*, v.code, v.vehicle_type FROM fl_faults f JOIN fl_vehicles v ON v.vehicle_id = f.vehicle_id
-                          WHERE f.status != 'Resuelta' ORDER BY CASE f.severity WHEN 'Crítica' THEN 0 WHEN 'Moderada' THEN 1 ELSE 2 END,
-                          f.reported_at DESC""")
-    upcoming = fetch_all("""SELECT m.*, v.code, v.vehicle_type, v.mode FROM fl_maintenance m JOIN fl_vehicles v ON v.vehicle_id = m.vehicle_id
-                            WHERE m.status IN ('Programado', 'En curso') ORDER BY m.scheduled_start""")
+    # Fallas abiertas, mantenimientos próximos y costo de los últimos 90 días salen de las tablas que `_ctx` ya tiene
+    # en memoria: antes eran dos SELECT con JOIN y un DataFrame de pandas por cada resumen, y el resumen se pide en el
+    # tablero, en las alertas y en «Hoy». El orden y las columnas son los mismos de esas consultas.
+    vehiculos = {int(v["vehicle_id"]): v for v in ctx["vehicles"]}
+
+    def con_vehiculo(r: dict) -> dict:
+        v = vehiculos[int(r["vehicle_id"])]
+        return {**r, "code": v["code"], "vehicle_type": v["vehicle_type"], "mode": v["mode"]}
+
+    abiertas = [con_vehiculo(f) for grupo in ctx["faults"].values() for f in grupo if f["status"] != "Resuelta"]
+    # El SQL ordenaba por gravedad y, dentro de cada una, por fecha de reporte descendente; los dos `sorted` estables
+    # reproducen ese orden sin comparar textos al revés.
+    faults = sorted(sorted(abiertas, key=lambda f: f["reported_at"], reverse=True),
+                    key=lambda f: {"Crítica": 0, "Moderada": 1}.get(f["severity"], 2))
+    upcoming = sorted((con_vehiculo(m) for grupo in ctx["maint"].values() for m in grupo
+                       if m["status"] in ("Programado", "En curso")),
+                      key=lambda m: m["scheduled_start"])
+    cutoff90 = _iso(now - timedelta(days=90))
+    cost90 = sum(float(m["cost_usd"] or 0) for grupo in ctx["maint"].values() for m in grupo
+                 if m["status"] == "Completado" and m["completed_at"] and m["completed_at"] >= cutoff90)
     drivers_expiring = [v for v in active if v["driver"] and v["driver"]["status"] == "Activo" and v["driver"]["license_days_left"] <= 30]
     docs_due = sorted(({"id": v["id"], "code": v["code"], "label": d["label"], "state": d["state"], "expiry": d["expiry"],
                          "days_left": d["days_left"]} for v in active for d in v["documents"]
                         if d["state"] in ("Vencido", "Por vencer")), key=lambda x: x["days_left"])
-    cost90 = run_query("SELECT COALESCE(SUM(cost_usd), 0) c FROM fl_maintenance WHERE status = 'Completado' AND completed_at >= ?",
-                       (_iso(now - timedelta(days=90)),)).iloc[0]["c"]
     total = len(active) or 1
     return {
         "total": len(active), "by_status": by_status, "by_mode": sorted(by_mode.values(), key=lambda m: -m["total"]),

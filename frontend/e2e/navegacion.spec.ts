@@ -30,9 +30,11 @@ test("el dock navega, el menú Más se cierra con Escape y Ctrl K abre la búsqu
 test("volver a una página con el mapa ya montado no congela la página", async ({ page }) => {
   // Next deja oculta la ruta que se abandona; al volver, el mapa se monta otra vez en el mismo contenedor.
   // Con reuseMaps de react-map-gl eso era un ciclo infinito y la pestaña dejaba de responder.
+  // Se espera la marca de deck.gl: en equipos de 4 hilos o 4 GB no hay lienzo de MapLibre y el mapa funciona igual.
   const w = watchErrors(page);
+  const mapa = page.locator('[data-testid="mapa-colombia"][data-map-ready="1"]').first();
   await page.goto("/red");
-  await page.locator(".maplibregl-canvas").first().waitFor({ state: "attached", timeout: 30_000 });
+  await mapa.waitFor({ state: "attached", timeout: 30_000 });
   const nav = page.getByRole("navigation", { name: "Navegación principal", exact: true });
   await nav.getByRole("link", { name: "Envíos", exact: true }).click();
   await expect(page).toHaveURL(/\/envios$/);
@@ -43,7 +45,7 @@ test("volver a una página con el mapa ya montado no congela la página", async 
     new Promise<string>((r) => setTimeout(() => r("congelada"), 8_000)),
   ]);
   expect(alive).toBe("ok");
-  await expect(page.locator(".maplibregl-canvas").first()).toBeVisible();
+  await expect(mapa).toBeVisible();
   w.expectClean();
 });
 
@@ -53,7 +55,8 @@ test("el resumen muestra la red en plano y el mapa 3D solo al pedirlo", async ({
   await expect(page.locator('svg[aria-label^="Red multimodal"]')).toBeVisible();
   await expect(page.locator(".maplibregl-canvas")).toHaveCount(0);
   await page.getByRole("radiogroup", { name: "Vista del mapa" }).getByRole("radio", { name: "3D" }).click();
-  await page.locator(".maplibregl-canvas").first().waitFor({ state: "attached", timeout: 30_000 });
+  // El mapa de deck.gl es lo que debe aparecer; el mapa base es opcional según el equipo.
+  await page.locator('[data-testid="mapa-colombia"][data-map-ready="1"]').first().waitFor({ state: "attached", timeout: 30_000 });
   await page.getByRole("radiogroup", { name: "Vista del mapa" }).getByRole("radio", { name: "Plano" }).click();
   await expect(page.locator('svg[aria-label^="Red multimodal"]')).toBeVisible();
   w.expectClean();

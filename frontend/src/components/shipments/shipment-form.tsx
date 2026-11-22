@@ -228,6 +228,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
   const [preview, setPreview] = useState<RouteResult | null>(null);
   const [footprint, setFootprint] = useState<Footprint | null>(null);
   const [busy, setBusy] = useState<"preview" | "save" | null>(null);
+  const enviando = useRef(false);
   const [saved, flashSaved] = useSavedFlash();
   const [error, setError] = useState<string | null>(null);
   const [corridorQuery, setCorridorQuery] = useState("");
@@ -292,8 +293,11 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
   }, [shipment, baseline]);
 
   useEffect(() => {
-    api<{ cities: CityOption[] }>("/api/locations").then((d) => setCities(d.cities)).catch(() => undefined);
-    api<{ items: Corridor[] }>("/api/corridors").then((d) => setCorridors(d.items)).catch(() => undefined);
+    const ctrl = new AbortController();
+    const options = { cache: "no-cache" as const, signal: ctrl.signal };
+    api<{ cities: CityOption[] }>("/api/locations", options).then((d) => setCities(d.cities)).catch(() => undefined);
+    api<{ items: Corridor[] }>("/api/corridors", options).then((d) => setCorridors(d.items)).catch(() => undefined);
+    return () => ctrl.abort();
   }, []);
 
   const set = <K extends keyof ShipmentDraft>(k: K, v: ShipmentDraft[K]) => {
@@ -355,7 +359,8 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (!check()) return;
+    if (enviando.current || busy || !check()) return;
+    enviando.current = true;
     setBusy("save");
     setError(null);
     try {
@@ -371,6 +376,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
       router.push(`/envios/${saved.code}`);
       router.refresh();
     } catch (err) {
+      enviando.current = false;
       showServerError((err as Error).message);
       setBusy(null);
     }
@@ -603,7 +609,7 @@ export function ShipmentForm({ shipment, prefill }: { shipment?: Shipment; prefi
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" disabled={!!busy} aria-busy={busy === "save"} burst={shipment ? Check : Sparkles}>
             <SaveIcon state={saved ? "done" : busy === "save" ? "busy" : "idle"} />
-            {shipment ? "Guardar cambios" : "Crear envío"}
+            {saved ? "Guardado" : busy === "save" ? "Guardando…" : shipment ? "Guardar cambios" : "Crear envío"}
           </Button>
           <Button type="button" variant="secondary" disabled={!!busy} aria-busy={busy === "preview"} onClick={runPreview}>
             {busy === "preview" ? <LoaderCircle className="animate-spin" /> : <Route />}

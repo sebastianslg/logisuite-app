@@ -25,6 +25,9 @@ import { MODE_ORDER, MODES, PRIORITIES, tint } from "@/lib/modes";
 import { T_FAST, T_VIEW } from "@/lib/motion";
 import type { CityCategory, CityOption, Footprint, Mode, Priority, SimulateResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
+import { useLocal } from "@/lib/local";
+import { api } from "@/lib/client";
 
 const spring = T_FAST;
 const ALL_CATEGORIES: CityCategory[] = ["principal", "municipio", "dificil_acceso"];
@@ -56,7 +59,11 @@ export function NetworkExplorer() {
   // En pantallas estrechas el panel arranca plegado para dejar ver el mapa; desde md siempre está abierto
   const [expanded, setExpanded] = useState(false);
   // Vista: mapa visible u oculto (solo datos) y simulador mostrado u oculto
-  const [showMap, setShowMap] = useState(true);
+  const { user } = useAuth();
+  const [vistaGuardada, guardarVista] = useLocal(`westvane.vista-red.${user?.user_id ?? "temporal"}`, true);
+  const [vistaTemporal, setVistaTemporal] = useState(true);
+  const showMap = user ? vistaGuardada : vistaTemporal;
+  const setShowMap = user ? guardarVista : setVistaTemporal;
   const [panelOpen, setPanelOpen] = useState(true);
   // Pantalla completa dentro de la página (funciona también en iPhone)
   const [mapFull, setMapFull] = useState(false);
@@ -75,41 +82,43 @@ export function NetworkExplorer() {
     if (idleTimer.current) clearTimeout(idleTimer.current);
   }, []);
 
+  const simulacion = useRef<AbortController | null>(null);
   useEffect(() => {
-    fetch("/api/locations")
-      .then((r) => r.json())
+    const ctrl = new AbortController();
+    api<{ cities: CityOption[] }>("/api/locations", { signal: ctrl.signal, cache: "no-cache" })
       .then((d: { cities: CityOption[] }) => setCities(d.cities))
       .catch(() => undefined);
+    return () => { ctrl.abort(); simulacion.current?.abort(); };
   }, []);
 
   async function simulate(p: Priority = priority): Promise<SimulateResponse | null> {
+    simulacion.current?.abort();
+    const ctrl = simulacion.current = new AbortController();
     setLoading(true);
     setSimError(null);
     try {
-      const res = await fetch("/api/routes/simulate", {
+      const data = await api<SimulateResponse>("/api/routes/simulate", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
+        signal: ctrl.signal,
+        body: {
           origen: origin,
           destino: destination,
           prioridad: p,
           peso_t: Number(weight.replace(",", ".")) || 1,
-        }),
+        },
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setSimError(typeof data.detail === "string" ? data.detail : "Datos inválidos");
-        setResult(null);
-        return null;
-      }
-      setResult(data as SimulateResponse);
+      if (ctrl.signal.aborted) return null;
+      setResult(data);
       setExpanded(true);
-      return data as SimulateResponse;
-    } catch {
-      setSimError("No se pudo contactar la API");
+      return data;
+    } catch (e) {
+      if (!ctrl.signal.aborted) {
+        setSimError(e instanceof Error ? e.message : "No se pudo calcular la ruta.");
+        setResult(null);
+      }
       return null;
     } finally {
-      setLoading(false);
+      if (!ctrl.signal.aborted) setLoading(false);
     }
   }
 
@@ -321,7 +330,7 @@ export function NetworkExplorer() {
 
           <Button className={cn("mt-4 w-full", !expanded && "hidden md:inline-flex")} onClick={() => simulate()} disabled={loading}>
             {loading ? <LoaderCircle className="animate-spin" /> : <Route />}
-            Simular ruta
+            {simError ? "Reintentar" : "Simular ruta"}
           </Button>
           {simError && (
             <p role="alert" className="mt-2 text-sm text-destructive">

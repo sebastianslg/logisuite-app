@@ -1,14 +1,14 @@
 "use client";
 
-import Link from "next/link";
+import { EnlaceIntencion as Link } from "@/components/ui/enlace-intencion";
+import dynamic from "next/dynamic";
 import { FileText } from "lucide-react";
 import { useState } from "react";
 
 import { Money } from "@/components/money";
 import { useApp } from "@/components/providers";
 import { ModeIcon } from "@/components/status-badge";
-import { DelayHeatmap } from "@/components/history/delay-heatmap";
-import { DepartmentMap } from "@/components/history/department-map";
+import { LimiteSeccion } from "@/components/limite-seccion";
 import { DetailTable, type Column } from "@/components/ui/detail-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Segmented } from "@/components/ui/segmented";
@@ -18,6 +18,11 @@ import { Button } from "@/components/ui/button";
 import { MODES } from "@/lib/modes";
 import type { History, HistoryCity, HistoryCorridor, HistoryDepartment } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
+import { useLocal } from "@/lib/local";
+
+const DelayHeatmap = dynamic(() => import("@/components/history/delay-heatmap").then(m => m.DelayHeatmap));
+const DepartmentMap = dynamic(() => import("@/components/history/department-map").then(m => m.DepartmentMap));
 
 const WINDOWS = [7, 30, 90] as const;
 type View = "ciudades" | "departamentos" | "mapa" | "corredores" | "retrasos";
@@ -49,7 +54,11 @@ function Share({ value, max, color = "var(--sys-blue)" }: { value: number; max: 
  * incluye peajes, combustible y CO₂e estimados. Cada vista se exporta a CSV.
  */
 export function HistoryView({ data }: { data: History }) {
-  const [view, setView] = useState<View>("ciudades");
+  const { user } = useAuth();
+  const [local, setLocal] = useLocal<View>(`westvane.historial.${user?.user_id ?? "temporal"}`, "ciudades");
+  const [temporal, cambiar] = useState<View>("ciudades");
+  const view = user && VIEWS.some(v => v.key === local) ? local : temporal;
+  const setView = user ? setLocal : cambiar;
   const { money, currency } = useApp();
   const t = data.totals;
 
@@ -218,9 +227,9 @@ export function HistoryView({ data }: { data: History }) {
       ) : view === "ciudades" ? (
         <DetailTable columns={cityCols} rows={data.by_city} getKey={(c) => c.city} csvName={`historial-ciudades-${data.window_days}d`} />
       ) : view === "mapa" ? (
-        <DepartmentMap departments={data.by_department} />
+        <LimiteSeccion nombre="el mapa departamental"><DepartmentMap departments={data.by_department} /></LimiteSeccion>
       ) : view === "retrasos" ? (
-        <DelayHeatmap delays={data.delays ?? []} />
+        <LimiteSeccion nombre="el gráfico de retrasos"><DelayHeatmap delays={data.delays ?? []} /></LimiteSeccion>
       ) : view === "departamentos" ? (
         <DetailTable columns={deptCols} rows={data.by_department} getKey={(d) => d.code} csvName={`historial-departamentos-${data.window_days}d`} />
       ) : (

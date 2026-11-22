@@ -124,9 +124,16 @@ def test_el_resumen_da_lo_mismo_que_antes(client, monkeypatch):
     _igual(nuevo, viejo)
 
 
-def test_el_resumen_no_lee_la_tabla_completa(client, monkeypatch):
-    """La consulta del resumen debe pedir columnas concretas y no `SELECT *`."""
+def test_el_resumen_lee_solo_las_columnas_que_usa(client, monkeypatch):
+    """El resumen no puede leer la tabla entera (`SELECT *`) ni pagar un segundo recorrido agregado sobre mm_shipments:
+    los conteos salen de las mismas filas que ya se necesitan para el recorrido (t-km, corredores y tendencias).
+
+    Se fuerza caché fría para que la espía vea siempre las consultas, aunque otra prueba haya dejado la respuesta
+    guardada (la caché de lecturas se reutiliza entre peticiones).
+    """
     from app import main
+    monkeypatch.setattr(main, "CACHE_TTL_S", 0.0)
+    main._cache.clear()
     consultas = []
     original = main.fetch_all
 
@@ -138,4 +145,9 @@ def test_el_resumen_no_lee_la_tabla_completa(client, monkeypatch):
     client.get("/api/dashboard/summary")
     assert consultas, "no se ejecutó ninguna consulta"
     assert not any("SELECT *" in c for c in consultas), [c for c in consultas if "SELECT *" in c]
-    assert any("GROUP BY status" in c for c in consultas), "los conteos no se hacen en SQL"
+    # La consulta del resumen se reconoce por las columnas del recorrido; debe ser una sola pasada con columnas
+    # concretas y sin un GROUP BY aparte para los conteos.
+    del_resumen = [c for c in consultas if "route_json" in c]
+    assert len(del_resumen) == 1, del_resumen
+    assert "GROUP BY" not in del_resumen[0]
+    assert not any("GROUP BY status" in c for c in consultas), "los conteos no se hacen en una consulta aparte"

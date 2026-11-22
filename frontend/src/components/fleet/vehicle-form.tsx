@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Sparkles } from "lucide-react";
@@ -67,13 +67,16 @@ export function VehicleForm({ vehicle }: { vehicle?: VehicleDetail }) {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [busy, setBusy] = useState(false);
+  const enviando = useRef(false);
   const [done, flashDone] = useSavedFlash();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<FleetCatalog>("/api/fleet/catalog").then(setCatalog).catch(() => undefined);
-    api<{ items: Warehouse[] }>("/api/warehouses").then((d) => setWarehouses(d.items)).catch(() => undefined);
-    api<{ items: Driver[] }>("/api/fleet/drivers").then((d) => setDrivers(d.items)).catch(() => undefined);
+    const ctrl = new AbortController();
+    api<FleetCatalog>("/api/fleet/catalog", { signal: ctrl.signal, cache: "no-cache" }).then(setCatalog).catch(() => undefined);
+    api<{ items: Warehouse[] }>("/api/warehouses", { signal: ctrl.signal }).then((d) => setWarehouses(d.items)).catch(() => undefined);
+    api<{ items: Driver[] }>("/api/fleet/drivers", { signal: ctrl.signal }).then((d) => setDrivers(d.items)).catch(() => undefined);
+    return () => ctrl.abort();
   }, []);
 
   const types = useMemo(() => catalog?.modes.find((m) => m.key === draft.mode)?.types ?? [], [catalog, draft.mode]);
@@ -118,6 +121,8 @@ export function VehicleForm({ vehicle }: { vehicle?: VehicleDetail }) {
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (enviando.current) return;
+    enviando.current = true;
     setBusy(true);
     setError(null);
     // Lo que depende de la fecha se completa aquí, en el navegador, y no al prerenderizar.
@@ -140,6 +145,7 @@ export function VehicleForm({ vehicle }: { vehicle?: VehicleDetail }) {
       router.refresh();
     } catch (err) {
       setError((err as Error).message);
+      enviando.current = false;
       setBusy(false);
     }
   }
@@ -254,9 +260,9 @@ export function VehicleForm({ vehicle }: { vehicle?: VehicleDetail }) {
 
       <ErrorBanner message={error} />
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" disabled={busy} burst={vehicle ? Check : Sparkles}>
+        <Button type="submit" disabled={busy} aria-busy={busy && !done} burst={vehicle ? Check : Sparkles}>
           <SaveIcon state={done ? "done" : busy ? "busy" : "idle"} />
-          {vehicle ? "Guardar cambios" : "Crear vehículo"}
+          {done ? "Guardado" : busy ? "Guardando…" : vehicle ? "Guardar cambios" : "Crear vehículo"}
         </Button>
         <Button asChild variant="ghost">
           <Link href={vehicle ? `/flota/${vehicle.id}` : "/flota"}>Cancelar</Link>

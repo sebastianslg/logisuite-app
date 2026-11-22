@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Camera, CircleAlert, CircleCheck, ImageIcon } from "lucide-react";
 
 import { useApp } from "@/components/providers";
-import { SignaturePad } from "@/components/shipments/signature-pad";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SaveIcon } from "@/components/ui/save-icon";
@@ -16,6 +16,18 @@ import { api } from "@/lib/client";
 import { CHECK_THIRD_PARTY, recordConsent } from "@/lib/consent";
 import { EASE, SPRING } from "@/lib/motion";
 import type { DeliveryInfo } from "@/lib/types";
+
+/**
+ * El lienzo de la firma se pide al abrir el formulario (o al mostrar intención sobre «Registrar entrega»): crear el
+ * mapa de bits de 600 × 180 no tiene por qué ocurrir en una ficha que se abre solo para consultar.
+ */
+const SignaturePad = dynamic(() => import("@/components/shipments/signature-pad").then((m) => m.SignaturePad), {
+  ssr: false,
+  loading: () => <div aria-hidden className="skeleton aspect-[10/3] w-full rounded-xl" />,
+});
+const preloadSignature = () => {
+  void import("@/components/shipments/signature-pad");
+};
 
 function dt(iso: string) {
   return new Date(iso).toLocaleString("es-CO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -355,7 +367,10 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
               size="sm"
               className="print:hidden"
               aria-haspopup="dialog"
+              onPointerEnter={preloadSignature}
+              onFocus={preloadSignature}
               onClick={() => {
+                preloadSignature();
                 setError(null);
                 setErrorField(null);
                 setOpen(true);

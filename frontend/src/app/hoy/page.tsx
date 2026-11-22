@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import Link from "next/link";
+import { EnlaceIntencion as Link } from "@/components/ui/enlace-intencion";
 import { ArrowDownToLine, ArrowUpFromLine, FileWarning, Gauge, PenLine, TriangleAlert } from "lucide-react";
 
 import { PageHeader, Skeleton } from "@/components/page-header";
@@ -200,7 +200,8 @@ function Column({ index, id, title, icon, empty, children }: { index: number; id
   const items = Array.isArray(children) ? children.flat().filter(Boolean) : children ? [children] : [];
   return (
     <Reveal index={index}>
-      <section id={id} aria-labelledby={`${id}-t`} className="glass scroll-mt-28 overflow-hidden rounded-3xl">
+      <section id={id} aria-labelledby={`${id}-t`} className="glass scroll-mt-28 overflow-hidden rounded-3xl [content-visibility:auto] print:[content-visibility:visible]"
+        style={{ containIntrinsicBlockSize: `auto ${52 + (items.length ? 61 * items.length : 40)}px` }}>
         <h2 id={`${id}-t`} className="flex items-center gap-2 px-5 pt-5 pb-3 text-sm font-semibold">
           {icon}
           {title}

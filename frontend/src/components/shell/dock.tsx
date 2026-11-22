@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import {
@@ -31,14 +31,16 @@ import {
 
 import { useApp } from "@/components/providers";
 import { useCommandPalette } from "@/components/shell/command-palette";
-import { OPEN_SHORTCUTS_EVENT } from "@/components/shell/shortcuts";
+import { OPEN_SHORTCUTS_EVENT, preloadShortcutsHelp, shortcutFor } from "@/components/shell/shortcuts";
 import { AlertCount, AlertsList, AlertsMenu, useAlerts } from "@/components/shell/alerts-menu";
 import { CurrencyControl, ThemeControl } from "@/components/shell/toolbar";
+import { ConnectionIndicator } from "@/components/offline-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth, type AuthUser } from "@/lib/auth";
 import { openAuthModal } from "@/components/auth/login-dialog";
 import { Mail } from "lucide-react";
+import { onIdle } from "@/lib/idle";
 import { EASE, SPRING, stagger } from "@/lib/motion";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
@@ -82,12 +84,42 @@ function useIsActive() {
 }
 
 /**
+ * Los cuatro destinos primarios se piden cuando el navegador queda libre, una sola vez y sin competir con la
+ * pantalla que se está leyendo. «Más» no precarga nada: sus doce enlaces esperan a que el puntero o el foco
+ * muestren intención (y en el celular, a que se abra la hoja).
+ */
+function usePrimaryPrefetch() {
+  const router = useRouter();
+  useEffect(() => {
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    // Con ahorro de datos o una red de 2G, precargar cuatro rutas es un gasto que no se nota a favor
+    if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType ?? "")) return;
+    let alive = true;
+    let cancel = () => {};
+    // Primero deja terminar la carga y la primera lectura de la página; después, en un momento libre
+    const grace = window.setTimeout(() => {
+      if (!alive) return;
+      cancel = onIdle(() => {
+        if (!alive) return;
+        for (const item of PRIMARY) router.prefetch(item.href);
+      }, 2000);
+    }, 1500);
+    return () => {
+      alive = false;
+      window.clearTimeout(grace);
+      cancel();
+    };
+  }, [router]);
+}
+
+/**
  * Navegación de primer nivel. En escritorio, un dock de vidrio flotante y centrado arriba (radio 999 px)
  * con cinco destinos, búsqueda (Ctrl K), moneda y apariencia; se reduce a íconos al bajar por la página
  * y vuelve al subir, al pasar el puntero o al recibir el foco. En celular, un dock inferior con cuatro
  * destinos y "Más", que abre una hoja desde abajo (se cierra arrastrándola).
  */
 export function Dock() {
+  usePrimaryPrefetch();
   return (
     <>
       <DesktopDock />
@@ -103,7 +135,8 @@ export function Dock() {
 function DesktopDock() {
   const isActive = useIsActive();
   const pathname = usePathname();
-  const { open: openPalette, shortcut } = useCommandPalette();
+  const router = useRouter();
+  const { open: openPalette, preload: preloadPalette, shortcut } = useCommandPalette();
   const [compact, setCompact] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -159,7 +192,15 @@ function DesktopDock() {
         style={{ borderRadius: 999 }}
       >
         <motion.div layout="position" transition={SPRING} className="flex items-center">
-          <Link href="/panel" aria-label="Westvane, resumen" className={cn("press relative flex items-center gap-2 rounded-full py-1 pr-2 pl-1", ring)}>
+          <Link
+            href="/panel"
+            // La precarga de las rutas la pide este dock al quedar libre o al mostrar intención, no al montar el enlace
+            prefetch={false}
+            onPointerEnter={() => router.prefetch("/panel")}
+            onFocus={() => router.prefetch("/panel")}
+            aria-label="Westvane, resumen"
+            className={cn("press relative flex items-center gap-2 rounded-full py-1 pr-2 pl-1", ring)}
+          >
             <Logo />
             <AnimatePresence initial={false} mode="popLayout">
               {showLabels && (
@@ -193,10 +234,16 @@ function DesktopDock() {
         <span className="mx-1 h-6 w-px bg-border" aria-hidden />
 
         <motion.div layout="position" transition={SPRING} className="flex items-center gap-1">
+          <ConnectionIndicator />
           <AlertsMenu />
           <button
             type="button"
-            onClick={openPalette}
+            onClick={() => {
+              preloadPalette();
+              openPalette();
+            }}
+            onPointerEnter={preloadPalette}
+            onFocus={preloadPalette}
             aria-label="Buscar envíos, ciudades o comandos"
             title={`Buscar (${shortcut})`}
             className={cn("press flex h-10 items-center gap-2 rounded-full bg-fill px-3 text-sm text-muted-foreground hover:text-foreground", ring)}
@@ -214,9 +261,13 @@ function DesktopDock() {
 
 function DockLink({ item, active, showLabel }: { item: NavItem; active: boolean; showLabel: boolean }) {
   const { href, label, icon: Icon } = item;
+  const router = useRouter();
   return (
     <Link
       href={href}
+      prefetch={false}
+      onPointerEnter={() => router.prefetch(href)}
+      onFocus={() => router.prefetch(href)}
       aria-current={active ? "page" : undefined}
       aria-label={showLabel ? undefined : label}
       title={showLabel ? undefined : label}
@@ -230,6 +281,26 @@ function DockLink({ item, active, showLabel }: { item: NavItem; active: boolean;
       <DockIcon icon={Icon} active={active} />
       {showLabel && <span className="relative">{label}</span>}
     </Link>
+  );
+}
+
+/**
+ * Atajos reales de una acción del menú, en el mismo trazo del pie de la paleta. `aria-hidden`: el lector ya oye el
+ * nombre del enlace y la hoja de atajos explica la secuencia; aquí solo es una pista para quien usa teclado.
+ */
+function MenuKeys({ keys }: { keys?: string[] }) {
+  if (!keys) return null;
+  return (
+    <span aria-hidden className="ml-auto flex shrink-0 items-center gap-1 text-muted-foreground">
+      {keys.map((k, i) => (
+        <kbd
+          key={`${k}-${i}`}
+          className="inline-flex min-w-5 items-center justify-center rounded border border-border-strong bg-fill/60 px-1 text-[11px] leading-4 font-medium"
+        >
+          {k}
+        </kbd>
+      ))}
+    </span>
   );
 }
 
@@ -277,6 +348,7 @@ function MoreMenu({
   showLabel: boolean;
 }) {
   const isActive = useIsActive();
+  const router = useRouter();
   const id = useId();
   const ref = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -342,6 +414,9 @@ function MoreMenu({
                   >
                     <Link
                       href={href}
+                      prefetch={false}
+                      onPointerEnter={() => router.prefetch(href)}
+                      onFocus={() => router.prefetch(href)}
                       aria-current={on ? "page" : undefined}
                       onClick={() => setOpen(false)}
                       className={cn(
@@ -351,7 +426,8 @@ function MoreMenu({
                       )}
                     >
                       <Icon className="size-[18px]" strokeWidth={1.75} aria-hidden />
-                      {label}
+                      <span className="min-w-0 truncate">{label}</span>
+                      <MenuKeys keys={shortcutFor(href)} />
                     </Link>
                   </motion.li>
                 );
@@ -372,8 +448,11 @@ function MoreMenu({
                 type="button"
                 onClick={() => {
                   setOpen(false);
+                  preloadShortcutsHelp();
                   window.dispatchEvent(new Event(OPEN_SHORTCUTS_EVENT));
                 }}
+                onPointerEnter={preloadShortcutsHelp}
+                onFocus={preloadShortcutsHelp}
                 className={cn("press flex h-10 w-full items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground hover:bg-fill hover:text-foreground", ring)}
               >
                 <Keyboard className="size-[18px]" strokeWidth={1.75} aria-hidden />
@@ -531,9 +610,10 @@ function AccountMenu({ showLabel }: { showLabel: boolean }) {
 function MobileDock() {
   const isActive = useIsActive();
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const moreActive = MORE.some((m) => isActive(m.href));
-  const { open: openPalette } = useCommandPalette();
+  const { open: openPalette, preload: preloadPalette } = useCommandPalette();
   const alerts = useAlerts();
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -571,6 +651,13 @@ function MobileDock() {
         aria-label="Navegación principal (celular)"
         className="dock fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex h-16 items-stretch rounded-full p-1.5 md:hidden"
       >
+        {/* El estado de conexión aparece solo cuando hay un problema: flota sobre el dock sin quitarle un destino */}
+        <div className="pointer-events-none absolute inset-x-0 -top-11 flex justify-center">
+          {/* `empty:hidden`: cuando la conexión está bien el indicador no dibuja nada y el hueco desaparece */}
+          <div className="floating pointer-events-auto rounded-full px-2 empty:hidden">
+            <ConnectionIndicator />
+          </div>
+        </div>
         <LayoutGroup id="dock-mobile">
           {PRIMARY.map(({ href, label, icon: Icon }) => {
             const active = isActive(href);
@@ -578,6 +665,9 @@ function MobileDock() {
               <Link
                 key={href}
                 href={href}
+                prefetch={false}
+                onPointerEnter={() => router.prefetch(href)}
+                onFocus={() => router.prefetch(href)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "group/item press relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-xs",
@@ -654,8 +744,11 @@ function MobileDock() {
                 type="button"
                 onClick={() => {
                   setOpen(false);
+                  preloadPalette();
                   openPalette();
                 }}
+                onPointerEnter={preloadPalette}
+                onFocus={preloadPalette}
                 className={cn("press mt-4 flex h-12 items-center gap-2 rounded-full bg-fill px-4 text-[0.9375rem] text-muted-foreground", ring)}
               >
                 <Search className="size-4" aria-hidden /> Buscar envíos, ciudades o comandos
@@ -796,6 +889,7 @@ function SystemStatusText() {
 
 /** Nombre del operador: firma los cambios en el historial (o usuario autenticado por correo). */
 function OperatorField({ onNavigate, showLogout = false }: { onNavigate?: () => void; showLogout?: boolean }) {
+  const router = useRouter();
   const { operator, setOperator } = useApp();
   const { user, logout } = useAuth();
   const [busy, setBusy] = useState(false);
@@ -845,6 +939,9 @@ function OperatorField({ onNavigate, showLogout = false }: { onNavigate?: () => 
         {user.role === "admin" && (
           <Link
             href="/administracion"
+            prefetch={false}
+            onPointerEnter={() => router.prefetch("/administracion")}
+            onFocus={() => router.prefetch("/administracion")}
             onClick={onNavigate}
             className={cn("mt-1.5 flex items-center rounded-lg px-2 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 pointer-coarse:min-h-11", ring)}
           >

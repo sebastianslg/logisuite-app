@@ -122,6 +122,19 @@ def _asset_summary(a: dict | None) -> dict | None:
     }
 
 
+def progress_legs(legs: list, route_h: float) -> list:
+    """Para la barra de la lista: modo, km y fracción recorrida, sin cargas ni geometrías."""
+    partes = []
+    for tramo in legs:
+        km = tramo["distance_km"]
+        if km <= 0:
+            continue
+        inicio, fin = tramo["start_h"], tramo["end_h"]
+        fraccion = 1 if route_h >= fin else 0 if route_h <= inicio else (route_h - inicio) / (fin - inicio)
+        partes.append([tramo["mode"], F.km(km), round(fraccion, 3)])
+    return partes
+
+
 def shipment(s: dict, state: dict | None = None, detail: bool = False) -> dict:
     route_data = json.loads(s["route_json"])
     legs = route_data.get("legs", [])
@@ -165,6 +178,7 @@ def shipment(s: dict, state: dict | None = None, detail: bool = False) -> dict:
         "delay_h": F.hours(s["delay_h"]),
         "delay_fmt": F.duration_fmt(s["delay_h"]) if s["delay_h"] else None,
         "progress_pct": F.pct(progress * 100),
+        "progress_legs": progress_legs(legs, state["route_h"] if state else progress * s["total_time_h"]),
         "source": s.get("source") or "seed",
         "route_status": s.get("route_status") or "ok",
         "route_note": s.get("route_note"),

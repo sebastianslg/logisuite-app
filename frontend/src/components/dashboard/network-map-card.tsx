@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
 
 import { MapLegend } from "@/components/map/map-legend";
@@ -20,6 +21,7 @@ import type { DashboardSummary } from "@/lib/types";
  */
 export function NetworkMapCard({ network: stats }: { network: DashboardSummary["network"] }) {
   const ref = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   const { network, departments, fleet, error } = useMapData({ ref });
   const [view, setView] = useLocal<"plano" | "3d">("westvane.dashboard-map", "plano");
   const byMode = new Map(stats.modes.map((m) => [m.mode, m]));
@@ -52,12 +54,16 @@ export function NetworkMapCard({ network: stats }: { network: DashboardSummary["
       </div>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-3 p-5">
         <div className="pointer-events-auto chip-scroll flex gap-2 md:flex-wrap">
+          {/* El mapa de la red es una de las páginas pesadas: cada chip se pide al pasar el puntero o al enfocarlo */}
           {MODE_ORDER.map((m) => {
             const Icon = MODES[m].icon;
             return (
               <Link
                 key={m}
                 href={`/red?modos=${m}`}
+                prefetch={false}
+                onPointerEnter={() => router.prefetch(`/red?modos=${m}`)}
+                onFocus={() => router.prefetch(`/red?modos=${m}`)}
                 aria-label={`${MODES[m].label}: ${byMode.get(m)?.km_fmt ?? "0 km"}. Ver solo este modo en el mapa`}
                 className="material press flex items-center gap-2 rounded-xl border border-border px-2.5 py-1.5 outline-none hover:bg-fill focus-visible:ring-[3px] focus-visible:ring-ring/80"
               >
@@ -74,6 +80,9 @@ export function NetworkMapCard({ network: stats }: { network: DashboardSummary["
           </div>
           <Link
             href="/red"
+            prefetch={false}
+            onPointerEnter={() => router.prefetch("/red")}
+            onFocus={() => router.prefetch("/red")}
             className="pointer-events-auto inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-solid px-3 py-1.5 text-sm font-medium text-primary-foreground press hover:bg-solid/90 focus-visible:ring-[3px] focus-visible:ring-ring/80 outline-none"
           >
             Simulador de rutas

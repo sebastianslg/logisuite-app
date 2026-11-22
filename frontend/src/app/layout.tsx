@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
-import "@fontsource-variable/inter";
+import localFont from "next/font/local";
 
 import { CommandPalette } from "@/components/shell/command-palette";
 import { Shortcuts } from "@/components/shell/shortcuts";
@@ -20,6 +20,21 @@ import { SiteFooter } from "@/components/shell/site-footer";
 import { PrefsProvider, THEME_INIT_SCRIPT } from "@/lib/prefs";
 
 import "./globals.css";
+
+/**
+ * Inter Variable, solo el archivo latino (los acentos del español caben ahí): se sirve desde el propio sitio con
+ * `display: swap` y se precarga, en lugar de arrastrar las siete hojas de subconjuntos que traía el paquete. La
+ * familia se llama igual que antes para que `--font-sans` y el resto de la hoja de estilos sigan apuntando a ella.
+ */
+const inter = localFont({
+  src: "../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
+  weight: "100 900",
+  style: "normal",
+  display: "swap",
+  preload: true,
+  fallback: ["Inter", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
+  declarations: [{ prop: "font-family", value: "Inter Variable" }],
+});
 
 export const metadata: Metadata = {
   // Las imágenes para compartir (Open Graph) necesitan URL absoluta
@@ -45,7 +60,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="es" data-theme="light" className="h-full antialiased" suppressHydrationWarning>
+    <html lang="es" data-theme="light" className={`h-full antialiased ${inter.className}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>

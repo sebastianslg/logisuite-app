@@ -4,6 +4,7 @@ import { Maximize2 } from "lucide-react";
 import { motion, type HTMLMotionProps } from "framer-motion";
 import { EASE as ease, hoverLift } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { LimiteSeccion } from "@/components/limite-seccion";
 
 /** Contenedor de la cuadrícula: escalona la entrada de sus celdas. */
 export function BentoGrid({ className, children }: { className?: string; children: React.ReactNode }) {
@@ -81,7 +82,7 @@ export function BentoCell({
           )}
         </header>
       )}
-      {children as React.ReactNode}
+      <LimiteSeccion nombre={title ?? "esta sección"}>{children as React.ReactNode}</LimiteSeccion>
     </motion.section>
   );
 }

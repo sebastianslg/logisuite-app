@@ -22,10 +22,15 @@ const fill = (step: number) => (step < 0 ? "var(--fill)" : `color-mix(in srgb, v
 export function DepartmentMap({ departments }: { departments: HistoryDepartment[] }) {
   const [geo, setGeo] = useState<DepartmentsGeo | null>(null);
   const [hover, setHover] = useState<string | null>(null);
+  const [intento, reintentar] = useState(0);
+  const [fallo, setFallo] = useState(false);
   useEffect(() => {
     // Los polígonos casi no cambian: el navegador los guarda y los revalida con ETag
-    api<DepartmentsGeo>("/api/geo/departments", { cache: "no-cache" }).then(setGeo).catch(() => undefined);
-  }, []);
+    const ctrl = new AbortController();
+    api<DepartmentsGeo>("/api/geo/departments", { cache: "no-cache", signal: ctrl.signal })
+      .then(setGeo).catch(() => { if (!ctrl.signal.aborted) setFallo(true); });
+    return () => ctrl.abort();
+  }, [intento]);
 
   const byCode = useMemo(() => new Map(departments.map((d) => [d.code, d])), [departments]);
   const tons = (code: string) => {
@@ -69,7 +74,9 @@ export function DepartmentMap({ departments }: { departments: HistoryDepartment[
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <figure className="glass relative rounded-3xl p-5">
-        {!geo ? (
+        {fallo ? <div role="alert" className="p-4 text-sm">No se pudo cargar el mapa de departamentos.{" "}
+          <button type="button" className="min-h-11 underline" onClick={() => { setFallo(false); reintentar(i => i + 1); }}>Reintentar</button>
+        </div> : !geo ? (
           <div className="skeleton mx-auto aspect-[52/62] max-h-[620px] rounded-2xl" aria-hidden />
         ) : (
           <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto block h-auto max-h-[620px] w-full" role="img" aria-label="Toneladas por departamento en el período">

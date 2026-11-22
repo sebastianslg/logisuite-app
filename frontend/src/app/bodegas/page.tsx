@@ -19,10 +19,10 @@ export default function BodegasPage({ searchParams }: PageProps<"/bodegas">) {
         title="Bodegas y centros de distribución"
         description="La red de bodegas por ciudad, cada una con su función: centros nacionales, regionales, última milla, frío, puertos, aduana, peligrosos y devoluciones. Guardan inventario, se trasladan mercancía entre sí y alojan a los vehículos."
         actions={
-          <>
+          <div className="flex max-w-[calc(100dvw_-_2rem)] flex-wrap items-center gap-2">
             <TableIO kind="inventario" />
             <BurstLink href="/bodegas/nueva"><Plus /> Nueva bodega</BurstLink>
-          </>
+          </div>
         }
       />
       <Suspense fallback={<Skeleton className="h-[640px]" />}>

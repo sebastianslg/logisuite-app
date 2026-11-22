@@ -1,18 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import { EnlaceIntencion as Link } from "@/components/ui/enlace-intencion";
 import { useRouter } from "next/navigation";
 import { ChevronRight, MapPin, Plus, Search, Truck } from "lucide-react";
 
 import { GroupBlock } from "@/components/corridors/group-block";
+import { LimiteSeccion } from "@/components/limite-seccion";
 import { EmptyStart } from "@/components/empty-start";
 import { PrintHeader } from "@/components/print-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatStrip } from "@/components/ui/stat-strip";
+import { PaginasLocales, usePaginas } from "@/components/ui/paginas-locales";
 import { filtersActive, isStartEmpty } from "@/lib/empty";
 import type { Warehouse, WarehouseRole, WarehouseSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useVistaGuardada } from "@/lib/use-vista-guardada";
 
 import { WarehouseNetworkMap } from "./network-map";
 import { Capabilities, n0, OccupancyBar, RoleIcon, WarehouseStatusBadge } from "./status";
@@ -28,6 +31,7 @@ export interface WarehouseFilters {
 
 /** Firma estable de los filtros, para distinguir un cambio de URL propio de uno que llega de fuera. */
 const warehouseKey = (f: WarehouseFilters) => JSON.stringify([f.q.trim(), f.role, f.alerts]);
+const RECORDAR = ["rol", "alertas"] as const;
 
 /** Enlace de la red con estos filtros; sin filtros, la ruta limpia. */
 function warehouseHref(f: WarehouseFilters): string {
@@ -45,6 +49,7 @@ function warehouseHref(f: WarehouseFilters): string {
  */
 export function WarehouseBoard({ warehouses, summary, roles, initial }: { warehouses: Warehouse[]; summary: WarehouseSummary; roles: WarehouseRole[]; initial: WarehouseFilters }) {
   const router = useRouter();
+  const recordar = useVistaGuardada("/bodegas", RECORDAR);
   const [query, setQuery] = useState(initial.q);
   // Un rol que ya no existe (o un enlace viejo) se ignora en vez de dejar la lista vacía
   const [role, setRole] = useState<string | null>(roles.some((r) => r.key === initial.role) ? initial.role : null);
@@ -77,6 +82,7 @@ export function WarehouseBoard({ warehouses, summary, roles, initial }: { wareho
     // Lo que esta pantalla escribe queda confirmado: al volver del servidor no se pisa lo que se está escribiendo
     confirmada.current = warehouseKey(next);
     const href = warehouseHref(next);
+    recordar(href);
     if (modo === "replace") router.replace(href, { scroll: false });
     else router.push(href, { scroll: false });
   }
@@ -140,6 +146,11 @@ export function WarehouseBoard({ warehouses, summary, roles, initial }: { wareho
       .map(([city, items]) => ({ city, items: items.sort((a, b) => rank(a.role) - rank(b.role) || a.name.localeCompare(b.name)) }))
       .sort((a, b) => b.items.length - a.items.length || a.city.localeCompare(b.city));
   }, [list]);
+  // Se pagina después de agrupar: ninguna bodega cambia de lugar al pasar de página.
+  const ordenadas = useMemo(() => groups.flatMap(g => g.items), [groups]);
+  const pagina = usePaginas(ordenadas, JSON.stringify([query, role, alertsOnly]));
+  const visibles = pagina.paginas > 1 && !printing ? new Set(pagina.filas.map(w => w.warehouse_id)) : null;
+  const gruposVisibles = visibles ? groups.map(g => ({ ...g, items: g.items.filter(w => visibles.has(w.warehouse_id)) })).filter(g => g.items.length) : groups;
 
   const alerts = summary.low_stock_lines + summary.over_stock_lines + summary.full_warehouses.length;
   const counts = useMemo(() => {
@@ -215,7 +226,7 @@ export function WarehouseBoard({ warehouses, summary, roles, initial }: { wareho
                 <EmptyState title="Ninguna bodega coincide" description="Prueba con otra ciudad o quita los filtros." action={{ label: "Quitar filtros", onClick: quitarFiltros }} />
               </li>
             ) : null}
-            {groups.map((g, i) => (
+            {gruposVisibles.map((g, i) => (
               <GroupBlock key={g.city} title={g.city} count={g.items.length} icon={<MapPin className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
                 open={printing || (open[g.city] ?? (filtering || i < 4))} onToggle={() => setOpen((o) => ({ ...o, [g.city]: !(printing || (o[g.city] ?? (filtering || i < 4))) }))}>
                 {g.items.map((w) => (
@@ -249,6 +260,7 @@ export function WarehouseBoard({ warehouses, summary, roles, initial }: { wareho
               </GroupBlock>
             ))}
           </ul>
+          <PaginasLocales {...pagina} />
         </div>
 
         <aside className="min-w-0 xl:sticky xl:top-24 xl:h-fit print:hidden">
@@ -257,7 +269,9 @@ export function WarehouseBoard({ warehouses, summary, roles, initial }: { wareho
             <p className="mt-1 px-1 text-xs text-muted-foreground">
               Lo que se recoge en una bodega urbana sube a su centro regional o nacional, se clasifica y viaja por la red hasta el centro del destino. Las especializadas (frío, puerto, aduana, frontera) cuelgan del centro de su ciudad.
             </p>
-            <WarehouseNetworkMap network={summary.network} highlight={filtering ? (n) => ids.has(n.code) : undefined} className="mt-2" />
+            <LimiteSeccion nombre="el esquema de bodegas">
+              <WarehouseNetworkMap network={summary.network} highlight={filtering ? (n) => ids.has(n.code) : undefined} className="mt-2" />
+            </LimiteSeccion>
           </div>
         </aside>
       </div>
