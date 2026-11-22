@@ -1,3 +1,4 @@
+import { NetworkRule } from "@/components/page-header";
 import { cn } from "@/lib/utils";
 
 /**
@@ -32,7 +33,10 @@ export function LoadingScreen({
   );
 }
 
-/** Encabezado de página con la silueta de `PageHeader`: título, descripción y acciones. */
+/**
+ * Encabezado de página con la silueta de `PageHeader`: título, descripción, acciones y debajo la línea de red
+ * ya dibujada (la misma firma visual, quieta).
+ */
 export function SkeletonPageHeader({
   actions = 1,
   description = true,
@@ -42,23 +46,29 @@ export function SkeletonPageHeader({
   description?: boolean;
 }) {
   return (
-    <div aria-hidden className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 md:mb-10">
-      <div className="min-w-0">
-        <Bone className="h-9 w-56 rounded-lg md:h-10 md:w-72" />
-        {description && (
-          <div className="mt-4 flex flex-col gap-2">
-            <Bone className="h-3.5 w-[min(100%,34rem)] rounded-full" />
-            <Bone className="h-3.5 w-[min(60%,22rem)] rounded-full" />
+    <div aria-hidden className="mb-8 md:mb-10">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div className="min-w-0">
+          {/* La fila del «Operación en vivo» (`LiveStamp`, 20 px de alto) y el `mt-2` del `h1`: sin ellos el bloque mide menos. */}
+          <Bone className="h-5 w-36 rounded-full" />
+          <Bone className="mt-2 h-9 w-56 rounded-lg md:h-10 md:w-72" />
+          {description && (
+            <div className="mt-3 flex flex-col gap-2">
+              <Bone className="h-3.5 w-[min(100%,34rem)] rounded-full" />
+              <Bone className="h-3.5 w-[min(60%,22rem)] rounded-full" />
+            </div>
+          )}
+        </div>
+        {actions > 0 && (
+          <div className="flex shrink-0 items-center gap-2">
+            {Array.from({ length: actions }, (_, i) => (
+              <Bone key={i} className="h-9 w-28 rounded-md" />
+            ))}
           </div>
         )}
       </div>
-      {actions > 0 && (
-        <div className="flex shrink-0 items-center gap-2">
-          {Array.from({ length: actions }, (_, i) => (
-            <Bone key={i} className="h-9 w-28 rounded-md" />
-          ))}
-        </div>
-      )}
+      {/* Mismo sitio y ritmo vertical que en `PageHeader`: justo bajo el bloque del título, con su propio margen. */}
+      <NetworkRule still />
     </div>
   );
 }

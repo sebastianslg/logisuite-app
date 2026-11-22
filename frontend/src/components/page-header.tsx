@@ -47,18 +47,32 @@ export function PageHeader({
   );
 }
 
-/** La línea de red: cinco tramos con su color de modo y un nodo en cada unión. Decorativa (la leyenda está en Red). */
-export function NetworkRule({ className = "" }: { className?: string }) {
+/**
+ * La línea de red: cinco tramos con su color de modo y un nodo en cada unión. Decorativa (la leyenda está en Red).
+ * Al entrar se dibuja de izquierda a derecha; con `still` se pinta ya terminada, sin animación, para los esqueletos
+ * de carga: los tramos a escala 1 y los nodos con opacidad 1, con los mismos colores y proporciones.
+ */
+export function NetworkRule({ className = "", still = false }: { className?: string; still?: boolean }) {
+  /** Apaga la animación de `.network-seg` y `.network-node`; sin ella quedan en su estado final, sin CSS nuevo. */
+  const stillStyle: React.CSSProperties | undefined = still ? { animation: "none" } : undefined;
+
   return (
     <div className={`network-rule mt-6 flex items-center md:mt-7 ${className}`} aria-hidden>
-      <span className="network-node" style={{ "--i": 0 } as React.CSSProperties} />
+      <span className="network-node" style={{ ...stillStyle, "--i": 0 } as React.CSSProperties} />
       {MODE_ORDER.map((m, i) => (
         <span key={m} className="contents">
           <span
             className="network-seg"
-            style={{ flexGrow: NETWORK_KM[m], backgroundColor: MODES[m].color, "--i": i } as React.CSSProperties}
+            style={
+              {
+                ...stillStyle,
+                flexGrow: NETWORK_KM[m],
+                backgroundColor: MODES[m].color,
+                "--i": i,
+              } as React.CSSProperties
+            }
           />
-          <span className="network-node" style={{ "--i": i + 1 } as React.CSSProperties} />
+          <span className="network-node" style={{ ...stillStyle, "--i": i + 1 } as React.CSSProperties} />
         </span>
       ))}
     </div>
