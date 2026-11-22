@@ -1,3 +1,5 @@
 -r requirements.txt
 pytest>=8.0,<9.0
-httpx>=0.27,<1.0
+# Starlette 1.x pide `httpx2` para su TestClient: con `httpx` a secas avisa de
+# deprecación en cada corrida de las pruebas.
+httpx2>=2.0,<3.0

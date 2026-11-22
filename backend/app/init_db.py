@@ -7,6 +7,7 @@ existe, para que el despliegue funcione sin pasos manuales.
 Uso manual (desde backend/): python -m app.init_db --reset   (borra y recrea todo desde cero)
 """
 import os
+import re
 import sys
 import sqlite3
 import argparse
@@ -35,6 +36,40 @@ from app.database.schema_v18 import apply_v18_migration
 from app.database.schema_v5 import SCHEMA_V5_SQL
 from app.database.db import DB_PATH
 
+# Migraciones enganchadas, en orden. Cada una lleva su versión en el nombre
+# (`apply_vNN_migration`) y de aquí se deriva `SCHEMA_VERSION`: al añadir una
+# migración nueva basta con importarla y sumarla a esta lista, y el mensaje de
+# arranque anuncia la versión real sin que haya que recordar otro número.
+MIGRACIONES = [
+    apply_v4_migration,
+    apply_v6_migration,
+    apply_v7_migration,
+    apply_v8_migration,
+    apply_v9_migration,
+    apply_v10_migration,
+    apply_v11_migration,
+    apply_v12_migration,
+    apply_v13_migration,
+    apply_v14_migration,
+    apply_v15_migration,
+    apply_v16_migration,
+    apply_v17_migration,
+    apply_v18_migration,
+]
+
+
+def _version_migracion(migracion) -> int:
+    """Versión de una migración, leída de su nombre: apply_v18_migration -> 18."""
+    return int(re.fullmatch(r"apply_v(\d+)_migration", migracion.__name__).group(1))
+
+
+# Versión real del esquema: la más alta de las migraciones enganchadas. Los
+# bloques SQL sin función (base, v2, v3 y v5) no pueden superar ese máximo
+# mientras cada versión nueva llegue como `apply_vNN_migration`; la prueba de
+# tests/test_version_esquema.py lo compara con el último schema_vNN.py para que
+# no vuelva a desfasarse.
+SCHEMA_VERSION = max(_version_migracion(migracion) for migracion in MIGRACIONES)
+
 
 def init_database(reset: bool = False):
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -51,21 +86,12 @@ def init_database(reset: bool = False):
     conn.executescript(SCHEMA_V2_SQL)
     conn.executescript(SCHEMA_V3_SQL)
     conn.executescript(SCHEMA_V4_SQL)
-    apply_v4_migration(conn)
     conn.executescript(SCHEMA_V5_SQL)
-    apply_v6_migration(conn)
-    apply_v7_migration(conn)
-    apply_v8_migration(conn)
-    apply_v9_migration(conn)
-    apply_v10_migration(conn)
-    apply_v11_migration(conn)
-    apply_v12_migration(conn)
-    apply_v13_migration(conn)
-    apply_v14_migration(conn)
-    apply_v15_migration(conn)
-    apply_v16_migration(conn)
-    apply_v17_migration(conn)
-    apply_v18_migration(conn)
+    # Después de los bloques SQL y en orden de versión. La v4 (columnas de
+    # mm_shipments y TRM) puede ir aquí sin problema: los bloques de la v5 solo
+    # crean tablas de flota y bodegas y no tocan esas columnas.
+    for migracion in MIGRACIONES:
+        migracion(conn)
     conn.commit()
     conn.close()
 
@@ -82,7 +108,7 @@ def init_database(reset: bool = False):
         from app.utils.seed_data import ensure_core_seeded, seed_v2_only
         ensure_core_seeded()
         seed_v2_only()
-        print(f"Base de datos existente actualizada al esquema v4 en: {DB_PATH}")
+        print(f"Base de datos existente actualizada al esquema v{SCHEMA_VERSION} en: {DB_PATH}")
 
 
 if __name__ == "__main__":

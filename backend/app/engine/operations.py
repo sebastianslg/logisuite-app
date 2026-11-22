@@ -36,7 +36,7 @@ from datetime import datetime, timedelta
 
 from app.database.db import fetch_all, run_write
 from app.engine import notify
-from app.engine.common import ANON, OperationError, _now_iso, _user, audit  # noqa: F401 (reexportados)
+from app.engine.common import OperationError, _now_iso, _user, audit  # noqa: F401 (reexportados)
 from app.engine import fleet
 from app.engine.dispatch import _asset_for, status_at
 from app.engine.multimodal import PRIORITIES, MultimodalNetwork, RoutingError, haversine_km
