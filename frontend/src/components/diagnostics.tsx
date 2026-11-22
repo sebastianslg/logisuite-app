@@ -76,22 +76,48 @@ function Panel({ pathname }: { pathname: string }) {
     return () => po?.disconnect();
   }, []);
 
-  // Cuadros por segundo, muestreados cada segundo (solo mientras el panel está abierto)
+  // Cuadros por segundo, muestreados dentro del mismo requestAnimationFrame (sin un setInterval aparte). Solo
+  // mientras el panel está abierto y la pestaña se ve: oculto no se pide ni un cuadro, y al volver se reinicia
+  // la muestra para no enseñar un valor falso (el primer cuadro tras una pausa larga no cuenta).
   useEffect(() => {
     let frames = 0;
+    let last = performance.now();
     let raf = 0;
-    const loop = () => {
-      frames++;
+    let running = false;
+    const loop = (now: number) => {
+      if (!running) return;
+      frames += 1;
+      const elapsed = now - last;
+      if (elapsed >= 1_000) {
+        setFps(Math.round((frames * 1_000) / elapsed));
+        frames = 0;
+        last = now;
+      }
       raf = requestAnimationFrame(loop);
     };
-    raf = requestAnimationFrame(loop);
-    const t = setInterval(() => {
-      setFps(frames);
+    const start = () => {
+      if (running || document.visibilityState !== "visible") return;
+      running = true;
       frames = 0;
-    }, 1000);
+      last = performance.now();
+      raf = requestAnimationFrame(loop);
+    };
+    const stop = () => {
+      running = false;
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      setFps(0);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") start();
+      else stop();
+    };
+    start();
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      cancelAnimationFrame(raf);
-      clearInterval(t);
+      running = false;
+      if (raf) cancelAnimationFrame(raf);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 

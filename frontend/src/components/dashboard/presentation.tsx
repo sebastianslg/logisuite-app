@@ -14,6 +14,7 @@ import { EASE } from "@/lib/motion";
 import type { DashboardSummary } from "@/lib/types";
 import { useHydrated } from "@/lib/use-hydrated";
 import { useLive } from "@/lib/use-live";
+import { useLiveClock } from "@/lib/sondeo";
 
 /**
  * Modo presentación: el resumen a pantalla completa y con letra grande, para proyectarlo en clase o en una sala.
@@ -35,19 +36,11 @@ export function PresentButton() {
   );
 }
 
-function useClock() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 30_000);
-    return () => window.clearInterval(id);
-  }, []);
-  return now;
-}
-
 function PresentationView({ onClose }: { onClose: () => void }) {
   const data = useLive<DashboardSummary | null>("/api/dashboard/summary", 30_000, null);
   const { money } = useApp();
-  const now = useClock();
+  // Reloj compartido con el encabezado de la app: un solo temporizador de 30 s, detenido con la pestaña oculta.
+  const now = useLiveClock();
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -97,8 +90,11 @@ function PresentationView({ onClose }: { onClose: () => void }) {
         <div>
           <div className="text-[clamp(1.25rem,1.6vw,1.75rem)] font-semibold tracking-[-0.02em]">Torre de control</div>
           <div className="tabular text-[clamp(0.875rem,1vw,1.125rem)] text-muted-foreground">
-            {now.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })} ·{" "}
-            {now.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }).replace(/\s/g, " ")} · se actualiza cada 30 s
+            {now
+              ? `${now.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })} · ${now
+                  .toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })
+                  .replace(/\s/g, " ")} · se actualiza cada 30 s`
+              : "Se actualiza cada 30 s"}
           </div>
         </div>
         <Button variant="ghost" onClick={onClose} aria-label="Salir del modo presentación">

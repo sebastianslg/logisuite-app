@@ -101,7 +101,7 @@ const subscribeFx = (cb: () => void) => {
 };
 async function refreshFx() {
   try {
-    const res = await fetch("/api/settings", { cache: "no-store" });
+    const res = await fetch("/api/settings", { cache: "no-store", signal: AbortSignal.timeout(12_000) });
     if (res.ok) {
       fxState = (await res.json()).fx;
       fxListeners.forEach((l) => l());

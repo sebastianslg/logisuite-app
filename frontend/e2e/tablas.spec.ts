@@ -23,12 +23,10 @@ test("bodegas: la exportación del inventario descarga un Excel", async ({ page 
 });
 
 test("sin conexión aparece el aviso y se va al volver la red", async ({ page, context }) => {
-  await page.goto("/");
+  await page.goto("/panel");
   // Con la página hidratada: si se corta la red antes, el aviso no alcanza a escuchar el evento
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  // El texto completo, no el rol: el punto del dock también es role=status y dice «Sin conexión»
-  // cuando la API falla, y con dos coincidencias el localizador de rol se volvía ambiguo.
-  const banner = page.getByText("Sin conexión: los cambios no se guardarán hasta que vuelva");
+  const banner = page.locator("[data-conexion]:visible");
   await expect(banner).toHaveCount(0);
   await context.setOffline(true);
   // Como un despertar de pestaña: cubre el caso en que el evento "offline" del navegador no llegó

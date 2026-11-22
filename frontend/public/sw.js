@@ -3,7 +3,7 @@
    - Navegaciones: red primero; sin red, la página /offline.html.
    - /_next/static/ (con huella en el nombre, no cambia) e iconos: caché primero.
    - Todo lo demás pasa directo a la red. */
-const VERSION = "westvane-v1";
+const VERSION = "westvane-v2";
 const STATIC = `${VERSION}-static`;
 const OFFLINE_URL = "/offline.html";
 
@@ -15,7 +15,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => !k.startsWith(VERSION)).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith("westvane-") && k !== STATIC).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Sparkles } from "lucide-react";
@@ -56,16 +56,19 @@ export function WarehouseForm({ warehouse }: { warehouse?: WarehouseDetail }) {
   const [statuses, setStatuses] = useState<string[]>(["Operativa", "Mantenimiento", "Cerrada"]);
   const [cities, setCities] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const enviando = useRef(false);
   const [done, flashDone] = useSavedFlash();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<{ items: WarehouseRole[]; statuses: string[] }>("/api/warehouses/roles")
+    const ctrl = new AbortController();
+    api<{ items: WarehouseRole[]; statuses: string[] }>("/api/warehouses/roles", { signal: ctrl.signal, cache: "no-cache" })
       .then((d) => { setRoles(d.items); setStatuses(d.statuses); })
       .catch(() => undefined);
-    api<{ items: Warehouse[] }>("/api/warehouses")
+    api<{ items: Warehouse[] }>("/api/warehouses", { signal: ctrl.signal })
       .then((d) => setCities([...new Set(d.items.map((w) => w.city))].sort((a, b) => a.localeCompare(b, "es"))))
       .catch(() => undefined);
+    return () => ctrl.abort();
   }, []);
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => ({ ...d, [k]: v }));
@@ -76,6 +79,8 @@ export function WarehouseForm({ warehouse }: { warehouse?: WarehouseDetail }) {
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (enviando.current) return;
+    enviando.current = true;
     setBusy(true);
     setError(null);
     const body = {
@@ -95,6 +100,7 @@ export function WarehouseForm({ warehouse }: { warehouse?: WarehouseDetail }) {
       router.refresh();
     } catch (err) {
       setError((err as Error).message);
+      enviando.current = false;
       setBusy(false);
     }
   }
@@ -154,8 +160,8 @@ export function WarehouseForm({ warehouse }: { warehouse?: WarehouseDetail }) {
 
       <ErrorBanner message={error} />
       <div className="flex items-center gap-2">
-        <Button type="submit" disabled={busy} burst={warehouse ? Check : Sparkles}>
-          <SaveIcon state={done ? "done" : busy ? "busy" : "idle"} /> {warehouse ? "Guardar cambios" : "Crear bodega"}
+        <Button type="submit" disabled={busy} aria-busy={busy && !done} burst={warehouse ? Check : Sparkles}>
+          <SaveIcon state={done ? "done" : busy ? "busy" : "idle"} /> {done ? "Guardado" : busy ? "Guardando…" : warehouse ? "Guardar cambios" : "Crear bodega"}
         </Button>
         <Button asChild variant="ghost">
           <Link href={warehouse ? `/bodegas/${warehouse.warehouse_id}` : "/bodegas"}>Cancelar</Link>

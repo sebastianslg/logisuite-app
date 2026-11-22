@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, CircleCheck } from "lucide-react";
+import { Bell, CircleAlert, CircleCheck } from "lucide-react";
 
 import { AlertRows, buildAlertItems } from "@/components/dashboard/attention";
 import { EASE } from "@/lib/motion";
 import type { AlertsResponse } from "@/lib/types";
 import { useLocal } from "@/lib/local";
-import { useLive } from "@/lib/use-live";
+import { useLiveState } from "@/lib/use-live";
 import { cn } from "@/lib/utils";
 
 const NONE_SEEN: string[] = [];
@@ -17,11 +17,12 @@ const NONE_SEEN: string[] = [];
 const sig = (i: { key: string; title: string }) => `${i.key}|${i.title}`;
 
 /**
- * Avisos operativos: un sondeo compartido cada 60 s, en pausa con la pestaña oculta. Recuerda en este navegador
+ * Avisos operativos: un sondeo compartido cada 60 s, en pausa con la pestaña oculta y (con `ref`) cuando la campana
+ * no se ve, por ejemplo en el dock de escritorio dentro de una página en celular. Recuerda en este navegador
  * cuáles ya se vieron: `unseen` cuenta solo lo nuevo desde la última vez que se abrió el panel.
  */
-export function useAlerts() {
-  const data = useLive<AlertsResponse | null>("/api/alerts", 60_000, null);
+export function useAlerts(ref?: React.RefObject<Element | null>) {
+  const { data, error } = useLiveState<AlertsResponse | null>("/api/alerts", 60_000, null, ref);
   const [seen, setSeen] = useLocal<string[]>("westvane.alerts-seen", NONE_SEEN);
   const items = (data ? buildAlertItems(data.alerts) : []).map((i) => ({ ...i, fresh: !seen.includes(sig(i)) }));
   const urgent = items.filter((i) => i.tone === "danger").length;
@@ -31,7 +32,7 @@ export function useAlerts() {
     if (key) setSeen(key.split("~"));
     // la clave resume los avisos actuales
   }, [key, setSeen]);
-  return { items, urgent, unseen, markSeen, ready: !!data };
+  return { items, urgent, unseen, markSeen, ready: !!data, failed: error && !data };
 }
 
 /**
@@ -65,8 +66,21 @@ export function AlertCount({ count, urgent, className }: { count: number; urgent
 
 /** Lista de avisos (o "todo en orden"), para el panel del dock y la hoja del celular. */
 export function AlertsList({ onNavigate, limit }: { onNavigate?: () => void; limit?: number }) {
-  const { items, ready } = useAlerts();
-  if (!ready) return <div className="skeleton m-4 h-16 rounded-2xl" aria-hidden />;
+  const { items, ready, failed } = useAlerts();
+  if (!ready)
+    return failed ? (
+      <p role="status" className="flex items-start gap-2.5 px-5 py-4 text-sm text-muted-foreground">
+        <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+        No se pudieron cargar los avisos. Se reintenta solo.
+      </p>
+    ) : (
+      <>
+        <div className="skeleton m-4 h-16 rounded-2xl" aria-hidden />
+        <span role="status" className="sr-only">
+          Cargando avisos…
+        </span>
+      </>
+    );
   if (items.length === 0)
     return (
       <p className="flex items-center gap-2.5 px-5 py-4 text-sm text-muted-foreground">
@@ -89,7 +103,8 @@ export function AlertsList({ onNavigate, limit }: { onNavigate?: () => void; lim
 
 /** Campana del dock de escritorio: abre un panel con lo que requiere atención, desde cualquier página. */
 export function AlertsMenu() {
-  const { items, urgent, unseen, markSeen } = useAlerts();
+  const ref = useRef<HTMLDivElement>(null);
+  const { items, urgent, unseen, markSeen, failed } = useAlerts(ref);
   const [open, setOpen] = useState(false);
   // Al cerrar el panel, lo que se mostró queda como visto
   const wasOpen = useRef(false);
@@ -98,7 +113,6 @@ export function AlertsMenu() {
     wasOpen.current = open;
   }, [open, markSeen]);
   const id = useId();
-  const ref = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -122,7 +136,9 @@ export function AlertsMenu() {
 
   const label = items.length
     ? `Avisos: ${items.length}${urgent ? `, ${urgent} ${urgent === 1 ? "urgente" : "urgentes"}` : ""}${unseen ? `, ${unseen} ${unseen === 1 ? "nuevo" : "nuevos"}` : ", todos vistos"}`
-    : "Avisos: todo en orden";
+    : failed
+      ? "Avisos: no se pudieron cargar"
+      : "Avisos: todo en orden";
 
   return (
     <div ref={ref} className="relative">
@@ -144,6 +160,8 @@ export function AlertsMenu() {
         {open && (
           <motion.div
             id={id}
+            role="region"
+            aria-label="Avisos operativos"
             initial={{ opacity: 0, scale: 0.96, y: -6 }}
             animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.2, ease: EASE } }}
             exit={{ opacity: 0, scale: 0.96, y: -6, transition: { duration: 0.15, ease: EASE } }}
