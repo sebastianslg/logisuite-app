@@ -1524,3 +1524,22 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
   todas las rutas 171 KB (React 70, dock/framer 39). Oportunidad pendiente: `import-shipments` (22 KB gzip) se carga siempre en `/envios`
   aunque solo se ve al abrir «Importar»; hacerlo dinámico lo recortaría. Aquí `/` no usa deck.gl (usa un SVG).
 - **Verificación:** tsc, eslint y build limpios; 446 pruebas de la API; 46 de navegador.
+
+## 69. Ronda 3: saltar al contenido, pruebas estables, mantenimiento y cobertura
+
+- **F2 «Saltar al contenido»:** enlace oculto que aparece con el primer Tab y lleva al <main> (ahora el único id="contenido";
+  se quitaron los ids repetidos de la portada y de /ingresar). En /ingresar el campo de usuario tiene autofoco, así que allí el
+  enlace se alcanza con Shift+Tab (limitación conocida, aceptada). e2e nueva con teclado.
+- **F5 pruebas estables:** la foto de entrega lleva un nombre único por corrida y su aseo no puede enmascarar fallos de aserción
+  ni borrar adjuntos de otra corrida; el enlace de seguimiento comprueba su creación y siempre limpia. La suite se corrió DOS veces
+  seguidas sin borrar la base de pruebas y pasó las dos (47 y 47).
+- **B6 mantenimiento:** init_db imprime la versión real («esquema v18», decía v4) derivada de una sola lista MIGRACIONES (el
+  reordenamiento de la v4 tras el bloque v5 es inocuo: tocan tablas distintas; verificado); 1 import sin uso menos (pyflakes
+  limpio en engine y api); httpx2 en requirements-dev elimina la advertencia de starlette.testclient (0 warnings en la suite).
+  Prueba que avisa si aparece un schema_vNN.py sin enganchar en init_db.
+- **B7 cobertura (total 84 %):** pruebas nuevas para fx.py (la TRM oficial: 55 -> 100 %), tolls.py (58 -> 98 %) y
+  shipments_io.py (carga masiva: 89 -> 100 %): 46 casos de comportamiento y borde, con la TRM duplicada el peaje vale la mitad
+  en la cotización, CSV/Excel con filas malas, vista previa sin escribir, etc.
+- **Arreglo hallado por la cobertura:** importar peajes con un archivo ilegible (base64 roto, CSV dañado) respondía 500; ahora 422
+  con mensaje en español, y los errores de fila ya no muestran el texto de pandas en inglés.
+- **Verificación:** tsc, eslint y build limpios; 495 pruebas de la API; 47 de navegador × 2 corridas.
