@@ -76,7 +76,10 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     Subagentes en `.opencode/agents/` (el modelo disponible es `mistral/deepseek-v4-1-flash-1017`, variante `max`; el frontmatter
     de los agentes aún apunta a `deepseek/deepseek-chat`, que no existe: pasar `model` al lanzarlos). Rondas 2 y 3 pendientes
     (B4-B7, F2-F8 del plan del coordinador).
-- **En curso / a medias:** ronda 2 de mejoras (ver arriba). Producción en `main` hasta la sección 66; `desarrollo` va adelante (secciones 67 en adelante) y no está desplegado.
+  - **Sección 68 (ronda 2):** menos pandas (4 módulos), límites en todas las entradas, cuenta y «Cerrar sesión» en el dock, y medición del
+    peso de las páginas (el mapa ya es bajo demanda). 446 pruebas de la API, 46 e2e. Faltan: ronda 3 (F2 saltar al contenido, F5 e2e de
+    foto-entrega, B6 mantenimiento, B7 cobertura) y ronda 4 (F6 filtros en la URL, F7 borrador del envío, F8 errores por sección).
+- **En curso / a medias:** ronda 3 de mejoras (ver arriba). Producción en `main` hasta la sección 66; `desarrollo` va adelante (secciones 67 en adelante) y no está desplegado.
 - **Pendiente de decisión del dueño:** exigir sesión para todo lo que escribe (roles reales; hoy `/api/audit` y las pantallas
   siguen abiertas como demostración); rotar la contraseña de aplicación de Gmail y el tema de ntfy tras el aviso de Contabo;
   dominio propio; una instalación por empresa o separar datos por empresa; revisión legal.
@@ -96,6 +99,6 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
   - Roles que limiten acciones: espera decisión del dueño (obligaría a iniciar sesión a todos).
   - Política de privacidad con abogado; secretos de GitHub para el despliegue automático; dominio propio y Cloudflare;
     PostgreSQL cuando haya varios usuarios a la vez.
-- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **373 pruebas de la API**; **45 de navegador** (incluye
+- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **446 pruebas de la API**; **46 de navegador** (incluye
   accesibilidad). En el servidor, `bash deploy/verificar.sh` (34 comprobaciones, en verde).
 - **Producción:** `main` y Contabo en el mismo commit; `desarrollo` sin nada pendiente de desplegar.

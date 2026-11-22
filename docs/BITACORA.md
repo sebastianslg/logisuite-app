@@ -1505,3 +1505,22 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
   se añadió la comprobación del enganche. Pendiente: las páginas tienen su propio `Suspense`, así que puede verse el esqueleto nuevo y
   luego el genérico; unificarlos exige tocar cada `page.tsx`. Sin e2e para los esqueletos.
 - **Verificación:** tsc, eslint y build limpios; 373 pruebas de la API; 45 de navegador.
+
+## 68. Ronda 2: menos pandas, límites en las entradas, cuenta en el dock y peso de las páginas
+
+- **B4 menos pandas:** 20 lecturas de `operations`, `telemetry`, `history` y `report` pasaron a `fetch_all`; la salida es idéntica byte a byte
+  (foto de 575 KB). Medido (mediana de 15): historial de trayectos 8,0 -> 3,7 ms, flota en vivo 6,5 -> 2,5 ms, auditoría 6,0 -> 2,2 ms,
+  vías 15,0 -> 4,3 ms, reporte PDF 37,9 -> 28,1 ms. `trends.py` no tiene SQL propio. Queda `common.purge_old_audit` con `run_query` (un COUNT).
+- **B5 límites de entrada:** 22 modelos y 39 parámetros de consulta con tope (texto 200, notas 2000, códigos 60, correos 254, listas
+  y rangos de `limit`/`offset`/`days`). Antes un `cargo` de 10.000 caracteres se truncaba en silencio y `limit=1e12` se recortaba; ahora
+  dan 422. Ajustes tras la revisión: exportar admite 1000 códigos (la lista pide hasta 1000), `delay_h` lo valida el motor con su mensaje en
+  español, los buscadores limitan a 200 caracteres y la ficha tolera que la auditoría falle. Ojo: los 422 de `days` en historial e
+  informe ya no traen el texto en español propio (solo se alcanzan con URLs a mano). Las rutas (`{code}`, `{token}`) siguen sin tope.
+- **F3 cuenta en el dock:** con sesión, avatar y (desde 1280 px) nombre y rol; menú con «Cerrar sesión»; en celular, en la hoja «Más».
+  Sin sesión no cambia. Sin e2e del cierre de sesión en celular.
+- **F4 peso de las páginas (sin cambios de código):** deck.gl y MapLibre ya se cargan por `dynamic` y solo en `/red`, `/panel` (vista 3D) y
+  `/envios/[code]`; ningún HTML de las otras 33 rutas los menciona. El mapa pesa ~550 KB gzip, solo bajo demanda. JS inicial (gzip):
+  `/envios/[code]` 298 KB, `/envios` 296, `/red` 286, `/panel` 285, `/flota` 281, `/bodegas` 280; el resto 264-279; base compartida de
+  todas las rutas 171 KB (React 70, dock/framer 39). Oportunidad pendiente: `import-shipments` (22 KB gzip) se carga siempre en `/envios`
+  aunque solo se ve al abrir «Importar»; hacerlo dinámico lo recortaría. Aquí `/` no usa deck.gl (usa un SVG).
+- **Verificación:** tsc, eslint y build limpios; 446 pruebas de la API; 46 de navegador.
