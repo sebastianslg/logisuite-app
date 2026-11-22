@@ -52,8 +52,8 @@ export function AlertCount({ count, urgent, className }: { count: number; urgent
     <span
       key={count}
       className={cn(
-        "badge-pop tabular absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] leading-none font-semibold text-white ring-2 ring-[var(--card)]",
-        urgent ? "bg-destructive" : "bg-warning",
+        "badge-pop tabular absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] leading-none font-semibold ring-2 ring-[var(--card)]",
+        urgent ? "bg-destructive text-[var(--on-danger)]" : "bg-warning text-[var(--on-warning)]",
         className,
       )}
       aria-hidden

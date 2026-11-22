@@ -42,6 +42,8 @@
   --success: #1f7835; /* verde accesible de Apple, ajustado a 4,5:1 sobre su tinte */
   --warning: #b52f00; /* naranja accesible de Apple: 4,5:1 sobre su tinte */
   --danger: #c20013; /* rojo accesible de Apple: 4,5:1 sobre su tinte */
+  --on-danger: #ffffff; /* texto sobre el rojo: blanco 6,4:1 en claro */
+  --on-warning: #ffffff; /* texto sobre el naranja: blanco 6,2:1 en claro */
   --info: #3634a3;
 
   /* Modos de transporte: solo identifican el modo (siempre con ícono y texto). Validados para daltonismo: ver lib/modes.ts */
@@ -86,6 +88,8 @@
     --success: #30d158;
     --warning: #ff9f0a;
     --danger: #ff6961; /* rojo accesible de Apple en oscuro: 6:1 sobre #1c1c1e */
+    --on-danger: #1c1c1e; /* texto sobre el rojo: oscuro 6:1 (el blanco solo llegaba a 2,8:1) */
+    --on-warning: #1c1c1e; /* texto sobre el naranja: oscuro 8:1 (el blanco llegaba a 2,1:1) */
     --info: #8986ff;
 
     --mode-maritimo: #6f71fc;
@@ -127,6 +131,8 @@
     --success: #30d158;
     --warning: #ff9f0a;
     --danger: #ff6961; /* rojo accesible de Apple en oscuro: 6:1 sobre #1c1c1e */
+    --on-danger: #1c1c1e; /* texto sobre el rojo: oscuro 6:1 (el blanco solo llegaba a 2,8:1) */
+    --on-warning: #1c1c1e; /* texto sobre el naranja: oscuro 8:1 (el blanco llegaba a 2,1:1) */
     --info: #8986ff;
 
     --mode-maritimo: #6f71fc;
@@ -879,6 +885,8 @@ p {
     --success: #18703a;
     --warning: #8a4500;
     --danger: #a30f18;
+  --on-danger: #ffffff;
+  --on-warning: #ffffff;
   }
   html,
   body {
