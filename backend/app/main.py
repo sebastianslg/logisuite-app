@@ -1376,20 +1376,28 @@ def today_board() -> dict:
 @app.get("/api/dashboard/summary")
 def dashboard_summary() -> dict:
     now = _sync()
-    rows = fetch_all("SELECT * FROM mm_shipments")
+    # Conteos y totales en una sola pasada de SQL (antes se leía la tabla entera para contarla en Python).
     counts = {k: 0 for k in ("Programado", "En Ruta", "Transferencia Modal", "Retrasado", "Entregado")}
-    in_transit_t, in_transit_cost = 0.0, 0.0
+    in_transit_t, in_transit_cost, delivered, on_time = 0.0, 0.0, 0, 0
+    for fila in fetch_all("SELECT status, COUNT(*) AS n, COALESCE(SUM(weight_t), 0) AS t, "
+                          "COALESCE(SUM(total_cost), 0) AS c, "
+                          "COALESCE(SUM(CASE WHEN delay_h = 0 THEN 1 ELSE 0 END), 0) AS a_tiempo "
+                          "FROM mm_shipments GROUP BY status"):
+        estado, n = fila["status"], int(fila["n"])
+        counts[estado] = counts.get(estado, 0) + n
+        if estado in telemetry.ACTIVE_STATUSES:
+            in_transit_t += float(fila["t"])
+            in_transit_cost += float(fila["c"])
+        if estado == "Entregado":
+            delivered, on_time = n, int(fila["a_tiempo"])
+
+    # Para lo que sí necesita el recorrido (t-km, corredores, tendencias y alertas): solo las columnas que se usan,
+    # no `SELECT *` (36 columnas, de las que se leen 12).
+    rows = fetch_all("SELECT shipment_code, status, weight_t, total_cost, delay_h, total_time_h, departure_at, "
+                     "route_json, route_status, route_note, origin_city, dest_city FROM mm_shipments")
     tkm_by_mode: dict = {}
     corridor_t: dict = {}
-    delivered, on_time = 0, 0
     for r in rows:
-        counts[r["status"]] = counts.get(r["status"], 0) + 1
-        if r["status"] in telemetry.ACTIVE_STATUSES:
-            in_transit_t += r["weight_t"]
-            in_transit_cost += r["total_cost"]
-        if r["status"] == "Entregado":
-            delivered += 1
-            on_time += 1 if not r["delay_h"] else 0
         if r["status"] == "Programado":
             continue
         route = json.loads(r["route_json"])
