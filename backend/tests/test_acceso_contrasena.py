@@ -91,3 +91,57 @@ def test_reglas_de_la_cuenta(client):
         auth_otp.set_password_account("otro", "suficientemente-larga", "", "admin", "docente2@ejemplo.invalid")  # correo ajeno
     stored = db.fetch_all("SELECT password_hash FROM users WHERE username = 'profesor'")[0]["password_hash"]
     assert stored.startswith("pbkdf2$") and "clave-de-prueba-123" not in stored
+
+
+def test_cambiar_la_contrasena_pide_la_actual_y_cierra_las_demas_sesiones(client):
+    clave = "clave-de-prueba-123"
+
+    # Dos sesiones de la misma cuenta
+    primera = login(client, "profesor", clave).json()
+    segunda = login(client, "profesor", clave).json()
+    h1 = {"Authorization": f"Bearer {primera['token']}"}
+    h2 = {"Authorization": f"Bearer {segunda['token']}"}
+
+    # Sin sesión, 401
+    assert client.post("/api/auth/password/change", json={"current": "x", "new": "y" * 12}).status_code == 401
+    # Contraseña actual incorrecta
+    r = client.post("/api/auth/password/change", json={"current": "no-es", "new": "otra-clave-larga"}, headers=h1)
+    assert r.status_code == 422 and "actual" in r.json()["detail"]
+    # Nueva demasiado corta, y repetida
+    assert client.post("/api/auth/password/change", json={"current": clave, "new": "corta"}, headers=h1).status_code == 422
+    assert client.post("/api/auth/password/change", json={"current": clave, "new": clave}, headers=h1).status_code == 422
+
+    # Cambio correcto
+    nueva = "clave-nueva-de-pruebas"
+    ok = client.post("/api/auth/password/change", json={"current": clave, "new": nueva}, headers=h1)
+    assert ok.status_code == 200, ok.text
+
+    # La sesión que hizo el cambio sigue viva; la otra se cerró
+    assert client.get("/api/auth/me", headers=h1).status_code == 200
+    assert client.get("/api/auth/me", headers=h2).status_code == 401
+
+    # La contraseña vieja ya no entra y la nueva sí
+    assert login(client, "profesor", clave).status_code == 422
+    assert login(client, "profesor", nueva).status_code == 200
+
+    # El historial lo registra sin la contraseña
+    log = db.run_query("SELECT detail FROM audit_log WHERE detail LIKE 'Contraseña cambiada%' ORDER BY audit_id DESC LIMIT 1")
+    assert not log.empty and "clave-nueva" not in log.iloc[0]["detail"]
+
+    # Se deja como estaba para las demás pruebas
+    auth_otp.set_password_account("profesor", clave, "Profesor de prueba", "admin", operator="pruebas")
+
+
+def test_una_cuenta_sin_contrasena_no_puede_cambiarla(client, monkeypatch):
+    monkeypatch.setenv("WESTVANE_DEV_OTP", "1")
+    monkeypatch.setenv("WESTVANE_OTP_COOLDOWN_S", "0")
+    auth_otp.create_user_record("sin.clave@ejemplo.com", "Sin Clave", "lector", None, operator="T")
+    # Entra con código y prueba a cambiar la contraseña
+    pedido = client.post("/api/auth/otp/request", json={"email": "sin.clave@ejemplo.com"}).json()
+    assert "dev_code" in pedido, pedido
+    token = client.post("/api/auth/otp/verify", json={"email": "sin.clave@ejemplo.com", "code": pedido["dev_code"]}).json()["token"]
+    r = client.post("/api/auth/password/change", json={"current": "x", "new": "una-clave-larga"},
+                    headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 422 and "código al correo" in r.json()["detail"]
+    # Y su sesión dice que no tiene contraseña (para no mostrarle el formulario)
+    assert client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"}).json()["has_password"] is False

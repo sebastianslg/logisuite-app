@@ -9,7 +9,7 @@ import { LayoutGroup, motion, useInView, useReducedMotion } from "framer-motion"
 
 import { Map3DLazy, MapLoading } from "@/components/map/map-3d-lazy";
 import { MapFrame } from "@/components/map/map-frame";
-import { useMapData } from "@/components/map/use-map-data";
+import { invalidateMapData, useMapData } from "@/components/map/use-map-data";
 import { useApp } from "@/components/providers";
 import { ActualCost } from "@/components/shipments/actual-cost";
 import { DeliveryProof } from "@/components/shipments/delivery-proof";
@@ -20,6 +20,7 @@ import { SharedCode } from "@/components/shipments/shared-code";
 import { ShipmentAttachments } from "@/components/shipments/shipment-attachments";
 import { ShipmentJournal } from "@/components/shipments/shipment-journal";
 import { RouteChain } from "@/components/shipments/route-chain";
+import { SectionBoundary, SectionError } from "@/components/shipments/section-error";
 import { ModeChain, ModeIcon, StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,12 @@ function dt(iso: string | null) {
   return new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }).replace(/\s/g, " ");
 }
 
+/**
+ * Resultado de una lectura de sección: `ok` con el dato (`null` = no existe, estado vacío legítimo) o
+ * `ok: false` cuando la lectura falló (la API no respondió o devolvió un error).
+ */
+export type SectionLoad<T> = { ok: true; value: T | null } | { ok: false };
+
 export function ShipmentDetail({
   shipment: s,
   history,
@@ -52,26 +59,18 @@ export function ShipmentDetail({
   delivery,
 }: {
   shipment: Shipment;
-  history: AuditEntry[];
-  events: ShipmentEvent[];
-  attachments: Attachment[];
-  delivery: DeliveryInfo | null;
+  history: SectionLoad<{ items: AuditEntry[] }>;
+  events: SectionLoad<{ items: ShipmentEvent[] }>;
+  attachments: SectionLoad<{ items: Attachment[] }>;
+  delivery: SectionLoad<DeliveryInfo>;
 }) {
   const router = useRouter();
   const { money, operator } = useApp();
-  const { network, departments } = useMapData({ fleet: false });
-  // El mapa 3D se monta después de que el detalle ya se pintó: así la página responde y la transición del guardado termina.
-  const [mapReady, setMapReady] = useState(false);
-  useEffect(() => {
-    const id = window.setTimeout(() => setMapReady(true), 300);
-    return () => window.clearTimeout(id);
-  }, []);
   const [deleting, setDeleting] = useState(false);
-  const [mapFull, setMapFull] = useState(false);
-  const exitMapFull = useCallback(() => setMapFull(false), []);
   const [error, setError] = useState<string | null>(null);
   const legs = s.legs ?? [];
   const transfers = s.transfers ?? [];
+  const historyItems = history.ok ? (history.value?.items ?? []) : [];
   const legsCost = legs.reduce((a, l) => a + l.cost, 0);
   const transfersCost = transfers.reduce((a, t) => a + t.cost, 0);
   const fletes = legs.reduce((a, l) => a + l.base_cost, 0);
@@ -182,32 +181,16 @@ export function ShipmentDetail({
       />
 
       <section aria-label="Ruta del envío" className="glass rounded-3xl p-5">
-        <RouteChain legs={legs} transfers={transfers} progressPct={s.progress_pct} />
+        <SectionBoundary message="No pudimos mostrar el recorrido.">
+          <RouteChain legs={legs} transfers={transfers} progressPct={s.progress_pct} />
+        </SectionBoundary>
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="flex flex-col gap-6">
-          <div className="relative h-[400px]" data-print="hide">
-            <MapFrame full={mapFull} onExit={exitMapFull} radius={28} className="relative h-full border border-border">
-              {network && departments && mapReady ? (
-                <Map3DLazy network={network} departments={departments} route={route} showFleet={false} live={mapFull} />
-              ) : (
-                <MapLoading />
-              )}
-              {!mapFull && (
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="floating absolute top-3 right-3 z-10"
-                  aria-label="Mapa a pantalla completa"
-                  title="Pantalla completa"
-                  onClick={() => setMapFull(true)}
-                >
-                  <Maximize2 />
-                </Button>
-              )}
-            </MapFrame>
-          </div>
+          <SectionBoundary message="No pudimos mostrar el mapa." description="La ruta y el resto de la ficha siguen disponibles.">
+            <RouteMap route={route} />
+          </SectionBoundary>
 
           <Card title="Tramos y transbordos" icon={<ModeChain modes={s.modes} />} collapsible>
             <ol className="rule-list -mx-5 -mb-5 border-t border-border">
@@ -271,7 +254,13 @@ export function ShipmentDetail({
           </Card>
 
           <Card title="Bitácora" icon={<ListTree className="size-3.5 text-muted-foreground" aria-hidden />}>
-            <ShipmentJournal shipment={s} initial={events} />
+            <SectionBoundary message="No pudimos mostrar la bitácora.">
+              {events.ok ? (
+                <ShipmentJournal shipment={s} initial={events.value?.items ?? []} />
+              ) : (
+                <SectionError message="No pudimos cargar la bitácora." description="Las notas y las incidencias del envío no llegaron." />
+              )}
+            </SectionBoundary>
           </Card>
         </section>
 
@@ -284,24 +273,38 @@ export function ShipmentDetail({
           </div>
 
           <Card title="Prueba de entrega" icon={<PackageCheck className="size-3.5 text-muted-foreground" aria-hidden />}>
-            <DeliveryProof code={s.code} initial={delivery} />
+            <SectionBoundary message="No pudimos mostrar la prueba de entrega.">
+              {delivery.ok ? (
+                <DeliveryProof code={s.code} initial={delivery.value} />
+              ) : (
+                <SectionError message="No pudimos cargar la prueba de entrega." description="Quién recibió, la firma y el estado de la carga no llegaron." />
+              )}
+            </SectionBoundary>
           </Card>
 
           <Card title="Documentos adjuntos" icon={<Paperclip className="size-3.5 text-muted-foreground" aria-hidden />}>
-            <ShipmentAttachments code={s.code} initial={attachments} />
+            <SectionBoundary message="No pudimos mostrar los documentos adjuntos.">
+              {attachments.ok ? (
+                <ShipmentAttachments code={s.code} initial={attachments.value?.items ?? []} />
+              ) : (
+                <SectionError message="No pudimos cargar los documentos adjuntos." description="No se pudo leer la lista de archivos del envío." />
+              )}
+            </SectionBoundary>
           </Card>
 
           <Card title="Costos" collapsible>
-            <CostBars
-              money={(n) => money(n)}
-              total={legsCost + transfersCost}
-              parts={[
-                { k: "Fletes por tramo", v: fletes },
-                { k: "Peajes", v: peajes },
-                { k: "Manipulación en transbordos", v: manipulacion },
-                { k: "Impuestos (IVA e ICA)", v: impuestos },
-              ]}
-            />
+            <SectionBoundary message="No pudimos mostrar los costos.">
+              <CostBars
+                money={(n) => money(n)}
+                total={legsCost + transfersCost}
+                parts={[
+                  { k: "Fletes por tramo", v: fletes },
+                  { k: "Peajes", v: peajes },
+                  { k: "Manipulación en transbordos", v: manipulacion },
+                  { k: "Impuestos (IVA e ICA)", v: impuestos },
+                ]}
+              />
+            </SectionBoundary>
           </Card>
 
           <Card title="Seguimiento para el cliente" collapsible>
@@ -362,42 +365,116 @@ export function ShipmentDetail({
           </Card>
 
           <Card title="Historial" icon={<History className="size-3.5 text-muted-foreground" />} collapsible>
-            {history.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Sin cambios registrados.</p>
-            ) : (
-              <ol className="flex flex-col text-xs">
-                {history.map((h, i) => (
-                  <li key={h.audit_id} className="relative pb-4 pl-5 last:pb-0">
-                    {i < history.length - 1 && (
-                      // Trazo de la línea de tiempo: se dibuja de arriba hacia abajo al entrar en pantalla (scaleY)
-                      <motion.span
+            <SectionBoundary message="No pudimos mostrar el historial.">
+              {!history.ok ? (
+                <SectionError message="No pudimos cargar el historial." description="Los cambios registrados del envío no llegaron." />
+              ) : historyItems.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Sin cambios registrados.</p>
+              ) : (
+                <ol className="flex flex-col text-xs">
+                  {historyItems.map((h, i) => (
+                    <li key={h.audit_id} className="relative pb-4 pl-5 last:pb-0">
+                      {i < historyItems.length - 1 && (
+                        // Trazo de la línea de tiempo: se dibuja de arriba hacia abajo al entrar en pantalla (scaleY)
+                        <motion.span
+                          aria-hidden
+                          className="absolute top-3 bottom-0 left-[5px] w-px origin-top bg-border-strong"
+                          initial={{ scaleY: 0 }}
+                          whileInView={{ scaleY: 1 }}
+                          viewport={{ once: true }}
+                          transition={{ duration: 0.5, ease: EASE, delay: Math.min(i * 0.08, 0.4) }}
+                        />
+                      )}
+                      <span
                         aria-hidden
-                        className="absolute top-3 bottom-0 left-[5px] w-px origin-top bg-border-strong"
-                        initial={{ scaleY: 0 }}
-                        whileInView={{ scaleY: 1 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.5, ease: EASE, delay: Math.min(i * 0.08, 0.4) }}
+                        className={`absolute top-1 left-0 size-[11px] rounded-full ${ACTION_DOT[h.action] ?? "bg-muted-foreground"}`}
                       />
-                    )}
-                    <span
-                      aria-hidden
-                      className={`absolute top-1 left-0 size-[11px] rounded-full ${ACTION_DOT[h.action] ?? "bg-muted-foreground"}`}
-                    />
-                    <div className="text-muted-foreground">
-                      {dt(h.timestamp)} · <span className="text-foreground">{h.username}</span>
-                      <span className="ml-1.5 rounded-full bg-muted px-1.5 py-px text-xs uppercase tracking-wide">
-                        {ACTION_LABEL[h.action] ?? h.action}
-                      </span>
-                    </div>
-                    <div className="mt-0.5">{h.detail}</div>
-                  </li>
-                ))}
-              </ol>
-            )}
+                      <div className="text-muted-foreground">
+                        {dt(h.timestamp)} · <span className="text-foreground">{h.username}</span>
+                        <span className="ml-1.5 rounded-full bg-muted px-1.5 py-px text-xs uppercase tracking-wide">
+                          {ACTION_LABEL[h.action] ?? h.action}
+                        </span>
+                      </div>
+                      <div className="mt-0.5">{h.detail}</div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </SectionBoundary>
           </Card>
         </aside>
         </LayoutGroup>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Mapa del envío: la red y los departamentos se piden desde el navegador, así que su fallo no tumba la
+ * ficha. «Reintentar» vuelve a montar el cuerpo del mapa (y con él, la lectura), sin recargar la página.
+ */
+function RouteMap({ route }: { route: RouteResult | null }) {
+  const [attempt, setAttempt] = useState(0);
+  return (
+    <RouteMapBody
+      key={attempt}
+      route={route}
+      onRetry={() => {
+        // La red se guarda en un caché de módulo por visita: al reintentar, se descarta y se vuelve a pedir
+        invalidateMapData();
+        setAttempt((n) => n + 1);
+      }}
+    />
+  );
+}
+
+function RouteMapBody({ route, onRetry }: { route: RouteResult | null; onRetry: () => void }) {
+  const { network, departments, error } = useMapData({ fleet: false });
+  // El mapa 3D se monta después de que el detalle ya se pintó: así la página responde y la transición del guardado termina.
+  const [mapReady, setMapReady] = useState(false);
+  const [mapFull, setMapFull] = useState(false);
+  const exitMapFull = useCallback(() => setMapFull(false), []);
+  useEffect(() => {
+    const id = window.setTimeout(() => setMapReady(true), 300);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  if (error && !network) {
+    return (
+      <div className="relative h-[400px]" data-print="hide">
+        <div className="flex h-full items-center justify-center rounded-[28px] border border-border bg-fill px-6">
+          <SectionError
+            className="items-center text-center"
+            message="No pudimos cargar el mapa."
+            description="La ruta, los costos y la bitácora del envío siguen disponibles."
+            onRetry={onRetry}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-[400px]" data-print="hide">
+      <MapFrame full={mapFull} onExit={exitMapFull} radius={28} className="relative h-full border border-border">
+        {network && departments && mapReady ? (
+          <Map3DLazy network={network} departments={departments} route={route} showFleet={false} live={mapFull} />
+        ) : (
+          <MapLoading />
+        )}
+        {!mapFull && (
+          <Button
+            variant="secondary"
+            size="icon"
+            className="floating absolute top-3 right-3 z-10"
+            aria-label="Mapa a pantalla completa"
+            title="Pantalla completa"
+            onClick={() => setMapFull(true)}
+          >
+            <Maximize2 />
+          </Button>
+        )}
+      </MapFrame>
     </div>
   );
 }

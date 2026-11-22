@@ -36,16 +36,18 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
+import re
 import secrets
 import threading
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import FastAPI, HTTPException, Response, Request
+from fastapi import FastAPI, HTTPException, Query, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, Field
@@ -53,7 +55,7 @@ from pydantic import BaseModel, Field
 from app.api import format as F
 from app.api import guard
 from app.api import serializers as S
-from app.database.db import run_query, run_write
+from app.database.db import fetch_all, run_query, run_write
 from app.data.colombia_ciudades import category_of
 from app.engine import (auth_otp, client_notify, clients, delivery, demo, mail, notify, system_status, today, fleet, fx, geo, history, journal, legal, operations as ops, pdf, report,
                         shipments_io, sustainability as SU, tables_io, telemetry, tolls, tracking, trends, warehouses, xlsx)
@@ -162,6 +164,7 @@ def _purge_attachments_daily(now: datetime) -> None:
         journal.purge_expired(now)
         delivery.purge_expired(now, journal.retention_days())
         client_notify.purge_emails(now, journal.retention_days())
+        auth_otp.purge_expired_auth(now)
         purge_old_audit(now)
         fleet.enforce_documents(now)
         # Los avisos salen una vez al día aunque el servidor se reinicie (cada despliegue lo reinicia)
@@ -303,8 +306,11 @@ async def abuse_guard(request: Request, call_next):
         key = guard.client_key(request.headers.get("x-forwarded-for"), request.client.host if request.client else None)
         wait = guard.check_rate(key, request.url.path)
         if wait is not None:
-            return Response(json.dumps({"detail": "Demasiadas solicitudes seguidas; espera un momento y vuelve a intentar."}),
-                            status_code=429, media_type="application/json", headers={"Retry-After": str(int(wait))})
+            mensaje = ("Demasiados intentos de ingreso desde esta conexión. Espera un minuto y vuelve a intentar."
+                       if guard.is_auth_path(request.url.path)
+                       else "Demasiadas solicitudes seguidas; espera un momento y vuelve a intentar.")
+            return Response(json.dumps({"detail": mensaje}), status_code=429, media_type="application/json",
+                            headers={"Retry-After": str(int(wait))})
     return await call_next(request)
 
 
@@ -328,6 +334,68 @@ async def api_v1_alias(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-API-Version"] = "1"
     return response
+
+
+# ---------------------------------------------------------------------------
+# Peticiones lentas. Un WARNING por cada una deja rastro de lo que se atasca (la página tarda 1,2–1,7 s con 8 personas,
+# sección 53 de la bitácora). La ruta va SIN datos personales: sin query string y con lo que identifica a alguien
+# (códigos de envío, ids, correos, tokens, textos largos) cambiado por marcadores. Nunca se registran cabeceras, cuerpo
+# ni cookies. WESTVANE_SLOW_MS fija el umbral en milisegundos (por defecto 1000) y 0 lo apaga.
+_lento = logging.getLogger("westvane.lento")
+
+_UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+_CODIGO = re.compile(r"[A-Za-z]{1,6}[-_]?\d{2,}(?:[-_]\d+)*")   # LS-2611-0031, HK-4821, SKU-0097
+_TOKEN = re.compile(r"[A-Za-z0-9_-]+")                          # tokens de sesión, enlaces de exportación
+_FIJA = re.compile(r"[a-z0-9._~-]+")                            # segmentos fijos de la API: minúsculas, sin espacios
+SEGMENTO_LARGO = 24  # más largo que eso es un texto libre (nombre, dirección…), no una ruta
+
+
+def ruta_anonima(path: str) -> str:
+    """Ruta de una petición lista para el registro: sin query string (ni fragmento) y con los segmentos que identifican
+    a una persona o un recurso cambiados por marcadores (`/api/shipments/{id}`, `/api/admin/users/{correo}`…)."""
+    path = path.split("?", 1)[0].split("#", 1)[0]
+    return "/".join(_segmento_anonimo(seg) for seg in path.split("/"))
+
+
+def _segmento_anonimo(seg: str) -> str:
+    if not seg:
+        return seg
+    if "@" in seg:
+        return "{correo}"
+    if seg.isdigit() or _UUID.fullmatch(seg) or _CODIGO.fullmatch(seg):
+        return "{id}"
+    if len(seg) >= 20 and _TOKEN.fullmatch(seg):
+        return "{token}"
+    if len(seg) > SEGMENTO_LARGO or not _FIJA.fullmatch(seg):
+        return "{texto}"
+    return seg
+
+
+def umbral_lento_ms() -> int:
+    """Milisegundos a partir de los cuales se registra una petición; 0 lo apaga. Se lee en cada petición, así que se
+    puede cambiar sin reiniciar (las pruebas lo hacen)."""
+    try:
+        return max(0, int(os.environ.get("WESTVANE_SLOW_MS", "1000")))
+    except ValueError:
+        return 1000
+
+
+@app.middleware("http")
+async def slow_requests(request: Request, call_next):
+    """Registra (WARNING) las peticiones a /api/ que tardan más de la cuenta: método, ruta anónima y milisegundos.
+
+    Se declara al final, así que corre primero y mide la petición completa, sin cambiar el comportamiento de los demás
+    middlewares (429 y 413 siguen igual). Medir con perf_counter cuesta microsegundos."""
+    umbral = umbral_lento_ms()
+    if not umbral or not request.url.path.startswith("/api/"):
+        return await call_next(request)
+    start = time.perf_counter()
+    try:
+        return await call_next(request)
+    finally:
+        ms = (time.perf_counter() - start) * 1000
+        if ms > umbral:
+            _lento.warning("Petición lenta: %s %s en %d ms", request.method, ruta_anonima(request.url.path), round(ms))
 
 
 # Flota de vehículos y red de bodegas (endpoints en api/fleet_wh.py)
@@ -371,13 +439,27 @@ def multimodal_network() -> dict:
     return S.network_geojson(network())
 
 
+# ---------------------------------------------------------------------------
+# Topes de las entradas. El cuerpo de la petición ya tiene un límite global de 16 MB (api/guard.py), pero cada campo
+# necesita el suyo: sin tope, un texto de megabytes se guarda en la base y en el historial y luego se sirve a todos.
+# Los valores salen de lo que la interfaz deja escribir (120 caracteres en carga o cliente, códigos de 48 en la red) con
+# holgura, así que ninguna petición válida de hoy queda corta.
+Texto = Annotated[str, Field(max_length=200)]      # texto corto: ciudad, motivo, fuente, nombre declarado
+Nota = Annotated[str, Field(max_length=2000)]      # notas y descripciones
+Codigo = Annotated[str, Field(max_length=60)]      # códigos: envío, nodo, modo, token corto
+Correo = Annotated[str, Field(max_length=254)]     # máximo de una dirección de correo (RFC 5321)
+
+
 class SimulateRequest(BaseModel):
-    origen: str = Field(..., min_length=2, examples=["Leticia"])
-    destino: str = Field(..., min_length=2, examples=["Cartagena"])
+    # Nombres de ciudad de la red (el más largo tiene 22 letras); 200 deja holgura y corta un texto enorme antes de
+    # buscar la ruta
+    origen: str = Field(..., min_length=2, max_length=200, examples=["Leticia"])
+    destino: str = Field(..., min_length=2, max_length=200, examples=["Cartagena"])
     prioridad: Literal["tiempo", "costo", "balanceado"] = "balanceado"
     peso_t: float = Field(10.0, gt=0, le=20000)
-    modos: list[str] = Field(default_factory=list)
-    vias: list[str] = Field(default_factory=list)
+    # Hay cinco modos en la red y el motor fuerza como máximo tres vías: diez caben de sobra
+    modos: list[Codigo] = Field(default_factory=list, max_length=10)
+    vias: list[Texto] = Field(default_factory=list, max_length=10)
 
 
 def _footprint(legs: list, weight_t: float) -> dict:
@@ -452,20 +534,65 @@ def fleet_live() -> dict:
             "by_mode": by_mode, "assets": assets}
 
 
+# Orden de los estados en la lista (el operativo: primero lo que está en movimiento)
+_ORDEN_ESTADO = "CASE status WHEN 'En Ruta' THEN 0 WHEN 'Retrasado' THEN 1 WHEN 'Transferencia Modal' THEN 2 " \
+                "WHEN 'Programado' THEN 3 ELSE 4 END"
+
+
+def _filtros_envios(status: str | None, modes: str | None, q: str | None, firmar: bool = False) -> tuple[str, list]:
+    """Cláusula WHERE de la lista, compartida por el conteo, los recuentos por estado y la página."""
+    where, params = [], []
+    estados = [s.strip() for s in (status or "").split(",") if s.strip()]
+    if estados:
+        where.append(f"status IN ({','.join('?' * len(estados))})")
+        params.extend(estados)
+    modos = [m.strip() for m in (modes or "").split(",") if m.strip()]
+    for m in modos:
+        where.append("modes LIKE ?")
+        params.append(f"%{m}%")
+    if firmar:
+        # Entregados que aún no tienen prueba de entrega (el chip «Por firmar»)
+        where.append("status = 'Entregado' AND shipment_code NOT IN (SELECT shipment_code FROM mm_deliveries)")
+    texto = (q or "").strip()
+    if texto:
+        like = f"%{texto}%"
+        where.append("(shipment_code LIKE ? OR origin_city LIKE ? OR dest_city LIKE ? OR cargo LIKE ? OR client LIKE ?)")
+        params.extend([like] * 5)
+    return (" WHERE " + " AND ".join(where)) if where else "", params
+
+
 @app.get("/api/shipments")
-def shipments(status: str | None = None, limit: int = 300, offset: int = 0) -> dict:
-    """Lista de envíos, del más reciente al más antiguo. Devuelve `total` (cuántos hay con ese filtro) para que quien la
-    use sepa si está viendo todo o solo una parte: antes se cortaba en 300 sin decirlo."""
+def shipments(status: str | None = Query(None, max_length=200), modes: str | None = Query(None, max_length=200),
+              q: str | None = Query(None, max_length=200), firmar: bool = False,
+              limit: int = Query(300, ge=1, le=1000), offset: int = Query(0, ge=0, le=1_000_000_000),
+              sort: str = Query("estado", max_length=40)) -> dict:
+    """Página de la lista de envíos, filtrada y ordenada en el servidor.
+
+    `status` y `modes` aceptan varios separados por coma; `q` busca en código, ciudades, carga y cliente. Devuelve `total`
+    (cuántos hay con los filtros) y `counts` (recuentos por estado y por modo con esos filtros, para los chips). Así la
+    página puede pedir 50 y los filtros siguen funcionando sobre todos los envíos, no solo sobre lo cargado.
+
+    Los topes de `limit` y `offset` viven en `Query`: la página pide 25 y el calendario 1.000, y antes se recortaban en
+    silencio; ahora un valor absurdo responde 422 en vez de calcular una consulta enorme."""
     now = _sync()
-    where, params = "", []
-    if status:
-        where = " WHERE status = ?"
-        params.append(status)
+    where, params = _filtros_envios(status, modes, q, firmar)
     total = int(run_query(f"SELECT COUNT(*) AS n FROM mm_shipments{where}", tuple(params)).iloc[0]["n"])
-    limit = max(1, min(limit, 1000))
-    offset = max(0, offset)
-    rows = run_query(f"SELECT * FROM mm_shipments{where} ORDER BY departure_at DESC LIMIT ? OFFSET ?",
-                     tuple(params) + (limit, offset)).to_dict(orient="records")
+    # Recuentos de los chips: respetan la búsqueda y el modo, no el filtro de estado (si no, al elegir uno los demás irían a 0)
+    where_sin_estado, params_sin_estado = _filtros_envios(None, modes, q, firmar)
+    counts = {"status": {}, "modes": {}}
+    for fila in fetch_all(f"SELECT status, COUNT(*) AS n FROM mm_shipments{where_sin_estado} GROUP BY status",
+                          tuple(params_sin_estado)):
+        counts["status"][fila["status"]] = int(fila["n"])
+    for fila in fetch_all(f"SELECT modes, COUNT(*) AS n FROM mm_shipments{where}{(' AND' if where else ' WHERE')} modes != ''",
+                          tuple(params)):
+        # set(): un envío con dos tramos del mismo modo no debe contar dos veces
+        for m in set((fila["modes"] or "").split(",")):
+            if m:
+                counts["modes"][m] = counts["modes"].get(m, 0) + int(fila["n"])
+    orden = {"estado": f"{_ORDEN_ESTADO}, departure_at DESC", "salida": "departure_at DESC",
+             "codigo": "shipment_code", "costo": "total_cost DESC", "eta": "eta_at"}.get(sort, f"{_ORDEN_ESTADO}, departure_at DESC")
+    rows = fetch_all(f"SELECT * FROM mm_shipments{where} ORDER BY {orden} LIMIT ? OFFSET ?",
+                     tuple(params) + (limit, offset))
     signed = delivery.signed_codes()
     items = []
     for r in rows:
@@ -474,7 +601,7 @@ def shipments(status: str | None = None, limit: int = 300, offset: int = 0) -> d
         item["delivery_signed"] = (r["shipment_code"] in signed) if item["status"] == "Entregado" else None
         items.append(item)
     return {"count": len(items), "total": total, "limit": limit, "offset": offset,
-            "truncated": offset + len(items) < total, "items": items}
+            "truncated": offset + len(items) < total, "counts": counts, "items": items}
 
 
 def _detail(r: dict, now: datetime) -> dict:
@@ -487,10 +614,10 @@ def _detail(r: dict, now: datetime) -> dict:
 
 
 def _shipment_row(code: str) -> dict:
-    rows = run_query("SELECT * FROM mm_shipments WHERE shipment_code = ?", (code,))
-    if rows.empty:
+    rows = fetch_all("SELECT * FROM mm_shipments WHERE shipment_code = ?", (code,))
+    if not rows:
         raise HTTPException(status_code=404, detail=f"Envío {code} no encontrado")
-    return rows.to_dict(orient="records")[0]
+    return rows[0]
 
 
 @app.get("/api/shipments/{code}")
@@ -507,31 +634,32 @@ Mode = Literal["terrestre", "fluvial", "maritimo", "aereo", "ferreo"]
 
 
 class ShipmentIn(BaseModel):
-    origin: str
-    destination: str
-    cargo: str = ""
-    weight_t: float
+    # La interfaz corta origen, destino, carga y cliente a 120 caracteres y el motor también (operations._validate)
+    origin: str = Field(..., max_length=120)
+    destination: str = Field(..., max_length=120)
+    cargo: str = Field("", max_length=120)
+    weight_t: float = Field(..., gt=0, le=20000)          # el motor acepta hasta 20.000 t
     priority: Literal["tiempo", "costo", "balanceado"] = "balanceado"
-    client: str = ""
-    departure_at: str
-    delay_h: float = 0.0
-    forced_modes: list[Mode] = Field(default_factory=list)
-    forced_corridors: list[str] = Field(default_factory=list)
-    usuario: str | None = None
+    client: str = Field("", max_length=120)
+    departure_at: str = Field(..., max_length=40)         # ISO 8601: "AAAA-MM-DDTHH:MM" (16 caracteres)
+    delay_h: float = Field(0.0, ge=0)                     # el tope (2.000 h) lo valida el motor, con su mensaje en español
+    forced_modes: list[Mode] = Field(default_factory=list, max_length=10)
+    forced_corridors: list[Texto] = Field(default_factory=list, max_length=10)  # el motor fuerza como máximo 3
+    usuario: Texto | None = None
 
 
 class ShipmentPatch(BaseModel):
-    origin: str | None = None
-    destination: str | None = None
-    cargo: str | None = None
-    weight_t: float | None = None
+    origin: str | None = Field(None, max_length=120)
+    destination: str | None = Field(None, max_length=120)
+    cargo: str | None = Field(None, max_length=120)
+    weight_t: float | None = Field(None, gt=0, le=20000)
     priority: Literal["tiempo", "costo", "balanceado"] | None = None
-    client: str | None = None
-    departure_at: str | None = None
-    delay_h: float | None = None
-    forced_modes: list[Mode] | None = None
-    forced_corridors: list[str] | None = None
-    usuario: str | None = None
+    client: str | None = Field(None, max_length=120)
+    departure_at: str | None = Field(None, max_length=40)
+    delay_h: float | None = Field(None, ge=0)
+    forced_modes: list[Mode] | None = Field(None, max_length=10)
+    forced_corridors: list[Texto] | None = Field(None, max_length=10)
+    usuario: Texto | None = None
 
 
 def _op_error(exc: Exception):
@@ -573,7 +701,7 @@ def shipment_update(code: str, body: ShipmentPatch) -> dict:
 
 
 @app.delete("/api/shipments/{code}")
-def shipment_delete(code: str, usuario: str | None = None) -> dict:
+def shipment_delete(code: str, usuario: str | None = Query(None, max_length=200)) -> dict:
     try:
         ops.delete_shipment(code, usuario)
     except LookupError:
@@ -588,9 +716,11 @@ def shipment_delete(code: str, usuario: str | None = None) -> dict:
 # ---------------------------------------------------------------------------
 class ImportIn(BaseModel):
     filename: str = Field(..., min_length=1, max_length=200)
-    content_b64: str = Field(..., min_length=1)
+    # base64 de un archivo de hasta 10 MB (journal.MAX_BYTES): 14 millones de caracteres. El cuerpo completo ya tiene
+    # su tope de 16 MB en api/guard.py; este límite evita decodificar algo desproporcionado.
+    content_b64: str = Field(..., min_length=1, max_length=14_000_000)
     commit: bool = False
-    usuario: str | None = None
+    usuario: Texto | None = None
     # Al guardar: quien importa declara que tiene autorización para los datos personales del archivo
     autorizado: bool = False
 
@@ -658,7 +788,7 @@ class EventIn(BaseModel):
     kind: EventKind = "nota"
     body: str = Field(..., min_length=1, max_length=2000)
     delay_h: float = Field(0, ge=0, le=journal.MAX_DELAY_H)
-    usuario: str | None = None
+    usuario: Texto | None = None
 
 
 def _not_found(code: str):
@@ -689,7 +819,7 @@ def shipment_event_add(code: str, body: EventIn) -> dict:
 
 
 @app.post("/api/shipments/{code}/events/{event_id}/resolve")
-def shipment_event_resolve(code: str, event_id: int, usuario: str | None = None) -> dict:
+def shipment_event_resolve(code: str, event_id: int, usuario: str | None = Query(None, max_length=200)) -> dict:
     try:
         return journal.resolve_event(code, event_id, usuario)
     except LookupError:
@@ -699,7 +829,7 @@ def shipment_event_resolve(code: str, event_id: int, usuario: str | None = None)
 
 
 @app.delete("/api/shipments/{code}/events/{event_id}")
-def shipment_event_delete(code: str, event_id: int, usuario: str | None = None) -> dict:
+def shipment_event_delete(code: str, event_id: int, usuario: str | None = Query(None, max_length=200)) -> dict:
     try:
         journal.delete_event(code, event_id, usuario)
     except LookupError:
@@ -710,16 +840,17 @@ def shipment_event_delete(code: str, event_id: int, usuario: str | None = None) 
 
 
 @app.get("/api/incidents")
-def incidents(days: int = 7) -> dict:
+def incidents(days: int = Query(7, ge=1, le=365)) -> dict:
     """Incidencias de todos los envíos en los últimos `days` días (para el reporte y el resumen)."""
-    items = journal.recent_incidents(max(1, min(days, 365)))
+    items = journal.recent_incidents(days)
     return {"count": len(items), "open": sum(1 for e in items if not e["resolved_at"]), "items": items}
 
 
 class AttachmentIn(BaseModel):
     filename: str = Field(..., min_length=1, max_length=200)
-    content_b64: str = Field(..., min_length=1)
-    usuario: str | None = None
+    # Mismo tope que ImportIn: 10 MB decodificados (journal.MAX_BYTES)
+    content_b64: str = Field(..., min_length=1, max_length=14_000_000)
+    usuario: Texto | None = None
     # Quien sube el documento declara que tiene autorización para los datos personales que contenga
     autorizado: bool = False
 
@@ -761,7 +892,7 @@ def shipment_attachment_file(code: str, attachment_id: int, descargar: bool = Fa
 
 
 @app.delete("/api/shipments/{code}/attachments/{attachment_id}")
-def shipment_attachment_delete(code: str, attachment_id: int, usuario: str | None = None) -> dict:
+def shipment_attachment_delete(code: str, attachment_id: int, usuario: str | None = Query(None, max_length=200)) -> dict:
     try:
         journal.delete_attachment(code, attachment_id, usuario)
     except LookupError:
@@ -783,10 +914,12 @@ def corridors() -> dict:
 
 
 class CorridorStatusIn(BaseModel):
-    corridor: str
+    # Nombre de la vía tal como está en la red; el más largo ("Ruta aérea Villavicencio - San José del Guaviare")
+    # tiene 48 caracteres y 120 deja holgura
+    corridor: str = Field(..., max_length=120)
     active: bool
-    reason: str | None = None
-    usuario: str | None = None
+    reason: Nota | None = None
+    usuario: Texto | None = None
 
 
 @app.post("/api/corridors/status")
@@ -809,10 +942,10 @@ def nodes_status() -> dict:
 
 
 class NodeStatusIn(BaseModel):
-    code: str
+    code: Codigo                     # código del nodo en la red (BOG-AIR, PORT-CTG…)
     active: bool
-    reason: str | None = None
-    usuario: str | None = None
+    reason: Nota | None = None
+    usuario: Texto | None = None
 
 
 @app.post("/api/nodes/status")
@@ -836,10 +969,11 @@ def settings() -> dict:
 
 
 class FxIn(BaseModel):
-    rate: float = Field(..., gt=0)
-    date: str
-    source: str
-    usuario: str | None = None
+    # El motor exige 100–100.000 COP por dólar y responde con un mensaje claro; aquí solo se corta lo absurdo
+    rate: float = Field(..., gt=0, le=1_000_000)
+    date: str = Field(..., max_length=40)          # AAAA-MM-DD
+    source: Texto
+    usuario: Texto | None = None
 
 
 @app.put("/api/settings/fx")
@@ -851,7 +985,7 @@ def settings_fx(body: FxIn) -> dict:
 
 
 @app.post("/api/settings/fx/official")
-def settings_fx_official(usuario: str | None = None) -> dict:
+def settings_fx_official(usuario: str | None = Query(None, max_length=200)) -> dict:
     """Trae la TRM oficial del día (datos.gov.co). Si no hay conexión, responde 502 y no cambia nada."""
     try:
         return fx.update_from_official(usuario)
@@ -861,7 +995,7 @@ def settings_fx_official(usuario: str | None = None) -> dict:
 
 class ReplenishIn(BaseModel):
     enabled: bool
-    usuario: str | None = None
+    usuario: Texto | None = None
 
 
 @app.put("/api/settings/replenish")
@@ -877,7 +1011,7 @@ def system_status_endpoint(request: Request) -> dict:
 
 
 class MailAlertIn(BaseModel):
-    kind: str
+    kind: Codigo          # vencimientos, semanal, mensual, respaldo…
     enabled: bool
 
 
@@ -902,16 +1036,17 @@ def settings_mail_alerts_set(body: MailAlertIn, request: Request) -> dict:
 
 
 class TollIn(BaseModel):
-    tolls_cop: float = Field(..., ge=0)
-    note: str | None = None
-    source: str | None = None
-    usuario: str | None = None
+    # Peaje en pesos: el más caro del país no llega al millón; mil millones corta cualquier cifra absurda sin estorbar
+    tolls_cop: float = Field(..., ge=0, le=1_000_000_000)
+    note: Nota | None = None
+    source: Texto | None = None
+    usuario: Texto | None = None
 
 
 class TollImportIn(BaseModel):
-    filename: str
-    content_b64: str
-    usuario: str | None = None
+    filename: str = Field(..., max_length=200)
+    content_b64: str = Field(..., max_length=14_000_000)      # mismo tope que ImportIn
+    usuario: Texto | None = None
 
 
 @app.get("/api/tolls")
@@ -952,18 +1087,22 @@ def toll_import(body: TollImportIn) -> dict:
 
 
 @app.get("/api/audit")
-def audit_log(limit: int = 200, offset: int = 0, table: str | None = None, record: str | None = None,
-              usuario: str | None = None, accion: str | None = None, desde: str | None = None,
-              hasta: str | None = None, q: str | None = None) -> dict:
+def audit_log(limit: int = Query(200, ge=1, le=1000), offset: int = Query(0, ge=0, le=1_000_000_000),
+              table: str | None = Query(None, max_length=60), record: str | None = Query(None, max_length=60),
+              usuario: str | None = Query(None, max_length=200), accion: str | None = Query(None, max_length=60),
+              desde: str | None = Query(None, max_length=40), hasta: str | None = Query(None, max_length=40),
+              q: str | None = Query(None, max_length=200)) -> dict:
     """Historial de cambios. Con `record` es el de un envío (lo usa su ficha); con los demás filtros, la pantalla de auditoría."""
     data = ops.audit_search(limit, offset, table, record, usuario, accion, desde, hasta, q)
     return {"count": len(data["items"]), "total": data["total"], "items": data["items"]}
 
 
 @app.get("/api/audit/export.csv")
-def audit_export(request: Request, limit: int = 1000, offset: int = 0, table: str | None = None, record: str | None = None,
-                 usuario: str | None = None, accion: str | None = None, desde: str | None = None,
-                 hasta: str | None = None, q: str | None = None) -> Response:
+def audit_export(request: Request, limit: int = Query(1000, ge=1, le=1000), offset: int = Query(0, ge=0, le=1_000_000_000),
+                 table: str | None = Query(None, max_length=60), record: str | None = Query(None, max_length=60),
+                 usuario: str | None = Query(None, max_length=200), accion: str | None = Query(None, max_length=60),
+                 desde: str | None = Query(None, max_length=40), hasta: str | None = Query(None, max_length=40),
+                 q: str | None = Query(None, max_length=200)) -> Response:
     """El historial con los mismos filtros de la pantalla, en CSV (para abrirlo en Excel). Solo un administrador lo
     descarga: mil líneas con nombres y detalles de una vez no pueden quedar al alcance de cualquiera."""
     _require_admin(request, "descargar el historial")
@@ -993,9 +1132,9 @@ def _pdf_response(codes: list, currency: str, filename: str, download: bool) -> 
     now = _sync()
     rows = []
     for c in codes:
-        r = run_query("SELECT * FROM mm_shipments WHERE shipment_code = ?", (c,))
-        if not r.empty:
-            rows.append(r.to_dict(orient="records")[0])
+        found = fetch_all("SELECT * FROM mm_shipments WHERE shipment_code = ?", (c,))
+        if found:
+            rows.append(found[0])
     if not rows:
         raise HTTPException(status_code=404, detail="Ninguno de los envíos existe")
     try:
@@ -1017,11 +1156,12 @@ def shipment_pdf(code: str, moneda: Currency = "USD", descargar: bool = False) -
 
 
 class ActualCostIn(BaseModel):
-    # None borra el costo registrado
-    amount: float | None = Field(None, ge=0)
+    # None borra el costo registrado. En COP puede ser una factura de decenas de millones: cien mil millones deja aire
+    # y el motor vuelve a validar en USD (journal.MAX_COST_USD)
+    amount: float | None = Field(None, ge=0, le=100_000_000_000)
     moneda: Literal["USD", "COP"] = "USD"
     note: str | None = Field(None, max_length=300)
-    usuario: str | None = None
+    usuario: Texto | None = None
 
 
 @app.put("/api/shipments/{code}/actual-cost")
@@ -1045,9 +1185,9 @@ class DeliveryIn(BaseModel):
     received_by: str = Field(..., max_length=120)
     condition: Literal["conforme", "con_novedad"] = "conforme"
     notes: str | None = Field(None, max_length=500)
-    received_at: str | None = None
+    received_at: str | None = Field(None, max_length=40)     # ISO 8601; lo valida el motor con un mensaje claro
     signature: str = Field(..., max_length=400_000)  # data:image/png;base64,... (máx. 200 KB decodificado)
-    usuario: str | None = None
+    usuario: Texto | None = None
 
 
 @app.get("/api/shipments/{code}/delivery")
@@ -1070,7 +1210,7 @@ def shipment_delivery_record(code: str, body: DeliveryIn) -> dict:
 
 
 @app.delete("/api/shipments/{code}/delivery")
-def shipment_delivery_void(code: str, usuario: str | None = None) -> dict:
+def shipment_delivery_void(code: str, usuario: str | None = Query(None, max_length=200)) -> dict:
     try:
         return delivery.void(code, usuario, _sync())
     except LookupError:
@@ -1080,7 +1220,7 @@ def shipment_delivery_void(code: str, usuario: str | None = None) -> dict:
 
 
 @app.post("/api/shipments/{code}/tracking", status_code=201)
-def tracking_create(code: str, usuario: str | None = None) -> dict:
+def tracking_create(code: str, usuario: str | None = Query(None, max_length=200)) -> dict:
     """Crea un enlace público de seguimiento (solo lectura) para compartir con el cliente."""
     try:
         return tracking.create(code, usuario)
@@ -1098,7 +1238,7 @@ def tracking_list(code: str) -> dict:
 
 
 class ClientEmailIn(BaseModel):
-    email: str | None = Field(None, max_length=160)
+    email: Correo | None = None      # con None se borra el correo del cliente
 
 
 @app.put("/api/shipments/{code}/client-email")
@@ -1114,7 +1254,7 @@ def shipment_client_email(code: str, body: ClientEmailIn, request: Request) -> d
 
 
 class TrackingEmailIn(BaseModel):
-    email: str = Field(..., max_length=160)
+    email: Correo
 
 
 def _require_operator(request: Request) -> dict:
@@ -1141,7 +1281,7 @@ def tracking_email(code: str, token: str, body: TrackingEmailIn, request: Reques
 
 
 @app.delete("/api/shipments/{code}/tracking/{token}")
-def tracking_revoke(code: str, token: str, usuario: str | None = None) -> dict:
+def tracking_revoke(code: str, token: str, usuario: str | None = Query(None, max_length=200)) -> dict:
     try:
         tracking.revoke(code, token, usuario)
     except LookupError:
@@ -1170,9 +1310,9 @@ def shipment_remesa(code: str, descargar: bool = False) -> Response:
 
 
 class ExportIn(BaseModel):
-    codes: list[str] = Field(..., min_length=1, max_length=300)
+    codes: list[Codigo] = Field(..., min_length=1, max_length=1000)   # lo que devuelve la lista (1000 como máximo)
     moneda: Currency = "USD"
-    usuario: str | None = None
+    usuario: Texto | None = None
 
 
 @app.post("/api/exports/xlsx")
@@ -1180,11 +1320,11 @@ def export_xlsx(body: ExportIn) -> Response:
     """Envíos elegidos (por ejemplo, la tabla filtrada) en Excel, con montos en la moneda pedida."""
     now = _sync()
     placeholders = ",".join("?" for _ in body.codes)
-    rows = run_query(f"SELECT * FROM mm_shipments WHERE shipment_code IN ({placeholders})", tuple(body.codes))
-    if rows.empty:
+    rows = fetch_all(f"SELECT * FROM mm_shipments WHERE shipment_code IN ({placeholders})", tuple(body.codes))
+    if not rows:
         raise HTTPException(status_code=404, detail="Ninguno de los envíos existe")
     order = {c: i for i, c in enumerate(body.codes)}
-    records = sorted(rows.to_dict(orient="records"), key=lambda r: order.get(r["shipment_code"], 0))
+    records = sorted(rows, key=lambda r: order.get(r["shipment_code"], 0))
     try:
         data = xlsx.render(records, body.moneda, ops.get_fx(), now)
     except ValueError as exc:
@@ -1195,18 +1335,14 @@ def export_xlsx(body: ExportIn) -> Response:
 
 
 @app.get("/api/history")
-def history_view(days: int = 30) -> dict:
+def history_view(days: int = Query(30, ge=1, le=365)) -> dict:
     """Historial de trayectos por ciudad, departamento y corredor en los últimos `days` días."""
-    if not 1 <= days <= 365:
-        raise HTTPException(status_code=422, detail="La ventana debe estar entre 1 y 365 días.")
     return history.history(_sync(), days)
 
 
 @app.get("/api/reports/operations")
-def report_operations(days: int = 7, moneda: Currency = "USD", descargar: bool = False) -> Response:
+def report_operations(days: int = Query(7, ge=1, le=90), moneda: Currency = "USD", descargar: bool = False) -> Response:
     """Reporte operativo del período en PDF (por defecto, la última semana)."""
-    if not 1 <= days <= 90:
-        raise HTTPException(status_code=422, detail="El período debe estar entre 1 y 90 días.")
     now = _sync()
     try:
         data = report.render(network(), days, moneda, ops.get_fx(), now)
@@ -1220,8 +1356,8 @@ def report_operations(days: int = 7, moneda: Currency = "USD", descargar: bool =
 @app.get("/api/clients")
 def clients_summary() -> dict:
     now = _sync()
-    rows = run_query("SELECT shipment_code, client, origin_city, dest_city, weight_t, total_cost, modes, status, "
-                     "departure_at, total_time_h, delay_h, route_json, actual_cost FROM mm_shipments").to_dict(orient="records")
+    rows = fetch_all("SELECT shipment_code, client, origin_city, dest_city, weight_t, total_cost, modes, status, "
+                     "departure_at, total_time_h, delay_h, route_json, actual_cost FROM mm_shipments")
     items = clients.summary(rows, now)
     return {"count": len(items), "items": items}
 
@@ -1253,7 +1389,7 @@ def export_create(body: ExportIn) -> dict:
 
 @app.get("/api/exports")
 def export_list() -> dict:
-    items = run_query("SELECT * FROM mm_share_links ORDER BY created_at DESC").to_dict(orient="records")
+    items = fetch_all("SELECT * FROM mm_share_links ORDER BY created_at DESC")
     for i in items:
         i["codes"] = i["codes"].split(",")
         i["path"] = f"/api/exports/{i['token']}"
@@ -1261,10 +1397,10 @@ def export_list() -> dict:
 
 
 def _share(token: str) -> dict:
-    rows = run_query("SELECT * FROM mm_share_links WHERE token = ?", (token,))
-    if rows.empty or rows.iloc[0]["revoked_at"]:
+    rows = fetch_all("SELECT * FROM mm_share_links WHERE token = ?", (token,))
+    if not rows or rows[0]["revoked_at"]:
         raise HTTPException(status_code=404, detail="Enlace inexistente o revocado")
-    return rows.to_dict(orient="records")[0]
+    return rows[0]
 
 
 @app.get("/api/exports/{token}")
@@ -1276,7 +1412,7 @@ def export_open(token: str, descargar: bool = False) -> Response:
 
 
 @app.delete("/api/exports/{token}")
-def export_revoke(token: str, usuario: str | None = None) -> dict:
+def export_revoke(token: str, usuario: str | None = Query(None, max_length=200)) -> dict:
     _share(token)
     run_write("UPDATE mm_share_links SET revoked_at = ? WHERE token = ?",
               (datetime.now().isoformat(timespec="seconds"), token))
@@ -1286,8 +1422,7 @@ def export_revoke(token: str, usuario: str | None = None) -> dict:
 
 def _recent_shipments(now: datetime, days: int = 30) -> list:
     since = (now - timedelta(days=days)).isoformat(timespec="minutes")
-    return run_query("SELECT * FROM mm_shipments WHERE departure_at >= ? AND status != 'Programado'",
-                     (since,)).to_dict(orient="records")
+    return fetch_all("SELECT * FROM mm_shipments WHERE departure_at >= ? AND status != 'Programado'", (since,))
 
 
 @app.get("/api/geo/departments")
@@ -1356,9 +1491,9 @@ def _alerts(rows: list, fs: dict, ws: dict, now: datetime | None = None) -> dict
 def alerts() -> dict:
     """Solo las alertas (para el aviso global del dock): más liviano que el resumen completo."""
     now = _sync()
-    rows = run_query(
+    rows = fetch_all(
         "SELECT shipment_code, status, route_status, route_note, origin_city, dest_city, delay_h FROM mm_shipments"
-    ).to_dict(orient="records")
+    )
     data = _alerts(rows, fleet.summary(now), warehouses.summary(), now)
     fl, wh, dc = data["fleet"], data["warehouses"], data["documents"]
     urgent = ((fl["disabled"] + fl["in_shop"] > 0) + bool(data["no_route"]) + bool(data["closed_corridors"])
@@ -1377,20 +1512,28 @@ def today_board() -> dict:
 @app.get("/api/dashboard/summary")
 def dashboard_summary() -> dict:
     now = _sync()
-    rows = run_query("SELECT * FROM mm_shipments").to_dict(orient="records")
+    # Conteos y totales en una sola pasada de SQL (antes se leía la tabla entera para contarla en Python).
     counts = {k: 0 for k in ("Programado", "En Ruta", "Transferencia Modal", "Retrasado", "Entregado")}
-    in_transit_t, in_transit_cost = 0.0, 0.0
+    in_transit_t, in_transit_cost, delivered, on_time = 0.0, 0.0, 0, 0
+    for fila in fetch_all("SELECT status, COUNT(*) AS n, COALESCE(SUM(weight_t), 0) AS t, "
+                          "COALESCE(SUM(total_cost), 0) AS c, "
+                          "COALESCE(SUM(CASE WHEN delay_h = 0 THEN 1 ELSE 0 END), 0) AS a_tiempo "
+                          "FROM mm_shipments GROUP BY status"):
+        estado, n = fila["status"], int(fila["n"])
+        counts[estado] = counts.get(estado, 0) + n
+        if estado in telemetry.ACTIVE_STATUSES:
+            in_transit_t += float(fila["t"])
+            in_transit_cost += float(fila["c"])
+        if estado == "Entregado":
+            delivered, on_time = n, int(fila["a_tiempo"])
+
+    # Para lo que sí necesita el recorrido (t-km, corredores, tendencias y alertas): solo las columnas que se usan,
+    # no `SELECT *` (36 columnas, de las que se leen 12).
+    rows = fetch_all("SELECT shipment_code, status, weight_t, total_cost, delay_h, total_time_h, departure_at, "
+                     "route_json, route_status, route_note, origin_city, dest_city FROM mm_shipments")
     tkm_by_mode: dict = {}
     corridor_t: dict = {}
-    delivered, on_time = 0, 0
     for r in rows:
-        counts[r["status"]] = counts.get(r["status"], 0) + 1
-        if r["status"] in telemetry.ACTIVE_STATUSES:
-            in_transit_t += r["weight_t"]
-            in_transit_cost += r["total_cost"]
-        if r["status"] == "Entregado":
-            delivered += 1
-            on_time += 1 if not r["delay_h"] else 0
         if r["status"] == "Programado":
             continue
         route = json.loads(r["route_json"])
@@ -1449,10 +1592,9 @@ def dashboard_summary() -> dict:
 # Logística verde: combustible y huella de carbono (estimación por factores de modo)
 # ---------------------------------------------------------------------------
 @app.get("/api/sustainability/summary")
-def sustainability_summary(days: int = 30) -> dict:
+def sustainability_summary(days: int = Query(30, ge=1, le=365)) -> dict:
     """CO2e y combustible de los últimos `days` días, por modo, envío y día."""
     now = _sync()
-    days = max(1, min(days, 365))
     rows = _recent_shipments(now, days)
     by_mode = {m: {"tkm": 0.0, "co2e_kg": 0.0, "fuel_l": 0.0} for m in SU.MODE_ORDER}
     per_day = {(now - timedelta(days=d)).date(): 0.0 for d in range(13, -1, -1)}
@@ -1570,7 +1712,7 @@ def legal_info() -> dict:
 
 
 @app.get("/api/consents")
-def consents_status(browser_id: str) -> dict:
+def consents_status(browser_id: str = Query(..., max_length=64)) -> dict:
     try:
         return legal.status(browser_id)
     except ops.OperationError as exc:
@@ -1617,12 +1759,11 @@ def client_error(body: ClientErrorIn, request: Request) -> Response:
 
 
 @app.get("/api/client-errors")
-def client_errors(request: Request, limit: int = 50) -> dict:
+def client_errors(request: Request, limit: int = Query(50, ge=1, le=200)) -> dict:
     """Errores que reportaron los navegadores (con la página y el navegador): solo un administrador los ve."""
     _require_admin(request, "ver los errores del navegador")
-    rows = run_query("SELECT error_id, created_at, path, message, stack, user_agent, release FROM mm_client_errors "
-                     "ORDER BY error_id DESC LIMIT ?", (max(1, min(limit, 200)),))
-    items = rows.astype(object).where(rows.notna(), None).to_dict(orient="records")
+    items = fetch_all("SELECT error_id, created_at, path, message, stack, user_agent, release FROM mm_client_errors "
+                      "ORDER BY error_id DESC LIMIT ?", (limit,))
     return {"count": len(items), "items": items}
 
 
@@ -1631,16 +1772,17 @@ def client_errors(request: Request, limit: int = 50) -> dict:
 # ---------------------------------------------------------------------------
 
 class OtpRequestIn(BaseModel):
-    email: str = Field(..., max_length=200)
+    email: Correo
 
 
 class OtpVerifyIn(BaseModel):
-    email: str = Field(..., max_length=200)
+    email: Correo
     code: str = Field(..., min_length=6, max_length=6)
 
 
 class PasswordLoginIn(BaseModel):
-    identifier: str = Field(..., max_length=200)
+    # Puede ser el correo o el usuario de la consola: el tope es el de una dirección de correo
+    identifier: str = Field(..., max_length=254)
     password: str = Field(..., max_length=200)
 
 
@@ -1650,10 +1792,10 @@ class CompanyIn(BaseModel):
 
 
 class UserCreateIn(BaseModel):
-    email: str = Field(..., max_length=200)
+    email: Correo
     full_name: str = Field(..., min_length=1, max_length=200)
     role: Literal["admin", "operador", "lector"] = "operador"
-    company_id: int | None = None
+    company_id: int | None = Field(None, ge=1)
 
 
 class UserRoleUpdateIn(BaseModel):
@@ -1689,10 +1831,32 @@ def auth_password(body: PasswordLoginIn) -> dict:
         _op_error(exc)
 
 
+class PasswordChangeIn(BaseModel):
+    current: str = Field(..., max_length=200)
+    new: str = Field(..., max_length=200)
+
+
+@app.post("/api/auth/password/change")
+def auth_password_change(body: PasswordChangeIn, request: Request) -> dict:
+    """Cambia la contraseña de la cuenta con sesión iniciada: exige la actual y cierra las demás sesiones."""
+    header = request.headers.get("Authorization", "")
+    token = header[7:].strip() if header.startswith("Bearer ") else None
+    # La cookie también sirve: el navegador no manda la cabecera en una petición normal
+    token = token or request.cookies.get("westvane_session")
+    if not token:
+        raise HTTPException(status_code=401, detail="Inicia sesión para cambiar tu contraseña.")
+    try:
+        return auth_otp.change_password(token, body.current, body.new)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
 @app.get("/api/auth/me")
 def auth_me(request: Request) -> dict:
+    """Quién es la sesión: por cabecera (Bearer) o por la cookie `westvane_session` que escribe el navegador."""
     auth_header = request.headers.get("Authorization", "")
     token = auth_header[7:].strip() if auth_header.startswith("Bearer ") else None
+    token = token or request.cookies.get("westvane_session")
     user = auth_otp.get_user_by_session(token)
     if not user:
         raise HTTPException(status_code=401, detail="Sesión no válida o expirada.")

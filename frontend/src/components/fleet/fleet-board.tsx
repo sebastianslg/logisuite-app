@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronRight, Search, TriangleAlert, UserRound, Warehouse as WarehouseIcon } from "lucide-react";
 
 import { ModeIcon } from "@/components/status-badge";
@@ -11,20 +12,81 @@ import { MODE_ORDER, MODES, tint } from "@/lib/modes";
 import type { FleetSummary, Mode, Vehicle, VehicleStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+import { FLEET_ORDERS, fleetHref, fleetKey, isFleetOrder, type FleetFilters, type FleetOrder } from "./filters";
 import { km, ServiceMeter, STATUS_ORDER, VEHICLE_STATUS, VehicleStatusBadge } from "./status";
 
-/** Lista de vehículos: indicadores que filtran, búsqueda, filtros por modo y estado, y una fila por vehículo. */
-export function FleetBoard({ vehicles, summary }: { vehicles: Vehicle[]; summary: FleetSummary }) {
-  const [query, setQuery] = useState("");
-  const [modes, setModes] = useState<Mode[]>([]);
-  const [statuses, setStatuses] = useState<VehicleStatus[]>([]);
-  const [onlyAlerts, setOnlyAlerts] = useState(false);
+/**
+ * Orden por placa con comparación simple de códigos: da lo mismo en el servidor y en el navegador (sin depender del
+ * idioma del entorno) y las placas solo tienen letras, números y guion.
+ */
+const porPlaca = (a: Vehicle, b: Vehicle) => (a.code < b.code ? -1 : a.code > b.code ? 1 : 0);
+
+/**
+ * Lista de vehículos: indicadores que filtran, búsqueda, filtros por modo y estado, orden y una fila por vehículo.
+ * Los filtros y el orden viven en la URL (`initial` llega del servidor); cada cambio navega a esa URL, así que el
+ * enlace compartible —y una recarga— devuelven la misma vista.
+ */
+export function FleetBoard({ vehicles, summary, initial }: { vehicles: Vehicle[]; summary: FleetSummary; initial: FleetFilters }) {
+  const router = useRouter();
+  const [query, setQuery] = useState(initial.q);
+  const [modes, setModes] = useState<Mode[]>(initial.modes);
+  const [statuses, setStatuses] = useState<VehicleStatus[]>(initial.statuses);
+  const [onlyAlerts, setOnlyAlerts] = useState(initial.alerts);
+  const [order, setOrder] = useState<FleetOrder>(initial.order);
 
   const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
+  // Firma de los filtros que la URL ya tiene (los que llegaron del servidor o los últimos que escribió esta pantalla)
+  const inicialKey = fleetKey(initial);
+  const confirmada = useRef(inicialKey);
+  const primeraVez = useRef(true);
+
+  /** Navega con los filtros nuevos; los que no cambian se conservan. Igual que `irA` en la lista de envíos. */
+  function irA(cambios: Partial<FleetFilters>, modo: "push" | "replace" = "push") {
+    const next: FleetFilters = { q: query, modes, statuses, alerts: onlyAlerts, order, ...cambios };
+    // Lo que esta pantalla escribe queda confirmado: al volver del servidor no se pisa lo que se está escribiendo
+    confirmada.current = fleetKey(next);
+    const href = fleetHref(next);
+    if (modo === "replace") router.replace(href, { scroll: false });
+    else router.push(href, { scroll: false });
+  }
+
+  function quitarFiltros() {
+    setQuery("");
+    setModes([]);
+    setStatuses([]);
+    setOnlyAlerts(false);
+    irA({ q: "", modes: [], statuses: [], alerts: false });
+  }
+
+  // Un cambio de URL que no nació aquí (atrás/adelante, un enlace o la pestaña): manda la URL
+  useEffect(() => {
+    if (inicialKey === confirmada.current) return;
+    confirmada.current = inicialKey;
+    setQuery(initial.q);
+    setModes(initial.modes);
+    setStatuses(initial.statuses);
+    setOnlyAlerts(initial.alerts);
+    setOrder(initial.order);
+  }, [inicialKey, initial]);
+
+  // La búsqueda se escribe al instante en la lista y, tras una pausa, también en la URL (sin una entrada por tecla)
+  useEffect(() => {
+    if (primeraVez.current) {
+      primeraVez.current = false;
+      return;
+    }
+    const t = setTimeout(() => {
+      if (query.trim() !== initial.q.trim()) irA({ q: query }, "replace");
+    }, 400);
+    return () => clearTimeout(t);
+    // También al cambiar otro filtro: el temporizador pendiente no debe escribir una URL con el estado viejo
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, modes, statuses, onlyAlerts, order]);
+
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return vehicles.filter(
+    const filtered = vehicles.filter(
       (v) =>
         (!q ||
           [v.code, v.vehicle_type, v.make, v.model, v.home_name, v.home_city, v.driver?.name]
@@ -36,12 +98,23 @@ export function FleetBoard({ vehicles, summary }: { vehicles: Vehicle[]; summary
         (statuses.length === 0 || statuses.includes(v.status)) &&
         (!onlyAlerts || v.blockers.length > 0 || v.warnings.length > 0),
     );
-  }, [vehicles, query, modes, statuses, onlyAlerts]);
+    if (order === "defecto") return filtered;
+    return filtered.sort((a, b) => {
+      if (order === "placa") return porPlaca(a, b);
+      if (order === "estado") return STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || porPlaca(a, b);
+      // Próximo mantenimiento: primero lo más consumido (lo que vence antes)
+      return b.service.pct_used - a.service.pct_used || porPlaca(a, b);
+    });
+  }, [vehicles, query, modes, statuses, onlyAlerts, order]);
 
   const bs = summary.by_status;
   const blocked = bs["Inhabilitado"] + bs["Mantenimiento vencido"];
   const only = (s: VehicleStatus[]) => (statuses.length === s.length && s.every((x) => statuses.includes(x)));
-  const set = (s: VehicleStatus[]) => setStatuses(only(s) ? [] : s);
+  const set = (s: VehicleStatus[]) => {
+    const next = only(s) ? [] : s;
+    setStatuses(next);
+    irA({ statuses: next });
+  };
   const hasFilters = query || modes.length || statuses.length || onlyAlerts;
 
   return (
@@ -84,7 +157,7 @@ export function FleetBoard({ vehicles, summary }: { vehicles: Vehicle[]; summary
             const on = modes.includes(m);
             const { icon: Icon, color, label } = MODES[m];
             return (
-              <button key={m} type="button" onClick={() => setModes(toggle(modes, m))} aria-pressed={on} title={label}
+              <button key={m} type="button" onClick={() => { const next = toggle(modes, m); setModes(next); irA({ modes: next }); }} aria-pressed={on} title={label}
                 className={cn("press flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors", on ? "text-foreground" : "border-border text-muted-foreground")}
                 style={on ? { borderColor: tint(color, 45), backgroundColor: tint(color, 12) } : undefined}>
                 <Icon className="size-3.5" style={{ color }} aria-hidden />
@@ -98,7 +171,7 @@ export function FleetBoard({ vehicles, summary }: { vehicles: Vehicle[]; summary
             const on = statuses.includes(s);
             const { icon: Icon } = VEHICLE_STATUS[s];
             return (
-              <button key={s} type="button" onClick={() => setStatuses(toggle(statuses, s))} aria-pressed={on}
+              <button key={s} type="button" onClick={() => { const next = toggle(statuses, s); setStatuses(next); irA({ statuses: next }); }} aria-pressed={on}
                 className={cn("press flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-xs transition-colors",
                   on ? "border-primary/40 bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}>
                 <Icon className="size-3.5" aria-hidden />
@@ -106,7 +179,7 @@ export function FleetBoard({ vehicles, summary }: { vehicles: Vehicle[]; summary
               </button>
             );
           })}
-          <button type="button" onClick={() => setOnlyAlerts(!onlyAlerts)} aria-pressed={onlyAlerts}
+          <button type="button" onClick={() => { setOnlyAlerts(!onlyAlerts); irA({ alerts: !onlyAlerts }); }} aria-pressed={onlyAlerts}
             className={cn("press flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-xs transition-colors",
               onlyAlerts ? "border-warning/50 bg-warning/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}>
             <TriangleAlert className="size-3.5" aria-hidden />
@@ -114,11 +187,26 @@ export function FleetBoard({ vehicles, summary }: { vehicles: Vehicle[]; summary
           </button>
         </div>
         {hasFilters ? (
-          <button type="button" className="press text-xs text-primary hover:underline"
-            onClick={() => { setQuery(""); setModes([]); setStatuses([]); setOnlyAlerts(false); }}>
+          <button type="button" className="press text-xs text-primary hover:underline" onClick={quitarFiltros}>
             Quitar filtros
           </button>
         ) : null}
+        <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+          Ordenar por
+          <select
+            value={order}
+            onChange={(e) => {
+              const next = isFleetOrder(e.target.value) ? e.target.value : "defecto";
+              setOrder(next);
+              irA({ order: next });
+            }}
+            className="field h-10 px-3 text-sm text-foreground outline-none"
+          >
+            {FLEET_ORDERS.map((o) => (
+              <option key={o.key} value={o.key}>{o.label}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <p className="tabular text-xs text-muted-foreground" aria-live="polite">
@@ -131,7 +219,7 @@ export function FleetBoard({ vehicles, summary }: { vehicles: Vehicle[]; summary
             <EmptyState
               title="Ningún vehículo coincide"
               description="Prueba con otra placa, otro modo o quita los filtros."
-              action={hasFilters ? { label: "Quitar filtros", onClick: () => { setQuery(""); setModes([]); setStatuses([]); setOnlyAlerts(false); } } : undefined}
+              action={hasFilters ? { label: "Quitar filtros", onClick: quitarFiltros } : undefined}
             />
           </li>
         )}

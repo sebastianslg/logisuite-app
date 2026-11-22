@@ -8,7 +8,12 @@
   viene del navegador). Sin el encabezado, la IP de la conexión.
 - Cuerpo de más de 16 MB: 413 (un adjunto de 10 MB en base64 ocupa unos 13,4 MB).
 
+- **Ingreso con contraseña o código:** además del bloqueo por cuenta (5 fallos, 15 min en `auth_otp`), un límite por IP
+  más bajo (`AUTH_LIMIT` por minuto, se puede cambiar con `WESTVANE_AUTH_RATE_LIMIT`). Frena a quien prueba muchas cuentas
+  desde el mismo sitio sin castigar a un usuario que se equivoca dos veces. Responde 429 con el mismo mensaje y `Retry-After`.
+
 `WESTVANE_RATE_LIMIT=0` lo desactiva (pruebas); `WESTVANE_RATE_LIMIT=<n>` cambia el límite general.
+`WESTVANE_AUTH_RATE_LIMIT` cambia el del ingreso.
 """
 from __future__ import annotations
 
@@ -20,7 +25,10 @@ from collections import defaultdict, deque
 WINDOW_S = 60.0
 HEAVY_LIMIT = 20
 MAX_BODY_BYTES = 16 * 1024 * 1024
+AUTH_LIMIT = 10            # intentos de ingreso por minuto y por IP
 _HEAVY = ("/attachments", "/import")
+# Rutas de ingreso: contraseña y códigos por correo
+_AUTH = ("/api/auth/password", "/api/auth/otp/")
 
 _hits: dict[str, deque[float]] = defaultdict(deque)
 _lock = threading.Lock()
@@ -32,6 +40,18 @@ def general_limit() -> int:
         return max(0, int(os.environ.get("WESTVANE_RATE_LIMIT", "120")))
     except ValueError:
         return 120
+
+
+def auth_limit() -> int:
+    """Intentos de ingreso por minuto y cliente; si no está definido, AUTH_LIMIT. 0 desactiva el límite."""
+    try:
+        return max(0, int(os.environ.get("WESTVANE_AUTH_RATE_LIMIT", str(AUTH_LIMIT))))
+    except ValueError:
+        return AUTH_LIMIT
+
+
+def is_auth_path(path: str) -> bool:
+    return any(path.startswith(p) for p in _AUTH)
 
 
 def client_key(forwarded_for: str | None, peer: str | None) -> str:
@@ -47,9 +67,14 @@ def check_rate(key: str, path: str, now: float | None = None) -> float | None:
     limit = general_limit()
     if limit == 0:
         return None
-    heavy = any(h in path for h in _HEAVY)
-    bucket_key = f"{key}|{'pesada' if heavy else 'general'}"
-    cap = min(HEAVY_LIMIT, limit) if heavy else limit
+    if is_auth_path(path):
+        cap, bucket_key = auth_limit(), f"{key}|ingreso"
+        if cap == 0:
+            return None
+    else:
+        heavy = any(h in path for h in _HEAVY)
+        bucket_key = f"{key}|{'pesada' if heavy else 'general'}"
+        cap = min(HEAVY_LIMIT, limit) if heavy else limit
     now = time.monotonic() if now is None else now
     with _lock:
         q = _hits[bucket_key]

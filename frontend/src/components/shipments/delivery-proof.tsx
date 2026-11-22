@@ -44,7 +44,7 @@ export function DeliveryProof({ code, initial }: { code: string; initial: Delive
   const [error, setError] = useState<string | null>(null);
   const url = `/api/shipments/${encodeURIComponent(code)}/delivery`;
 
-  if (!info) return <p className="text-sm text-muted-foreground">No se pudo cargar la entrega.</p>;
+  if (!info) return <p className="text-sm text-muted-foreground">Sin datos de entrega para este envío.</p>;
 
   async function subirFoto(file: File) {
     if (!photoOk) {

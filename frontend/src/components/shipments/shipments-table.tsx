@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -291,9 +291,25 @@ export interface ShipmentFilters {
   q?: string;
   /** Solo entregados sin prueba de entrega (?firmar=1). */
   unsigned?: boolean;
+  /** Página pedida a la API (?pagina=N), en modo servidor. */
+  page?: number;
 }
 
-export function ShipmentsTable({ data, total, initial }: { data: Shipment[]; total?: number; initial?: ShipmentFilters }) {
+/** Página servida por la API: los filtros y la paginación viven en la URL, así valen para todos los envíos. */
+export interface ServerPage {
+  total: number;
+  page: number;
+  pageSize: number;
+  /** Recuentos de los chips con los filtros actuales (los calcula la API). */
+  counts: { status: Record<string, number>; modes: Record<string, number> };
+}
+
+export function ShipmentsTable({ data, total, initial, servidor }: {
+  data: Shipment[];
+  total?: number;
+  initial?: ShipmentFilters;
+  servidor?: ServerPage;
+}) {
   // «Por firmar»: entregados sin prueba de entrega. Filtra antes de la tabla; las cifras de los chips usan todo
   const [unsigned, setUnsigned] = useState(!!initial?.unsigned);
   const unsignedCount = useMemo(() => data.filter((s) => s.delivery_signed === false).length, [data]);
@@ -311,39 +327,80 @@ export function ShipmentsTable({ data, total, initial }: { data: Shipment[]; tot
     columns,
     data: rows,
     globalFilterFn: "includesString",
-    // En tránsito primero (orden operativo de STATUS_ORDER)
-    initialState: {
-      pagination: { pageIndex: 0, pageSize: 10 },
-      sorting: [{ id: "status", desc: false }],
-      columnFilters: [
-        ...(initial?.status?.length ? [{ id: "status", value: initial.status }] : []),
-        ...(initial?.modes?.length ? [{ id: "modes", value: initial.modes }] : []),
-      ],
-      globalFilter: initial?.q ?? "",
-    },
+    // En tránsito primero (orden operativo de STATUS_ORDER). En modo servidor la API ya filtró y ordenó: la tabla solo pinta
+    initialState: servidor
+      ? { pagination: { pageIndex: 0, pageSize: 1000 } }
+      : {
+          pagination: { pageIndex: 0, pageSize: 10 },
+          sorting: [{ id: "status", desc: false }],
+          columnFilters: [
+            ...(initial?.status?.length ? [{ id: "status", value: initial.status }] : []),
+            ...(initial?.modes?.length ? [{ id: "modes", value: initial.modes }] : []),
+          ],
+          globalFilter: initial?.q ?? "",
+        },
   });
 
-  const statusFilter = (table.getColumn("status")?.getFilterValue() as ShipmentStatus[]) ?? [];
-  const modeFilter = (table.getColumn("modes")?.getFilterValue() as Mode[]) ?? [];
-  const globalFilter = (table.state.globalFilter as string) ?? "";
+  const statusFilter = servidor ? initial?.status ?? [] : (table.getColumn("status")?.getFilterValue() as ShipmentStatus[]) ?? [];
+  const modeFilter = servidor ? initial?.modes ?? [] : (table.getColumn("modes")?.getFilterValue() as Mode[]) ?? [];
+  const globalFilter = servidor ? initial?.q ?? "" : (table.state.globalFilter as string) ?? "";
 
   const statusCounts = useMemo(() => {
     const c = new Map<ShipmentStatus, number>();
+    if (servidor) {
+      for (const [k, v] of Object.entries(servidor.counts.status)) c.set(k as ShipmentStatus, v);
+      return c;
+    }
     data.forEach((r) => c.set(r.status, (c.get(r.status) ?? 0) + 1));
     return c;
-  }, [data]);
+  }, [data, servidor]);
   const modeCounts = useMemo(() => {
     const c = new Map<Mode, number>();
+    if (servidor) {
+      for (const [k, v] of Object.entries(servidor.counts.modes)) c.set(k as Mode, v);
+      return c;
+    }
     rows.forEach((r) => new Set(r.modes).forEach((m) => c.set(m, (c.get(m) ?? 0) + 1)));
     return c;
-  }, [rows]);
+  }, [rows, servidor]);
+
+  /** En modo servidor, cualquier cambio de filtro es una navegación: la API vuelve a filtrar sobre todos los envíos. */
+  function irA(cambios: { status?: ShipmentStatus[]; modes?: Mode[]; q?: string; unsigned?: boolean; pagina?: number }) {
+    const next = { status: statusFilter, modes: modeFilter, q: globalFilter, unsigned, ...cambios };
+    const sp = new URLSearchParams();
+    if (next.status.length) sp.set("estado", next.status.join(","));
+    if (next.modes.length) sp.set("modo", next.modes.join(","));
+    if (next.q) sp.set("q", next.q);
+    if (next.unsigned) sp.set("firmar", "1");
+    const pagina = cambios.pagina ?? 1;
+    if (pagina > 1) sp.set("pagina", String(pagina));
+    router.push(`/envios${sp.toString() ? `?${sp}` : ""}`);
+  }
 
   const toggle = <T,>(col: "status" | "modes", current: T[], value: T) => {
     const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+    if (servidor) return irA(col === "status" ? { status: next as ShipmentStatus[] } : { modes: next as Mode[] });
     table.getColumn(col)?.setFilterValue(next);
   };
 
-  const filteredCount = table.getFilteredRowModel().rows.length;
+  // Búsqueda con retardo en modo servidor: no se pide una lista por cada tecla
+  const [texto, setTexto] = useState(globalFilter);
+  const primeraVez = useRef(true);
+  useEffect(() => {
+    if (!servidor) return;
+    if (primeraVez.current) {
+      primeraVez.current = false;
+      return;
+    }
+    const t = setTimeout(() => {
+      if (texto.trim() !== globalFilter) irA({ q: texto.trim() });
+    }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [texto]);
+
+  const filteredCount = servidor ? servidor.total : table.getFilteredRowModel().rows.length;
+  const paginasServidor = servidor ? Math.max(1, Math.ceil(servidor.total / servidor.pageSize)) : 1;
   // La selección solo conserva envíos que siguen existiendo
   const selectedCodes = rows.map((r) => r.code).filter((c) => selected.has(c));
   const pageCodes = table.getRowModel().rows.map((r) => r.original.code);
@@ -397,7 +454,17 @@ export function ShipmentsTable({ data, total, initial }: { data: Shipment[]; tot
   }
   /** Excel con todos los envíos que dejan los filtros (no solo la página), en la moneda elegida. */
   async function exportExcel() {
-    const codes = table.getFilteredRowModel().rows.map((r) => r.original.code);
+    let codes = table.getFilteredRowModel().rows.map((r) => r.original.code);
+    if (servidor) {
+      // Toda la lista filtrada, no solo la página que se ve
+      const sp = new URLSearchParams({ limit: "1000" });
+      if (statusFilter.length) sp.set("status", statusFilter.join(","));
+      if (modeFilter.length) sp.set("modes", modeFilter.join(","));
+      if (globalFilter) sp.set("q", globalFilter);
+      if (unsigned) sp.set("firmar", "true");
+      const todos = await api<{ items: Shipment[] }>(`/api/shipments?${sp.toString()}`);
+      codes = todos.items.map((i) => i.code);
+    }
     if (!codes.length) return;
     setBusy("xlsx");
     setActionError(null);
@@ -417,6 +484,7 @@ export function ShipmentsTable({ data, total, initial }: { data: Shipment[]; tot
   const same = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
   const activeView = views.find((v) => same(v.status, statusFilter) && same(v.modes, modeFilter) && v.q === globalFilter);
   function applyView(v: SavedView) {
+    if (servidor) return irA({ status: v.status, modes: v.modes, q: v.q });
     table.getColumn("status")?.setFilterValue(v.status);
     table.getColumn("modes")?.setFilterValue(v.modes);
     table.setGlobalFilter(v.q);
@@ -435,10 +503,11 @@ export function ShipmentsTable({ data, total, initial }: { data: Shipment[]; tot
         <label className="relative flex h-10 w-full max-w-xs items-center">
           <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" />
           <input
-            value={globalFilter}
-            onChange={(e) => table.setGlobalFilter(e.target.value)}
+            value={servidor ? texto : globalFilter}
+            onChange={(e) => (servidor ? setTexto(e.target.value) : table.setGlobalFilter(e.target.value))}
             placeholder="Buscar envío, ciudad, carga, cliente"
             aria-label="Buscar envíos"
+            maxLength={200}
             className="h-10 w-full field pr-3 pl-9 text-sm outline-none"
           />
         </label>
@@ -469,7 +538,7 @@ export function ShipmentsTable({ data, total, initial }: { data: Shipment[]; tot
           <motion.button
             type="button"
             whileTap={{ scale: 0.96 }}
-            onClick={() => setUnsigned((v) => !v)}
+            onClick={() => (servidor ? irA({ unsigned: !unsigned }) : setUnsigned((v) => !v))}
             aria-pressed={unsigned}
             title="Entregados que aún no tienen prueba de entrega"
             className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/80"
@@ -510,9 +579,12 @@ export function ShipmentsTable({ data, total, initial }: { data: Shipment[]; tot
             variant="ghost"
             size="sm"
             onClick={() => {
-              table.resetColumnFilters();
-              table.setGlobalFilter("");
-              setUnsigned(false);
+              if (servidor) irA({ status: [], modes: [], q: "", unsigned: false });
+              else {
+                table.resetColumnFilters();
+                table.setGlobalFilter("");
+                setUnsigned(false);
+              }
             }}
           >
             <X />
@@ -753,7 +825,13 @@ export function ShipmentsTable({ data, total, initial }: { data: Shipment[]; tot
                     figure="0"
                     title="Ningún envío coincide"
                     description="Cambia la búsqueda o quita los filtros para ver todos los envíos."
-                    action={{ label: "Quitar filtros", onClick: () => { table.resetColumnFilters(); table.setGlobalFilter(""); } }}
+                    action={{
+                      label: "Quitar filtros",
+                      onClick: () =>
+                        servidor
+                          ? irA({ status: [], modes: [], q: "", unsigned: false })
+                          : (table.resetColumnFilters(), table.setGlobalFilter("")),
+                    }}
                   />
                 </TableCell>
               </TableRow>
@@ -834,64 +912,101 @@ export function ShipmentsTable({ data, total, initial }: { data: Shipment[]; tot
               figure="0"
               title="Ningún envío coincide"
               description="Cambia la búsqueda o quita los filtros para ver todos los envíos."
-              action={{ label: "Quitar filtros", onClick: () => { table.resetColumnFilters(); table.setGlobalFilter(""); } }}
+              action={{
+                      label: "Quitar filtros",
+                      onClick: () =>
+                        servidor
+                          ? irA({ status: [], modes: [], q: "", unsigned: false })
+                          : (table.resetColumnFilters(), table.setGlobalFilter("")),
+                    }}
             />
           </li>
         )}
       </motion.ul>
 
-      {/* Paginación */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-        <span className="tabular">
-          {filteredCount === 0
-            ? "0 envíos"
-            : `${pageIndex * pageSize + 1}–${Math.min((pageIndex + 1) * pageSize, filteredCount)} de ${filteredCount} envíos`}
-        </span>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs">Filas</span>
-          <div className="flex rounded-md border border-border p-0.5">
-            {PAGE_SIZES.map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => table.setPageSize(n)}
-                className={cn(
-                  "relative h-7 rounded px-2.5 text-xs",
-                  pageSize === n ? "text-foreground" : "hover:text-foreground",
-                )}
-              >
-                {pageSize === n && (
-                  <motion.span
-                    layoutId="page-size"
-                    className="absolute inset-0 rounded bg-fill"
-                    transition={{ type: "spring", stiffness: 500, damping: 38 }}
-                  />
-                )}
-                <span className="relative">{n}</span>
-              </button>
-            ))}
-          </div>
-          <Button variant="secondary" size="icon" aria-label="Primera página"
-            onClick={() => table.firstPage()} disabled={!table.getCanPreviousPage()}>
-            <ChevronsLeft />
-          </Button>
-          <Button variant="secondary" size="icon" aria-label="Página anterior"
-            onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-            <ChevronLeft />
-          </Button>
-          <span className="tabular px-1 text-xs">
-            {pageIndex + 1} / {Math.max(1, table.getPageCount())}
+      {/* Paginación: en modo servidor mueve la página de la API (los filtros valen para todos los envíos) */}
+      {servidor ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span className="tabular">
+            {servidor.total === 0
+              ? "0 envíos"
+              : `${(servidor.page - 1) * servidor.pageSize + 1}–${(servidor.page - 1) * servidor.pageSize + data.length} de ${servidor.total} envíos`}
           </span>
-          <Button variant="secondary" size="icon" aria-label="Página siguiente"
-            onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-            <ChevronRight />
-          </Button>
-          <Button variant="secondary" size="icon" aria-label="Última página"
-            onClick={() => table.lastPage()} disabled={!table.getCanNextPage()}>
-            <ChevronsRight />
-          </Button>
+          <div className="flex items-center gap-2">
+            <span className="tabular px-1 text-xs">
+              Página {servidor.page} de {paginasServidor}
+            </span>
+            <Button variant="secondary" size="icon" aria-label="Primera página" disabled={servidor.page <= 1}
+              onClick={() => irA({ pagina: 1 })}>
+              <ChevronsLeft />
+            </Button>
+            <Button variant="secondary" size="icon" aria-label="Página anterior" disabled={servidor.page <= 1}
+              onClick={() => irA({ pagina: servidor.page - 1 })}>
+              <ChevronLeft />
+            </Button>
+            <Button variant="secondary" size="icon" aria-label="Página siguiente" disabled={servidor.page >= paginasServidor}
+              onClick={() => irA({ pagina: servidor.page + 1 })}>
+              <ChevronRight />
+            </Button>
+            <Button variant="secondary" size="icon" aria-label="Última página" disabled={servidor.page >= paginasServidor}
+              onClick={() => irA({ pagina: paginasServidor })}>
+              <ChevronsRight />
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span className="tabular">
+            {filteredCount === 0
+              ? "0 envíos"
+              : `${pageIndex * pageSize + 1}–${Math.min((pageIndex + 1) * pageSize, filteredCount)} de ${filteredCount} envíos`}
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs">Filas</span>
+            <div className="flex rounded-md border border-border p-0.5">
+              {PAGE_SIZES.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => table.setPageSize(n)}
+                  className={cn(
+                    "relative h-7 rounded px-2.5 text-xs",
+                    pageSize === n ? "text-foreground" : "hover:text-foreground",
+                  )}
+                >
+                  {pageSize === n && (
+                    <motion.span
+                      layoutId="page-size"
+                      className="absolute inset-0 rounded bg-fill"
+                      transition={{ type: "spring", stiffness: 500, damping: 38 }}
+                    />
+                  )}
+                  <span className="relative">{n}</span>
+                </button>
+              ))}
+            </div>
+            <Button variant="secondary" size="icon" aria-label="Primera página"
+              onClick={() => table.firstPage()} disabled={!table.getCanPreviousPage()}>
+              <ChevronsLeft />
+            </Button>
+            <Button variant="secondary" size="icon" aria-label="Página anterior"
+              onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
+              <ChevronLeft />
+            </Button>
+            <span className="tabular px-1 text-xs">
+              {pageIndex + 1} / {Math.max(1, table.getPageCount())}
+            </span>
+            <Button variant="secondary" size="icon" aria-label="Página siguiente"
+              onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+              <ChevronRight />
+            </Button>
+            <Button variant="secondary" size="icon" aria-label="Última página"
+              onClick={() => table.lastPage()} disabled={!table.getCanNextPage()}>
+              <ChevronsRight />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

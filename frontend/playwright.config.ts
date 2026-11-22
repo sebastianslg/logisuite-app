@@ -41,7 +41,9 @@ export default defineConfig({
           command: `${PYTHON} -m uvicorn app.main:app --port ${API_PORT}`,
           cwd: "../backend",
           // Misma zona horaria que producción (docker-compose: TZ=America/Bogota) y que el navegador de las pruebas
-          env: { WESTVANE_DB_PATH: DB, WESTVANE_CACHE_TTL: "0", WESTVANE_DEV_OTP: "1", WESTVANE_OTP_COOLDOWN_S: "0", TZ: "America/Bogota" },
+          env: { WESTVANE_DB_PATH: DB, WESTVANE_CACHE_TTL: "0", WESTVANE_DEV_OTP: "1", WESTVANE_OTP_COOLDOWN_S: "0",
+          // la suite entra en cada prueba: el límite por IP del ingreso se apaga (sus propias pruebas lo cubren en pytest)
+          WESTVANE_AUTH_RATE_LIMIT: "0", TZ: "America/Bogota" },
           url: `http://127.0.0.1:${API_PORT}/api/health`,
           reuseExistingServer: !process.env.CI,
           timeout: 60_000,

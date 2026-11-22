@@ -10,6 +10,9 @@ import type { Mode, Shipment, ShipmentStatus } from "@/lib/types";
 
 export const metadata = { title: "Envíos" };
 
+/** Envíos por página: la lista los pide a la API de a tandas, con los filtros aplicados en el servidor. */
+const PAGE_SIZE = 25;
+
 export default function EnviosPage({ searchParams }: PageProps<"/envios">) {
   return (
     <div className="page">
@@ -43,6 +46,7 @@ async function parseFilters(searchParams: Promise<Record<string, string | string
     modes: list(sp.modo).filter((m): m is Mode => (MODE_ORDER as string[]).includes(m)),
     q: first(sp.q) ?? "",
     unsigned: first(sp.firmar) === "1",
+    page: Math.max(1, Number(first(sp.pagina)) || 1),
   };
 }
 
@@ -51,11 +55,26 @@ async function ShipmentsData({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [filters, { items, total }] = await Promise.all([
-    parseFilters(searchParams),
-    // 1000 es el máximo de la API: si algún día hay más envíos, la tabla lo dice en vez de cortar en silencio
-    apiGet<{ count: number; total: number; items: Shipment[] }>("/api/shipments?limit=1000"),
-  ]);
-  // key: al cambiar los filtros de la URL (enlaces del dashboard) la tabla se reinicia con ellos
-  return <ShipmentsTable key={JSON.stringify(filters)} data={items} total={total} initial={filters} />;
+  const filters = await parseFilters(searchParams);
+  // Una página a la vez: los filtros y la búsqueda los resuelve la API sobre TODOS los envíos, no sobre lo cargado
+  const query = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String((filters.page! - 1) * PAGE_SIZE) });
+  if (filters.status?.length) query.set("status", filters.status.join(","));
+  if (filters.modes?.length) query.set("modes", filters.modes.join(","));
+  if (filters.q) query.set("q", filters.q);
+  if (filters.unsigned) query.set("firmar", "true");
+  const data = await apiGet<{
+    total: number;
+    counts: { status: Record<string, number>; modes: Record<string, number> };
+    items: Shipment[];
+  }>(`/api/shipments?${query.toString()}`);
+  // key: al cambiar filtros o página, la tabla se reinicia con los datos nuevos
+  return (
+    <ShipmentsTable
+      key={JSON.stringify(filters)}
+      data={data.items}
+      total={data.total}
+      initial={filters}
+      servidor={{ total: data.total, page: filters.page!, pageSize: PAGE_SIZE, counts: data.counts }}
+    />
+  );
 }

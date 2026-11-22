@@ -71,7 +71,19 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     sin pandas con `db.fetch_all`).
   - **Sección 66:** la app pide ingreso (`/ingresar`: usuario o correo + contraseña, o código al correo); cuenta
     `profesor` (admin) creada en Contabo con `python -m app.crear_acceso`.
-- **En curso / a medias:** nada. Producción al día con `main` (sección 66, verificado con `deploy/verificar.sh`).
+  - **Sección 67 (ronda 1 con subagentes, solo en `desarrollo`, sin desplegar):** cambiar mi contraseña; índices v18; limpieza diaria
+    de sesiones y códigos viejos; aviso de peticiones lentas (`westvane.lento`); esqueletos de carga. 373 pruebas de la API, 45 e2e.
+    Subagentes en `.opencode/agents/` (el modelo disponible es `mistral/deepseek-v4-1-flash-1017`, variante `max`; el frontmatter
+    de los agentes aún apunta a `deepseek/deepseek-chat`, que no existe: pasar `model` al lanzarlos). Rondas 2 y 3 pendientes
+    (B4-B7, F2-F8 del plan del coordinador).
+  - **Sección 68 (ronda 2):** menos pandas (4 módulos), límites en todas las entradas, cuenta y «Cerrar sesión» en el dock, y medición del
+    peso de las páginas (el mapa ya es bajo demanda). 446 pruebas de la API, 46 e2e. Faltan: ronda 3 (F2 saltar al contenido, F5 e2e de
+    foto-entrega, B6 mantenimiento, B7 cobertura) y ronda 4 (F6 filtros en la URL, F7 borrador del envío, F8 errores por sección).
+  - **Sección 69 (ronda 3):** «Saltar al contenido», e2e estables entre corridas (suite 2× con la misma base), init_db con la versión
+    real (v18), httpx2 sin advertencia, y cobertura al 84 % con fx/tolls/shipments_io probados a fondo; importar peajes ilegible
+    ya no da 500. 495 pruebas de la API, 47 e2e × 2. Falta: ronda 4 (F6 filtros de Flota/Bodegas en la URL, F7 borrador del envío
+    nuevo, F8 errores por sección en la ficha).
+- **En curso / a medias:** nada. Rondas 1 a 3 de OpenChamber cerradas y en producción (secciones 67 a 70).
 - **Pendiente de decisión del dueño:** exigir sesión para todo lo que escribe (roles reales; hoy `/api/audit` y las pantallas
   siguen abiertas como demostración); rotar la contraseña de aplicación de Gmail y el tema de ntfy tras el aviso de Contabo;
   dominio propio; una instalación por empresa o separar datos por empresa; revisión legal.
@@ -91,6 +103,6 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
   - Roles que limiten acciones: espera decisión del dueño (obligaría a iniciar sesión a todos).
   - Política de privacidad con abogado; secretos de GitHub para el despliegue automático; dominio propio y Cloudflare;
     PostgreSQL cuando haya varios usuarios a la vez.
-- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **315 pruebas de la API**; **37 de navegador** (incluye
+- **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **495 pruebas de la API**; **47 de navegador** (incluye
   accesibilidad). En el servidor, `bash deploy/verificar.sh` (34 comprobaciones, en verde).
 - **Producción:** `main` y Contabo en el mismo commit; `desarrollo` sin nada pendiente de desplegar.

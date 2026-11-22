@@ -50,6 +50,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="min-h-full bg-background text-foreground">
+        {/*
+          «Saltar al contenido»: el primer elemento enfocable de la página, antes del dock. Queda fuera de la vista
+          (arriba del borde) y aparece al recibir el foco; sin transición, así no hay movimiento que reducir. El
+          destino es el <main id="contenido"> con tabIndex -1, que recibe el foco al pulsar Enter.
+        */}
+        <a
+          href="#contenido"
+          className="fixed top-0 left-3 z-[60] min-h-11 -translate-y-full rounded-full bg-card px-5 py-3 text-sm font-semibold whitespace-nowrap text-foreground outline-none focus:translate-y-[calc(env(safe-area-inset-top)_+_0.75rem)] focus:shadow-[var(--float-shadow)] focus-visible:ring-[3px] focus-visible:ring-ring/80 print:hidden"
+        >
+          Saltar al contenido
+        </a>
         <PrefsProvider>
           <AppProvider>
             <MotionProvider>
@@ -80,8 +91,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                     </ShellOnly>
                   </Suspense>
                 </div>
+                {/* Destino del enlace «Saltar al contenido»: recibe el foco (sin anillo: no es interactivo). */}
                 {/* El dock flota arriba en escritorio (5 rem) y abajo en celular (6 rem con el área segura) */}
-                <main className="min-h-screen min-w-0 pt-[env(safe-area-inset-top)] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-20 md:pb-0 print:min-h-0 print:p-0">
+                <main
+                  id="contenido"
+                  tabIndex={-1}
+                  className="min-h-screen min-w-0 pt-[env(safe-area-inset-top)] pb-[calc(6rem+env(safe-area-inset-bottom))] outline-none md:pt-20 md:pb-0 print:min-h-0 print:p-0"
+                >
                   {children}
                   <Suspense fallback={null}>
                     <ShellOnly>

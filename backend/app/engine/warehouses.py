@@ -23,7 +23,7 @@ import random
 from datetime import datetime, timedelta
 
 from app.data.colombia_bodegas import BODEGAS, MANAGERS, ROLES, STOCK_PROFILES
-from app.database.db import fetch_all, run_query, run_write
+from app.database.db import data_version, fetch_all, run_query, run_write
 from app.engine.common import OperationError, _now_iso, _user, audit, records
 from app.engine.multimodal import haversine_km
 
@@ -129,11 +129,22 @@ def _transit_counts() -> dict:
     return out
 
 
+# Bodegas recordadas mientras la base no cambie (misma técnica que fleet._ctx): el resumen del tablero y las alertas (que
+# pide el dock en todas las páginas) las recalculaban enteras en cada consulta. Quien las use no debe modificar los dicts.
+_ws_cache: dict = {}
+
+
 def list_warehouses() -> list:
-    ws = fetch_all("SELECT * FROM wh_warehouses ORDER BY city, role, name")
-    stock, veh, tr = _all_stock(), _vehicle_counts(), _transit_counts()
-    return [_decorate(w, stock.get(w["warehouse_id"], []), veh.get(w["warehouse_id"], 0),
-                      tr.get(w["warehouse_id"], 0)) for w in ws]
+    key = data_version()
+    cached = _ws_cache.get(key)
+    if cached is None:
+        ws = fetch_all("SELECT * FROM wh_warehouses ORDER BY city, role, name")
+        stock, veh, tr = _all_stock(), _vehicle_counts(), _transit_counts()
+        cached = [_decorate(w, stock.get(w["warehouse_id"], []), veh.get(w["warehouse_id"], 0),
+                            tr.get(w["warehouse_id"], 0)) for w in ws]
+        _ws_cache.clear()
+        _ws_cache[key] = cached
+    return cached
 
 
 def _get_row(warehouse_id: int) -> dict:

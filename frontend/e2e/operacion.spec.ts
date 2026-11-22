@@ -145,30 +145,53 @@ test("prueba de entrega: la foto se adjunta con la declaración de autorización
   }
   test.skip(!code, "no hay envíos entregados sin entrega registrada");
 
+  const adjuntos = async () =>
+    ((await (await request.get(`/api/shipments/${code}/attachments`)).json()).items ?? []) as {
+      attachment_id: number;
+      filename: string;
+    }[];
+  // Fotos de prueba de corridas anteriores que fallaron antes de limpiar (la base se conserva): se quitan al
+  // empezar y, si no se puede, no pasa nada: nada de esta prueba depende de que ya no estén.
+  const quitarViejas = async () => {
+    for (const a of await adjuntos()) {
+      if (a.filename.startsWith("foto-entrega")) {
+        await request.delete(`/api/shipments/${code}/attachments/${a.attachment_id}`);
+      }
+    }
+  };
+  await quitarViejas().catch(() => {});
+
   await page.goto(`/envios/${code}`);
   await page.getByRole("button", { name: "Registrar entrega" }).click();
   const foto = page.getByLabel("Tomar o elegir la foto de la entrega");
   await expect(foto).toBeAttached();
 
-  // Un PNG de 1×1, como el que manda la cámara
+  // Un PNG de 1×1, como el que manda la cámara. El nombre lleva la marca de esta corrida: si la base de las
+  // pruebas conserva un «foto-entrega.png» de una corrida anterior, no se confunde con el nuevo.
   const png = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==",
     "base64",
   );
-  const archivo = { name: "foto-entrega.png", mimeType: "image/png", buffer: png };
+  const nombre = `foto-entrega-${Date.now()}.png`;
+  const archivo = { name: nombre, mimeType: "image/png", buffer: png };
 
-  // Sin la declaración marcada, no sube
-  await foto.setInputFiles(archivo);
-  await expect(page.getByText("Marca que tienes autorización")).toBeVisible();
+  try {
+    // Sin la declaración marcada, no sube
+    await foto.setInputFiles(archivo);
+    await expect(page.getByText("Marca que tienes autorización")).toBeVisible();
 
-  await page.getByLabel("Declaro que tengo autorización de las personas que aparezcan en la foto.").check();
-  await foto.setInputFiles(archivo);
-  await expect(page.getByText("foto-entrega.png")).toBeVisible();
-
-  // Se borra el adjunto de prueba para no dejar basura en la base de las pruebas
-  const adjuntos = await (await request.get(`/api/shipments/${code}/attachments`)).json();
-  for (const a of adjuntos.items as { attachment_id: number; filename: string }[]) {
-    if (a.filename === "foto-entrega.png") await request.delete(`/api/shipments/${code}/attachments/${a.attachment_id}`);
+    await page.getByLabel("Declaro que tengo autorización de las personas que aparezcan en la foto.").check();
+    await foto.setInputFiles(archivo);
+    await expect(page.getByText(nombre)).toBeVisible();
+    // Quedó una sola vez, como documento del envío
+    expect((await adjuntos()).filter((a) => a.filename === nombre)).toHaveLength(1);
+  } finally {
+    // Solo lo que subió esta corrida; y el aseo nunca debe enmascarar el fallo de una aserción
+    for (const a of await adjuntos().catch(() => [] as { attachment_id: number; filename: string }[])) {
+      if (a.filename === nombre) {
+        await request.delete(`/api/shipments/${code}/attachments/${a.attachment_id}`).catch(() => {});
+      }
+    }
   }
   w.expectClean();
 });

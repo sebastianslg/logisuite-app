@@ -1483,3 +1483,77 @@ bodega, seguimiento público y configuración, en escritorio y celular. Lo que s
   del navegador entra con ella. Nuevas: `tests/test_acceso_contrasena.py` y `e2e/ingreso.spec.ts`.
 - **Cuenta del profesor:** `profesor`, administrador, creada en Contabo. La contraseña no va en git ni en el chat: el
   dueño la tiene en `backend/data/acceso-profesor.txt` (ignorado por git) en su PC.
+
+## 67. Ronda 1 de mejoras en paralelo: índices, limpieza de sesiones, peticiones lentas y esqueletos de carga
+
+Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1017) y un revisor; el coordinador corrió toda la verificación y hizo los commits.
+
+- **Cambiar mi contraseña** (cerrado antes de la ronda): `POST /api/auth/password/change`, formulario en Configuración. Se arregló
+  que el proxy de Next no reenviaba la cookie de sesión y que la e2e terminaba antes de restaurar la clave de pruebas.
+- **B1 índices (schema_v18, aditivo):** `mm_shipments(status, departure_at DESC)`, `audit_log(table_name, audit_id, action, record_id)`,
+  `user_sessions(user_id)` y `auth_codes(email, code_id)`. En una base de 5.000 envíos y 60.000 líneas de historial: lista filtrada
+  por estado 1,0 -> 0,3 ms; consecutivo al crear un envío 12,8 -> 4,5 ms; escrituras ~14 % más lentas (1,7 µs por fila).
+  Ya existía un índice duplicado de estado (`idx_mm_shipments_status` de v3 e `idx_ship_status` de v15): no se borró por ser migración
+  solo aditiva; queda a decidir. El orden por defecto de la lista (CASE de estados) no lo sirve ningún índice.
+- **B2 limpieza:** `auth_otp.purge_expired_auth` borra sesiones vencidas y códigos usados o vencidos hace más de 7 días, en la pasada diaria
+  (con prueba de que el enganche existe).
+- **B3 peticiones lentas:** WARNING `westvane.lento` en toda petición `/api` de más de 1 s (`WESTVANE_SLOW_MS`, 0 la apaga); la ruta va
+  sin query string y con marcadores en lugar de códigos, ids, correos y tokens.
+- **F1 esqueletos:** `loading.tsx` en envíos, ficha, flota, bodegas, red, auditoría y hoy, y en las subrutas de formulario y ficha
+  (si no, el del padre se pintaba también en `nuevo` y `editar`). Piezas en `components/skeletons.tsx`.
+- **Revisión:** la prueba de B1 prometía más de lo que el índice da (se corrigió el texto), la de B2 dependía del orden (corregida) y
+  se añadió la comprobación del enganche. Pendiente: las páginas tienen su propio `Suspense`, así que puede verse el esqueleto nuevo y
+  luego el genérico; unificarlos exige tocar cada `page.tsx`. Sin e2e para los esqueletos.
+- **Verificación:** tsc, eslint y build limpios; 373 pruebas de la API; 45 de navegador.
+
+## 68. Ronda 2: menos pandas, límites en las entradas, cuenta en el dock y peso de las páginas
+
+- **B4 menos pandas:** 20 lecturas de `operations`, `telemetry`, `history` y `report` pasaron a `fetch_all`; la salida es idéntica byte a byte
+  (foto de 575 KB). Medido (mediana de 15): historial de trayectos 8,0 -> 3,7 ms, flota en vivo 6,5 -> 2,5 ms, auditoría 6,0 -> 2,2 ms,
+  vías 15,0 -> 4,3 ms, reporte PDF 37,9 -> 28,1 ms. `trends.py` no tiene SQL propio. Queda `common.purge_old_audit` con `run_query` (un COUNT).
+- **B5 límites de entrada:** 22 modelos y 39 parámetros de consulta con tope (texto 200, notas 2000, códigos 60, correos 254, listas
+  y rangos de `limit`/`offset`/`days`). Antes un `cargo` de 10.000 caracteres se truncaba en silencio y `limit=1e12` se recortaba; ahora
+  dan 422. Ajustes tras la revisión: exportar admite 1000 códigos (la lista pide hasta 1000), `delay_h` lo valida el motor con su mensaje en
+  español, los buscadores limitan a 200 caracteres y la ficha tolera que la auditoría falle. Ojo: los 422 de `days` en historial e
+  informe ya no traen el texto en español propio (solo se alcanzan con URLs a mano). Las rutas (`{code}`, `{token}`) siguen sin tope.
+- **F3 cuenta en el dock:** con sesión, avatar y (desde 1280 px) nombre y rol; menú con «Cerrar sesión»; en celular, en la hoja «Más».
+  Sin sesión no cambia. Sin e2e del cierre de sesión en celular.
+- **F4 peso de las páginas (sin cambios de código):** deck.gl y MapLibre ya se cargan por `dynamic` y solo en `/red`, `/panel` (vista 3D) y
+  `/envios/[code]`; ningún HTML de las otras 33 rutas los menciona. El mapa pesa ~550 KB gzip, solo bajo demanda. JS inicial (gzip):
+  `/envios/[code]` 298 KB, `/envios` 296, `/red` 286, `/panel` 285, `/flota` 281, `/bodegas` 280; el resto 264-279; base compartida de
+  todas las rutas 171 KB (React 70, dock/framer 39). Oportunidad pendiente: `import-shipments` (22 KB gzip) se carga siempre en `/envios`
+  aunque solo se ve al abrir «Importar»; hacerlo dinámico lo recortaría. Aquí `/` no usa deck.gl (usa un SVG).
+- **Verificación:** tsc, eslint y build limpios; 446 pruebas de la API; 46 de navegador.
+
+## 69. Ronda 3: saltar al contenido, pruebas estables, mantenimiento y cobertura
+
+- **F2 «Saltar al contenido»:** enlace oculto que aparece con el primer Tab y lleva al <main> (ahora el único id="contenido";
+  se quitaron los ids repetidos de la portada y de /ingresar). En /ingresar el campo de usuario tiene autofoco, así que allí el
+  enlace se alcanza con Shift+Tab (limitación conocida, aceptada). e2e nueva con teclado.
+- **F5 pruebas estables:** la foto de entrega lleva un nombre único por corrida y su aseo no puede enmascarar fallos de aserción
+  ni borrar adjuntos de otra corrida; el enlace de seguimiento comprueba su creación y siempre limpia. La suite se corrió DOS veces
+  seguidas sin borrar la base de pruebas y pasó las dos (47 y 47).
+- **B6 mantenimiento:** init_db imprime la versión real («esquema v18», decía v4) derivada de una sola lista MIGRACIONES (el
+  reordenamiento de la v4 tras el bloque v5 es inocuo: tocan tablas distintas; verificado); 1 import sin uso menos (pyflakes
+  limpio en engine y api); httpx2 en requirements-dev elimina la advertencia de starlette.testclient (0 warnings en la suite).
+  Prueba que avisa si aparece un schema_vNN.py sin enganchar en init_db.
+- **B7 cobertura (total 84 %):** pruebas nuevas para fx.py (la TRM oficial: 55 -> 100 %), tolls.py (58 -> 98 %) y
+  shipments_io.py (carga masiva: 89 -> 100 %): 46 casos de comportamiento y borde, con la TRM duplicada el peaje vale la mitad
+  en la cotización, CSV/Excel con filas malas, vista previa sin escribir, etc.
+- **Arreglo hallado por la cobertura:** importar peajes con un archivo ilegible (base64 roto, CSV dañado) respondía 500; ahora 422
+  con mensaje en español, y los errores de fila ya no muestran el texto de pandas en inglés.
+- **Verificación:** tsc, eslint y build limpios; 495 pruebas de la API; 47 de navegador × 2 corridas.
+
+## 70. Cierre de la ronda 3 (F6, F7, F8) y subida a producción
+
+- OpenChamber dejó sin commit las tareas F6, F7 y F8 de la ronda 3. Claude las verificó, corrigió dos pruebas y las subió.
+- **F6, filtros en la dirección:** en Flota (vehículos y fallas) y Bodegas, los filtros y el orden quedan en la URL; al
+  recargar o compartir el enlace se ve lo mismo (`components/fleet/filters.ts`).
+- **F7, borrador del envío nuevo:** se guarda en el navegador mientras se escribe, se ofrece al volver y se borra al
+  guardar, al descartar o al cerrar sesión (puede traer datos del cliente). Editar un envío existente no lo toca.
+- **F8, errores por sección:** en la ficha del envío, si fallan el mapa, la bitácora, la entrega, los adjuntos o el
+  historial, solo esa parte avisa (con «Reintentar» en el mapa) y el resto de la ficha sigue en pie.
+- **Pruebas corregidas:** la de errores buscaba el SVG de la vista previa, pero la ficha usa el mapa 3D; ahora comprueba
+  que «Reintentar» vuelve a pedir la red y el aviso se va. La del borrador comparaba también la hora del guardado, que
+  puede moverse una vez más en el envío nuevo; ahora compara solo los valores.
+- Pruebas: 495 de la API y 53 de navegador.

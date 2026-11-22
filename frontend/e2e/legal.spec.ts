@@ -39,18 +39,25 @@ test("el enlace de seguimiento se abre sin menú ni bienvenida y no muestra dato
   const created = await request.post("/api/shipments", {
     data: { origin: "Bogotá", destination: "Medellín", cargo: "Repuestos", weight_t: 12, priority: "costo", client: "Cliente Reservado S.A.", departure_at: dep },
   });
+  // Si el envío no se crea, mejor un fallo claro que navegar a /seguimiento/undefined
+  expect(created.ok(), `no se pudo crear el envío de prueba: ${created.status()}`).toBeTruthy();
   const { code } = await created.json();
-  const { token } = await (await request.post(`/api/shipments/${code}/tracking`)).json();
+  try {
+    const { token } = await (await request.post(`/api/shipments/${code}/tracking`)).json();
 
-  await page.goto(`/seguimiento/${token}`);
-  await expect(page.getByRole("heading", { name: code, level: 1 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Recorrido" })).toBeVisible();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Navegación principal" })).toHaveCount(0);
-  await expect(page.getByText("Cliente Reservado")).toHaveCount(0);
+    await page.goto(`/seguimiento/${token}`);
+    await expect(page.getByRole("heading", { name: code, level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Recorrido" })).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Navegación principal" })).toHaveCount(0);
+    await expect(page.getByText("Cliente Reservado")).toHaveCount(0);
 
-  await request.delete(`/api/shipments/${code}/tracking/${token}`);
-  await page.goto(`/seguimiento/${token}`);
-  await expect(page.getByText(/no encontrad|no existe|404/i).first()).toBeVisible();
-  w.expectClean();
+    await request.delete(`/api/shipments/${code}/tracking/${token}`);
+    await page.goto(`/seguimiento/${token}`);
+    await expect(page.getByText(/no encontrad|no existe|404/i).first()).toBeVisible();
+    w.expectClean();
+  } finally {
+    // La base de las pruebas se conserva entre corridas: el envío de prueba no se queda
+    await request.delete(`/api/shipments/${code}?usuario=Prueba`);
+  }
 });

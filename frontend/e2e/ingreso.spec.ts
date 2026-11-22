@@ -46,3 +46,37 @@ test("también entra con el correo de la cuenta", SIN_SESION, async ({ page }) =
   await page.getByRole("button", { name: "Ingresar", exact: true }).click();
   await expect(page).toHaveURL(/\/panel$/);
 });
+
+
+test("Configuración: cambiar mi contraseña (y dejarla como estaba)", async ({ page }) => {
+  const w = watchErrors(page);
+  await page.goto("/configuracion");
+  const titulo = page.getByText("Mi contraseña", { exact: true });
+  await expect(titulo).toBeVisible();
+
+  const actual = page.getByLabel("Contraseña actual");
+  const nueva = page.getByLabel(/^Nueva/);
+  const repetir = page.getByLabel("Repetir la nueva");
+  const boton = page.getByRole("button", { name: /Cambiar contraseña/ });
+
+  // Las dos nuevas deben coincidir (validación local, sin llamar a la API)
+  await actual.fill("pruebas-e2e-local");
+  await nueva.fill("clave-nueva-123");
+  await repetir.fill("otra-cosa");
+  await boton.click();
+  await expect(page.getByText(/no coinciden/)).toBeVisible();
+
+  // Cambio real
+  await repetir.fill("clave-nueva-123");
+  await boton.click();
+  await expect(actual).toHaveValue("");            // el formulario se vacía solo cuando el servidor aceptó el cambio
+
+  // Y se devuelve a la de pruebas para no romper los demás casos
+  await actual.fill("clave-nueva-123");
+  await nueva.fill("pruebas-e2e-local");
+  await repetir.fill("pruebas-e2e-local");
+  await boton.click();
+  await expect(actual).toHaveValue("");            // sin esto la prueba terminaría antes de que se guardara la vieja
+  await expect(page.getByText("Contraseña cambiada").first()).toBeVisible();
+  w.expectClean();
+});

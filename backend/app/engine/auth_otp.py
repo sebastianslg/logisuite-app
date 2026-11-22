@@ -45,6 +45,7 @@ MAX_PASSWORD_FAILURES = 5
 LOCK_MINUTES = 15
 
 OTP_COOLDOWN_S = 60  # segundos mínimos entre dos códigos pedidos para el mismo correo
+AUTH_CODE_RETENTION_DAYS = 7  # días que se conservan los códigos ya usados o vencidos antes de borrarlos
 
 
 def dev_otp_enabled() -> bool:
@@ -252,6 +253,8 @@ def _public_user(r: dict) -> dict:
         "role": r["role"],
         "company": {"company_id": int(cid), "name": _clean(r.get("company_name")), "nit": _clean(r.get("company_nit"))}
         if cid is not None else None,
+        # Las cuentas creadas solo con código al correo no tienen contraseña: no se les muestra «cambiar contraseña»
+        "has_password": str(r.get("password_hash") or "").startswith(PASSWORD_PREFIX),
     }
 
 
@@ -262,7 +265,7 @@ def get_user_by_session(session_id: str | None) -> Optional[dict]:
 
     now_str = _now_str()
     rows = fetch_all(
-        """SELECT u.user_id, u.username, u.full_name, u.email, u.role, u.active,
+        """SELECT u.user_id, u.username, u.full_name, u.email, u.role, u.active, u.password_hash,
                   c.company_id, c.name as company_name, c.nit as company_nit,
                   s.expires_at
            FROM user_sessions s
@@ -287,6 +290,27 @@ def logout(session_id: str | None, current_user: str | None = None) -> None:
         run_write("DELETE FROM user_sessions WHERE session_id = ?", (session_id.strip(),))
         if current_user:
             audit(current_user, "LOGOUT", "users", None, "Cierre de sesión")
+
+
+def purge_expired_auth(now: datetime | None = None) -> dict:
+    """Borra lo que ya no sirve para entrar: las sesiones vencidas y los códigos de ingreso usados o vencidos hace
+    más de AUTH_CODE_RETENTION_DAYS días. Devuelve cuántos borró de cada uno.
+
+    Las sesiones vigentes y los códigos recientes se quedan: un código se guarda unos días por si hay que revisar un
+    intento fallido, y una sesión se borra solo cuando ya no vale (get_user_by_session la rechaza igual). Las fechas
+    son texto «AAAA-MM-DD HH:MM:SS», que ordena como el tiempo, igual que en el resto del módulo. No se registra en
+    el log ningún código ni token: solo se cuenta."""
+    now = now or _now()
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    cutoff = (now - timedelta(days=AUTH_CODE_RETENTION_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
+
+    sesiones = run_write("DELETE FROM user_sessions WHERE expires_at < ?", (now_str,))
+    codigos = run_write(
+        """DELETE FROM auth_codes
+           WHERE (used_at IS NOT NULL AND used_at < ?) OR expires_at < ?""",
+        (cutoff, cutoff),
+    )
+    return {"sesiones": int(sesiones or 0), "codigos": int(codigos or 0)}
 
 
 # ---------------------------------------------------------------------------
@@ -492,6 +516,30 @@ def login_password(identifier: str, password: str) -> dict:
         raise OperationError(WRONG)
     run_write("UPDATE users SET failed_logins = 0, locked_until = NULL WHERE user_id = ?", (int(user["user_id"]),))
     return _open_session(user, "Inicio de sesión con contraseña")
+
+
+def change_password(session_id: str | None, current: str, new: str) -> dict:
+    """Cambia la contraseña de la cuenta de la sesión. Exige la actual, mínimo PASSWORD_MIN_LEN, y cierra las demás
+    sesiones de esa cuenta (la de esta petición sigue abierta). El historial no guarda la contraseña."""
+    user = get_user_by_session(session_id)
+    if not user:
+        raise OperationError("Inicia sesión para cambiar tu contraseña.")
+    row = fetch_all("SELECT user_id, username, password_hash, salt FROM users WHERE user_id = ?", (user["user_id"],))[0]
+    if not str(row["password_hash"] or "").startswith(PASSWORD_PREFIX):
+        raise OperationError("Esta cuenta no usa contraseña: entra con el código al correo.")
+    if not _password_matches(current or "", row["password_hash"], row["salt"]):
+        raise OperationError("La contraseña actual no es correcta.")
+    if len(new or "") < PASSWORD_MIN_LEN:
+        raise OperationError(f"La contraseña nueva debe tener al menos {PASSWORD_MIN_LEN} caracteres.")
+    if new == current:
+        raise OperationError("La contraseña nueva debe ser distinta de la actual.")
+    hashed, salt = hash_password(new)
+    run_write("UPDATE users SET password_hash = ?, salt = ?, failed_logins = 0, locked_until = NULL WHERE user_id = ?",
+              (hashed, salt, int(row["user_id"])))
+    # Las demás sesiones de esta cuenta se cierran; la actual se conserva
+    run_write("DELETE FROM user_sessions WHERE user_id = ? AND session_id != ?", (int(row["user_id"]), (session_id or "").strip()))
+    audit(row["username"], "UPDATE", "users", str(int(row["user_id"])), "Contraseña cambiada por la propia cuenta")
+    return {"ok": True, "message": "Contraseña cambiada. Las demás sesiones de tu cuenta se cerraron."}
 
 
 def set_password_account(username: str, password: str, full_name: str, role: str = "admin",

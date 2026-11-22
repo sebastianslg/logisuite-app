@@ -9,6 +9,7 @@ import { Check, CloudDownload, Copy, History, Link2, LoaderCircle, RefreshCw, Se
 import { glRenderer, useMapAnimation, useMapQuality, usesSoftwareGL, type MapQuality } from "@/components/map/use-map-animation";
 import { useApp } from "@/components/providers";
 import { MailAlerts } from "@/components/settings/mail-alerts";
+import { MyPassword } from "@/components/settings/my-password";
 import { ServerStatus } from "@/components/settings/server-status";
 import { Badge } from "@/components/ui/badge";
 
@@ -60,6 +61,7 @@ export function SettingsPanel({ settings, links, history }: { settings: Settings
           <ReplenishToggle initial={settings.auto_replenish} />
           <MailAlerts />
           <ServerStatus />
+          <MyPassword />
           <MapQualitySection />
           <PrivacySection />
           <ClientErrors />

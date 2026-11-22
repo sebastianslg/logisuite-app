@@ -54,3 +54,45 @@ def test_departamentos_recordados_igual_que_calculados(base):
     as_text = geo.department_traffic(rows)
     as_dict = geo.department_traffic([{**r, "route_json": json.loads(r["route_json"])} for r in rows])
     assert as_text == as_dict and as_text
+
+
+def test_las_bodegas_recordadas_ven_el_movimiento_al_instante(base):
+    """Una entrada de inventario cambia la ocupación en la consulta siguiente, sin esperar a que caduque nada."""
+    import math
+
+    from app.engine import warehouses
+
+    # La bodega con más espacio libre que tenga inventario: así la entrada no choca con el tope de volumen
+    tienda = max((w for w in warehouses.list_warehouses() if w["stock_lines"] > 0), key=lambda w: w["free_m3"])
+    linea = max(base.get(f"/api/warehouses/{tienda['warehouse_id']}").json()["stock"],
+                key=lambda x: x["volume_m3"])
+    # Suficiente para mover el total (que va redondeado a m³ enteros), sin pasarse del espacio libre
+    cantidad = max(1, math.ceil(1.0 / max(linea["volume_m3"], 1e-6)))
+    assert cantidad * linea["volume_m3"] <= tienda["free_m3"], "la bodega elegida no tiene espacio"
+
+    antes = warehouses.summary()
+    r = base.post(f"/api/warehouses/{tienda['warehouse_id']}/movements",
+                  json={"sku": linea["sku"], "kind": "Entrada", "qty": cantidad,
+                        "reference": "prueba memoria", "usuario": "T"})
+    assert r.status_code == 201, r.text
+    despues = warehouses.summary()
+    assert despues["used_m3"] > antes["used_m3"], "la ocupación no reflejó la entrada"
+
+    base.post(f"/api/warehouses/{tienda['warehouse_id']}/movements",
+              json={"sku": linea["sku"], "kind": "Salida", "qty": cantidad,
+                    "reference": "prueba memoria", "usuario": "T"})
+    assert warehouses.summary()["used_m3"] == antes["used_m3"]
+
+
+def test_sin_escrituras_la_lista_se_reutiliza_y_tras_escribir_no(base):
+    from app.engine import warehouses
+
+    primera = warehouses.list_warehouses()
+    assert warehouses.list_warehouses() is primera, "sin escrituras no debe recalcularse"
+
+    tienda = next(w for w in primera if w["stock_lines"] > 0)
+    linea = base.get(f"/api/warehouses/{tienda['warehouse_id']}").json()["stock"][0]
+    r = base.post(f"/api/warehouses/{tienda['warehouse_id']}/movements",
+                  json={"sku": linea["sku"], "kind": "Entrada", "qty": 1, "usuario": "T"})
+    assert r.status_code == 201, r.text
+    assert warehouses.list_warehouses() is not primera, "la escritura debe invalidar lo recordado"

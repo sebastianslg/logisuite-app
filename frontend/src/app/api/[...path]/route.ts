@@ -20,6 +20,8 @@ async function forward(req: NextRequest, path: string[]) {
       ...(req.headers.get("authorization") ? { authorization: req.headers.get("authorization")! } : {}),
       // La IP del cliente (la que puso Caddy) para el límite de escrituras de la API
       ...(req.headers.get("x-forwarded-for") ? { "x-forwarded-for": req.headers.get("x-forwarded-for")! } : {}),
+      // La cookie de sesión: el navegador la manda y la API la acepta en /api/auth/me y el cambio de contraseña
+      ...(req.headers.get("cookie") ? { cookie: req.headers.get("cookie")! } : {}),
     },
     cache: "no-store",
     signal: AbortSignal.any([req.signal, AbortSignal.timeout(TIMEOUT_MS)]),

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronRight, TriangleAlert } from "lucide-react";
 
 import { Money } from "@/components/money";
@@ -14,9 +15,25 @@ import { cn } from "@/lib/utils";
 
 import { dt, SeverityBadge } from "./status";
 
+/** Qué fallas se ven (?vista=todas); «abiertas» es lo de siempre. */
+export type FaultsView = "abiertas" | "todas";
+
 /** Todas las fallas de la flota: las abiertas primero, de la más grave a la más leve. */
-export function FaultsBoard({ faults }: { faults: Fault[] }) {
-  const [view, setView] = useState<"abiertas" | "todas">("abiertas");
+export function FaultsBoard({ faults, view: initialView = "abiertas" }: { faults: Fault[]; view?: FaultsView }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [view, setView] = useState<FaultsView>(initialView);
+
+  const cambiar = (v: FaultsView) => {
+    setView(v);
+    // Los demás parámetros de la URL se conservan y el historial también: atrás deshace el cambio
+    const sp = new URLSearchParams(searchParams.toString());
+    sp.set("ver", "fallas");
+    if (v === "todas") sp.set("vista", "todas");
+    else sp.delete("vista");
+    const qs = sp.toString();
+    router.push(qs ? `/flota?${qs}` : "/flota", { scroll: false });
+  };
   const rank = { Crítica: 0, Moderada: 1, Leve: 2 } as const;
   const open = faults.filter((f) => f.status !== "Resuelta").sort((a, b) => rank[a.severity] - rank[b.severity] || b.reported_at.localeCompare(a.reported_at));
   const closed = faults.filter((f) => f.status === "Resuelta");
@@ -28,7 +45,7 @@ export function FaultsBoard({ faults }: { faults: Fault[] }) {
         label="Qué fallas ver"
         size="sm"
         value={view}
-        onChange={setView}
+        onChange={cambiar}
         options={[
           { value: "abiertas", label: <>Abiertas{open.length > 0 && <span className="ml-1 text-destructive">{open.length}</span>}</> },
           { value: "todas", label: "Todas" },
