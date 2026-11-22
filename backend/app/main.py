@@ -98,6 +98,8 @@ _NO_CACHE = ("/api/health", "/api/client-errors", "/api/exports/", "/api/tolls/e
              # Red y departamentos responden con ETag: la caché rehace la respuesta y perdería esa cabecera, y el
              # navegador revalida con If-None-Match (un 304 no lleva cuerpo). Sus datos ya se arman en memoria.
              "/api/network/multimodal", "/api/geo/departments",
+             # La búsqueda pide sesión: si se cachea por URL, la respuesta de quien entró se serviría a quien no
+             "/api/search",
              # Cuentas, administración y datos personales: la respuesta depende de quién pide y no se comparte nunca
              "/api/auth/", "/api/admin/", "/api/companies", "/api/system/", "/api/demo-requests", "/api/consents")
 
@@ -416,9 +418,11 @@ def health() -> dict:
 
 
 @app.get("/api/search")
-def buscar_global(q: str = Query("", max_length=100), limit: int = Query(5, ge=1, le=10)) -> dict:
+def buscar_global(request: Request, q: str = Query("", max_length=100), limit: int = Query(5, ge=1, le=10)) -> dict:
     """Búsqueda global de la paleta (Ctrl K): envíos, vehículos, bodegas y clientes, con tope por tipo.
-    Menos de 2 caracteres devuelve la lista vacía sin consultar la base."""
+    Menos de 2 caracteres devuelve la lista vacía sin consultar la base. Pide sesión: lista clientes y códigos."""
+    if not auth_otp.get_user_by_session(_token_de_sesion(request)):
+        raise HTTPException(status_code=401, detail="Inicia sesión para buscar.")
     return search.search(q, limit)
 
 

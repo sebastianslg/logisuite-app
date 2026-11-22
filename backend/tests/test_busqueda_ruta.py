@@ -19,6 +19,10 @@ def client(tmp_path_factory):
     main.network.cache_clear()
     main._last_sync = 0.0
     with TestClient(main.app) as c:
+        from app.engine import auth_otp
+        auth_otp.set_password_account("buscador", "clave-de-prueba-bus", "Buscador", "lector")
+        token = c.post("/api/auth/password", json={"identifier": "buscador", "password": "clave-de-prueba-bus"}).json()["token"]
+        c.headers.update({"Authorization": f"Bearer {token}"})      # la búsqueda pide sesión
         yield c
     main.network.cache_clear()
     mp.undo()
@@ -43,3 +47,17 @@ def test_los_topes_de_los_parametros(client):
     assert client.get("/api/search", params={"q": "bog", "limit": 11}).status_code == 422
     assert client.get("/api/search", params={"q": "bog", "limit": 0}).status_code == 422
     assert client.get("/api/search", params={"q": "bog", "limit": 10}).status_code == 200
+
+
+
+def test_sin_sesion_responde_401_y_la_cache_no_la_salta(client, monkeypatch):
+    from app import main
+    monkeypatch.setattr(main, "CACHE_TTL_S", 30.0)               # la caché de 5 s encendida
+    # Con sesión (por cookie, que la caché no distingue) se responde y no se guarda...
+    token = client.headers["Authorization"].split()[1]
+    con = TestClient(main.app, headers={"cookie": f"westvane_session={token}"})
+    assert con.get("/api/search", params={"q": "bog"}).status_code == 200
+    # ...y quien no entró no recibe esa respuesta aunque pida la misma URL en los mismos segundos
+    sin = TestClient(main.app)
+    assert sin.get("/api/search", params={"q": "bog"}).status_code == 401
+    assert sin.get("/api/search").status_code == 401
