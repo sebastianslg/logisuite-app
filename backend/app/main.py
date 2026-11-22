@@ -1740,10 +1740,32 @@ def auth_password(body: PasswordLoginIn) -> dict:
         _op_error(exc)
 
 
+class PasswordChangeIn(BaseModel):
+    current: str = Field(..., max_length=200)
+    new: str = Field(..., max_length=200)
+
+
+@app.post("/api/auth/password/change")
+def auth_password_change(body: PasswordChangeIn, request: Request) -> dict:
+    """Cambia la contraseña de la cuenta con sesión iniciada: exige la actual y cierra las demás sesiones."""
+    header = request.headers.get("Authorization", "")
+    token = header[7:].strip() if header.startswith("Bearer ") else None
+    # La cookie también sirve: el navegador no manda la cabecera en una petición normal
+    token = token or request.cookies.get("westvane_session")
+    if not token:
+        raise HTTPException(status_code=401, detail="Inicia sesión para cambiar tu contraseña.")
+    try:
+        return auth_otp.change_password(token, body.current, body.new)
+    except ops.OperationError as exc:
+        _op_error(exc)
+
+
 @app.get("/api/auth/me")
 def auth_me(request: Request) -> dict:
+    """Quién es la sesión: por cabecera (Bearer) o por la cookie `westvane_session` que escribe el navegador."""
     auth_header = request.headers.get("Authorization", "")
     token = auth_header[7:].strip() if auth_header.startswith("Bearer ") else None
+    token = token or request.cookies.get("westvane_session")
     user = auth_otp.get_user_by_session(token)
     if not user:
         raise HTTPException(status_code=401, detail="Sesión no válida o expirada.")

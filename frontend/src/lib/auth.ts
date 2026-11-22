@@ -23,6 +23,8 @@ export interface AuthUser {
   role_description: string;
   company_id: number | null;
   company: Company | null;
+  /** Si la cuenta tiene contraseña (las que entran solo con código al correo no la tienen). */
+  has_password?: boolean;
 }
 
 export interface RequestOtpResponse {

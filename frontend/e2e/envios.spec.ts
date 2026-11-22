@@ -104,9 +104,10 @@ test("la lista se pagina en el servidor y los filtros valen para todos los enví
   const total = async () => Number(((await page.locator("main").innerText()).match(/de ([\d.]+) envíos/)?.[1] ?? "0").replace(/\./g, ""));
   const filas = () => page.locator("table tbody tr").count();
 
-  expect(await total()).toBeGreaterThan(25);
-  expect(await filas()).toBe(25);
+  // Primero esperar a que la lista esté pintada (el total se lee del texto de la página)
   await expect(page.getByText(/Página 1 de \d+/)).toBeVisible();
+  await expect.poll(total).toBeGreaterThan(25);
+  expect(await filas()).toBe(25);
 
   const antes = await page.locator("table tbody").innerText();
   await page.getByRole("button", { name: "Página siguiente" }).click();
