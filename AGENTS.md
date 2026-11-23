@@ -21,6 +21,8 @@ terminar.** Se trabaja en la rama `desarrollo` (nunca directo en `main`), con co
 - La app pide sesión (decisión del dueño, 21/11/2026): `/ingresar` con usuario o correo y contraseña, o código al correo.
   Las contraseñas solo se ponen desde la consola del servidor (`python -m app.crear_acceso`, la clave por la entrada
   estándar); la web no tiene ruta para crearlas. Lo público (/, /seguimiento, lo legal) sigue abierto.
+  Excepción deliberada: la cuenta **invitado / 12345678** es pública (botón en /ingresar); el servidor le rechaza toda
+  escritura salvo calcular y descargar (`GUEST_ALLOWED_WRITES` en `backend/app/main.py`) y no ve administración.
 - Solo Inter Variable; sin fuentes propietarias ni fotos de terceros. Paleta vigente del dueño (22/11/2026): fondo
   `#F2F2F7`, texto `#1D1D1F`, énfasis `#007AFF` (texto `#0062CC`), verde `#34C759`; modos marítimo `#0040DD`, terrestre
   `#34C759`, aéreo `#AF52DE`, férreo `#636366`, fluvial `#5AC8FA` (oscuro `#409CFF`, `#30D158`, `#BF5AF2`, `#AEAEB2`,

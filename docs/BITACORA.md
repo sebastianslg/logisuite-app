@@ -1862,3 +1862,12 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
   Se corrigieron la Red (vacía), la ficha del envío (tarjeta que tapaba el mapa) y los avisos; las demás (vías, clientes,
   calendario, comparar, combustible, huella, historial, auditoría, configuración, administración, hoy, bodegas y 404) no
   mostraron desbordes, encimados ni problemas de contraste.
+
+- **Cuenta de invitado (pedido del dueño):** usuario `invitado`, clave `12345678`, pública a propósito, con botón «Entrar
+  como invitado» en /ingresar y un aviso permanente «Modo invitado · los cambios no se guardan» con «Salir». Rol lector:
+  no ve administración ni datos personales. El servidor (`session_identity` en `main.py`) rechaza con 403 y el mensaje
+  «Modo invitado: puedes explorar y probar todo, pero los cambios no se guardan» toda escritura salvo lo que solo calcula
+  o descarga (simular, previsualizar, PDF y Excel), ingresar/salir, términos y reporte de errores; tampoco puede cambiar
+  la clave ni cerrar las sesiones de los demás invitados. Los errores de clave no la bloquean (sería dejar afuera a todos
+  por el error de uno; la clave es pública). Se descartó una copia de base por invitado: más compleja y con riesgo de
+  mezclar datos en las cachés compartidas. Pruebas: `tests/test_invitado.py` y `e2e/invitado.spec.ts`.
