@@ -1800,3 +1800,5 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
   (4 capturas opcionales omitidas), incluidas axe claro/oscuro, Configuración, Red, dock, vistas y celular 320/390.
 - **Pendiente:** memoria/contexto WebGL de la Red al volver; el resto de rondas B, C, D y E del encargo (Red con
   etiquetas y animaciones, funciones de operador, pulido visual y optimización) no se empezaron en esta sesión.
+- **Despliegue:** `main` en `03ed631`, Contabo reconstruido y `deploy/verificar.sh` en verde (34 comprobaciones:
+  configuración, contenedores, sitio, seguridad, ingreso por código, enlaces públicos y respaldos).

@@ -153,7 +153,13 @@ export function NetworkExplorer() {
       onKeyDownCapture={markInteraction}
       onChangeCapture={markInteraction}
     >
-      <MapFrame full={mapFull} onExit={exitMapFull} className={cn("absolute inset-0", !showMap && "hidden")}>
+      {/* `invisible` y no `hidden`: el lienzo conserva su tamaño y sus capas al pasar a Datos; con `display:none`
+          el mapa se quedaba sin silueta ni máscara al volver. El reloj se pausa mientras no se ve. */}
+      <MapFrame
+        full={mapFull}
+        onExit={exitMapFull}
+        className={cn("absolute inset-0", !showMap && "pointer-events-none invisible")}
+      >
         {network && departments ? (
           <Map3DLazy
             network={network}
@@ -167,7 +173,7 @@ export function NetworkExplorer() {
             selectedCities={[origin, destination]}
             focusCity={focusCity}
             onCityClick={pickCity}
-            paused={interacting}
+            paused={!showMap || interacting}
             live={mapFull}
             insets={{ top: 150, left: panelOpen && !panelFull ? 424 : 0, bottom: 64 }}
           />
