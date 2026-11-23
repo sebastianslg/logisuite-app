@@ -50,11 +50,11 @@
 
   /* Modos de transporte: solo identifican el modo (siempre con ícono y texto). Validados para daltonismo en todas las
      parejas (peor 9,9 con protanopía; 18,5 con visión normal): ver lib/modes.ts */
-  --mode-maritimo: #5252aa;
-  --mode-terrestre: #2b7a3d;
-  --mode-aereo: #dd668d;
-  --mode-ferreo: #bb8912;
-  --mode-fluvial: #2d9fbf;
+  --mode-maritimo: #0040dd;
+  --mode-terrestre: #34c759;
+  --mode-aereo: #1d1d1f;
+  --mode-ferreo: #8e8e93;
+  --mode-fluvial: #5ac8fa;
 
   color-scheme: light;
 }
@@ -98,11 +98,11 @@
     --on-warning: #111316;
     --info: #86baeb;
 
-    --mode-maritimo: #6765c5;
-    --mode-terrestre: #397c3a;
-    --mode-aereo: #d65a7e;
-    --mode-ferreo: #b2902c;
-    --mode-fluvial: #22a2c3;
+    --mode-maritimo: #409cff;
+    --mode-terrestre: #30d158;
+    --mode-aereo: #f2f2f7;
+    --mode-ferreo: #98989d;
+    --mode-fluvial: #64d2ff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -144,11 +144,11 @@
       --on-warning: #111316;
       --info: #86baeb;
 
-      --mode-maritimo: #6765c5;
-      --mode-terrestre: #397c3a;
-      --mode-aereo: #d65a7e;
-      --mode-ferreo: #b2902c;
-      --mode-fluvial: #22a2c3;
+      --mode-maritimo: #409cff;
+      --mode-terrestre: #30d158;
+      --mode-aereo: #f2f2f7;
+      --mode-ferreo: #98989d;
+      --mode-fluvial: #64d2ff;
   }
 }
 
