@@ -35,11 +35,11 @@ export const MODES: Record<
   Mode,
   { label: string; vehicle: string; color: string; rgb: [number, number, number]; rgbDark: [number, number, number]; icon: LucideIcon }
 > = {
-  maritimo: { label: "Marítimo", vehicle: "Buque", color: "var(--mode-maritimo)", rgb: [82, 82, 170], rgbDark: [103, 101, 197], icon: Ship },
-  terrestre: { label: "Terrestre", vehicle: "Camión", color: "var(--mode-terrestre)", rgb: [43, 122, 61], rgbDark: [57, 124, 58], icon: Truck },
-  aereo: { label: "Aéreo", vehicle: "Avión", color: "var(--mode-aereo)", rgb: [221, 102, 141], rgbDark: [214, 90, 126], icon: Plane },
-  ferreo: { label: "Férreo", vehicle: "Tren", color: "var(--mode-ferreo)", rgb: [187, 137, 18], rgbDark: [178, 144, 44], icon: TrainFront },
-  fluvial: { label: "Fluvial", vehicle: "Barcaza", color: "var(--mode-fluvial)", rgb: [45, 159, 191], rgbDark: [34, 162, 195], icon: Sailboat },
+  maritimo: { label: "Marítimo", vehicle: "Buque", color: "var(--mode-maritimo)", rgb: [0, 64, 221], rgbDark: [64, 156, 255], icon: Ship },
+  terrestre: { label: "Terrestre", vehicle: "Camión", color: "var(--mode-terrestre)", rgb: [52, 199, 89], rgbDark: [48, 209, 88], icon: Truck },
+  aereo: { label: "Aéreo", vehicle: "Avión", color: "var(--mode-aereo)", rgb: [29, 29, 31], rgbDark: [242, 242, 247], icon: Plane },
+  ferreo: { label: "Férreo", vehicle: "Tren", color: "var(--mode-ferreo)", rgb: [142, 142, 147], rgbDark: [152, 152, 157], icon: TrainFront },
+  fluvial: { label: "Fluvial", vehicle: "Barcaza", color: "var(--mode-fluvial)", rgb: [90, 200, 250], rgbDark: [100, 210, 255], icon: Sailboat },
 };
 
 export type Tone = "neutral" | "accent" | "info" | "success" | "warning" | "danger";
