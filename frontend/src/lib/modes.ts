@@ -37,7 +37,7 @@ export const MODES: Record<
 > = {
   maritimo: { label: "Marítimo", vehicle: "Buque", color: "var(--mode-maritimo)", rgb: [0, 64, 221], rgbDark: [64, 156, 255], icon: Ship },
   terrestre: { label: "Terrestre", vehicle: "Camión", color: "var(--mode-terrestre)", rgb: [52, 199, 89], rgbDark: [48, 209, 88], icon: Truck },
-  aereo: { label: "Aéreo", vehicle: "Avión", color: "var(--mode-aereo)", rgb: [29, 29, 31], rgbDark: [242, 242, 247], icon: Plane },
+  aereo: { label: "Aéreo", vehicle: "Avión", color: "var(--mode-aereo)", rgb: [175, 82, 222], rgbDark: [191, 90, 242], icon: Plane },
   ferreo: { label: "Férreo", vehicle: "Tren", color: "var(--mode-ferreo)", rgb: [99, 99, 102], rgbDark: [174, 174, 178], icon: TrainFront },
   fluvial: { label: "Fluvial", vehicle: "Barcaza", color: "var(--mode-fluvial)", rgb: [90, 200, 250], rgbDark: [100, 210, 255], icon: Sailboat },
 };
