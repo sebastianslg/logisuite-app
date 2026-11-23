@@ -53,7 +53,7 @@
   --mode-maritimo: #0040dd;
   --mode-terrestre: #34c759;
   --mode-aereo: #1d1d1f;
-  --mode-ferreo: #8e8e93;
+  --mode-ferreo: #636366;
   --mode-fluvial: #5ac8fa;
 
   color-scheme: light;
@@ -101,7 +101,7 @@
     --mode-maritimo: #409cff;
     --mode-terrestre: #30d158;
     --mode-aereo: #f2f2f7;
-    --mode-ferreo: #98989d;
+    --mode-ferreo: #aeaeb2;
     --mode-fluvial: #64d2ff;
 }
 
@@ -147,7 +147,7 @@
       --mode-maritimo: #409cff;
       --mode-terrestre: #30d158;
       --mode-aereo: #f2f2f7;
-      --mode-ferreo: #98989d;
+      --mode-ferreo: #aeaeb2;
       --mode-fluvial: #64d2ff;
   }
 }
