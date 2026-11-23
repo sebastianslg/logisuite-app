@@ -427,13 +427,31 @@ async def read_cache(request: Request, call_next):
             future.exception()
 
 
+# Cuenta de invitado (decisión del dueño, 22/11/2026): entra con usuario y contraseña públicos para explorar todo, pero
+# nada de lo que haga se guarda. Lo que solo calcula o descarga (simular, previsualizar, PDF y Excel) sí responde; lo que
+# escribe se rechaza con un mensaje claro. Tampoco puede cambiar la contraseña de la cuenta ni cerrar las sesiones de los
+# demás invitados, que comparten la cuenta.
+GUEST_USERNAME = "invitado"
+GUEST_ALLOWED_WRITES = (
+    "/api/auth/logout", "/api/auth/password", "/api/auth/otp/request", "/api/auth/otp/verify",
+    "/api/consents", "/api/client-errors", "/api/routes/simulate", "/api/shipments/preview",
+    "/api/exports/pdf", "/api/exports/xlsx",
+)
+GUEST_MESSAGE = "Modo invitado: puedes explorar y probar todo, pero los cambios no se guardan."
+
+
 @app.middleware("http")
 async def session_identity(request: Request, call_next):
-    """Con una sesión válida (token portador), el historial de la petición se firma con esa cuenta (ver `_user`)."""
+    """Con una sesión válida (token portador o cookie de sesión), el historial de la petición se firma con esa cuenta
+    (ver `_user`); si es la cuenta de invitado, las escrituras se rechazan sin tocar la base."""
     header = request.headers.get("Authorization", "")
     user = None
-    if header.startswith("Bearer ") and request.url.path.startswith("/api/") and request.method in ("POST", "PUT", "PATCH", "DELETE"):
-        user = auth_otp.get_user_by_session(header[7:].strip())
+    if request.url.path.startswith("/api/") and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        token = header[7:].strip() if header.startswith("Bearer ") else request.cookies.get("westvane_session")
+        if token:
+            user = auth_otp.get_user_by_session(token)
+    if user and user["username"] == GUEST_USERNAME and request.url.path not in GUEST_ALLOWED_WRITES:
+        return Response(json.dumps({"detail": GUEST_MESSAGE}), status_code=403, media_type="application/json")
     mark = SESSION_USER.set(user["username"] if user else None)
     try:
         return await call_next(request)

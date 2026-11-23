@@ -625,6 +625,9 @@ def login_password(identifier: str, password: str, user_agent: str | None = None
     if isinstance(locked, str) and locked > now.strftime("%Y-%m-%d %H:%M:%S"):
         raise OperationError(f"Demasiados intentos fallidos. Espera {LOCK_MINUTES} minutos o ingresa con el código al correo.")
     if not _password_matches(password, user["password_hash"], user["salt"]) or not user["active"]:
+        if user["username"] == "invitado":
+            # Clave pública: bloquearla dejaría afuera a todos los invitados por el error de uno, y no protege nada
+            raise OperationError(WRONG)
         fails = int(user["failed_logins"] or 0) + 1
         lock = (now + timedelta(minutes=LOCK_MINUTES)).strftime("%Y-%m-%d %H:%M:%S") if fails >= MAX_PASSWORD_FAILURES else None
         run_write("UPDATE users SET failed_logins = ?, locked_until = ? WHERE user_id = ?",
@@ -668,8 +671,10 @@ def set_password_account(username: str, password: str, full_name: str, role: str
     user = (username or "").strip().lower()
     if not USERNAME_REGEX.match(user):
         raise OperationError("El usuario debe tener de 3 a 40 letras minúsculas, números, punto, guion o guion bajo.")
-    if len(password or "") < PASSWORD_MIN_LEN:
-        raise OperationError(f"La contraseña debe tener al menos {PASSWORD_MIN_LEN} caracteres.")
+    # La cuenta de invitado es pública a propósito (clave conocida, 8 caracteres): no puede escribir nada (main.py)
+    minimo = 8 if user == "invitado" else PASSWORD_MIN_LEN
+    if len(password or "") < minimo:
+        raise OperationError(f"La contraseña debe tener al menos {minimo} caracteres.")
     if role not in ROLE_LEVEL:
         raise OperationError(f"Rol no válido: '{role}'.")
     mail = normalize_email(email) if email else None
@@ -704,3 +709,5 @@ def ensure_dev_password_user() -> None:
     if run_query("SELECT user_id FROM users WHERE username = 'pruebas'").empty:
         set_password_account("pruebas", "pruebas-e2e-local", "Cuenta de pruebas", "lector",
                              "pruebas@westvane.invalid", operator="sistema")
+    if run_query("SELECT user_id FROM users WHERE username = 'invitado'").empty:
+        set_password_account("invitado", "12345678", "Invitado", "lector", operator="sistema")

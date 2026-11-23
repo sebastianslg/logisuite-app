@@ -214,6 +214,24 @@ export function LoginScreen() {
                 <Mail aria-hidden />
                 Recibir un código en el correo
               </Button>
+              {/* Cuenta pública de invitado: ve y prueba todo, pero el servidor no guarda ningún cambio */}
+              <div className="mt-2 rounded-2xl bg-fill px-4 py-3">
+                <p className="text-sm font-medium">¿Solo quieres conocerla?</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Entra como invitado (usuario <code className="font-mono">invitado</code>, clave <code className="font-mono">12345678</code>):
+                  puedes recorrer y probar todo, pero los cambios no se guardan.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2.5"
+                  disabled={busy}
+                  onClick={() => void run(() => loginPassword("invitado", "12345678"))}
+                >
+                  Entrar como invitado
+                </Button>
+              </div>
             </form>
           )}
 
