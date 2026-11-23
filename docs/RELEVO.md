@@ -83,7 +83,9 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     real (v18), httpx2 sin advertencia, y cobertura al 84 % con fx/tolls/shipments_io probados a fondo; importar peajes ilegible
     ya no da 500. 495 pruebas de la API, 47 e2e × 2. Falta: ronda 4 (F6 filtros de Flota/Bodegas en la URL, F7 borrador del envío
     nuevo, F8 errores por sección en la ficha).
-- **En curso / a medias:** ronda A **desplegada en Contabo** (`main` `03ed631`, sección 78; `verificar.sh` en verde).
+- **En curso / a medias:** arreglo de la Red al volver de «Datos» en `main` (`ef8c06c`, sección 79); el servidor hizo
+  `git pull`, pero la reconstrucción de los contenedores se canceló y el sitio sigue con la imagen anterior. Ronda A
+  desplegada antes (`03ed631`, sección 78; `verificar.sh` en verde).
   La paleta es la del dueño (22/11/2026): no cambiarla; el botón principal usa `#0062CC` por contraste y `#007AFF` queda
   para íconos. Pendiente de la ronda A: la memoria y el contexto WebGL de la Red al volver (47 % en el bucle; la prueba
   es termómetro). Las rondas B, C, D y E del encargo siguen sin empezar.
@@ -108,4 +110,4 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     PostgreSQL cuando haya varios usuarios a la vez.
 - **Verificaciones al cerrar:** `tsc`, `eslint` y `build` limpios; **582 pruebas de la API**; **109 de navegador** (incluye
   accesibilidad). En el servidor, `bash deploy/verificar.sh` (34 comprobaciones, en verde).
-- **Producción:** `main` y Contabo en el mismo commit (`03ed631`, sección 78); `desarrollo` al día con la ronda A.
+- **Producción:** `main` en `ef8c06c` (sección 79); Contabo con ese repositorio pero sin reconstruir tras la cancelación. El sitio sirve la imagen de `03ed631` hasta el próximo despliegue.

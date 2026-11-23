@@ -1802,3 +1802,17 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
   etiquetas y animaciones, funciones de operador, pulido visual y optimización) no se empezaron en esta sesión.
 - **Despliegue:** `main` en `03ed631`, Contabo reconstruido y `deploy/verificar.sh` en verde (34 comprobaciones:
   configuración, contenedores, sitio, seguridad, ingreso por código, enlaces públicos y respaldos).
+
+## 79. Arreglo: la Red no se queda en blanco al volver de «Datos»
+
+- **Síntoma:** en `/red`, pasar a «Datos», cerrar el simulador y volver a «Mapa» dejaba la vista sin la silueta ni la
+  máscara del país (y en algunos equipos, en blanco). Había que salir al inicio y volver a entrar para que cargara.
+- **Causa:** el contenedor del mapa se ocultaba con `display:none`; el lienzo perdía su tamaño y las capas base de
+  deck.gl no se reconstruían al mostrarlo de nuevo.
+- **Arreglo:** se oculta con `visibility` (`pointer-events` desactivados y el reloj en pausa mientras no se ve), de modo
+  que el lienzo conserva tamaño, contexto y capas. No cambia el aspecto ni el reposo del mapa.
+- **Prueba de regresión:** `e2e/red-datos-mapa.spec.ts` recorre Datos → ocultar simulador → Mapa y exige mapa visible,
+  etapa 8, lienzo con tamaño y contexto WebGL vivo. Pasó junto con navegación, caché y mapa (20 pruebas).
+- **Estado del despliegue:** el arreglo está en `main` (`ef8c06c`) y el repositorio de Contabo hizo `git pull`, pero la
+  reconstrucción de los contenedores se canceló; el sitio sigue sirviendo la imagen anterior hasta relanzar
+  `docker compose ... up -d --build` (no se relanzó desde aquí).
