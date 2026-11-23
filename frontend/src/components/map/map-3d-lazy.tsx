@@ -1,6 +1,6 @@
 "use client";
 
-import { Component, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { Component, useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { RefreshCw, TriangleAlert } from "lucide-react";
 
 import type { Map3DProps } from "@/components/Map3D";
@@ -14,10 +14,12 @@ import { onQuiet } from "@/lib/idle";
  * cae entero en una sola tarea, así que no puede empezar encima de un toque, de la paleta Ctrl K o de un diálogo
  * abierto. Mientras espera —y mientras baja el trozo de deck.gl/MapLibre— se ve la red dibujada en plano.
  *
- * Fuera de pantalla o con la pestaña oculta el mapa se pausa (Map3D detiene su reloj y su requestAnimationFrame), pero
- * no se desmonta: recrear el contexto WebGL cuesta segundos en equipos sin GPU. Si el trozo no llega, el navegador no
- * puede dibujar WebGL o el mapa falla en tiempo de ejecución, queda la red plana con un reintento explícito; nunca una
- * pantalla vacía ni un reintento silencioso en cada render.
+ * Fuera de pantalla o con la pestaña oculta el mapa se pausa (Map3D detiene su reloj y su requestAnimationFrame).
+ * Al salir de la ruta, en cambio, se suelta entero: Next conserva la ruta oculta (Activity) y su contexto WebGL
+ * seguiría vivo —y su memoria con él— aunque nadie lo mire. Al volver se crea otro con un lienzo y un contexto nuevos,
+ * sin dos contextos vivos a la vez. Si el trozo no llega, el navegador no puede dibujar WebGL o el mapa falla en
+ * tiempo de ejecución, queda la red plana con un reintento explícito; nunca una pantalla vacía ni un reintento
+ * silencioso en cada render.
  */
 type Failure = "webgl" | "import" | "runtime";
 
@@ -73,6 +75,28 @@ export function Map3DLazy(props: Map3DProps) {
   const [inView, setInView] = useState(false);
   const [visible, setVisible] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
+  // Última cámara: al soltar el mapa y crearlo de nuevo, se abre donde estaba en vez de saltar al encuadre inicial.
+  const view = useRef<NonNullable<Map3DProps["initialView"]> | null>(null);
+  const rememberView = useCallback((next: NonNullable<Map3DProps["initialView"]>) => {
+    view.current = next;
+  }, []);
+  // Se lee una sola vez, cuando el mapa se monta: es la cámara con que nace, no algo que participe de este render.
+  // eslint-disable-next-line react-hooks/refs -- valor inicial del próximo montaje, no estado del render actual
+  const initialView = view.current;
+  /**
+   * Si la ruta con el mapa está a la vista. React ejecuta la limpieza de los efectos al ocultar una ruta en Activity
+   * (Next deja oculta la que se deja) y vuelve a ejecutar la preparación al mostrarla: eso es exactamente el ciclo
+   * «se suelta al salir y se crea al volver». Con el mapa desmontado no queda contexto WebGL vivo de una pantalla que
+   * ya no se mira, y al montarlo otra vez React crea un lienzo limpio (un lienzo con el contexto perdido no vuelve a
+   * dibujar). Si la limpieza y la vuelta se cruzan, el estado no llega a cambiar y el mapa se conserva: nunca queda a
+   * medias.
+   */
+  const [showing, setShowing] = useState(true);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- al volver a mostrarse (Activity) hay que reponerlo
+    setShowing(true);
+    return () => setShowing(false);
+  }, []);
 
   // Pestaña oculta: el mapa se pausa. El estado inicial es visible para no romper la hidratación.
   useEffect(() => {
@@ -117,6 +141,8 @@ export function Map3DLazy(props: Map3DProps) {
     let alive = true;
     void import("@/components/Map3D").then(
       (module) => {
+        // Marca de diagnóstico: separa el costo de evaluar el trozo (deck.gl y MapLibre) del de compilar sus capas.
+        performance.mark("westvane:mapa:modulo");
         if (alive) setMap3D(() => module.default);
       },
       () => {
@@ -134,6 +160,11 @@ export function Map3DLazy(props: Map3DProps) {
     if (!element) return;
     const onLost = (event: Event) => {
       event.preventDefault();
+      // Cuando el mapa se suelta al salir de la ruta, Map3D pierde su contexto a propósito (deja la marca) y su
+      // lienzo ya no está en el documento: eso no es un fallo del mapa ni debe dejar el aviso al volver.
+      const target = event.target;
+      const released = target instanceof Element && target.closest("[data-mapa-liberado]");
+      if (released || (target instanceof Node && !target.isConnected)) return;
       setFailure("runtime");
     };
     element.addEventListener("webglcontextlost", onLost, true);
@@ -150,10 +181,20 @@ export function Map3DLazy(props: Map3DProps) {
 
   return (
     <div ref={ref} className="relative h-full min-h-80 w-full overflow-hidden bg-fill/30">
-      {Map3D && !failure ? (
+      {!showing ? (
+        // La ruta está oculta (Activity): el mapa ya se soltó y aquí no hay nada que dibujar —nadie lo ve—, así que
+        // tampoco se pinta la red plana.
+        <div className="absolute inset-0" aria-hidden />
+      ) : Map3D && !failure ? (
         <MapBoundary key={attempt} onError={() => setFailure("runtime")}>
-          {/* Fuera de pantalla o con la pestaña oculta el reloj del mapa no corre; el contexto se conserva. */}
-          <Map3D {...props} paused={props.paused || !inView || !visible} />
+          {/* Fuera de pantalla o con la pestaña oculta el reloj del mapa no corre; el contexto se conserva mientras
+              la ruta siga a la vista. La cámara se recuerda aquí para volver a abrir el mapa donde estaba. */}
+          <Map3D
+            {...props}
+            initialView={initialView}
+            onViewChange={rememberView}
+            paused={props.paused || !inView || !visible}
+          />
         </MapBoundary>
       ) : failure ? (
         <div className="absolute inset-0">

@@ -2,9 +2,9 @@
 name: Westvane TMS
 description: Herramienta profesional de operación multimodal para Colombia. Se lee como un documento de trabajo (superficies opacas, líneas finas, cifras grandes), con un dock flotante como única navegación y el vidrio reservado para lo que flota sobre el mapa.
 colors:
-  background-light: "#f6f7f9"
+  background-light: "#f2f2f7"
   background-dark: "#111316"
-  foreground-light: "#161920"
+  foreground-light: "#1d1d1f"
   foreground-dark: "#eeeff2"
   card-light: "#ffffff"
   card-dark: "#191b1f"
@@ -12,26 +12,29 @@ colors:
   raised-dark: "#222429"
   muted-foreground-light: "#5e626a"
   muted-foreground-dark: "#a6a9b1"
-  ink-light: "#161920"
-  ink-dark: "#eeeff2"
+  accent-light: "#007aff"
+  accent-dark: "#5ac8fa"
+  accent-text-light: "#0062cc"
+  accent-solid-light: "#0062cc"
+  accent-solid-dark: "#0a84ff"
   success-light: "#227240"
   success-dark: "#6bc987"
   warning-light: "#944300"
   warning-dark: "#f6a65d"
   danger-light: "#b82e30"
   danger-dark: "#f47a79"
-  info-light: "#2a669f"
+  info-light: "#0062cc"
   info-dark: "#86baeb"
-  mode-maritimo-light: "#5252aa"
-  mode-maritimo-dark: "#6765c5"
-  mode-terrestre-light: "#2b7a3d"
-  mode-terrestre-dark: "#397c3a"
-  mode-aereo-light: "#dd668d"
-  mode-aereo-dark: "#d65a7e"
-  mode-ferreo-light: "#bb8912"
-  mode-ferreo-dark: "#b2902c"
-  mode-fluvial-light: "#2d9fbf"
-  mode-fluvial-dark: "#22a2c3"
+  mode-maritimo-light: "#0040dd"
+  mode-maritimo-dark: "#409cff"
+  mode-terrestre-light: "#34c759"
+  mode-terrestre-dark: "#30d158"
+  mode-aereo-light: "#af52de"
+  mode-aereo-dark: "#bf5af2"
+  mode-ferreo-light: "#636366"
+  mode-ferreo-dark: "#aeaeb2"
+  mode-fluvial-light: "#5ac8fa"
+  mode-fluvial-dark: "#64d2ff"
 typography:
   display:
     fontFamily: "'Inter Variable', Inter, system-ui, sans-serif"
@@ -95,7 +98,7 @@ spacing:
   section-lg: "112px"
 components:
   button-primary:
-    backgroundColor: "{colors.ink-light}"
+    backgroundColor: "{colors.accent-solid-light}"
     textColor: "#ffffff"
     rounded: "{rounded.md}"
     height: "36px"
@@ -113,7 +116,7 @@ components:
     rounded: "{rounded.pill}"
     height: "56px"
   logo-mark:
-    backgroundColor: "{colors.ink-light}"
+    backgroundColor: "{colors.accent-solid-light}"
     textColor: "#ffffff"
     size: "32px"
   public-header:
@@ -130,27 +133,45 @@ Westvane es una herramienta de operación para despachadores y planificadores de
 
 ## Colors
 
-Rediseño del 22/11/2026, a pedido del dueño: «los colores rojo, verde y azul no combinan» y «el modo oscuro se siente como
-una máscara del claro». La paleta anterior (los colores de sistema de Apple y el azul de apple.com) queda descartada.
+Paleta vigente del dueño (22/11/2026), la misma que está en producción. Sustituye a la «interfaz en tinta» de la
+sección 76. Los valores viven en `globals.css` (tokens `--*`) y en `lib/modes.ts` (RGB para el mapa).
 
-- **La interfaz es tinta.** Texto, botones principales, foco, navegación activa, enlaces y gráficos de una sola serie van
-  en grafito frío (`#161920` en claro; en oscuro, gris claro `#eeeff2` con texto grafito encima). No hay color de acento:
-  así nada de la interfaz compite con los datos. Los enlaces se distinguen por el subrayado que se dibuja (`link-draw`).
-- **El color es solo para datos:** los cinco modos de transporte y los estados. Un color significa una cosa.
-- **Estados** (texto y rellenos; ≥ 4,5:1 sobre la tarjeta y sobre su tinte al 12 %): éxito `#227240` / `#6bc987`, aviso
-  `#944300` / `#f6a65d`, peligro `#b82e30` / `#f47a79`, en curso o programado (info) `#2a669f` / `#86baeb`.
-- **Paleta de modos, buscada por cálculo y validada** con el validador de la skill de visualización, con TODAS las parejas
-  (en el mapa se ven juntas): croma parecido en los cinco (por eso combinan) y la luminosidad repartida para que se
-  distingan. Claro: añil `#5252aa` (marítimo), verde bosque `#2b7a3d` (terrestre), rosa `#dd668d` (aéreo), ocre `#bb8912`
-  (férreo), petróleo `#2d9fbf` (fluvial): peor pareja con daltonismo 9,9 y con visión normal 18,5. Oscuro: los mismos tonos
-  un paso adaptados al grafito (`#6765c5`, `#397c3a`, `#d65a7e`, `#b2902c`, `#22a2c3`): 10,0 y 17,1, todos ≥ 3:1. Los valores
-  viven en `lib/modes.ts` (RGB para el mapa) y en `globals.css` (`--mode-*`); el cálculo está en la bitácora (sección 76).
-- **El oscuro se diseña aparte.** Tres capas de grafito con el mismo tono frío: fondo `#111316`, tarjeta `#191b1f`, elevado
-  `#222429`; texto `#eeeff2` (nunca blanco puro) y secundario `#a6a9b1`. Las tarjetas no llevan sombra (no se ve en oscuro)
-  sino un borde de luz arriba (`--card-edge`); lo que flota suma un anillo de 1 px de luz. El mapa usa su estilo oscuro.
+| Uso | Claro | Oscuro | Contraste medido |
+|---|---|---|---|
+| Fondo / tarjeta | `#F2F2F7` / `#FFFFFF` | `#111316` / `#191B1F` | — |
+| Texto principal | `#1D1D1F` | `#EEEFF2` | 15,1:1 sobre el fondo claro; 14,9:1 sobre la tarjeta oscura |
+| Texto secundario | `#5E626A` | `#A6A9B1` | 5,2:1 / 7,3:1 |
+| Énfasis (texto y enlaces) | `#0062CC` | `#5AC8FA` | 5,2:1 sobre el fondo; 9,8:1 sobre la tarjeta oscura |
+| Énfasis de marca (íconos, focos, detalles) | `#007AFF` | `#5AC8FA` | 4,0:1 con blanco: **no se usa para texto pequeño** |
+| Botón principal | `#0062CC` + blanco | `#0A84FF` + `#111316` | 5,8:1 / 5,1:1 |
+
+- **Decisión tomada (contraste):** el botón principal usa `#0062CC` con texto blanco (5,8:1). El blanco sobre `#007AFF`
+  mide 4,0:1 y no cumple AA en texto de 14 px; el texto oscuro sobre `#007AFF` tampoco (4,2:1). `#007AFF` se conserva
+  para íconos, focos, indicadores y marcas, donde no hay texto que leer.
+- **El color es para datos:** los cinco modos de transporte y los estados. Un color significa una cosa. El acento azul
+  no compite con ellos.
+- **Estados** (texto y rellenos; todos ≥ 4,5:1 sobre la tarjeta y sobre su tinte al 12 %): éxito `#227240` / `#6BC987`
+  (5,9:1 / 8,5:1), aviso `#944300` / `#F6A65D` (6,9:1 / 8,7:1), peligro `#B82E30` / `#F47A79` (6,1:1 / 6,5:1), en curso
+  `#0062CC` / `#86BAEB` (5,8:1 / 8,4:1). El verde de la paleta (`#34C759`) es de datos y rellenos; como texto no pasa AA,
+  por eso el texto de éxito usa el verde oscuro.
+- **Modos de transporte** (los cinco se ven juntos en el mapa; siempre con ícono y nombre, nunca solo color):
+
+  | Modo | Claro | Oscuro | Claro sobre el fondo | Oscuro sobre la tarjeta |
+  |---|---|---|---:|---:|
+  | Marítimo | `#0040DD` | `#409CFF` | 6,8:1 | 6,1:1 |
+  | Terrestre | `#34C759` | `#30D158` | 2,0:1 | 8,5:1 |
+  | Aéreo | `#AF52DE` | `#BF5AF2` | 3,7:1 | 4,9:1 |
+  | Férreo | `#636366` | `#AEAEB2` | 5,4:1 | 7,8:1 |
+  | Fluvial | `#5AC8FA` | `#64D2FF` | 1,7:1 | 10,0:1 |
+
+  Los tonos claros de terrestre y fluvial no llegan a 3:1 sobre el fondo: son rellenos y trazos de datos, nunca el único
+  indicador; el ícono, el nombre y el grosor del trazo los acompañan. Es la paleta del dueño y **no se cambia**.
+- **El oscuro se diseña aparte.** Tres capas con el mismo tono frío: fondo `#111316`, tarjeta `#191B1F`, elevado
+  `#222429`; texto `#EEEFF2` (nunca blanco puro) y secundario `#A6A9B1`. Las tarjetas no llevan sombra (no se ve en
+  oscuro) sino un borde de luz arriba (`--card-edge`); lo que flota suma un anillo de 1 px de luz.
 - **El modo nunca va solo en color:** siempre lleva ícono y texto.
-- **Marca:** la W en un cuadro del color del botón principal: grafito en claro; en oscuro se invierte (cuadro claro, W
-  grafito). `app/icon.svg`, los íconos, el `.ico`, la imagen para compartir y el PDF usan el grafito.
+- **Marca:** la W en un cuadro del acento sólido (azul) con la W blanca; en oscuro, `#0A84FF` con la W en `#111316`.
+  `app/icon.svg`, los íconos, el `.ico`, la imagen para compartir y el PDF usan el mismo acento.
 
 ## Typography
 
@@ -188,16 +209,16 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 - **Tabla de detalle (`DetailTable`):** columnas numéricas a la derecha, barra de proporción fina (escala, no ancho) y exportación a CSV; la lista de envíos exporta además a Excel.
 - **Estado vacío (`EmptyState`), aviso (`toast`), guardado (`SaveIcon`):** vacío con una cifra grande y una acción; avisos de 4 s, máximo tres; el botón de guardar respira mientras guarda y confirma con un check.
 - **Hoja (`Sheet`):** inspector a la derecha en escritorio; hoja inferior que se cierra deslizando en celular.
-- **Campo (`field`):** línea fina, foco con anillo de tinta de 3 px; error en rojo con mensaje en español, `aria-invalid` y foco al primer error.
+- **Campo (`field`):** línea fina, foco con anillo del acento de 3 px; error en rojo con mensaje en español, `aria-invalid` y foco al primer error.
 - **Tendencia (`Sparkline`, `Delta`):** línea de 1,5 px de una sola serie, escala desde cero, valor del día al pasar el puntero; el cambio contra el período anterior va con flecha dibujada y texto («Sube 12 %»), en verde o rojo solo si esa dirección es buena o mala (los retrasos).
-- **Línea de tiempo (`ShipmentJournal`):** hora a la izquierda, punto con ícono y texto a la derecha; lo previsto atenuado y una marca de «Ahora» en tinta.
+- **Línea de tiempo (`ShipmentJournal`):** hora a la izquierda, punto con ícono y texto a la derecha; lo previsto atenuado y una marca de «Ahora» en el acento.
 - **Calendario:** barras del color del estado; el retraso es un tramo rayado, no otro color. Ficha propia al pasar el puntero o con el foco (no el tooltip del navegador).
-- **Mapa por departamento:** un solo tono de tinta en cinco pasos por cuantiles, gris para «sin movimiento», leyenda con rangos.
+- **Mapa por departamento:** un solo tono de acento en cinco pasos por cuantiles, gris para «sin movimiento», leyenda con rangos.
 - **Impresión:** papel blanco y tinta oscura aunque la app esté en oscuro; sin dock, controles ni mapa; las tarjetas no se cortan entre páginas.
 - **Modo presentación:** cifras a 7 vw para proyectar, actualizadas cada 30 s mientras está abierto.
 - **Control segmentado (`Segmented`):** fondo `fill`, píldora de tarjeta que se desliza; `md` en cabeceras, `sm` en paneles; grupo de radio con flechas del teclado. Es el único segmentado de la app.
-- **Casilla de verificación:** 16 px, radio de 5 px, línea `separator-strong`; marcada, tinta sólida con palomita; estado parcial con guion.
-- **Mapa de calor de retrasos (`DelayHeatmap`):** tabla de vías por día, un tono de tinta en cinco pasos por quintiles sin repetir cortes; el paso más oscuro es la tinta plena con el texto del botón principal. Detalle al pasar el puntero y con el foco.
+- **Casilla de verificación:** 16 px, radio de 5 px, línea `separator-strong`; marcada, acento sólido con palomita; estado parcial con guion.
+- **Mapa de calor de retrasos (`DelayHeatmap`):** tabla de vías por día, un tono de acento en cinco pasos por quintiles sin repetir cortes; el paso más oscuro es el acento pleno con el texto del botón principal. Detalle al pasar el puntero y con el foco.
 - **Bienvenida (`ConsentGate`):** diálogo con dos casillas separadas y sin marcar (términos y datos) y el aviso de privacidad corto; los documentos legales se leen sin aceptar y llevan aviso de borrador mientras falten datos del responsable.
 - **Vista plana de la red (`NetworkPreview`):** SVG con departamentos, enlaces por modo, nodos y flota de tamaño fijo en pantalla; es lo que muestra el Resumen y lo que se ve mientras carga el mapa 3D.
 - **Marca (`LogoMark`, `Wordmark`):** cuadro de esquinas suaves (radio de 112 sobre 512) en el azul de los botones con la W trazada en blanco como una ruta: trazo grueso de extremos y uniones redondos, origen y destino en círculos blancos y un transbordo calado en el vértice central. Es el mismo dibujo que `app/icon.svg` (favicon e íconos de instalación): si cambia uno, cambia el otro. En el dock va sola a 32 px; en la barra y el pie públicos va a 28 px junto al nombre en Inter 600 a 1,0625 rem. El nombre nunca va en otra fuente ni como imagen.
@@ -227,4 +248,4 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 - Sí: resaltar un modo bajando lo demás a 12 % de opacidad, y acompañar el color del modo con su ícono y su nombre.
 - Sí: en las páginas públicas, un solo borde izquierdo para todas las secciones y ningún elemento del armazón de la app (dock, avisos, bienvenida).
 - No: tarjetas idénticas como estructura de página, íconos en círculos sobre cada cifra, tarjetas dentro de tarjetas, vidrio decorativo.
-- No: color como único portador de significado, color de acento en la interfaz (es tinta), `transition: all`, nuevas curvas de movimiento, fuentes propietarias o fotos de terceros.
+- No: color como único portador de significado, usar el acento azul para texto pequeño sin comprobar contraste, `transition: all`, nuevas curvas de movimiento, fuentes propietarias o fotos de terceros.

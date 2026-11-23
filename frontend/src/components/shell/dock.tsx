@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import {
   CalendarClock,
@@ -43,6 +43,7 @@ import { Mail } from "lucide-react";
 import { onIdle } from "@/lib/idle";
 import { EASE, SPRING, stagger } from "@/lib/motion";
 import { useHydrated } from "@/lib/use-hydrated";
+import { useLiveState } from "@/lib/use-live";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/brand/logo";
 
@@ -821,37 +822,29 @@ function Logo() {
   return <LogoMark className="size-8 rounded-[9px]" />;
 }
 
+/** `navigator.onLine` compartido: al perder o recuperar la red el texto cambia sin esperar a la siguiente sonda. */
+const leeRed = () => typeof navigator === "undefined" || navigator.onLine !== false;
+
+function subscribeRed(onChange: () => void) {
+  window.addEventListener("online", onChange);
+  window.addEventListener("offline", onChange);
+  return () => {
+    window.removeEventListener("online", onChange);
+    window.removeEventListener("offline", onChange);
+  };
+}
+
 /**
- * Estado del sistema: consulta la API cada 30 s. Un punto que respira indica que responde;
- * si falla, el punto se pone en rojo y el texto dice que no hay conexión.
+ * Estado del sistema: una sola consulta a /api/health para el punto del escritorio y el texto de la hoja «Más».
+ * `useLiveState` guarda un almacén por URL: los dos se suscriben al mismo, con una petición en vuelo (nunca dos a
+ * la vez), un solo intervalo de 30 s y pausa con la pestaña oculta. El aviso de conexión de `offline-banner`
+ * conserva sus comprobaciones puntuales al arrancar y al enfocar; el sondeo periódico es este.
  */
 function useSystemStatus() {
-  const [online, setOnline] = useState<boolean | null>(null);
-  useEffect(() => {
-    let alive = true;
-    const check = () =>
-      fetch("/api/health", { cache: "no-store", signal: AbortSignal.timeout(8000) })
-        .then((r) => alive && setOnline(r.ok))
-        .catch(() => alive && setOnline(false));
-    // Cada 30 s, solo con la pestaña visible; al volver a ella se comprueba enseguida
-    let id = 0;
-    const startTimer = () => {
-      window.clearInterval(id);
-      if (document.visibilityState === "visible") id = window.setInterval(check, 30_000);
-    };
-    const onVisible = () => {
-      if (document.visibilityState === "visible") check();
-      startTimer();
-    };
-    check();
-    startTimer();
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      alive = false;
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, []);
+  const { error, at } = useLiveState<null>("/api/health", 30_000, null);
+  const conRed = useSyncExternalStore(subscribeRed, leeRed, () => true);
+  // Sin red no se puede preguntar: el sondeo queda en pausa y el texto lo dice sin esperar al servidor
+  const online = !conRed ? false : at === 0 && !error ? null : !error;
   const color = online === null ? "bg-muted-foreground" : online ? "bg-success" : "bg-destructive";
   const text = online === null ? "Verificando…" : online ? "Sistema en línea" : "Sin conexión";
   return { online, color, text };

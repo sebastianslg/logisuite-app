@@ -2,11 +2,17 @@ import { expect, PAGES, test, watchErrors } from "./helpers";
 
 test("todas las páginas cargan sin errores", async ({ page }) => {
   const w = watchErrors(page);
+  // Además de errores de consola y 5xx, ninguna lectura de una página válida puede responder 4xx (A4).
+  const respuestas: string[] = [];
+  page.on("response", (r) => {
+    if (r.status() >= 400) respuestas.push(`${r.status()} ${r.url()}`);
+  });
   for (const path of PAGES) {
     await page.goto(path);
     await expect(page.locator("main h1").first()).toBeVisible();
   }
   w.expectClean();
+  expect(respuestas, respuestas.join("\n")).toEqual([]);
 });
 
 test("el dock navega, el menú Más se cierra con Escape y Ctrl K abre la búsqueda", async ({ page }) => {

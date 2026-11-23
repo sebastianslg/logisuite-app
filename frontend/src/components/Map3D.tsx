@@ -134,6 +134,45 @@ const FLEET_HOURS_PER_SECOND = 0.6;
 const FLEET_LOOP_HOURS = 14;
 const ROUTE_LOOP_SECONDS = 9;
 
+/**
+ * Encendido por etapas: cada etapa añade las capas que comparten programa de GPU (y su volumen de datos), así
+ * deck.gl compila y sube un grupo pequeño por vez en lugar de todo en una sola tarea. Cada número es el `stage`
+ * mínimo con el que esa capa ya se dibuja; 0 es el mapa vacío (solo el mar) y 8, el mapa completo.
+ *
+ * Medido en la apertura de la Red: compilar de golpe era una tarea de 1.443 ms (sección 77 de la bitácora).
+ */
+const STAGE = {
+  land: 1, // máscara y tierra: polígonos planos
+  roads: 2, // costa y corredores: líneas
+  nodes: 3, // nodos, halos y selección: puntos
+  departments: 4, // departamentos extruidos y sus bordes
+  closures: 5, // férreo y vías cerradas: líneas punteadas
+  flights: 6, // vuelos: arcos
+  labels: 7, // nombres de ciudad: texto
+  fleet: 8, // flota en vivo y ruta simulada
+} as const;
+const STAGE_LAST = STAGE.fleet;
+
+/**
+ * Suelta los contextos WebGL de los lienzos de un contenedor que se va. Deck finaliza sus capas al desmontarse,
+ * pero no el contexto: el navegador no lo libera hasta que pase el recolector. `WEBGL_lose_context` es la única
+ * forma que da la web de devolver esa memoria de GPU en el acto (y la que evita que un bucle de idas y vueltas al
+ * mapa acumule un contexto por visita).
+ */
+function loseContexts(root: HTMLElement | null) {
+  if (!root) return;
+  for (const canvas of Array.from(root.querySelectorAll<HTMLCanvasElement>("canvas"))) {
+    try {
+      const gl =
+        (canvas.getContext("webgl2") as WebGL2RenderingContext | null) ??
+        (canvas.getContext("webgl") as WebGLRenderingContext | null);
+      gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    } catch {
+      // un lienzo sin contexto (o ya perdido) no necesita nada
+    }
+  }
+}
+
 type DeptDatum = { name: string; code: string; traffic: string; intensity: number; polygon: number[][][] };
 type LinkDatum = NetworkGeo["links"]["features"][number];
 type LayerList = NonNullable<React.ComponentProps<typeof DeckGL>["layers"]>;
@@ -169,6 +208,14 @@ export interface Map3DProps {
    * el simulador, abajo la leyenda. El encuadre usa solo el espacio libre. En celular se usan márgenes propios.
    */
   insets?: { top?: number; left?: number; bottom?: number };
+  /**
+   * Cámara con la que nace el mapa: la última que se vio. Al salir de la ruta el mapa se suelta entero —su contexto
+   * WebGL incluido— y con esto se abre donde estaba al volver, en vez de saltar al encuadre inicial. Se lee una sola
+   * vez, al crear el mapa: después la cámara es del usuario.
+   */
+  initialView?: { longitude: number; latitude: number; zoom: number; pitch?: number; bearing?: number } | null;
+  /** Se llama cuando cambia la cámara (no en cada cuadro): quien monta el mapa recuerda dónde quedó. */
+  onViewChange?: (view: { longitude: number; latitude: number; zoom: number; pitch: number; bearing: number }) => void;
 }
 
 type Padding = { top: number; bottom: number; left: number; right: number };
@@ -210,6 +257,7 @@ const COLOMBIA_BOUNDS: [[number, number], [number, number]] = [
   [-81.8, -4.3],
   [-66.8, 13.6],
 ];
+
 /**
  * Solo la Colombia continental, para pantallas angostas: con San Andrés (3° al oeste) el país cabía a lo ancho
  * alejándose tanto que se veían Perú y el Caribe y Colombia quedaba diminuta. La isla queda a un arrastre.
@@ -218,6 +266,11 @@ const MAINLAND_BOUNDS: [[number, number], [number, number]] = [
   [-79.1, -4.3],
   [-66.8, 12.5],
 ];
+
+// Datos de la cartografía propia, una sola vez en el módulo: las capas se rehacen en cada etapa del encendido y
+// deck.gl solo vuelve a subir a la GPU lo que cambia de verdad (una lista nueva por etapa lo re-subiría todo).
+const MASCARA_DATA = [{ id: "mascara" }];
+const TIERRA_DATA = TIERRA_COLOMBIA.map((ring, i) => ({ id: `tierra-${i}`, ring }));
 
 export default function Map3D({
   network,
@@ -236,6 +289,8 @@ export default function Map3D({
   focusCity = null,
   onCityClick,
   insets,
+  initialView = null,
+  onViewChange,
 }: Map3DProps) {
   const insetTop = insets?.top ?? 0;
   const insetLeft = insets?.left ?? 0;
@@ -249,9 +304,15 @@ export default function Map3D({
   // un Deck se sube la generación y las capas memorizadas se rehacen.
   const [deckEpoch, setDeckEpoch] = useState(0);
   // En la vista compacta el país sube para no quedar bajo los chips de resumen
-  const [viewState, setViewState] = useState<MapViewState>(
-    compact ? { ...COLOMBIA_VIEW, latitude: 1.4, zoom: 4.25, pitch: lite ? 0 : 40, bearing: lite ? 0 : COLOMBIA_VIEW.bearing } : lite ? { ...COLOMBIA_VIEW, pitch: 0, bearing: 0 } : COLOMBIA_VIEW,
-  );
+  const [viewState, setViewState] = useState<MapViewState>(() => {
+    const inicial = compact
+      ? { ...COLOMBIA_VIEW, latitude: 1.4, zoom: 4.25, pitch: lite ? 0 : 40, bearing: lite ? 0 : COLOMBIA_VIEW.bearing }
+      : lite
+        ? { ...COLOMBIA_VIEW, pitch: 0, bearing: 0 }
+        : COLOMBIA_VIEW;
+    // Un mapa que se crea de nuevo tras soltarse al salir de la ruta nace donde estaba: la cámara no salta.
+    return initialView ? containView({ ...inicial, ...initialView }) : inicial;
+  });
   const [hover, setHover] = useState<Hover>(null);
   // El mapa base puede ser un estilo externo (NEXT_PUBLIC_MAP_STYLE): si falla, la cartografía propia sigue y se
   // avisa. La máscara, la tierra y los datos los pinta deck.gl, así que nunca queda una pantalla vacía.
@@ -271,7 +332,7 @@ export default function Map3D({
   const clockRef = useRef(0);
   const deckRef = useRef<DeckGLRef | null>(null);
   const buildRef = useRef<((t: number) => LayerList) | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const { animate, setAnimate } = useMapAnimation();
   // Resolución de dibujado: la nativa de la pantalla para que el mapa se vea nítido, con tope 2 (1,5 si además
   // hay mapa base, que dibuja su propio lienzo); la vista compacta del dashboard y la calidad liviana usan 1.
@@ -293,6 +354,43 @@ export default function Map3D({
     [compact, lite],
   );
 
+  /**
+   * El mapa se suelta con su contenedor. Next conserva oculta la ruta que se deja (Activity) sin quitar el DOM, y
+   * aun así no basta: React retira el contenedor cuando el mapa se desmonta de verdad, y ese es el único momento en
+   * que su lienzo deja de existir. Ahí se finaliza el Deck (capas, búferes y programas) y se fuerza la pérdida de
+   * los contextos WebGL: si no, cada visita dejaba un contexto vivo retenido (54 % de memoria en 20 navegaciones).
+   * La marca del contenedor evita que esa pérdida intencional se lea como un fallo del mapa.
+   *
+   * La liberación espera una tarea: React puede soltar y volver a atar la misma referencia en el mismo commit (lo hace
+   * en desarrollo con StrictMode) y el contexto de un mapa que sigue en su sitio no se toca.
+   */
+  const releaseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const attachContainer = useCallback((node: HTMLDivElement | null) => {
+    if (releaseTimer.current) {
+      clearTimeout(releaseTimer.current);
+      releaseTimer.current = null;
+    }
+    if (node) {
+      containerRef.current = node;
+      return;
+    }
+    const element = containerRef.current;
+    if (!element) return;
+    releaseTimer.current = setTimeout(() => {
+      releaseTimer.current = null;
+      if (element.isConnected) return; // sigue en el documento: no era un desmontaje
+      containerRef.current = null;
+      element.dataset.mapaLiberado = "1";
+      const deck = deckRef.current?.deck;
+      try {
+        if (deck && (deck as unknown as Drawable).layerManager) deck.finalize();
+      } catch {
+        // Ya finalizado por <DeckGL> (o sin capas que soltar): no hay nada que hacer.
+      }
+      loseContexts(element);
+    }, 0);
+  }, []);
+
   // deck.gl crea una capa de eventos enfocable sin nombre: se la damos para lectores de pantalla.
   useEffect(() => {
     const root = containerRef.current?.querySelector<HTMLElement>(".deck-events-root");
@@ -302,22 +400,29 @@ export default function Map3D({
     }
   }, []);
 
-  // Capas por etapas: compilar todos los sombreadores de golpe bloqueaba la página varios segundos en
-  // equipos sin compilación en paralelo. Primero corredores y nodos; departamentos; férreo, vuelos y
-  // cierres; etiquetas; y al final flota y ruta, cada etapa en un momento libre del navegador, para que los toques se atiendan entre una y otra.
+  // ---- Encendido por etapas -------------------------------------------
+  // Cada etapa añade un grupo de capas con su propio programa de GPU y espera a que el cuadro anterior esté pintado
+  // y el navegador quede libre: así la compilación de deck.gl no cae entera en una sola tarea. El orden es el que ya
+  // se veía (país, corredores, nodos, relieve, cierres, vuelos, nombres y flota) y al final están todas las capas:
+  // no se quita ninguna ni cambia su aspecto.
+  // Se empieza cuando el Deck ya existe (su primer cuadro vacío): si las etapas corrieran antes, se saltarían y la
+  // primera capa aplicada sería un grupo entero.
+  const [deckReady, setDeckReady] = useState(false);
   const [stage, setStage] = useState(0);
   useEffect(() => {
-    if (stage >= 4) return;
-    // Un cuadro para dibujar lo que ya hay y luego, en el siguiente momento libre, la etapa siguiente
+    // Marca de diagnóstico (la lee la prueba de apertura para emparejar cada tarea larga con su etapa).
+    performance.mark(`westvane:mapa:etapa:${stage}`);
+    if (!deckReady || stage >= STAGE_LAST) return;
     let cancelIdle = () => {};
+    // Un cuadro para que deck.gl dibuje lo de esta etapa y luego, en el primer momento libre, la siguiente.
     const frame = requestAnimationFrame(() => {
-      cancelIdle = onIdle(() => setStage((s) => s + 1));
+      cancelIdle = onIdle(() => setStage((s) => s + 1), 240);
     });
     return () => {
       cancelAnimationFrame(frame);
       cancelIdle();
     };
-  }, [stage]);
+  }, [deckReady, stage]);
 
   // Solo se anima lo que se ve: con el mapa fuera de pantalla o con "reducir movimiento" el reloj se detiene.
   const animateRef = useRef(true);
@@ -427,6 +532,8 @@ export default function Map3D({
     const el = containerRef.current;
     // Con una ruta el encuadre es el de la ruta (efecto siguiente)
     if (!el || route) return;
+    // Si el mapa nació con la cámara que se recordó (se creó de nuevo al volver a la ruta), no se re-encuadra.
+    if (initialView) return;
     const { width, height } = el.getBoundingClientRect();
     const narrow = width < 768;
     // Los chips y la leyenda flotan sobre el borde inferior; el sur del país (Amazonas) cae al centro y puede
@@ -454,6 +561,18 @@ export default function Map3D({
     // Solo al montar: después la cámara es del usuario
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // La cámara se recuerda fuera del mapa: si el mapa se suelta al salir de la ruta y se crea otro al volver, se
+  // abre donde estaba. No cambia nada en pantalla; el aviso solo guarda la vista (no hay estado que redibuje).
+  useEffect(() => {
+    onViewChange?.({
+      longitude: viewState.longitude,
+      latitude: viewState.latitude,
+      zoom: viewState.zoom,
+      pitch: viewState.pitch ?? 0,
+      bearing: viewState.bearing ?? 0,
+    });
+  }, [onViewChange, viewState]);
 
   // ---- Encuadre de la ruta simulada -----------------------------------
   // La ficha del envío arma un objeto de ruta nuevo en cada render: la clave depende del trazado, no de la
@@ -653,21 +772,23 @@ export default function Map3D({
   const baseLayers = useMemo<LayerList>(
     () => [
       // Máscara inversa: el mundo con un hueco por cada anillo del país. Fuera de Colombia se atenúa.
-      new PolygonLayer<{ id: string }>({
-        id: "mascara-colombia",
-        data: [{ id: "mascara" }],
-        getPolygon: () => MASCARA_COLOMBIA,
-        filled: true,
-        extruded: false,
-        getFillColor: tonos.mascara,
-        pickable: false,
-        parameters: { depthWriteEnabled: false },
-      }),
+      stage >= STAGE.land &&
+        new PolygonLayer<{ id: string }>({
+          id: "mascara-colombia",
+          data: MASCARA_DATA,
+          getPolygon: () => MASCARA_COLOMBIA,
+          filled: true,
+          extruded: false,
+          getFillColor: tonos.mascara,
+          pickable: false,
+          parameters: { depthWriteEnabled: false },
+        }),
       // Tierra: la silueta disuelta de los departamentos, archipiélago incluido y sin líneas internas.
-      showLand &&
+      stage >= STAGE.land &&
+        showLand &&
         new PolygonLayer<{ id: string; ring: [number, number][] }>({
           id: "tierra-colombia",
-          data: TIERRA_COLOMBIA.map((ring, i) => ({ id: `tierra-${i}`, ring })),
+          data: TIERRA_DATA,
           getPolygon: (d) => d.ring,
           filled: true,
           extruded: false,
@@ -675,7 +796,8 @@ export default function Map3D({
           pickable: false,
           parameters: { depthWriteEnabled: false },
         }),
-      showLand &&
+      stage >= STAGE.roads &&
+        showLand &&
         new PathLayer<[number, number][]>({
           id: "costa-colombia",
           data: TIERRA_COLOMBIA,
@@ -686,14 +808,14 @@ export default function Map3D({
           parameters: { depthWriteEnabled: false },
         }),
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- la generación rehace las capas para un Deck nuevo
-    [tonos, deckEpoch, showLand],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- la generación y la etapa rehacen las capas
+    [tonos, deckEpoch, showLand, stage],
   );
 
   const deptLayers = useMemo<LayerList>(
     () => [
       showDepartments &&
-        stage >= 1 &&
+        stage >= STAGE.departments &&
         new PolygonLayer<DeptDatum>({
           id: "departamentos",
           data: deptData,
@@ -713,7 +835,7 @@ export default function Map3D({
           updateTriggers: { getFillColor: [deptData, dark, hasRoute] },
         }),
       showDepartments &&
-        stage >= 1 &&
+        stage >= STAGE.departments &&
         new PathLayer<DeptDatum>({
           id: "departamentos-borde",
           data: deptData,
@@ -724,38 +846,40 @@ export default function Map3D({
           parameters: { depthWriteEnabled: false },
         }),
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- la generación rehace las capas para un Deck nuevo
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- la generación y la etapa rehacen las capas
     [deptData, dark, lite, hasRoute, stage, showDepartments, deckEpoch],
   );
 
   const linkLayers = useMemo<LayerList>(
     () => [
       // Resplandor de los corredores de superficie
-      new PathLayer<LinkDatum>({
-        id: "corredores-glow",
-        data: roadLinks,
-        getPath: (f) => f.geometry.coordinates as [number, number][],
-        getColor: (f) => tone(f.properties.mode, Math.round(38 * dim)),
-        getWidth: 7,
-        widthUnits: "pixels",
-        capRounded: true,
-        jointRounded: true,
-      }),
-      new PathLayer<LinkDatum>({
-        id: "corredores",
-        data: roadLinks,
-        getPath: (f) => f.geometry.coordinates as [number, number][],
-        getColor: (f) => tone(f.properties.mode, Math.round(220 * dim)),
-        getWidth: (f) => (f.properties.mode === "terrestre" ? 1.6 : 2.2),
-        widthUnits: "pixels",
-        capRounded: true,
-        jointRounded: true,
-        pickable: true,
-        autoHighlight: true,
-        highlightColor: [255, 255, 255, 200],
-        updateTriggers: { getColor: dim },
-      }),
-      stage >= 2 &&
+      stage >= STAGE.roads &&
+        new PathLayer<LinkDatum>({
+          id: "corredores-glow",
+          data: roadLinks,
+          getPath: (f) => f.geometry.coordinates as [number, number][],
+          getColor: (f) => tone(f.properties.mode, Math.round(38 * dim)),
+          getWidth: 7,
+          widthUnits: "pixels",
+          capRounded: true,
+          jointRounded: true,
+        }),
+      stage >= STAGE.roads &&
+        new PathLayer<LinkDatum>({
+          id: "corredores",
+          data: roadLinks,
+          getPath: (f) => f.geometry.coordinates as [number, number][],
+          getColor: (f) => tone(f.properties.mode, Math.round(220 * dim)),
+          getWidth: (f) => (f.properties.mode === "terrestre" ? 1.6 : 2.2),
+          widthUnits: "pixels",
+          capRounded: true,
+          jointRounded: true,
+          pickable: true,
+          autoHighlight: true,
+          highlightColor: [255, 255, 255, 200],
+          updateTriggers: { getColor: dim },
+        }),
+      stage >= STAGE.closures &&
         new PathLayer<LinkDatum, PathStyleExtensionProps<LinkDatum>>({
           id: "ferreo",
           data: railLinks,
@@ -770,7 +894,7 @@ export default function Map3D({
           autoHighlight: true,
           updateTriggers: { getColor: dim },
         }),
-      stage >= 2 &&
+      stage >= STAGE.flights &&
         new ArcLayer<LinkDatum>({
           id: "vuelos",
           data: airLinks,
@@ -786,7 +910,7 @@ export default function Map3D({
           updateTriggers: { getSourceColor: [dim, dark], getTargetColor: [dim, dark] },
         }),
       closedLinks.length > 0 &&
-        stage >= 2 &&
+        stage >= STAGE.closures &&
         new PathLayer<LinkDatum, PathStyleExtensionProps<LinkDatum>>({
           id: "cerrados",
           data: closedLinks,
@@ -809,52 +933,55 @@ export default function Map3D({
   const selectionLayers = useMemo<LayerList>(
     () => [
       // Origen y destino elegidos
-      new ScatterplotLayer<NodeDatum>({
-        id: "seleccion",
-        data: selectedNodes,
-        getPosition: (n) => n.geometry.coordinates as [number, number],
-        getFillColor: [0, 122, 255, 40],
-        getLineColor: [0, 122, 255, 255],
-        stroked: true,
-        filled: true,
-        lineWidthMinPixels: 2,
-        getRadius: 15,
-        radiusUnits: "pixels",
-      }),
+      stage >= STAGE.nodes &&
+        new ScatterplotLayer<NodeDatum>({
+          id: "seleccion",
+          data: selectedNodes,
+          getPosition: (n) => n.geometry.coordinates as [number, number],
+          getFillColor: [0, 122, 255, 40],
+          getLineColor: [0, 122, 255, 255],
+          stroked: true,
+          filled: true,
+          lineWidthMinPixels: 2,
+          getRadius: 15,
+          radiusUnits: "pixels",
+        }),
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- la generación rehace las capas para un Deck nuevo
-    [selectedNodes, deckEpoch],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- la generación y la etapa rehacen las capas
+    [selectedNodes, stage, deckEpoch],
   );
 
   const nodeLayers = useMemo<LayerList>(
     () => [
       // Nodos
-      new ScatterplotLayer<NodeDatum>({
-        id: "nodos-halo",
-        data: haloNodes,
-        getPosition: (n) => n.geometry.coordinates as [number, number],
-        getFillColor: (n) => nodeColor(n.properties.kind, 40),
-        getRadius: (n) => NODE_STYLE[n.properties.kind].radius * 2.3,
-        radiusUnits: "pixels",
-        updateTriggers: { getFillColor: dark },
-      }),
-      new ScatterplotLayer<NodeDatum>({
-        id: "nodos",
-        data: nodes,
-        getPosition: (n) => n.geometry.coordinates as [number, number],
-        getFillColor: (n) => nodeColor(n.properties.kind, 255),
-        getLineColor: [3, 7, 18, 255],
-        stroked: true,
-        lineWidthMinPixels: 1.5,
-        getRadius: (n) => NODE_STYLE[n.properties.kind].radius,
-        radiusUnits: "pixels",
-        pickable: true,
-        autoHighlight: true,
-        highlightColor: [255, 255, 255, 160],
-        updateTriggers: { getFillColor: dark },
-      }),
+      stage >= STAGE.nodes &&
+        new ScatterplotLayer<NodeDatum>({
+          id: "nodos-halo",
+          data: haloNodes,
+          getPosition: (n) => n.geometry.coordinates as [number, number],
+          getFillColor: (n) => nodeColor(n.properties.kind, 40),
+          getRadius: (n) => NODE_STYLE[n.properties.kind].radius * 2.3,
+          radiusUnits: "pixels",
+          updateTriggers: { getFillColor: dark },
+        }),
+      stage >= STAGE.nodes &&
+        new ScatterplotLayer<NodeDatum>({
+          id: "nodos",
+          data: nodes,
+          getPosition: (n) => n.geometry.coordinates as [number, number],
+          getFillColor: (n) => nodeColor(n.properties.kind, 255),
+          getLineColor: [3, 7, 18, 255],
+          stroked: true,
+          lineWidthMinPixels: 1.5,
+          getRadius: (n) => NODE_STYLE[n.properties.kind].radius,
+          radiusUnits: "pixels",
+          pickable: true,
+          autoHighlight: true,
+          highlightColor: [255, 255, 255, 160],
+          updateTriggers: { getFillColor: dark },
+        }),
       !compact &&
-        stage >= 3 &&
+        stage >= STAGE.labels &&
         new TextLayer<NodeDatum, CollisionFilterExtensionProps<NodeDatum>>({
           id: "nodos-etiquetas",
           data: cityLabels,
@@ -888,7 +1015,7 @@ export default function Map3D({
     () => [
       // Ruta simulada (debajo del recorrido animado)
       route &&
-        stage >= 4 &&
+        stage >= STAGE.fleet &&
         new PathLayer({
           id: "ruta-glow",
           data: routeGround,
@@ -900,7 +1027,7 @@ export default function Map3D({
           jointRounded: true,
         }),
       route &&
-        stage >= 4 &&
+        stage >= STAGE.fleet &&
         new PathLayer({
           id: "ruta",
           data: routeGround,
@@ -912,7 +1039,7 @@ export default function Map3D({
           jointRounded: true,
         }),
       route &&
-        stage >= 4 &&
+        stage >= STAGE.fleet &&
         new PathLayer({
           id: "ruta-aerea",
           data: routeAir,
@@ -930,7 +1057,7 @@ export default function Map3D({
   const routeOverLayers = useMemo<LayerList>(
     () => [
       route &&
-        stage >= 4 &&
+        stage >= STAGE.fleet &&
         new ScatterplotLayer({
           id: "ruta-transbordos",
           data: route.transfers,
@@ -982,7 +1109,7 @@ export default function Map3D({
 
     // Flota en vivo: estelas de luz y cabezas brillantes
     showFleet &&
-      stage >= 4 &&
+      stage >= STAGE.fleet &&
       new TripsLayer<AssetSegment>({
         id: "flota-estelas",
         data: fleetVisibleSegments,
@@ -999,7 +1126,7 @@ export default function Map3D({
         updateTriggers: { getColor: dark },
       }),
     showFleet &&
-      stage >= 4 &&
+      stage >= STAGE.fleet &&
       new ScatterplotLayer<{ s: AssetSegment; p: Position3 }>({
         id: "flota-halo",
         data: fleetHeads,
@@ -1010,7 +1137,7 @@ export default function Map3D({
         updateTriggers: { getFillColor: [dark, hasRoute] },
       }),
     showFleet &&
-      stage >= 4 &&
+      stage >= STAGE.fleet &&
       new ScatterplotLayer<{ s: AssetSegment; p: Position3 }>({
         id: "flota",
         data: fleetHeads,
@@ -1032,7 +1159,7 @@ export default function Map3D({
     // Ruta simulada (capas fijas memoizadas)
     ...routeUnderLayers,
     route &&
-      stage >= 4 &&
+      stage >= STAGE.fleet &&
       new TripsLayer<TripSegment>({
         id: "ruta-recorrido",
         data: routeSegments,
@@ -1048,7 +1175,7 @@ export default function Map3D({
     ...routeOverLayers,
     route &&
       routeHead &&
-      stage >= 4 &&
+      stage >= STAGE.fleet &&
       new ScatterplotLayer({
         id: "ruta-cabeza",
         data: [routeHead],
@@ -1138,7 +1265,7 @@ export default function Map3D({
 
   return (
     <div
-      ref={containerRef}
+      ref={attachContainer}
       data-testid="mapa-colombia"
       data-lng={viewState.longitude.toFixed(3)}
       data-lat={viewState.latitude.toFixed(3)}
@@ -1146,6 +1273,7 @@ export default function Map3D({
       data-pitch={(viewState.pitch ?? 0).toFixed(1)}
       data-bearing={(viewState.bearing ?? 0).toFixed(1)}
       data-map-land={showLand ? "local" : "base"}
+      data-map-stage={stage}
       data-running={running ? "1" : "0"}
       data-engaged={engaged ? "1" : "0"}
       data-live={live ? "1" : "0"}
@@ -1165,6 +1293,9 @@ export default function Map3D({
           // Un Deck nuevo no puede reutilizar capas finalizadas: la generación obliga a rehacerlas en el siguiente
           // efecto de diseño (que ya corre antes de pintar) y deja el mapa listo para las pruebas y el diagnóstico.
           setDeckEpoch((e) => e + 1);
+          // Hasta que el Deck existe no se encienden las etapas: el primer cuadro va vacío y cada grupo de capas
+          // llega en su propia tarea.
+          setDeckReady(true);
           containerRef.current?.setAttribute("data-map-ready", "1");
         }}
         onHover={onHover}

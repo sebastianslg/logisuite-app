@@ -3,9 +3,9 @@
 /*
  * Sistema de diseño de Westvane (detalle en DESIGN.md), rediseño del 22/11/2026.
  *
- * - La interfaz es TINTA: grafito frío para texto, botones, foco y navegación. El color queda solo para datos:
- *   los cinco modos de transporte (paleta propia validada para daltonismo en todas las parejas) y los estados
- *   (éxito, aviso, peligro, en curso). Así los colores no compiten entre sí.
+ * - Paleta del dueño (22/11/2026): fondo #F2F2F7, texto #1D1D1F, énfasis #007AFF (texto #0062CC y botón #0062CC),
+ *   verde #34C759. El color de los datos son los cinco modos de transporte (marítimo, terrestre, aéreo, férreo y
+ *   fluvial) y los estados (éxito, aviso, peligro, en curso); siempre con ícono y texto, nunca solos.
  * - Tema claro por defecto; oscuro elegido a mano o "Sistema" (atributo data-theme en <html>), con su propia escala.
  * - Superficies opacas con línea fina (.glass, .rows); sombra solo en lo que flota (.floating, .dock) y
  *   vidrio real solo sobre el mapa (.glass-float). Con "reducir transparencia" todo es opaco.
@@ -38,8 +38,8 @@
   --sys-red: #b82e30;
   --sys-orange: #944300;
 
-  --accent: #0062cc; /* énfasis #007aff, un punto más oscuro para texto (4,9:1) */
-  --accent-solid: #007aff; /* énfasis de la paleta del dueño (22/11/2026) */
+  --accent: #0062cc; /* énfasis #007aff, un punto más oscuro para texto (5,2:1 sobre el fondo) */
+  --accent-solid: #0062cc; /* botón principal: blanco sobre #007aff solo llega a 4,0:1 (decisión de contraste) */
   --accent-foreground: #ffffff;
   --success: #227240; /* 5,0:1 sobre su tinte */
   --warning: #944300; /* 5:1 sobre su tinte y sobre el resaltado de los textos legales */
@@ -90,7 +90,7 @@
 
     --accent: #5ac8fa;
     --accent-solid: #0a84ff;
-    --accent-foreground: #ffffff;
+    --accent-foreground: #111316; /* 5,1:1 sobre el azul oscuro del botón */
     --success: #6bc987;
     --warning: #f6a65d;
     --danger: #f47a79;
