@@ -231,7 +231,7 @@ export function WarehouseBoard({ warehouses, summary, roles, initial }: { wareho
                 open={printing || (open[g.city] ?? (filtering || i < 4))} onToggle={() => setOpen((o) => ({ ...o, [g.city]: !(printing || (o[g.city] ?? (filtering || i < 4))) }))}>
                 {g.items.map((w) => (
                   <li key={w.warehouse_id}>
-                    <Link href={`/bodegas/${w.warehouse_id}`} data-ripple className="row-link lift block px-5 py-4">
+                    <Link href={`/bodegas/${w.warehouse_id}`} transitionTypes={['nav-forward']} data-ripple className="row-link lift block px-5 py-4">
                       <div className="flex items-start gap-3">
                         <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-fill text-muted-foreground"><RoleIcon role={w.role} /></span>
                         <div className="min-w-0 flex-1">

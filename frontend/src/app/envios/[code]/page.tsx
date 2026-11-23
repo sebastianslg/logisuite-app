@@ -5,17 +5,20 @@ import { Skeleton } from "@/components/page-header";
 import { ShipmentDetail, type SectionLoad } from "@/components/shipments/shipment-detail";
 import { apiGetOrNull } from "@/lib/api";
 import type { Attachment, AuditEntry, DeliveryInfo, Shipment, ShipmentEvent } from "@/lib/types";
+import { PageTransition } from "@/components/page-transition";
 
 export const metadata = { title: "Detalle de envío" };
 
 export default function EnvioPage({ params }: PageProps<"/envios/[code]">) {
   return (
-    // Ancho máximo centrado: el detalle se lee mejor y el mapa no crece sin límite en pantallas anchas
-    <div className="page page-narrow">
-      <Suspense fallback={<Skeleton className="h-[720px]" />}>
-        <Detail params={params} />
-      </Suspense>
-    </div>
+    <PageTransition>
+      {/* Ancho máximo centrado: el detalle se lee mejor y el mapa no crece sin límite en pantallas anchas */}
+      <div className="page page-narrow">
+        <Suspense fallback={<Skeleton className="h-[720px]" />}>
+          <Detail params={params} />
+        </Suspense>
+      </div>
+    </PageTransition>
   );
 }
 

@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Westvane TMS · Guía de revisión y ejecución local</title>
+<style>
+  @page { size: A4; margin: 18mm 17mm 18mm 17mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Inter", "Segoe UI", system-ui, sans-serif; color: #1d1d1f; font-size: 10.2pt; line-height: 1.5; margin: 0; }
+  h1 { font-size: 18pt; letter-spacing: -0.025em; margin: 0 0 4pt; line-height: 1.15; }
+  h2 { font-size: 13.5pt; letter-spacing: -0.015em; margin: 20pt 0 6pt; padding-top: 10pt; border-top: 1px solid #e5e5ea; }
+  h3 { font-size: 10.8pt; margin: 12pt 0 4pt; }
+  p { margin: 0 0 6pt; }
+  .lead { color: #5e626a; font-size: 11pt; margin-bottom: 10pt; }
+  .brand { display: flex; align-items: center; gap: 10pt; margin-bottom: 18pt; }
+  .brand svg { width: 30pt; height: 30pt; }
+  .brand b { font-size: 14pt; letter-spacing: -0.02em; }
+  .rule { display: flex; gap: 2px; margin: 10pt 0 16pt; }
+  .rule span { height: 3px; border-radius: 9px; }
+  pre { background: #f2f2f7; border: 1px solid #e5e5ea; border-radius: 8pt; padding: 8pt 10pt; font-family: Consolas, "Cascadia Mono", monospace; font-size: 8.8pt; white-space: pre-wrap; margin: 4pt 0 8pt; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 9pt; background: #f2f2f7; padding: 0 3pt; border-radius: 3pt; }
+  table { width: 100%; border-collapse: collapse; margin: 4pt 0 8pt; font-size: 9.4pt; }
+  th, td { text-align: left; padding: 4pt 6pt; border-bottom: 1px solid #e5e5ea; vertical-align: top; }
+  th { color: #5e626a; font-weight: 600; }
+  .note { background: #eef5ff; border: 1px solid #d6e6fb; padding: 7pt 10pt; border-radius: 8pt; margin: 6pt 0 8pt; }
+  .warn { background: #fff6ea; border: 1px solid #f3dcc0; padding: 7pt 10pt; border-radius: 8pt; margin: 6pt 0 8pt; }
+  ol, ul { margin: 2pt 0 8pt 16pt; padding: 0; }
+  li { margin: 1.5pt 0; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12pt; }
+  .page-break { break-before: page; }
+  .muted { color: #5e626a; }
+  .live { background: #0062cc; color: #fff; border-radius: 12pt; padding: 14pt 16pt 12pt; margin: 0 0 18pt; }
+  .live p { margin: 0 0 6pt; }
+  .live-k { font-size: 9pt; font-weight: 600; letter-spacing: 0.02em; opacity: 0.85; text-transform: uppercase; }
+  .live-url { font-size: 20pt; font-weight: 700; letter-spacing: -0.02em; margin: 2pt 0 8pt !important; }
+  .live a { color: #fff; text-decoration: none; }
+  .live code { background: rgb(255 255 255 / 0.18); color: #fff; }
+  .live-sec { margin: 6pt 0 0 14pt; font-size: 9.4pt; }
+  .live-sec li { margin: 2pt 0; }
+  .cred { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8pt; margin: 8pt 0 6pt; }
+  .cred div { background: #fff; color: #1d1d1f; border-radius: 8pt; padding: 7pt 10pt; }
+  .cred span { display: block; font-size: 8pt; font-weight: 600; color: #5e626a; text-transform: uppercase; letter-spacing: 0.04em; }
+  .cred code { background: none; color: #1d1d1f; font-size: 13pt; font-weight: 700; padding: 0; }
+  .cred-n { font-size: 9.2pt; opacity: 0.95; }
+  figure { margin: 6pt 0 12pt; break-inside: avoid; }
+  figure img { width: 100%; border: 1px solid #e5e5ea; border-radius: 8pt; display: block; }
+  figure.phone img { width: 42%; margin: 0 auto; }
+  figcaption { font-size: 8.6pt; color: #5e626a; margin-top: 3pt; }
+  .step { break-inside: avoid; }
+</style>
+</head>
+<body>
+<div class="live">
+  <p class="live-k">La aplicación está en línea</p>
+  <p class="live-url"><a href="https://westvane.duckdns.org">https://westvane.duckdns.org</a></p>
+  <p>Westvane corre en una <b>máquina virtual propia</b> (servidor VPS en Contabo, Linux) con todo el sistema desplegado:
+  la web (Next.js) y la API (FastAPI) en contenedores Docker, la base de datos y sus respaldos. No hace falta instalar
+  nada para revisarla: basta abrir el enlace y entrar con «Entrar a la app».</p>
+  <div class="cred">
+    <div><span>Usuario</span><code>profesor</code></div>
+    <div><span>Contraseña</span><code>{{CLAVE}}</code></div>
+  </div>
+  <p class="cred-n">Entra en <b>https://westvane.duckdns.org/ingresar</b>, escribe el usuario y la contraseña (respeta mayúsculas y
+  guiones) y pulsa «Ingresar». La cuenta es de administrador: puede ver y probar todo.</p>
+  <ul class="live-sec">
+    <li><b>HTTPS</b> con certificado automático (Caddy) y cabeceras de seguridad.</li>
+    <li><b>Servidor protegido:</b> acceso SSH solo con llave y desde una IP autorizada, cortafuegos (UFW y el de Contabo).</li>
+    <li><b>Sesión obligatoria</b> en la app: contraseña cifrada (PBKDF2), bloqueo tras intentos fallidos y freno por IP.</li>
+    <li><b>Respaldos diarios</b> verificados, copia fuera del servidor y ensayo de restauración.</li>
+    <li><b>Verificación automática</b> tras cada despliegue (<code>deploy/verificar.sh</code>, más de 30 comprobaciones).</li>
+  </ul>
+</div>
+
+<div class="brand">
+  <svg viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0062cc"/><polyline points="122,172 194,344 256,226 318,344 390,172" fill="none" stroke="#fff" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/><circle cx="122" cy="172" r="30" fill="#fff"/><circle cx="390" cy="172" r="30" fill="#fff"/><circle cx="256" cy="226" r="14" fill="#0062cc"/></svg>
+  <b>Westvane TMS</b>
+</div>
+<h1>Guía de revisión</h1>
+<p class="lead">Tutorial, ejecución local y pruebas de Westvane TMS: gestión de transporte multimodal (carretera, río, mar, aire y tren) sobre la red real de Colombia, para operadores logísticos.</p>
+<div class="rule"><span style="flex:3340;background:#0040dd"></span><span style="flex:12628;background:#34c759"></span><span style="flex:13437;background:#af52de"></span><span style="flex:1464;background:#636366"></span><span style="flex:4480;background:#5ac8fa"></span></div>
+
+<h2>Tutorial: la app en 12 pasos</h2>
+<div class="step"><h3>1 · Presentación</h3>
+<p>La portada muestra la red real de Colombia que se enciende modo por modo, el mapa con las vías cerradas y los kilómetros por
+modo. Desde aquí se puede calcular una ruta en vivo o «Entrar a la app».</p>
+<figure><img src="capturas/01-presentacion.png" alt="Presentación"></figure></div>
+<div class="step"><h3>2 · Ingresar</h3>
+<p>Usuario o correo y contraseña (o un código al correo para las cuentas que solo tienen correo). La app pide sesión; la
+presentación, el seguimiento para clientes y lo legal son públicos.</p>
+<figure><img src="capturas/02-ingresar.png" alt="Ingresar"></figure></div>
+<div class="step"><h3>3 · Torre de control</h3>
+<p>Las tres cifras que importan (envíos en ruta, con retraso y costo comprometido) con su tendencia de 14 días; debajo,
+«Requiere atención»: vehículos fuera de servicio, vías cerradas, documentos por vencer, mantenimientos vencidos, inventario
+bajo el mínimo y envíos retrasados. Cada fila lleva a la vista filtrada.</p>
+<figure><img src="capturas/03-torre.png" alt="Torre de control"></figure></div>
+<div class="step"><h3>4 · Red multimodal</h3>
+<p>Mapa 3D recortado a Colombia con carretera, río, mar, aire y tren. A la izquierda, «Ahora en la red»: vehículos en tránsito
+por modo, vías cerradas y los envíos más cerca de llegar. La barra de abajo enciende o apaga cada modo, los departamentos y
+la flota. «Datos» muestra lo mismo en tablas.</p>
+<figure><img src="capturas/04-red.png" alt="Red multimodal"></figure></div>
+<div class="step"><h3>5 · Simular una ruta</h3>
+<p>Elige origen, destino, prioridad (tiempo, costo o equilibrio) y peso, y pulsa «Simular ruta». El motor encuentra la
+combinación óptima de modos con sus transbordos, costo, combustible y CO₂e, la dibuja en el mapa y permite crear el envío,
+cotizarlo o comparar escenarios.</p>
+<figure><img src="capturas/05-red-ruta.png" alt="Ruta simulada"></figure></div>
+<div class="step"><h3>6 · Envíos</h3>
+<p>La lista con filtros por estado y modo, búsqueda, orden y avance dibujado como la ruta (un segmento por tramo, del color
+de su modo). Se exporta a Excel o PDF y se importan envíos desde un archivo.</p>
+<figure><img src="capturas/06-envios.png" alt="Envíos"></figure></div>
+<div class="step"><h3>7 · Ficha del envío</h3>
+<p>La ruta en grande, los costos, la cadena de modos con lo recorrido, el mapa, la bitácora de notas e incidencias, la prueba
+de entrega con firma en pantalla, los documentos adjuntos, la remesa y el PDF, y el enlace de seguimiento para el cliente.</p>
+<figure><img src="capturas/07-ficha.png" alt="Ficha del envío"></figure></div>
+<div class="step"><h3>8 · Nuevo envío</h3>
+<p>Origen, destino, carga, peso, fecha y prioridad; la vista previa calcula la ruta antes de guardar y la flota se asigna sola
+a cada tramo (o se usa un transportista tercero si no hay vehículo propio libre). Si sales a medias, el borrador se recupera.</p>
+<figure><img src="capturas/08-nuevo.png" alt="Nuevo envío"></figure></div>
+<div class="step"><h3>9 · Flota</h3>
+<p>Vehículos con su estado, mantenimiento, SOAT y técnico-mecánica, fallas y conductores. Un vehículo con una falla que impide
+operar se inhabilita y sus envíos pasan a otro. Carga y exportación en Excel.</p>
+<figure><img src="capturas/09-flota.png" alt="Flota"></figure></div>
+<div class="step"><h3>10 · Ficha del vehículo</h3>
+<p>Documentos, próximo servicio, mantenimientos con su orden de trabajo en PDF, fallas, viajes y la hoja de vida completa en PDF.</p>
+<figure><img src="capturas/10-vehiculo.png" alt="Ficha del vehículo"></figure></div>
+<div class="step"><h3>11 · Hoy y Bodegas</h3>
+<p>«Hoy» reúne lo que sale, lo que llega y lo que falta firmar en las próximas 24 horas, con el cumplimiento de entregas a
+tiempo por modo. «Bodegas» muestra ocupación, inventario bajo el mínimo y transferencias.</p>
+<figure><img src="capturas/11-hoy.png" alt="Hoy"></figure>
+<figure><img src="capturas/12-bodegas.png" alt="Bodegas"></figure></div>
+<div class="step"><h3>12 · Buscar, configurar y usar en el celular</h3>
+<p><b>Ctrl K</b> busca envíos, vehículos, bodegas y clientes en toda la operación (y <b>?</b> muestra los atajos). En
+Configuración: apariencia clara u oscura, moneda (USD o COP), avisos por correo, mis sesiones y cambiar contraseña. En el
+celular la navegación pasa a una barra inferior.</p>
+<figure><img src="capturas/13-buscar.png" alt="Buscar con Ctrl K"></figure>
+<figure><img src="capturas/14-configuracion.png" alt="Configuración"></figure>
+<figure class="phone"><img src="capturas/15-celular.png" alt="En el celular"></figure></div>
+
+<h2 class="page-break">1. Qué hay en el repositorio</h2>
+<table>
+  <tr><th>Carpeta</th><th>Contenido</th></tr>
+  <tr><td><code>frontend/</code></td><td>Aplicación web: Next.js 16, React 19, Tailwind 4, deck.gl y MapLibre (mapa 3D solo de Colombia). Pruebas de navegador en <code>frontend/e2e/</code> (Playwright, con accesibilidad axe).</td></tr>
+  <tr><td><code>backend/</code></td><td>API: FastAPI + SQLite. Motor de rutas multimodales, flota, bodegas, bitácora, PDF, seguimiento público, autenticación. Pruebas en <code>backend/tests/</code> (pytest, más de 580).</td></tr>
+  <tr><td><code>deploy/</code></td><td>Producción: Caddy (HTTPS), respaldos, verificación del despliegue, prueba de carga y ensayo de restauración.</td></tr>
+  <tr><td><code>docs/</code></td><td><b>BITACORA.md</b>: historia completa del proyecto y sus decisiones (más de 75 secciones). <b>DESPLIEGUE_CONTABO.md</b>, mediciones de rendimiento y esta guía.</td></tr>
+  <tr><td><code>DESIGN.md</code>, <code>PRODUCT.md</code>, <code>AGENTS.md</code></td><td>Sistema de diseño (colores validados para daltonismo, movimiento, tipografía), producto y reglas del proyecto.</td></tr>
+</table>
+
+<h2>2. Ejecutarla en local con Docker (recomendado)</h2>
+<p>Requisitos: <b>Docker Desktop</b> (Windows, Mac o Linux) con Docker Compose v2. No hace falta instalar Python ni Node.</p>
+<ol>
+  <li>Descomprime el archivo y abre <b>PowerShell</b> en la carpeta del proyecto (la que tiene <code>docker-compose.yml</code>).</li>
+  <li>Opcional: copia la configuración de ejemplo (sin ella también funciona con valores por defecto).
+<pre>Copy-Item .env.example .env</pre></li>
+  <li>Construye y levanta la API y la web (la primera vez tarda unos minutos):
+<pre>docker compose up -d --build</pre></li>
+  <li>Espera a que los dos contenedores estén sanos:
+<pre>docker compose ps</pre></li>
+  <li>Crea tu cuenta de administrador. La contraseña se genera al azar y se muestra una sola vez en la consola:
+<pre>docker exec -it westvane-api python -m app.crear_acceso --usuario profesor --nombre "Profesor" --rol admin --generar</pre></li>
+  <li>Abre <b>http://localhost:3000</b>. La portada es la presentación comercial; con «Entrar a la app» se llega a <b>/ingresar</b>: escribe <code>profesor</code> y la contraseña del paso anterior.</li>
+</ol>
+<div class="note">La base de datos se crea sola la primera vez, con datos de ejemplo (red real de Colombia, flota, bodegas, envíos y clientes ficticios), en <code>backend/data/</code>. La documentación interactiva de la API está en <b>http://localhost:8000/docs</b>.</div>
+<p>Para detener: <code>docker compose down</code>. Para empezar de cero con datos nuevos: detén, borra <code>backend/data/logistics.db</code> y vuelve a levantar.</p>
+
+<h2 class="page-break">3. Ejecutarla en local sin Docker (Python + Node)</h2>
+<p>Requisitos: <b>Python 3.11 o superior</b> y <b>Node.js 22 o superior</b>. Dos ventanas de PowerShell.</p>
+<h3>Ventana 1 · API</h3>
+<pre>cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
+python -m app.crear_acceso --usuario profesor --nombre "Profesor" --rol admin --generar
+uvicorn app.main:app --port 8000</pre>
+<p class="muted">Si PowerShell no deja activar el entorno: <code>Set-ExecutionPolicy -Scope Process Bypass</code> y repite la activación.</p>
+<h3>Ventana 2 · Web</h3>
+<pre>cd frontend
+npm install
+npm run build
+$env:API_INTERNAL_URL = "http://localhost:8000"
+npm run start</pre>
+<p>Abre <b>http://localhost:3000</b> e ingresa con <code>profesor</code> y la contraseña generada. Para desarrollo con recarga en vivo, usa <code>npm run dev</code> en lugar de <code>build</code> + <code>start</code>.</p>
+
+<h2>4. Correr las pruebas</h2>
+<pre>cd backend
+.\.venv\Scripts\python.exe -m pytest -q          # API: más de 580 pruebas
+
+cd ..\frontend
+npx tsc --noEmit; npx eslint src e2e; npm run build
+$env:TZ = "America/Bogota"
+npx playwright install chromium                 # solo la primera vez
+npx playwright test                             # navegador: más de 100 pruebas, incluida accesibilidad</pre>
+<p class="muted">Las pruebas de navegador levantan su propia API y su propia base temporal (nunca tocan <code>backend/data</code>). Tardan unos 10 minutos.</p>
+
+<h2>5. Recorrido sugerido (10 minutos)</h2>
+<ol>
+  <li><b>Presentación</b> (<code>/</code>): la red real se enciende modo por modo; prueba «Calcular una ruta» en vivo.</li>
+  <li><b>Torre de control</b> (<code>/panel</code>): cifras en vivo con tendencia, «Requiere atención» y la red.</li>
+  <li><b>Red</b> (<code>/red</code>): mapa 3D solo de Colombia; «Ahora en la red» y el simulador: elige origen y destino, prioriza tiempo, costo o equilibrio, y mira la ruta multimodal con transbordos, costo y CO₂e.</li>
+  <li><b>Envíos</b>: lista con avance por tramos; abre un envío: ruta, cadena de modos, costos, bitácora, prueba de entrega con firma, documentos, PDF, remesa y enlace de seguimiento para el cliente.</li>
+  <li><b>Nuevo envío</b>: el motor asigna vehículos de la flota a cada tramo; el borrador se recupera si sales.</li>
+  <li><b>Flota</b>: vehículos, mantenimientos, fallas, conductores, documentos por vencer; hoja de vida en PDF; carga y exportación en Excel.</li>
+  <li><b>Bodegas, Vías, Hoy, Calendario, Cotización, Huella, Historial, Auditoría</b>.</li>
+  <li><b>Configuración</b>: apariencia clara, oscura o del sistema; moneda; mis sesiones; cambiar contraseña. <b>Administración</b>: usuarios, empresas y roles.</li>
+  <li><b>Ctrl K</b> busca en toda la operación; <b>?</b> muestra los atajos de teclado.</li>
+</ol>
+
+<h2 class="page-break">6. Lo técnico que vale la pena mirar</h2>
+<ul>
+  <li><b>Motor multimodal</b> (<code>backend/app/engine/multimodal.py</code>): grafo de la red real con costos por modo, transbordos, cierres de vía que se propagan y priorización por tiempo, costo o equilibrio.</li>
+  <li><b>Rendimiento medido</b> (<code>docs/mediciones/</code>, bitácora 65, 75 y 77): lecturas memorizadas mientras la base no cambia, un solo motor de sondeo que se pausa con la pestaña oculta, carga diferida, mapa quieto en reposo (0 cuadros) y recortado a Colombia.</li>
+  <li><b>Accesibilidad</b>: axe sin violaciones en claro y oscuro, contraste ≥ 4,5:1, «reducir movimiento», objetivos táctiles de 44 px, uso por teclado.</li>
+  <li><b>Diseño</b> (<code>DESIGN.md</code>): paleta de modos validada para daltonismo por cálculo; animaciones solo con transform y opacidad.</li>
+  <li><b>Seguridad</b>: sesión con contraseña PBKDF2 o código por correo, bloqueo tras intentos fallidos, freno por IP, límites en todas las entradas, errores en español sin detalles internos, exportaciones con datos personales solo para administradores, protección contra fórmulas en Excel/CSV.</li>
+  <li><b>Operación</b>: respaldos verificados, ensayo de restauración, <code>deploy/verificar.sh</code> con más de 30 comprobaciones tras cada despliegue.</li>
+</ul>
+
+<h2>7. Versión en línea</h2>
+<p>La app está desplegada en <b>https://westvane.duckdns.org</b> (servidor Contabo, HTTPS con Caddy). La cuenta de revisión está al inicio de esta guía.</p>
+<div class="warn">Los envíos, clientes y vehículos son de ejemplo. Los textos legales están en borrador hasta su revisión por un abogado, y las tarifas de peajes oficiales por tramo aún no están cargadas (se muestran en 0 salvo una estimación rotulada).</div>
+</body>
+</html>

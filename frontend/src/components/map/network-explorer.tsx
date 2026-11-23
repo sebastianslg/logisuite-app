@@ -14,6 +14,7 @@ import { Map3DLazy, MapLoading } from "./map-3d-lazy";
 import { MapFrame } from "./map-frame";
 import { LEGEND_LABEL, LineSample } from "./map-legend";
 import { useMapAnimation } from "./use-map-animation";
+import { LiveNow } from "./live-now";
 import { useMapData } from "./use-map-data";
 import { ModeChain, ModeIcon } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -202,7 +203,7 @@ export function NetworkExplorer() {
       </div>
 
       {/* Simulador */}
-      {panelOpen ? (
+      {panelOpen || !showMap ? (
       <motion.aside
         onPointerDownCapture={markInteraction}
         onWheelCapture={markInteraction}
@@ -251,11 +252,14 @@ export function NetworkExplorer() {
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Ocultar simulador"
-                title="Ocultar simulador"
+                aria-label={showMap ? "Ocultar simulador" : "Cerrar los datos y volver al mapa"}
+                title={showMap ? "Ocultar simulador" : "Volver al mapa"}
                 onClick={() => {
                   setPanelFull(false);
-                  setPanelOpen(false);
+                  // En «Datos» el panel es lo único en pantalla: cerrarlo dejaba la página en blanco. Ahí la X vuelve
+                  // al mapa con el simulador abierto; sobre el mapa, la X sí oculta el panel.
+                  if (showMap) setPanelOpen(false);
+                  else setShowMap(true);
                 }}
               >
                 <X />
@@ -363,11 +367,8 @@ export function NetworkExplorer() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex flex-col items-center gap-3 px-8 py-10 text-center text-xs text-muted-foreground"
               >
-                <MapIcon className="size-6 text-muted-foreground/50" aria-hidden />
-                Elige origen, destino y prioridad. El motor calcula la combinación óptima de carretera, río, mar, aire y ferrocarril,
-                con sus transbordos, costo, combustible y huella de CO₂e, y la anima sobre el mapa.
+                <LiveNow network={network} fleet={fleet} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -376,7 +377,7 @@ export function NetworkExplorer() {
       ) : (
         <Button
           variant="secondary"
-          className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-3 z-10 shadow-xl md:top-24 md:bottom-auto md:left-6"
+          className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-3 z-30 shadow-xl md:top-44 md:bottom-auto md:left-6"
           onClick={() => setPanelOpen(true)}
         >
           <Route />

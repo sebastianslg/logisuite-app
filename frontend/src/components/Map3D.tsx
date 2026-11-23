@@ -159,14 +159,16 @@ const STAGE_LAST = STAGE.fleet;
  * forma que da la web de devolver esa memoria de GPU en el acto (y la que evita que un bucle de idas y vueltas al
  * mapa acumule un contexto por visita).
  */
-function loseContexts(root: HTMLElement | null) {
-  if (!root) return;
-  for (const canvas of Array.from(root.querySelectorAll<HTMLCanvasElement>("canvas"))) {
+function loseContexts(canvases: HTMLCanvasElement[]) {
+  for (const canvas of canvases) {
     try {
       const gl =
         (canvas.getContext("webgl2") as WebGL2RenderingContext | null) ??
         (canvas.getContext("webgl") as WebGLRenderingContext | null);
       gl?.getExtension("WEBGL_lose_context")?.loseContext();
+      // Sin píxeles: el búfer de dibujo se suelta aunque el lienzo tarde en llegar al recolector
+      canvas.width = 0;
+      canvas.height = 0;
     } catch {
       // un lienzo sin contexto (o ya perdido) no necesita nada
     }
@@ -376,9 +378,17 @@ export default function Map3D({
     }
     const element = containerRef.current;
     if (!element) return;
+    // Los lienzos se toman YA: React suelta esta referencia antes de desmontar los hijos, así que deck.gl todavía no
+    // ha sacado su lienzo del contenedor. En la tarea siguiente ya lo sacó, y buscarlo ahí no encontraba nada: cada
+    // visita a la Red dejaba su contexto vivo (sección 79).
+    const canvases = Array.from(element.querySelectorAll<HTMLCanvasElement>("canvas"));
     releaseTimer.current = setTimeout(() => {
       releaseTimer.current = null;
-      if (element.isConnected) return; // sigue en el documento: no era un desmontaje
+      // Si en este commit se volvió a atar (StrictMode, o mostrar y ocultar seguidos), el temporizador ya se canceló.
+      // Que el contenedor siga en el documento NO significa que el mapa siga: Next oculta la ruta que se deja
+      // (Activity), suelta esta referencia y después la retira sin volver a avisar. Antes se esperaba a que saliera del
+      // documento y ese momento nunca llegaba aquí: cada visita a la Red dejaba su contexto WebGL vivo (sección 79).
+      // Al volver a mostrarse, map-3d-lazy monta un mapa nuevo con un lienzo nuevo: soltar este es seguro.
       containerRef.current = null;
       element.dataset.mapaLiberado = "1";
       const deck = deckRef.current?.deck;
@@ -387,7 +397,7 @@ export default function Map3D({
       } catch {
         // Ya finalizado por <DeckGL> (o sin capas que soltar): no hay nada que hacer.
       }
-      loseContexts(element);
+      loseContexts([...canvases, ...Array.from(element.querySelectorAll<HTMLCanvasElement>("canvas"))]);
     }, 0);
   }, []);
 

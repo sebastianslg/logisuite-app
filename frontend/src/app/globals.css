@@ -695,6 +695,49 @@ main:has([data-public-page]) {
   }
 }
 
+/* Transiciones entre una lista y su ficha (template.tsx, View Transitions de React con tipos nav-forward y nav-back).
+   La página vieja sale rápido (140 ms) hacia el lado contrario del viaje y la nueva entra 24 px desde la dirección del
+   viaje, con la curva de salida fuerte, después de que la vieja se fue: un objeto que se va y otro que llega, nunca dos
+   peleando. Solo transform (translate) y opacidad. El resto (dock, fondo) no se anima: es el ancla. */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-old(.nav-forward),
+::view-transition-old(.nav-back) {
+  animation: vt-out 140ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+::view-transition-new(.nav-forward),
+::view-transition-new(.nav-back) {
+  animation: vt-in 320ms cubic-bezier(0.23, 1, 0.32, 1) 140ms both;
+}
+::view-transition-old(.nav-forward) { --vt-x: -24px; }
+::view-transition-new(.nav-forward) { --vt-x: 24px; }
+::view-transition-old(.nav-back) { --vt-x: 24px; }
+::view-transition-new(.nav-back) { --vt-x: -24px; }
+@keyframes vt-out {
+  to {
+    opacity: 0;
+    translate: var(--vt-x) 0;
+  }
+}
+@keyframes vt-in {
+  from {
+    opacity: 0;
+    translate: var(--vt-x) 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
 /* Transición de vista (template.tsx): fundido de 220 ms con 4 px de subida, hecha con CSS para que no espere a la
    hidratación: con framer-motion el HTML del servidor llegaba con opacity:0 y el LCP esperaba al JavaScript. */
 .view-in {

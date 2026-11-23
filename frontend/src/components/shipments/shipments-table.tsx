@@ -841,7 +841,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
                   onClick={(e) => {
                     if ((e.target as HTMLElement).closest("a,button,input")) return;
                     rememberCodeIn(e.currentTarget, row.original.code);
-                    router.push(`/envios/${row.original.code}`);
+                    router.push(`/envios/${row.original.code}`, { transitionTypes: ['nav-forward'] });
                   }}
                   data-state={selected.has(row.original.code) ? "selected" : undefined}
                   className="cursor-pointer border-b border-border transition-colors duration-200 ease-apple hover:bg-[color-mix(in_srgb,var(--card)_96%,var(--foreground))] data-[state=selected]:bg-primary/[0.05] data-[state=selected]:shadow-[inset_2px_0_0_var(--accent)] print:break-inside-avoid"
@@ -951,6 +951,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
             <li key={row.id}>
               <Link
                 href={`/envios/${sh.code}`}
+                transitionTypes={['nav-forward']}
                 prefetch={false}
                 onPointerEnter={() => router.prefetch(`/envios/${sh.code}`)}
                 onFocus={() => router.prefetch(`/envios/${sh.code}`)}

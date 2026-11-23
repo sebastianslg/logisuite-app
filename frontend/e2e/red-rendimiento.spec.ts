@@ -165,13 +165,16 @@ test("mide los contextos y la memoria de la Red en cinco idas y vueltas (presupu
     await irA(page, "Red");
     const mapa = await mapaALaVista(page);
     await expect(mapa).toBeVisible();
-    // Nunca dos contextos: el de la visita anterior se soltó al salir de la ruta.
+    // Nunca dos contextos: el de la visita anterior se soltó al salir de la ruta (sección 79).
     expect((await contextos(page)).vivos, `vuelta ${vuelta}: contextos vivos con la Red a la vista`).toBe(1);
 
     await irA(page, "Resumen");
     await expect(page.getByRole("heading", { level: 1, name: /Torre de control/ })).toBeVisible();
     await page.waitForTimeout(1_000);
-    console.log(`vuelta ${vuelta}: contextos al salir`, await contextos(page));
+    const fuera = await contextos(page);
+    console.log(`vuelta ${vuelta}: contextos al salir`, fuera);
+    // Fuera de la Red no queda ningún contexto vivo: antes quedaba uno por visita (6 tras cinco vueltas).
+    expect(fuera.vivos, `vuelta ${vuelta}: contextos vivos fuera de la Red`).toBe(0);
   }
 
   const fin = await memoria();

@@ -1802,3 +1802,63 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
   etiquetas y animaciones, funciones de operador, pulido visual y optimización) no se empezaron en esta sesión.
 - **Despliegue:** `main` en `03ed631`, Contabo reconstruido y `deploy/verificar.sh` en verde (34 comprobaciones:
   configuración, contenedores, sitio, seguridad, ingreso por código, enlaces públicos y respaldos).
+
+## 79. Arreglo: la Red no se queda en blanco al volver de «Datos»
+
+- **Síntoma:** en `/red`, pasar a «Datos», cerrar el simulador y volver a «Mapa» dejaba la vista sin la silueta ni la
+  máscara del país (y en algunos equipos, en blanco). Había que salir al inicio y volver a entrar para que cargara.
+- **Causa:** el contenedor del mapa se ocultaba con `display:none`; el lienzo perdía su tamaño y las capas base de
+  deck.gl no se reconstruían al mostrarlo de nuevo.
+- **Arreglo:** se oculta con `visibility` (`pointer-events` desactivados y el reloj en pausa mientras no se ve), de modo
+  que el lienzo conserva tamaño, contexto y capas. No cambia el aspecto ni el reposo del mapa.
+- **Prueba de regresión:** `e2e/red-datos-mapa.spec.ts` recorre Datos → ocultar simulador → Mapa y exige mapa visible,
+  etapa 8, lienzo con tamaño y contexto WebGL vivo. Pasó junto con navegación, caché y mapa (20 pruebas).
+- **Estado del despliegue:** el arreglo está en `main` (`ef8c06c`) y el repositorio de Contabo hizo `git pull`, pero la
+  reconstrucción de los contenedores se canceló; el sitio sigue sirviendo la imagen anterior hasta relanzar
+  `docker compose ... up -d --build` (no se relanzó desde aquí).
+
+## 79. Cierre para la entrega: la Red con vida, el bug de «Datos» y la guía para el profesor
+
+- **Bug de la Red (reportado por el dueño):** en «Datos», cerrar el panel dejaba la página en blanco (el mapa está oculto
+  en esa vista y el botón «Mostrar simulador» quedaba detrás del encabezado). Ahora la X de «Datos» dice «Cerrar los datos
+  y volver al mapa» y vuelve al mapa con el simulador abierto; en «Datos» el panel se muestra siempre, aunque se hubiera
+  ocultado sobre el mapa; y el botón para reabrirlo bajó bajo el encabezado. Prueba: `e2e/red-datos.spec.ts`.
+- **«Ahora en la red»** (`map/live-now.tsx`): el espacio vacío bajo el simulador muestra lo que pasa ya: vehículos en
+  tránsito por modo (barra del color del modo a escala del mayor, con CountUp), vías cerradas con su motivo y enlace a
+  Vías, y los envíos más cerca de llegar con su avance (enlace a la ficha). Sale de lo que el mapa ya cargó (red y flota
+  en vivo): ninguna petición nueva. Entra en cascada corta y queda quieto.
+- **Ficha del envío:** la vista plana de la red ocupa todo el recuadro, resalta el modo con más kilómetros del envío
+  (solo opacidad, prop `focus`) y el botón «Ver el recorrido en 3D» va en la esquina, en vez de una tarjeta en el centro
+  que tapaba el mapa.
+- **Entrega:** `docs/entrega/Westvane-Guia-de-revision.pdf` (fuente `docs/entrega/guia.html`, se regenera con
+  `BRAND_CHANNEL=msedge node frontend/scripts/guia-pdf.mjs`): qué hay en el repositorio, ejecución local con Docker o con
+  Python + Node en PowerShell, cuenta de administrador con `python -m app.crear_acceso --generar` (en local no hay correo
+  para el código), pruebas, recorrido de 10 minutos y lo técnico que vale la pena mirar. El README la enlaza al inicio.
+  El zip del repositorio sale de `git archive` (solo lo versionado: sin `.env`, `backend/data`, `node_modules` ni claves).
+- **Avisos (toasts) con oficio, patrón de Sonner:** el temporizador de 4 s se pausa al pasar el puntero, al enfocar el aviso
+  y con la pestaña oculta; una barra fina muestra el tiempo que queda (WAAPI, `scaleX` lineal, se congela en pausa); se
+  cierran deslizando hacia un lado por distancia (> 90 px) o por impulso (> 500 px/s); salen bajando 12 px con fundido.
+- **Guía con credenciales y tutorial:** el PDF abre con el enlace, la explicación de la máquina virtual y su seguridad, y
+  la cuenta de revisión; sigue un tutorial de 12 pasos con capturas reales (`docs/entrega/capturas/`, generadas por
+  `frontend/scripts/guia-capturas.mjs`). La versión versionada dice «se entrega aparte»; la que lleva la contraseña sale
+  en `entrega/` (en `.gitignore`), leída de `backend/data/acceso-profesor.txt`: nunca va a git.
+- **Deuda de memoria de la Red, resuelta (contextos WebGL):** cada visita a la Red dejaba su contexto WebGL vivo: 6 tras
+  cinco idas y vueltas (memoria de GPU que no se devolvía). Causa, medida con un registro de `getContext`: al salir, Next
+  oculta la ruta (Activity) y suelta la referencia del contenedor del mapa, pero el contenedor seguía en el documento y la
+  liberación se cancelaba («no era un desmontaje»); luego Next retiraba la ruta oculta sin volver a avisar. Además el
+  lienzo es de `<DeckGL>` y no de `Deck`, así que `finalize()` nunca lo suelta. Ahora `Map3D` toma los lienzos en el
+  instante en que se suelta la referencia y, si nadie la vuelve a tomar en ese commit, pierde su contexto
+  (`WEBGL_lose_context`) y deja el lienzo en 0×0. Resultado: **0 contextos vivos fuera de la Red y 1 con la Red a la vista**
+  en las cinco vueltas. La prueba `e2e/red-rendimiento.spec.ts` vuelve a exigirlo (1 a la vista, 0 fuera). Queda: el montón
+  de JavaScript crece ~47 % en ese bucle, que es lo que Next conserva de las rutas visitadas, no el mapa.
+- **Transiciones entre páginas (View Transitions de React 19.3, sin configuración en Next 16):** de una lista a su ficha
+  (envíos, flota, bodegas) la página se desliza hacia adelante, y con «← Envíos / Flota / Bodegas» hacia atrás (tipos
+  `nav-forward` y `nav-back` en los enlaces y en `router.push`). El envoltorio (`components/page-transition.tsx`) va en cada
+  página y no en la plantilla: la plantilla raíz no se vuelve a montar entre /envios y /envios/LS-…. La vieja sale en
+  140 ms y la nueva entra 24 px desde la dirección del viaje en 320 ms con la curva de salida fuerte, después de que la
+  vieja se fue; el dock no se mueve (raíz sin animación); clics atraviesan la capa de transición; nada con «reducir
+  movimiento». Entre secciones (dock, Ctrl K) queda el fundido de 220 ms de la plantilla.
+- **Pasada de pulido pantalla por pantalla:** las 25 rutas en claro, oscuro y celular (capturas de 1440, 390 y oscuro).
+  Se corrigieron la Red (vacía), la ficha del envío (tarjeta que tapaba el mapa) y los avisos; las demás (vías, clientes,
+  calendario, comparar, combustible, huella, historial, auditoría, configuración, administración, hoy, bodegas y 404) no
+  mostraron desbordes, encimados ni problemas de contraste.

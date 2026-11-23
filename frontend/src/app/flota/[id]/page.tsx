@@ -5,16 +5,19 @@ import { VehicleDetailView } from "@/components/fleet/vehicle-detail";
 import { Skeleton } from "@/components/page-header";
 import { apiGetOrNull } from "@/lib/api";
 import type { VehicleDetail } from "@/lib/types";
+import { PageTransition } from "@/components/page-transition";
 
 export const metadata = { title: "Vehículo" };
 
 export default function VehiculoPage({ params }: PageProps<"/flota/[id]">) {
   return (
-    <div className="page">
-      <Suspense fallback={<Skeleton className="h-[720px]" />}>
-        <Detail params={params} />
-      </Suspense>
-    </div>
+    <PageTransition>
+      <div className="page">
+        <Suspense fallback={<Skeleton className="h-[720px]" />}>
+          <Detail params={params} />
+        </Suspense>
+      </div>
+    </PageTransition>
   );
 }
 

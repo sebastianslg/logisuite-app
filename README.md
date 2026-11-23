@@ -4,6 +4,11 @@ Transportation Management System multimodal: carretera, río, mar, aire y
 ferrocarril sobre la red logística real de Colombia, con enrutamiento óptimo
 con transbordos, flota en vivo y cartografía 3D.
 
+> **Para revisar o ejecutar en local:** lee primero
+> [`docs/entrega/Westvane-Guia-de-revision.pdf`](docs/entrega/Westvane-Guia-de-revision.pdf) (Docker o Python + Node, cuenta
+> de administrador con `python -m app.crear_acceso --generar`, pruebas y recorrido sugerido). En línea:
+> https://westvane.duckdns.org
+
 - **Backend:** FastAPI + SQLite + NetworkX (`/backend`)
 - **Frontend:** Next.js 16 (App Router) + Tailwind v4 + shadcn/ui + Framer
   Motion + TanStack Table + deck.gl / MapLibre (`/frontend`)

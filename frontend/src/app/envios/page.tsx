@@ -7,6 +7,7 @@ import { BurstLink } from "@/components/ui/burst-link";
 import { apiGet } from "@/lib/api";
 import { MODE_ORDER, STATUS_ORDER } from "@/lib/modes";
 import type { Mode, Shipment, ShipmentStatus } from "@/lib/types";
+import { PageTransition } from "@/components/page-transition";
 
 export const metadata = { title: "Envíos" };
 
@@ -15,23 +16,25 @@ const PAGE_SIZE = 25;
 
 export default function EnviosPage({ searchParams }: PageProps<"/envios">) {
   return (
-    <div className="page">
-      <PageHeader
-        title="Envíos multimodales"
-        description="Órdenes con su cadena de modos, transbordos, avance en tiempo real y ETA. Crea, edita o borra envíos, selecciona varios para exportarlos a PDF o compartirlos."
-        actions={
-          <BurstLink href="/envios/nuevo">
-            <Plus />
-            Nuevo envío
-          </BurstLink>
-        }
-      />
-      <div>
-        <Suspense fallback={<Skeleton className="h-[640px]" />}>
-          <ShipmentsData searchParams={searchParams} />
-        </Suspense>
+    <PageTransition>
+      <div className="page">
+        <PageHeader
+          title="Envíos multimodales"
+          description="Órdenes con su cadena de modos, transbordos, avance en tiempo real y ETA. Crea, edita o borra envíos, selecciona varios para exportarlos a PDF o compartirlos."
+          actions={
+            <BurstLink href="/envios/nuevo">
+              <Plus />
+              Nuevo envío
+            </BurstLink>
+          }
+        />
+        <div>
+          <Suspense fallback={<Skeleton className="h-[640px]" />}>
+            <ShipmentsData searchParams={searchParams} />
+          </Suspense>
+        </div>
       </div>
-    </div>
+    </PageTransition>
   );
 }
 

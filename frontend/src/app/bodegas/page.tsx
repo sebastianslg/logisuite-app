@@ -9,26 +9,29 @@ import { WarehouseBoard, type WarehouseFilters } from "@/components/warehouses/w
 import { WarehouseTabs, type WarehouseTab } from "@/components/warehouses/warehouse-tabs";
 import { apiGet } from "@/lib/api";
 import type { Warehouse, WarehouseRole, WarehouseSummary, WarehouseTransfer } from "@/lib/types";
+import { PageTransition } from "@/components/page-transition";
 
 export const metadata = { title: "Bodegas" };
 
 export default function BodegasPage({ searchParams }: PageProps<"/bodegas">) {
   return (
-    <div className="page">
-      <PageHeader
-        title="Bodegas y centros de distribución"
-        description="La red de bodegas por ciudad, cada una con su función: centros nacionales, regionales, última milla, frío, puertos, aduana, peligrosos y devoluciones. Guardan inventario, se trasladan mercancía entre sí y alojan a los vehículos."
-        actions={
-          <div className="flex max-w-[calc(100dvw_-_2rem)] flex-wrap items-center gap-2">
-            <TableIO kind="inventario" />
-            <BurstLink href="/bodegas/nueva"><Plus /> Nueva bodega</BurstLink>
-          </div>
-        }
-      />
-      <Suspense fallback={<Skeleton className="h-[640px]" />}>
-        <Content searchParams={searchParams} />
-      </Suspense>
-    </div>
+    <PageTransition>
+      <div className="page">
+        <PageHeader
+          title="Bodegas y centros de distribución"
+          description="La red de bodegas por ciudad, cada una con su función: centros nacionales, regionales, última milla, frío, puertos, aduana, peligrosos y devoluciones. Guardan inventario, se trasladan mercancía entre sí y alojan a los vehículos."
+          actions={
+            <div className="flex max-w-[calc(100dvw_-_2rem)] flex-wrap items-center gap-2">
+              <TableIO kind="inventario" />
+              <BurstLink href="/bodegas/nueva"><Plus /> Nueva bodega</BurstLink>
+            </div>
+          }
+        />
+        <Suspense fallback={<Skeleton className="h-[640px]" />}>
+          <Content searchParams={searchParams} />
+        </Suspense>
+      </div>
+    </PageTransition>
   );
 }
 

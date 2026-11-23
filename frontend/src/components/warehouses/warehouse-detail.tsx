@@ -97,7 +97,7 @@ export function WarehouseDetailView({ warehouse: w }: { warehouse: WarehouseDeta
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href="/bodegas" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <Link href="/bodegas" transitionTypes={['nav-back']} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-3.5" aria-hidden /> Bodegas
         </Link>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
