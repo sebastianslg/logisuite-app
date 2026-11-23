@@ -1772,3 +1772,31 @@ Primera ronda trabajada con subagentes en paralelo (modelo DeepSeek V4.1 Flash 1
 - **Pendiente:** bajar el costo de apertura de la Red y su memoria al volver (desmontar el contexto al salir de la
   ruta, trocear la compilación de capas); reservar el alto de «Mis sesiones»; activar PMTiles cuando el dueño lo
   decida; recordar también las vistas de envíos y panel; el sondeo de salud del dock sigue duplicado en dos instancias.
+
+## 78. Ronda A: paleta del dueño documentada, Configuración sin saltos y deuda de la sección 77
+
+- **A1 paleta vigente:** `DESIGN.md` y `AGENTS.md` dejan de hablar de «interfaz en tinta» y documentan la paleta del
+  dueño (22/11/2026): fondo `#F2F2F7`, texto `#1D1D1F`, énfasis `#007AFF` (texto `#0062CC`), verde `#34C759`, modos y
+  estados con su contraste medido. **Decisión tomada:** el botón principal usa `#0062CC` con blanco (5,8:1); el blanco
+  sobre `#007AFF` mide 4,0:1 y no cumple AA en texto de 14 px. `#007AFF` se queda en íconos, focos y marcas. En oscuro
+  el botón es `#0A84FF` con texto `#111316` (5,1:1). Axe pasa en claro y oscuro.
+- **A3 Configuración sin saltos (CLS):** el esqueleto de la página copia la forma real (rejilla de dos columnas, tarjetas
+  con el alto medido y el historial a la derecha) y el contenedor reserva `100svh`; «Mis sesiones» ocupa su alto desde
+  el primer HTML (`visibility`, no `hidden`) y la lista se desplaza dentro de `max-h` en vez de empujar el panel. La
+  prueba nueva mide CLS con `layout-shift` y exige < 0,05; la corrida completa la deja en verde.
+- **A3 Red:** las capas de deck.gl se encienden en 8 grupos por cuadro (`westvane:mapa:etapa:N`), la cámara se conserva
+  al recrear el mapa y el contenedor libera el contexto al desmontarse. En la corrida final la tarea mayor al abrir la
+  Red fue **133 ms** (antes 1.443 ms) y las capas ya no se compilan de golpe. **Pendiente:** Next conserva el canvas de
+  la ruta oculta y el contexto sigue vivo: la memoria del bucle de 20 navegaciones crece 47 % (antes 54 %). La prueba
+  queda como termómetro y el presupuesto sigue anotado.
+- **A3 salud del dock:** `SystemDot` y `SystemStatusText` comparten un solo sondeo de 30 s (antes cada widget montaba el
+  suyo). La prueba cuenta `/api/health`: abrir «Más» en celular no lanza otra petición y ambos textos coinciden.
+- **A3 vistas recordadas:** Envíos guarda por cuenta estado, modo y página (nunca `q`, que puede llevar nombres de
+  clientes) y una URL limpia restaura la vista; «Limpiar» la olvida. En Panel la única vista persistente es el mapa
+  Plano/3D, que ya se recordaba por navegador; no se inventó estado nuevo.
+- **A4 consola y red:** la prueba de todas las páginas ahora también falla con cualquier respuesta 4xx; la corrida
+  completa no registra errores de consola, avisos de React ni 4xx/5xx en rutas válidas.
+- **Verificación:** `tsc`, `eslint` y build limpios; **582 pruebas de la API**; **109 de navegador** con base limpia
+  (4 capturas opcionales omitidas), incluidas axe claro/oscuro, Configuración, Red, dock, vistas y celular 320/390.
+- **Pendiente:** memoria/contexto WebGL de la Red al volver; el resto de rondas B, C, D y E del encargo (Red con
+  etiquetas y animaciones, funciones de operador, pulido visual y optimización) no se empezaron en esta sesión.
