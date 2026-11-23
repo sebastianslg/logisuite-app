@@ -68,6 +68,7 @@ import { filtersActive, isStartEmpty } from "@/lib/empty";
 import { MODE_ORDER, MODES, PRIORITIES, STATUSES, STATUS_ORDER, tint } from "@/lib/modes";
 import { EASE } from "@/lib/motion";
 import type { Mode, Shipment, ShipmentStatus } from "@/lib/types";
+import { useVistaGuardada } from "@/lib/use-vista-guardada";
 import { cn } from "@/lib/utils";
 
 /**
@@ -331,6 +332,12 @@ interface SavedView {
 }
 const NO_VIEWS: SavedView[] = [];
 
+/**
+ * Lo que la lista recuerda por cuenta: los filtros de estado y modo y la página. La búsqueda (`q`) nunca: puede
+ * traer el nombre de un cliente o de una carga.
+ */
+const RECORDAR = ["estado", "modo", "pagina"] as const;
+
 /** Filtros iniciales (vienen de la URL: ?estado=, ?modo=, ?q=). */
 export interface ShipmentFilters {
   status?: ShipmentStatus[];
@@ -362,6 +369,7 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
   const unsignedCount = useMemo(() => data.filter((s) => s.delivery_signed === false).length, [data]);
   const rows = useMemo(() => (unsigned ? data.filter((s) => s.delivery_signed === false) : data), [data, unsigned]);
   const router = useRouter();
+  const recordar = useVistaGuardada("/envios", RECORDAR);
   const { operator, currency } = useApp();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
@@ -422,7 +430,11 @@ export function ShipmentsTable({ data, total, initial, servidor }: {
     if (next.unsigned) sp.set("firmar", "1");
     const pagina = cambios.pagina ?? 1;
     if (pagina > 1) sp.set("pagina", String(pagina));
-    router.push(`/envios${sp.toString() ? `?${sp}` : ""}`);
+    const qs = sp.toString();
+    const href = `/envios${qs ? `?${qs}` : ""}`;
+    // La vista (estado, modo y página) se recuerda por cuenta; el texto de la búsqueda se queda fuera
+    recordar(href);
+    router.push(href);
   }
 
   const toggle = <T,>(col: "status" | "modes", current: T[], value: T) => {
