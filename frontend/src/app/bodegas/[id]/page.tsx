@@ -5,16 +5,19 @@ import { Skeleton } from "@/components/page-header";
 import { WarehouseDetailView } from "@/components/warehouses/warehouse-detail";
 import { apiGetOrNull } from "@/lib/api";
 import type { WarehouseDetail } from "@/lib/types";
+import { PageTransition } from "@/components/page-transition";
 
 export const metadata = { title: "Bodega" };
 
 export default function BodegaPage({ params }: PageProps<"/bodegas/[id]">) {
   return (
-    <div className="page">
-      <Suspense fallback={<Skeleton className="h-[720px]" />}>
-        <Detail params={params} />
-      </Suspense>
-    </div>
+    <PageTransition>
+      <div className="page">
+        <Suspense fallback={<Skeleton className="h-[720px]" />}>
+          <Detail params={params} />
+        </Suspense>
+      </div>
+    </PageTransition>
   );
 }
 

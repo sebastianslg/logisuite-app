@@ -28,3 +28,6 @@ frontend/playwright-report/
 .agents/skills/design-taste-frontend/
 .claude/skills/design-taste-frontend
 .taste-skill/
+
+# Entrega al profesor (zip y guía con su contraseña): nunca a git
+/entrega/

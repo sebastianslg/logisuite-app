@@ -83,12 +83,9 @@ Si hay conflictos, resolverlos conservando ambos cambios y volver a correr las v
     real (v18), httpx2 sin advertencia, y cobertura al 84 % con fx/tolls/shipments_io probados a fondo; importar peajes ilegible
     ya no da 500. 495 pruebas de la API, 47 e2e × 2. Falta: ronda 4 (F6 filtros de Flota/Bodegas en la URL, F7 borrador del envío
     nuevo, F8 errores por sección en la ficha).
-- **En curso / a medias:** arreglo de la Red al volver de «Datos» en `main` (`ef8c06c`, sección 79); el servidor hizo
-  `git pull`, pero la reconstrucción de los contenedores se canceló y el sitio sigue con la imagen anterior. Ronda A
-  desplegada antes (`03ed631`, sección 78; `verificar.sh` en verde).
+- **En curso / a medias:** nada. Sección 79 (entrega: Red con «Ahora en la red», bug de Datos, avisos tipo Sonner, guía PDF con tutorial) en producción. Contextos WebGL de la Red resueltos (0 fuera, 1 a la vista); transiciones lista ↔ ficha. Queda: el montón de JS crece ~47 % en el bucle de la Red (rutas que Next conserva). Rondas C, D y E del encargo largo: parciales (ver 79).
   La paleta es la del dueño (22/11/2026): no cambiarla; el botón principal usa `#0062CC` por contraste y `#007AFF` queda
-  para íconos. Pendiente de la ronda A: la memoria y el contexto WebGL de la Red al volver (47 % en el bucle; la prueba
-  es termómetro). Las rondas B, C, D y E del encargo siguen sin empezar.
+  para íconos.
 - **Pendiente de decisión del dueño:** exigir sesión para todo lo que escribe (roles reales; hoy `/api/audit` y las pantallas
   siguen abiertas como demostración); rotar la contraseña de aplicación de Gmail y el tema de ntfy tras el aviso de Contabo;
   dominio propio; una instalación por empresa o separar datos por empresa; revisión legal.

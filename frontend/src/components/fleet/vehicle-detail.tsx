@@ -131,7 +131,7 @@ export function VehicleDetailView({ vehicle: v }: { vehicle: VehicleDetail }) {
   return (
     <div className="flex flex-col gap-6 print:[&_button]:hidden">
       <div>
-        <Link href="/flota" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground print:hidden">
+        <Link href="/flota" transitionTypes={['nav-back']} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground print:hidden">
           <ArrowLeft className="size-3.5" aria-hidden /> Flota
         </Link>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">

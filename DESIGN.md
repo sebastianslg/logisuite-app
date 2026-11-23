@@ -238,6 +238,8 @@ Radios: 20 px en superficies de página, 16 px en bloques interiores, 12 a 14 px
 - **Listas que llegan (`list-in`):** cada fila sube 6 px y aparece, en cascada de 30 ms con tope de 360 ms; solo al montarse (resumen, hoy, envíos, flota, fallas, mantenimientos, vías, clientes, auditoría, solicitudes y franjas de cifras).
 - **Presentación:** la red se enciende modo por modo al cargar (`mode-in`, 150 ms entre modos) y los nodos llegan al final (`nodes-in`); cada sección entra una vez al aparecer (`Reveal`); los tramos de la ruta en vivo crecen en orden con cada resultado (`leg-in`).
 - **Apariencia:** cambiar de tema funde la página en 250 ms (View Transitions); lo usado a diario (Ctrl K, atajos) no anima.
+- **De lista a ficha y de vuelta:** la página se desliza 24 px en la dirección del viaje (View Transitions de React, tipos `nav-forward` y `nav-back`; `PageTransition` en cada página). Sale en 140 ms, entra en 320 ms después; el dock queda quieto. Entre secciones, solo el fundido de la plantilla.
+- **Avisos:** patrón de Sonner: pausa al pasar el puntero o con la pestaña oculta, barra del tiempo que queda, deslizar para cerrar.
 - Todo componente respeta "reducir movimiento" (`MotionConfig reducedMotion="user"` y `motion-reduce:` en CSS).
 
 ## Do's and Don'ts

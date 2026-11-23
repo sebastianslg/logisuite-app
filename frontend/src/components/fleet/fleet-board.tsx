@@ -254,6 +254,7 @@ export function FleetBoard({ vehicles, summary, initial }: { vehicles: Vehicle[]
           <li key={v.id}>
             <Link
               href={`/flota/${v.id}`}
+              transitionTypes={['nav-forward']}
               data-ripple
               className={cn(
                 "row-link lift grid gap-3 px-5 py-3.5",

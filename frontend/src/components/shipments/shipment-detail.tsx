@@ -105,6 +105,7 @@ export function ShipmentDetail({
       <div>
         <Link
           href="/envios"
+          transitionTypes={['nav-back']}
           prefetch={false}
           onPointerEnter={() => router.prefetch("/envios")}
           onFocus={() => router.prefetch("/envios")}
@@ -460,6 +461,10 @@ function RouteMap({ route }: { route: RouteResult | null }) {
 }
 
 function RouteMapBody({ route, onRetry }: { route: RouteResult | null; onRetry: () => void }) {
+  // Modo con más kilómetros del envío: es el que se resalta en la vista plana
+  const mainMode = route?.legs?.length
+    ? [...route.legs].sort((x, y) => (y.distance_km ?? 0) - (x.distance_km ?? 0))[0].mode
+    : null;
   const { network, departments, error } = useMapData({ fleet: false });
   // La vista plana es la de entrada. Compilar WebGL (deck.gl y MapLibre) es la tarea más cara de la app y bloquea
   // más de un segundo: solo se hace si se elige el 3D aquí mismo, no por llegar a la ficha.
@@ -494,26 +499,26 @@ function RouteMapBody({ route, onRetry }: { route: RouteResult | null; onRetry: 
         ) : en3D ? (
           <Map3DLazy network={network} departments={departments} route={route} showFleet={false} live={mapFull} />
         ) : (
-          <div className="relative flex h-full items-center justify-center overflow-hidden bg-fill/30 p-6">
-            {/* La silueta de la red hace de marcador: no es un bloque gris ni promete un mapa que aún no existe */}
-            <div className="pointer-events-none absolute inset-0 px-8 py-10 opacity-60">
-              <NetworkPreview network={network} departments={departments} />
+          <div className="relative h-full overflow-hidden bg-fill/30">
+            {/* La red plana a todo el recuadro, con el modo principal del envío resaltado: se lee de inmediato y no
+                cuesta nada; el 3D (deck.gl) solo se carga si se pide */}
+            <div className="pointer-events-none absolute inset-0 px-6 pt-10 pb-14">
+              <NetworkPreview network={network} departments={departments} focus={mainMode} />
             </div>
-            <div className="glass-float relative z-10 flex max-w-sm flex-col items-center gap-3 rounded-2xl px-5 py-4 text-center">
-              <p className="text-sm text-muted-foreground">
-                La ruta, los tramos y los costos están arriba. El mapa 3D se carga solo si lo pides.
-              </p>
-              <Button
-                variant="secondary"
-                size="sm"
-                onPointerEnter={preload3D}
-                onFocus={preload3D}
-                onClick={() => setEn3D(true)}
-              >
-                <Cuboid />
-                Ver el recorrido en 3D
-              </Button>
-            </div>
+            <p className="absolute top-4 left-5 text-xs font-medium text-muted-foreground">
+              Red multimodal · {mainMode ? `resaltado: ${MODES[mainMode].label.toLowerCase()}` : "vista plana"}
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="floating absolute right-4 bottom-4 z-10"
+              onPointerEnter={preload3D}
+              onFocus={preload3D}
+              onClick={() => setEn3D(true)}
+            >
+              <Cuboid />
+              Ver el recorrido en 3D
+            </Button>
           </div>
         )}
         {en3D && !mapFull && (
